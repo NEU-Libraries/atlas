@@ -1,4 +1,5 @@
 AllCops:
+  NewCops: enable
   Exclude:
     - 'node_modules/**/*'
     - 'vendor/**/*'

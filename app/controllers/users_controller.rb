@@ -2,15 +2,12 @@
 
 # Users
 class UsersController < ApplicationController
-  def_param_group :user do
-    param :user, Hash do
-      param :name, String, "Name of the user"
-      param :nuid, String, "NEU ID"
-    end
-  end
-
   api :POST, "/users", "Create a user"
-  param_group :user
+  param :name, String, "Name of the user"
+  param :nuid, String, "NEU ID"
+  returns :code => 200, :desc => "a successful response" do
+    property :id, String, :desc => "User ID"
+ end
   def create
     # TODO: restrict to admin user
     u = User.create(user_params)

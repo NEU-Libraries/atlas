@@ -3,7 +3,8 @@
 # Users
 class UsersController < ApplicationController
   def create
-    # User.create(:password => Devise.friendly_token[0,20], full_name:"Temp User", nuid:"000000000")
+    # TODO: restrict to admin user
+    u = User.create(user_params)
   end
 
   api :GET, '/users/:id'
@@ -13,4 +14,10 @@ class UsersController < ApplicationController
   def update; end
   def destroy; end
   def index; end
+
+  private
+
+  def user_params
+    params.require(:user).permit(:name, :nuid, :email).merge(password: Devise.friendly_token[0,20])
+  end
 end

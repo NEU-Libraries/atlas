@@ -41,6 +41,7 @@ gem 'bootsnap', require: false
 # Atlas specific gems
 gem 'apipie-rails'
 gem 'devise'
+gem 'namae'
 gem 'valkyrie'
 gem 'valkyrie-shrine'
 

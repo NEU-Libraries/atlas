@@ -145,6 +145,9 @@ GEM
     io-console (0.6.0)
     irb (1.6.4)
       reline (>= 0.3.0)
+    jbuilder (2.11.5)
+      actionview (>= 5.0.0)
+      activesupport (>= 5.0.0)
     jmespath (1.6.2)
     json (2.6.3)
     json-canonicalization (0.3.1)
@@ -283,6 +286,7 @@ DEPENDENCIES
   bootsnap
   debug
   devise
+  jbuilder
   namae
   pg (~> 1.1)
   puma (~> 5.0)

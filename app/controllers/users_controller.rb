@@ -11,7 +11,7 @@ class UsersController < ApplicationController
   def create
     # TODO: restrict to admin user
     u = User.create(user_params)
-    render json: { 'id' => u.id }.to_json
+    render json: {'message' => 'success', 'id' => u.id }.to_json, status: 200
   end
 
   api :GET, '/users/:id'
@@ -21,7 +21,13 @@ class UsersController < ApplicationController
   end
 
   def update; end
-  def destroy; end
+
+  def destroy
+    # TODO: restrict to admin user
+    User.find(params[:id]).destroy
+    render json: {'message' => "User #{params[:id]} was deleted."}.to_json, status: 200
+  end
+
   def index; end
 
   private

@@ -20,11 +20,15 @@ class UsersController < ApplicationController
     @user = User.find(params[:id])
   end
 
+  api :PATCH, '/users/:id'
+  param :name, String, desc: 'Name of the user - Doe, Jane e.g.'
   def update
     User.find(params[:id]).update(update_params)
     render json: {'message' => "User #{params[:id]} name was updated."}.to_json, status: 200
   end
 
+  api :DELETE, '/users/:id'
+  param :id, :number, desc: 'id of the user to destroy'
   def destroy
     # TODO: restrict to admin user
     User.find(params[:id]).destroy

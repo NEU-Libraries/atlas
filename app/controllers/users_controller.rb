@@ -14,21 +14,21 @@ class UsersController < ApplicationController
     render json: {'message' => 'Success', 'id' => u.id }.to_json, status: 200
   end
 
-  api :GET, '/users/:id'
+  api :GET, '/users/:id', 'Fetch a user'
   param :id, :number, desc: 'id of the requested user'
   def show
     @user = User.find(params[:id])
   end
 
-  api :PATCH, '/users/:id'
+  api :PATCH, '/users/:id', 'Update a user'
   param :name, String, desc: 'Name of the user - Doe, Jane e.g.'
   def update
     User.find(params[:id]).update(update_params)
     render json: {'message' => "User #{params[:id]} name was updated."}.to_json, status: 200
   end
 
-  api :DELETE, '/users/:id'
-  param :id, :number, desc: 'id of the user to destroy'
+  api :DELETE, '/users/:id', 'Delete a user'
+  param :id, :number, desc: 'id of the user to delete'
   def destroy
     # TODO: restrict to admin user
     User.find(params[:id]).destroy

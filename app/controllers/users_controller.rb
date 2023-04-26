@@ -16,7 +16,9 @@ class UsersController < ApplicationController
 
   api :GET, '/users/:id'
   param :id, :number, desc: 'id of the requested user'
-  def show; end
+  def show
+    render json: User.find(params[:id]).to_json
+  end
 
   def update; end
   def destroy; end

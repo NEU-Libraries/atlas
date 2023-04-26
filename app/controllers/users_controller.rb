@@ -10,8 +10,8 @@ class UsersController < ApplicationController
   end
   def create
     # TODO: restrict to admin user
-    u = User.create(user_params)
-    render json: {'message' => 'success', 'id' => u.id }.to_json, status: 200
+    u = User.create(create_params)
+    render json: {'message' => 'Success', 'id' => u.id }.to_json, status: 200
   end
 
   api :GET, '/users/:id'
@@ -20,7 +20,10 @@ class UsersController < ApplicationController
     @user = User.find(params[:id])
   end
 
-  def update; end
+  def update
+    User.find(params[:id]).update(update_params)
+    render json: {'message' => "User #{params[:id]} name was updated."}.to_json, status: 200
+  end
 
   def destroy
     # TODO: restrict to admin user
@@ -32,7 +35,11 @@ class UsersController < ApplicationController
 
   private
 
-  def user_params
+  def create_params
     params.require(:user).permit(:name, :nuid, :email).merge(password: Devise.friendly_token[0, 20])
+  end
+
+  def update_params
+    params.require(:user).permit(:name)
   end
 end

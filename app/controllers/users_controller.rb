@@ -35,9 +35,10 @@ class UsersController < ApplicationController
     render json: {'message' => "User #{params[:id]} was deleted."}.to_json, status: 200
   end
 
+  api :GET, '/users', 'Fetch all users'
   def index
-    users = User.all
-    render json: users.to_json
+    # TODO: implement pagination
+    @users = User.all
   end
 
   private

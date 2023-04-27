@@ -39,9 +39,13 @@ gem 'bootsnap', require: false
 # gem "rack-cors"
 
 # Atlas specific gems
+gem 'active_decorator'
 gem 'apipie-rails'
+gem 'attr_json'
 gem 'devise'
+gem 'mods'
 gem 'namae'
+gem 'rsolr'
 gem 'valkyrie'
 gem 'valkyrie-shrine'
 

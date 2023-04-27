@@ -35,7 +35,10 @@ class UsersController < ApplicationController
     render json: {'message' => "User #{params[:id]} was deleted."}.to_json, status: 200
   end
 
-  def index; end
+  def index
+    users = User.all
+    render json: users.to_json
+  end
 
   private
 

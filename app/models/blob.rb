@@ -12,11 +12,13 @@ class Blob < Resource
 
   def latest_revision
     return nil if file_identifiers.blank?
+
     file_identifiers.last.id
   end
 
   def file
     return nil if latest_revision.blank?
+
     Valkyrie.config.storage_adapter.find_by(id: latest_revision)
   end
 

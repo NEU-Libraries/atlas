@@ -8,10 +8,9 @@ class UsersController < ApplicationController
   returns code: 200, desc: 'a successful response' do
     property :id, String, desc: 'User ID'
   end
-  def create
-    # TODO: restrict to admin user
-    u = User.create(create_params)
-    render json: {'message' => 'Success', 'id' => u.id }.to_json, status: 200
+  def index
+    # TODO: implement pagination
+    @users = User.all
   end
 
   api :GET, '/users/:id', 'Fetch a user'
@@ -22,32 +21,33 @@ class UsersController < ApplicationController
 
   api :PATCH, '/users/:id', 'Update a user'
   param :name, String, desc: 'Name of the user - Doe, Jane e.g.'
-  def update
-    User.find(params[:id]).update(update_params)
-    render json: {'message' => "User #{params[:id]} name was updated."}.to_json, status: 200
+  def create
+    # TODO: restrict to admin user
+    u = User.create(create_params)
+    render json: { 'message' => 'Success', 'id' => u.id }.to_json, status: :ok
   end
 
   api :DELETE, '/users/:id', 'Delete a user'
   param :id, :number, desc: 'id of the user to delete'
-  def destroy
-    # TODO: restrict to admin user
-    User.find(params[:id]).destroy
-    render json: {'message' => "User #{params[:id]} was deleted."}.to_json, status: 200
+  def update
+    User.find(params[:id]).update(update_params)
+    render json: { 'message' => "User #{params[:id]} name was updated." }.to_json, status: :ok
   end
 
   api :GET, '/users', 'Fetch all users'
-  def index
-    # TODO: implement pagination
-    @users = User.all
+  def destroy
+    # TODO: restrict to admin user
+    User.find(params[:id]).destroy
+    render json: { 'message' => "User #{params[:id]} was deleted." }.to_json, status: :ok
   end
 
   private
 
-  def create_params
-    params.require(:user).permit(:name, :nuid, :email).merge(password: Devise.friendly_token[0, 20])
-  end
+    def create_params
+      params.require(:user).permit(:name, :nuid, :email).merge(password: Devise.friendly_token[0, 20])
+    end
 
-  def update_params
-    params.require(:user).permit(:name)
-  end
+    def update_params
+      params.require(:user).permit(:name)
+    end
 end

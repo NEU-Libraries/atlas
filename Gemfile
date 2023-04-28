@@ -46,6 +46,7 @@ gem 'devise'
 gem 'mods'
 gem 'namae'
 gem 'rsolr'
+gem 'rubocop-rails'
 gem 'valkyrie'
 gem 'valkyrie-shrine'
 

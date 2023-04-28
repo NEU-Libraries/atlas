@@ -136,6 +136,10 @@ GEM
       zeitwerk (~> 2.6)
     edtf (3.1.1)
       activesupport (>= 3.0, < 8.0)
+    enumerations (2.5.3)
+      activerecord
+      activesupport
+      i18n
     erubi (1.12.0)
     faraday (2.7.4)
       faraday-net_http (>= 2.0, < 3.1)
@@ -198,6 +202,10 @@ GEM
     net-smtp (0.3.3)
       net-protocol
     nio4r (2.5.9)
+    noid (0.9.0)
+    noid-rails (3.1.0)
+      actionpack (>= 5.0.0, < 7.1)
+      noid (~> 0.9)
     nokogiri (1.14.2-x86_64-linux)
       racc (~> 1.4)
     nom-xml (1.2.0)
@@ -331,9 +339,11 @@ DEPENDENCIES
   bootsnap
   debug
   devise
+  enumerations
   jbuilder
   mods
   namae
+  noid-rails
   pg (~> 1.1)
   puma (~> 5.0)
   rails (~> 7.0.4, >= 7.0.4.3)

@@ -5,7 +5,6 @@ class BlobCreator < ApplicationService
   include MimeHelper
 
   def initialize(work_id:, path:)
-    super
     @work_id = work_id
     @path = path
   end

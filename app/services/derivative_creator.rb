@@ -4,7 +4,6 @@ class DerivativeCreator < ApplicationService
   include MimeHelper
 
   def initialize(work_id:, file_id:, file_path:)
-    super
     @file_id = file_id
     @work_id = work_id
     @file_path = file_path

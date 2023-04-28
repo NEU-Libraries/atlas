@@ -2,7 +2,6 @@
 
 class FileSetCreator < ApplicationService
   def initialize(work_id:, classification:)
-    super
     @work_id = work_id
     @classification = classification
   end

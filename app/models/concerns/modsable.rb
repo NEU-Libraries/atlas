@@ -8,7 +8,7 @@ module Modsable
   include FileHelper
 
   def mods
-    Metadata::MODS.find_or_create_by(valkyrie_id: noid)
+    @mods ||= Metadata::MODS.find_or_create_by(valkyrie_id: noid)
   end
 
   def mods_xml

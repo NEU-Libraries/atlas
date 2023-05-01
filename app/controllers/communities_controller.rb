@@ -4,7 +4,7 @@
 class CommunitiesController < ApplicationController
   def index; end
   def show
-    @community = Community.find(params[:id])
+    @community = Community.find(params[:id]).decorate
   end
   def create
     # TODO: title and description params

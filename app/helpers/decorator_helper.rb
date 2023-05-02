@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 module DecoratorHelper
+  include ActionView::Helpers # Seems to be neccessary due to Atlas being an API app
+
   def prefix_field(prefix, field)
     return prefix + field if field.present?
 

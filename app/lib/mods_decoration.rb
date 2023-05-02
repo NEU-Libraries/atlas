@@ -14,4 +14,17 @@ module MODSDecoration
   def plain_description
     mods.abstract
   end
+
+  # Shared html building for all MODS using models
+  def title
+    return '' if mods.main_title.blank?
+
+    tag.dt('Title') +
+      tag.dd(plain_title)
+  end
+
+  def abstract
+    tag.dt('Abstract') +
+      tag.dd(plain_description)
+  end
 end

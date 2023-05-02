@@ -4,13 +4,6 @@ module WorkDecorator
   include DecoratorHelper
   include MODSDecoration
 
-  def title
-    return '' if mods.main_title.blank?
-
-    tag.dt('Title') +
-      tag.dd(plain_title)
-  end
-
   def names
     return '' if mods.names.blank?
 
@@ -47,11 +40,6 @@ module WorkDecorator
   def digital_origin
     tag.dt('Digital Origin') +
       tag.dd(mods.digital_origin&.titleize)
-  end
-
-  def abstract
-    tag.dt('Abstract') +
-      tag.dd(plain_description)
   end
 
   def related_series

@@ -12,4 +12,9 @@ Rails.application.routes.draw do
   resources :file_sets
   resources :blobs
   resources :users
+
+  # Metadata
+  get '/communities/:id/mods', to: 'communities#mods', as: 'community_mods', :defaults => { :format => 'json' }
+  get '/collections/:id/mods', to: 'collections#mods', as: 'collection_mods', :defaults => { :format => 'json' }
+  get '/works/:id/mods', to: 'works#mods', as: 'work_mods', :defaults => { :format => 'json' }
 end

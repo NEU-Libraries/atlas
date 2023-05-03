@@ -13,10 +13,12 @@ Valkyrie::StorageAdapter.register(
   :disk
 )
 
-def self.persister
-  Valkyrie.config.metadata_adapter.persister
-end
+module Atlas
+  def self.persister
+    Valkyrie.config.metadata_adapter.persister
+  end
 
-def self.query_service
-  Valkyrie.config.metadata_adapter.query_service
+  def self.query_service
+    Valkyrie.config.metadata_adapter.query_service
+  end
 end

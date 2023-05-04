@@ -2,10 +2,11 @@
 
 # Communities
 class CommunitiesController < ApplicationController
+  include Pagy::Backend
+
   def index
     # TODO: implement pagination
     @communities = Atlas.query.find_all_of_model(model: Community).to_a
-    # @communities = Kaminari.paginate_array(Atlas.query.find_all_of_model(model: Community).to_a).page(params[:page])
   end
   def show
     @community = Community.find(params[:id]).decorate

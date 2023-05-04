@@ -216,7 +216,6 @@ GEM
       i18n
       nokogiri
     orm_adapter (0.5.0)
-    pagy (6.0.4)
     parallel (1.23.0)
     parser (3.2.2.1)
       ast (~> 2.4.1)
@@ -352,7 +351,6 @@ DEPENDENCIES
   mods
   namae
   noid-rails
-  pagy
   pg (~> 1.1)
   puma (~> 5.0)
   rails (~> 7.0.4, >= 7.0.4.3)

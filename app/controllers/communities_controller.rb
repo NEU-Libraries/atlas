@@ -3,6 +3,7 @@
 # Communities
 class CommunitiesController < ApplicationController
   def index
+    # TODO: implement pagination
     @communities = Atlas.query.find_all_of_model(model: Community).to_a
   end
   def show

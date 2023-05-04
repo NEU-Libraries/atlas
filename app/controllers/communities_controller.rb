@@ -2,7 +2,9 @@
 
 # Communities
 class CommunitiesController < ApplicationController
-  def index; end
+  def index
+    @communities = Atlas.query.find_all_of_model(model: Community).to_a
+  end
   def show
     @community = Community.find(params[:id]).decorate
   end
@@ -15,8 +17,7 @@ class CommunitiesController < ApplicationController
   end
   def update
     community = Community.find(params[:id])
-    updated_mods = Base64.decode64(params[:community][:xml])
-    community.mods_xml = updated_mods
+    community.mods_xml = parse_xml
   end
   def destroy
     # TODO: restrict to admin user
@@ -27,5 +28,9 @@ class CommunitiesController < ApplicationController
 
     def update_params
       params.require(:community).permit(:xml)
+    end
+
+    def parse_xml
+      Base64.decode64(params[:community][:xml])
     end
 end

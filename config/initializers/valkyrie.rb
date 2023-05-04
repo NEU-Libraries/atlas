@@ -18,7 +18,7 @@ module Atlas
     Valkyrie.config.metadata_adapter.persister
   end
 
-  def self.query_service
+  def self.query
     Valkyrie.config.metadata_adapter.query_service
   end
 end

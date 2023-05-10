@@ -2,12 +2,10 @@
 
 # Communities
 class CommunitiesController < ApplicationController
-  include Pagy::Backend
+  include LazyPagination
 
   def index
-    results = Atlas.query.find_all_of_model(model: Community)
-    @pagy, @communities = pagy(results, count: results.count)
-    @pagination = pagy_metadata(@pagy)
+    @pagination, @communities = paginate_model(Community)
   end
   def show
     @community = Community.find(params[:id]).decorate
@@ -36,9 +34,5 @@ class CommunitiesController < ApplicationController
 
     def parse_xml
       Base64.decode64(params[:community][:xml])
-    end
-
-    def pagy_get_items(lazy, pagy)
-      lazy.drop(pagy.offset).first(pagy.items)
     end
 end

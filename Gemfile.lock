@@ -99,6 +99,12 @@ GEM
     concurrent-ruby (1.2.2)
     content_disposition (1.0.0)
     crass (1.0.6)
+    database_cleaner (2.0.2)
+      database_cleaner-active_record (>= 2, < 3)
+    database_cleaner-active_record (2.1.0)
+      activerecord (>= 5.a)
+      database_cleaner-core (~> 2.0.0)
+    database_cleaner-core (2.0.1)
     date (3.3.3)
     debug (1.7.2)
       irb (>= 1.5.0)
@@ -141,6 +147,8 @@ GEM
       activesupport
       i18n
     erubi (1.12.0)
+    faker (3.2.0)
+      i18n (>= 1.8.11, < 2)
     faraday (2.7.4)
       faraday-net_http (>= 2.0, < 3.1)
       ruby2_keywords (>= 0.0.4)
@@ -216,6 +224,7 @@ GEM
       i18n
       nokogiri
     orm_adapter (0.5.0)
+    pagy (6.0.4)
     parallel (1.23.0)
     parser (3.2.2.1)
       ast (~> 2.4.1)
@@ -343,14 +352,17 @@ DEPENDENCIES
   apipie-rails
   attr_json
   bootsnap
+  database_cleaner
   debug
   devise
   enumerations
+  faker
   hamlit
   jbuilder
   mods
   namae
   noid-rails
+  pagy
   pg (~> 1.1)
   puma (~> 5.0)
   rails (~> 7.0.4, >= 7.0.4.3)

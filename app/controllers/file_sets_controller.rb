@@ -11,8 +11,8 @@ class FileSetsController < ApplicationController
     @file_set = FileSet.find(params[:id])
   end
   def create
-    # TODO: XML
-    # TODO: Needs collection id
+    # TODO: Needs work id
+    # TODO: Needs classification
     file_set = FileSetCreator.call()
   end
   def mods

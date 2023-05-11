@@ -27,8 +27,5 @@ class BlobCreator < ApplicationService
       file_id = create_file(@path, b).id
       b.file_identifiers += [file_id]
       Valkyrie.config.metadata_adapter.persister.save(resource: b)
-
-      # Hand-off to the derivative service
-      DerivativeCreator.call(work_id: @work_id, file_id: file_id, file_path: @path)
     end
 end

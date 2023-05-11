@@ -12,6 +12,7 @@ class WorksController < ApplicationController
   end
   def create
     # TODO: XML
+    # TODO: Needs collection id
     work = WorkCreator.call()
   end
   def mods

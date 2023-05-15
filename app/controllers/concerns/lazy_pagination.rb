@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module LazyPagination
   include Pagy::Backend
   extend ActiveSupport::Concern
@@ -6,7 +8,7 @@ module LazyPagination
     results = Atlas.query.find_all_of_model(model: klass)
     pagy, items = pagy(results, count: results.count)
     pagination = pagy_metadata(pagy)
-    return pagination, items
+    [pagination, items]
   end
 
   def pagy_get_items(lazy, pagy)

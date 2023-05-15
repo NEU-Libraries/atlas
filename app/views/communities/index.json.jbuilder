@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 json.communities do |root|
   root.array!(@communities) do |community|
     json.community do

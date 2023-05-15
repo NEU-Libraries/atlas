@@ -7,20 +7,25 @@ class CommunitiesController < ApplicationController
   def index
     @pagination, @communities = paginate_model(Community)
   end
+
   def show
     @community = Community.find(params[:id]).decorate
   end
+
   def create
     # TODO: XML
-    community = CommunityCreator.call()
+    community = CommunityCreator.call
   end
+
   def mods
     @community = Community.find(params[:id]).decorate
   end
+
   def update
     community = Community.find(params[:id])
     community.mods_xml = parse_xml
   end
+
   def destroy
     # TODO: restrict to admin user
     Atlas.persister.delete(resource: Community.find(params[:id]))

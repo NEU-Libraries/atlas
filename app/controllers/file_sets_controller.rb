@@ -27,7 +27,6 @@ class FileSetsController < ApplicationController
     # and just add it to the existing file set
     file = params[:binary]
     blob = BlobCreator.call(
-      work_id: nil,
       path: (file.tempfile.path.presence ||
              file.path),
       file_set_id: params[:id]

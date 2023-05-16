@@ -18,7 +18,10 @@ module Relationships
   end
 
   def parent
-    Valkyrie.config.metadata_adapter.query_service.find_references_by(resource: self, property: :a_member_of).first
+    # Accomadate for flipped relationships - member_ids vs a_member_of - via find_inverse_references_by
+    result = Valkyrie.config.metadata_adapter.query_service.find_references_by(resource: self, property: :a_member_of)
+    result = Valkyrie.config.metadata_adapter.query_service.find_inverse_references_by(resource: self, property: :member_ids) if result.blank?
+    return result.first # Running with solo parent presumption - may need to revisit this for DRS V1 Smart Collections adaptation
   end
 
   def children

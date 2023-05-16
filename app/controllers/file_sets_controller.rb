@@ -23,7 +23,18 @@ class FileSetsController < ApplicationController
   end
 
   def update
+    # Naive first implementation - expect a binary POST
+    # and just add it to the existing file set
+    file = params[:binary]
+    blob = BlobCreator.call(
+      work_id: nil,
+      path: (file.tempfile.path.presence ||
+             file.path),
+      file_set_id: params[:id]
+    )
     file_set = FileSet.find(params[:id])
+    file_set.member_ids += [blob.id]
+    Atlas.persister.save(resource: file_set)
   end
 
   def destroy

@@ -27,6 +27,7 @@ class BlobsController < ApplicationController
   end
 
   def update
+    # Uber basic versioning, by appending
     blob = Blob.find(params[:id])
     file = params[:binary]
     path = file.tempfile.path.presence || file.path

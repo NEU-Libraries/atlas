@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 class FileSetCreator < ApplicationService
-
   def initialize(work_id:, classification:)
     @work_id = resolve_id(work_id)
     @classification = classification

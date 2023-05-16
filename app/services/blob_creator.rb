@@ -4,8 +4,8 @@ class BlobCreator < ApplicationService
   include FileHelper
   include MimeHelper
 
-  def initialize(work_id: nil, path:, file_set_id: nil)
-    @work_id = resolve_id(work_id) if !work_id.nil?
+  def initialize(path:, work_id: nil, file_set_id: nil)
+    @work_id = resolve_id(work_id) unless work_id.nil?
     @path = path
     @file_set_id = file_set_id
   end

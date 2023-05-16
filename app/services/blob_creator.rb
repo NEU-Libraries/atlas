@@ -3,7 +3,6 @@
 class BlobCreator < ApplicationService
   include FileHelper
   include MimeHelper
-  include NoidHelper
 
   def initialize(work_id:, path:)
     @work_id = resolve_id(work_id)

@@ -305,6 +305,7 @@ GEM
       activesupport (>= 4.2.0)
       rack (>= 1.1)
       rubocop (>= 1.33.0, < 2.0)
+    ruby-filemagic (0.7.3)
     ruby-progressbar (1.13.0)
     ruby2_keywords (0.0.5)
     shrine (3.4.0)
@@ -368,6 +369,7 @@ DEPENDENCIES
   rails (~> 7.0.4, >= 7.0.4.3)
   rsolr
   rubocop-rails
+  ruby-filemagic
   tzinfo-data
   valkyrie
   valkyrie-shrine

@@ -1,8 +1,10 @@
 # frozen_string_literal: true
 
 class FileSetCreator < ApplicationService
+  include NoidHelper
+
   def initialize(work_id:, classification:)
-    @work_id = work_id
+    @work_id = resolve_id(work_id)
     @classification = classification
   end
 

@@ -7,7 +7,7 @@ staging:
   storage_adapter: disk
 
 test:
-  metadata_adapter: postgres
+  metadata_adapter: memory
   storage_adapter: test_disk
 
 production:

@@ -21,6 +21,11 @@ Valkyrie::StorageAdapter.register(
   :test_disk
 )
 
+Valkyrie::MetadataAdapter.register(
+  Valkyrie::Persistence::Memory::MetadataAdapter.new,
+  :memory
+)
+
 module Atlas
   def self.persister
     Valkyrie.config.metadata_adapter.persister

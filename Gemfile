@@ -50,7 +50,6 @@ gem 'namae'
 gem 'noid-rails'
 gem 'pagy'
 gem 'rsolr'
-gem 'rubocop-rails'
 gem 'ruby-filemagic'
 gem 'valkyrie'
 gem 'valkyrie-shrine'
@@ -59,6 +58,8 @@ group :development, :test do
   # See https://guides.rubyonrails.org/debugging_rails_applications.html#debugging-with-the-debug-gem
   gem 'debug', platforms: %i[mri mingw x64_mingw]
   gem 'faker'
+  gem 'rspec-rails'
+  gem 'rubocop-rails'
 end
 
 group :development do

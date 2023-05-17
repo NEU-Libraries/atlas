@@ -5,7 +5,7 @@ require 'rails_helper'
 RSpec.describe CommunitiesController, type: :controller do
   describe 'GET #show' do
     context 'when the community exists' do
-      let(:community) { create(:community) }
+      let(:community) { CommunityCreator.call }
 
       it 'returns the community details' do
         expect(community.noid).to be_a String

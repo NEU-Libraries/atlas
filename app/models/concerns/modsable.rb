@@ -12,7 +12,7 @@ module Modsable
   end
 
   def mods_xml
-    return mods_template if mods_blob.file.blank?
+    return mods_template if mods_blob&.file.blank?
 
     Nokogiri::XML(mods_blob.file.read, &:noblanks).to_s
   end

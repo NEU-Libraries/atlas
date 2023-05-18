@@ -44,6 +44,11 @@ describe CommunitiesController, type: :controller do
   end
 
   describe 'POST #create' do
+    it 'creates a community' do
+      post :create
+      expect(response).to have_http_status(:success)
+      expect(Atlas.query.find_all_of_model(model: Community).count).to eq(1)
+    end
   end
 
   describe 'PATCH #update' do

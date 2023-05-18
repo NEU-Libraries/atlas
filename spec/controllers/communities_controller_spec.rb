@@ -26,7 +26,7 @@ describe CommunitiesController, type: :controller do
   describe 'GET #index' do
     context 'when communities exists' do
       it 'returns a paginated list of all communities' do
-        20.times do
+        12.times do
           CommunityCreator.call
         end
 

@@ -2,13 +2,13 @@
 
 require 'rails_helper'
 
-RSpec.describe CommunitiesController, type: :controller do
+describe CommunitiesController, type: :controller do
+  render_views
+
+  let(:community) { CommunityCreator.call }
+
   describe 'GET #show' do
-    render_views
-
     context 'when the community exists' do
-      let(:community) { CommunityCreator.call }
-
       it 'returns the community details' do
         get :show, params: { id: community.noid }, as: :json
         expect(response).to have_http_status(:success)
@@ -17,5 +17,20 @@ RSpec.describe CommunitiesController, type: :controller do
         expect(json_response['community']['id']).to eq(community.noid)
       end
     end
+  end
+
+  describe 'GET #index' do
+  end
+
+  describe 'GET #mods' do
+  end
+
+  describe 'POST #create' do
+  end
+
+  describe 'PATCH #update' do
+  end
+
+  describe 'DELETE #destroy' do
   end
 end

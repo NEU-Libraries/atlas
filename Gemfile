@@ -60,6 +60,9 @@ group :development, :test do
   gem 'faker'
   gem 'rspec-rails'
   gem 'rubocop-rails'
+
+  gem 'simplecov', require: false
+  gem 'simplecov_json_formatter', '0.1.3' # Version 0.1.4 seems to break codeclimate
 end
 
 group :development do

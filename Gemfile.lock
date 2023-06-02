@@ -120,6 +120,7 @@ GEM
     disposable (0.6.3)
       declarative (>= 0.0.9, < 1.0.0)
       representable (>= 3.1.1, < 4)
+    docile (1.4.0)
     down (5.4.0)
       addressable (~> 2.8)
     dry-core (1.0.0)
@@ -329,6 +330,12 @@ GEM
     shrine (3.4.0)
       content_disposition (~> 1.0)
       down (~> 5.1)
+    simplecov (0.22.0)
+      docile (~> 1.1)
+      simplecov-html (~> 0.11)
+      simplecov_json_formatter (~> 0.1)
+    simplecov-html (0.12.3)
+    simplecov_json_formatter (0.1.3)
     temple (0.10.1)
     thor (1.2.2)
     tilt (2.1.0)
@@ -389,6 +396,8 @@ DEPENDENCIES
   rspec-rails
   rubocop-rails
   ruby-filemagic
+  simplecov
+  simplecov_json_formatter (= 0.1.3)
   tzinfo-data
   valkyrie
   valkyrie-shrine

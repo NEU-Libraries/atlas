@@ -34,7 +34,6 @@ describe CommunitiesController, type: :controller do
         expect(response).to have_http_status(:success)
         json_response = JSON.parse(response.body)
         expect(json_response['communities']).not_to be_empty
-        # TODO: make more communities
         # TODO: ensure pagination results are correct
       end
     end

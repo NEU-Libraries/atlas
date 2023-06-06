@@ -41,7 +41,7 @@ describe CommunitiesController, type: :controller do
 
   describe 'GET #mods' do
     let(:community) { CommunityCreator.call }
-    it 'displays MODS metadata for the community' do
+    it 'displays MODS metadata in JSON for the community' do
       title = 'Mods Test'
       community.plain_title = title
       get :mods, params: { id: community.noid }, as: :json

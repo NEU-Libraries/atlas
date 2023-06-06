@@ -25,6 +25,28 @@ describe WorksController, type: :controller do
     end
   end
 
+  describe 'GET #mods' do
+    let(:community) { CommunityCreator.call }
+    let(:collection) { CollectionCreator.call(parent_id: community.noid) }
+    let(:work) { WorkCreator.call(parent_id: collection.noid) }
+
+    it 'displays MODS metadata in JSON for the work' do
+      title = 'Mods Test'
+      work.plain_title = title
+      get :mods, params: { id: work.noid }, as: :json
+      expect(response).to have_http_status(:success)
+      json_response = JSON.parse(response.body)
+      expect(json_response['work']).not_to be_empty
+      expect(json_response['work']['mods']).not_to be_empty
+      expect(json_response['work']['mods']['main_title']['title']).to eq(title)
+    end
+
+    it 'displays MODS metadata in HTML for the work' do
+      get :mods, params: { id: work.noid }, as: :html
+      expect(response).to have_http_status(:success)
+    end
+  end
+
   describe 'GET #index' do
   end
 

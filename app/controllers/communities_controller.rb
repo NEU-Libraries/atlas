@@ -18,6 +18,7 @@ class CommunitiesController < ApplicationController
   end
 
   def mods
+    # TODO: support raw XML, in addition to JSON and HTML
     @community = Community.find(params[:id]).decorate
   end
 

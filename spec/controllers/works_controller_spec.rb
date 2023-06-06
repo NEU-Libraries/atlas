@@ -10,6 +10,12 @@ describe WorksController, type: :controller do
   end
 
   describe 'GET #show' do
+    let(:community) { CommunityCreator.call }
+    let(:collection) { CollectionCreator.call(parent_id: community.noid) }
+    let(:work) { WorkCreator.call(parent_id: collection.noid) }
+    it 'returns the work details' do
+      expect(work.id).not_to eq(nil)
+    end
   end
 
   describe 'GET #index' do

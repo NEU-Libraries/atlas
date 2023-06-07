@@ -23,8 +23,11 @@ class WorksController < ApplicationController
   end
 
   def update
+    # curl -F 'id=qrfj8zz' -F 'binary=@test.xml' http://localhost:3000/blobs/
     work = Work.find(params[:id])
-    work.mods_xml = parse_xml
+    file = params[:binary]
+    path = file.tempfile.path.presence || file.path
+    work.mods_xml = File.read(path)
   end
 
   def destroy

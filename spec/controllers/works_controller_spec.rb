@@ -42,8 +42,11 @@ describe WorksController, type: :controller do
     end
 
     it 'displays MODS metadata in HTML for the work' do
+      title = 'HTML Test'
+      work.plain_title = title
       get :mods, params: { id: work.noid }, as: :html
       expect(response).to have_http_status(:success)
+      expect(response.body).to include(title)
     end
   end
 

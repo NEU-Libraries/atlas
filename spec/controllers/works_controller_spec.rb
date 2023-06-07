@@ -76,5 +76,17 @@ describe WorksController, type: :controller do
   end
 
   describe 'DELETE #destroy' do
+    let(:community) { CommunityCreator.call }
+    let(:collection) { CollectionCreator.call(parent_id: community.noid) }
+    let(:work) { WorkCreator.call(parent_id: collection.noid) }
+
+    context 'when work exists' do
+      it 'destroys the work' do
+        expect(Work.find(work.noid)).to eq(work)
+        delete :destroy, params: { id: work.noid }, as: :json
+        expect(response).to have_http_status(:success)
+        expect(Work.find(work.noid)).to be_nil
+      end
+    end
   end
 end

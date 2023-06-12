@@ -37,8 +37,25 @@ describe FileSetsController, type: :controller do
   end
 
   describe 'PATCH #update' do
+    let(:file_set) { FileSetCreator.call(work_id: work.noid, classification: Classification.generic) }
+
+    it 'updates a work with provided XML binary' do
+      patch :update, params: { id: file_set.noid, binary: Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/work-mods.xml')) }
+      expect(response).to have_http_status(:success)
+      # TODO - check file set children count
+    end
   end
 
   describe 'DELETE #destroy' do
+    context 'when file set exists' do
+      let(:file_set) { FileSetCreator.call(work_id: work.noid, classification: Classification.generic) }
+
+      it 'destroys the file set' do
+        expect(FileSet.find(file_set.noid)).to eq(file_set)
+        delete :destroy, params: { id: file_set.noid }, as: :json
+        expect(response).to have_http_status(:success)
+        expect(FileSet.find(file_set.noid)).to be_nil
+      end
+    end
   end
 end

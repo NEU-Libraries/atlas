@@ -13,6 +13,19 @@ describe FileSetsController, type: :controller do
   end
 
   describe 'GET #index' do
+    context 'when file sets exist' do
+      it 'returns a paginated list of all file sets' do
+        12.times do
+          FileSetCreator.call(work_id: work.noid, classification: Classification.generic)
+        end
+
+        get :index, as: :json
+        expect(response).to have_http_status(:success)
+        json_response = response.parsed_body
+        expect(json_response['file_sets']).not_to be_empty
+        # TODO: ensure pagination results are correct
+      end
+    end
   end
 
   describe 'POST #create' do

@@ -54,7 +54,7 @@ describe WorksController, type: :controller do
     let(:community) { CommunityCreator.call }
     let(:collection) { CollectionCreator.call(parent_id: community.noid) }
 
-    context 'when works exists' do
+    context 'when works exist' do
       it 'returns a paginated list of all works' do
         12.times do
           WorkCreator.call(parent_id: collection.noid)

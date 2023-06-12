@@ -17,10 +17,6 @@ class FileSetsController < ApplicationController
                         classification: Classification.find(params[:classification]))
   end
 
-  def mods
-    @file_set = FileSet.find(params[:id])
-  end
-
   def update
     # Naive first implementation - expect a binary POST
     # and just add it to the existing file set

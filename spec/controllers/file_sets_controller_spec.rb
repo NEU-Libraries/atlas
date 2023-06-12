@@ -16,12 +16,11 @@ describe FileSetsController, type: :controller do
   end
 
   describe 'POST #create' do
-    # it 'creates a work with provided collection id as parent' do
-    #   post :create, params: { collection_id: collection.noid }
-    #   expect(response).to have_http_status(:success)
-    #   expect(Atlas.query.find_all_of_model(model: Work).count).to eq(1)
-    #   # TODO: Test id is returned and resolves to resource
-    # end
+    it 'creates a FileSet with provided work id as parent' do
+      post :create, params: { work_id: work.noid, classification: Classification.generic.to_s }
+      expect(response).to have_http_status(:success)
+      # TODO: Test id is returned and resolves to resource
+    end
   end
 
   describe 'PATCH #update' do

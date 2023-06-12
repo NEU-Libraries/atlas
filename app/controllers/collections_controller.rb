@@ -14,7 +14,7 @@ class CollectionsController < ApplicationController
 
   def create
     # TODO: XML
-    collection = CollectionCreator.call
+    CollectionCreator.call
   end
 
   def mods

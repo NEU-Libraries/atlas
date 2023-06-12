@@ -14,8 +14,7 @@ class WorksController < ApplicationController
 
   def create
     # TODO: XML
-    # TODO: Needs collection id
-    work = WorkCreator.call
+    WorkCreator.call(parent_id: params[:collection_id])
   end
 
   def mods
@@ -23,7 +22,7 @@ class WorksController < ApplicationController
   end
 
   def update
-    # curl -F 'id=qrfj8zz' -F 'binary=@test.xml' http://localhost:3000/blobs/
+    # curl -F 'id=qrfj8zz' -F 'binary=@test.xml' http://localhost:3000/works/
     work = Work.find(params[:id])
     file = params[:binary]
     path = file.tempfile.path.presence || file.path

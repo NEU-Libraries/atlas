@@ -13,9 +13,8 @@ class FileSetsController < ApplicationController
   end
 
   def create
-    # TODO: Needs work id
-    # TODO: Needs classification
-    file_set = FileSetCreator.call
+    FileSetCreator.call(work_id: params[:work_id],
+                        classification: Classification.find(params[:classification]))
   end
 
   def mods

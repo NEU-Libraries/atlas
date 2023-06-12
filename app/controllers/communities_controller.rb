@@ -14,7 +14,7 @@ class CommunitiesController < ApplicationController
 
   def create
     # TODO: XML
-    community = CommunityCreator.call
+    CommunityCreator.call
   end
 
   def mods

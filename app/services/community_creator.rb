@@ -2,7 +2,7 @@
 
 class CommunityCreator < ApplicationService
   def initialize(parent_id: nil, mods_xml: nil)
-    @parent_id = resolve_id(parent_id) unless parent_id.blank?
+    @parent_id = resolve_id(parent_id) if parent_id.present?
     @mods_xml = mods_xml.nil? ? mods_template : mods_xml
   end
 

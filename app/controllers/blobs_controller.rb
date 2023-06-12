@@ -15,7 +15,7 @@ class BlobsController < ApplicationController
 
   def create
     file = params[:binary]
-    blob = BlobCreator.call(
+    BlobCreator.call(
       work_id: params[:work_id],
       path: (file.tempfile.path.presence ||
              file.path)

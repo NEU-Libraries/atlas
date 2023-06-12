@@ -17,7 +17,7 @@ describe CommunitiesController, type: :controller do
         get :show, params: { id: community.noid }, as: :json
         expect(response).to have_http_status(:success)
 
-        json_response = JSON.parse(response.body)
+        json_response = response.parsed_body
         expect(json_response['community']['id']).to eq(community.noid)
       end
     end
@@ -32,7 +32,7 @@ describe CommunitiesController, type: :controller do
 
         get :index, as: :json
         expect(response).to have_http_status(:success)
-        json_response = JSON.parse(response.body)
+        json_response = response.parsed_body
         expect(json_response['communities']).not_to be_empty
         # TODO: ensure pagination results are correct
       end
@@ -46,7 +46,7 @@ describe CommunitiesController, type: :controller do
       community.plain_title = title
       get :mods, params: { id: community.noid }, as: :json
       expect(response).to have_http_status(:success)
-      json_response = JSON.parse(response.body)
+      json_response = response.parsed_body
       expect(json_response['community']).not_to be_empty
       expect(json_response['community']['mods']).not_to be_empty
       expect(json_response['community']['mods']['main_title']['title']).to eq(title)

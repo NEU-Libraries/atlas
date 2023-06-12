@@ -10,6 +10,15 @@ describe FileSetsController, type: :controller do
   let(:work) { WorkCreator.call(parent_id: collection.noid) }
 
   describe 'GET #show' do
+    let(:file_set) { FileSetCreator.call(work_id: work.noid, classification: Classification.generic) }
+
+    it 'returns the work details' do
+      get :show, params: { id: file_set.noid }, as: :json
+      expect(response).to have_http_status(:success)
+
+      json_response = response.parsed_body
+      expect(json_response['file_set']['id']).to eq(file_set.noid)
+    end
   end
 
   describe 'GET #index' do

@@ -42,12 +42,42 @@ describe CollectionsController, type: :controller do
   end
 
   describe 'GET #index' do
+    let(:community) { CommunityCreator.call }
+    context 'when collections exist' do
+      it 'returns a paginated list of all collections' do
+        12.times do
+          CollectionCreator.call(parent_id: community.noid)
+        end
+
+        get :index, as: :json
+        expect(response).to have_http_status(:success)
+        json_response = response.parsed_body
+        expect(json_response['collections']).not_to be_empty
+        # TODO: ensure pagination results are correct
+      end
+    end
   end
 
   describe 'POST #create' do
+    let(:parent) { CommunityCreator.call }
+
+    it 'creates a collection' do
+      post :create, params: { parent_id: parent.noid }, as: :json
+      expect(response).to have_http_status(:success)
+      expect(Atlas.query.find_all_of_model(model: Collection).count).to eq(1)
+    end
   end
 
   describe 'PATCH #update' do
+    let(:community) { CommunityCreator.call }
+    let(:collection) { CollectionCreator.call(parent_id: community.noid) }
+
+    it 'updates a collection with provided XML binary' do
+      patch :update, params: { id: collection.noid, binary: Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/work-mods.xml')) }
+      expect(response).to have_http_status(:success)
+      expect(collection.decorate.plain_title).to eq("What's New - How We Respond to Disaster, Episode 1")
+      # TODO - switch to collection specific fixture XML
+    end
   end
 
   describe 'DELETE #destroy' do

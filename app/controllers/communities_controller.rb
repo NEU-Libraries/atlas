@@ -14,7 +14,7 @@ class CommunitiesController < ApplicationController
 
   def create
     # TODO: XML
-    CommunityCreator.call
+    CommunityCreator.call(parent_id: params[:parent_id])
   end
 
   def mods
@@ -24,21 +24,14 @@ class CommunitiesController < ApplicationController
 
   def update
     community = Community.find(params[:id])
-    community.mods_xml = parse_xml
+
+    file = params[:binary]
+    path = file.tempfile.path.presence || file.path
+    community.mods_xml = File.read(path)
   end
 
   def destroy
     # TODO: restrict to admin user
     Atlas.persister.delete(resource: Community.find(params[:id]))
   end
-
-  private
-
-    def update_params
-      params.require(:community).permit(:xml)
-    end
-
-    def parse_xml
-      Base64.decode64(params[:community][:xml])
-    end
 end

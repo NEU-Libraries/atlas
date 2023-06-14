@@ -25,6 +25,19 @@ describe UsersController, type: :controller do
   end
 
   describe 'GET #index' do
+    context 'when users exists' do
+      it 'returns a paginated list of all users' do
+        12.times do
+          User.create(:email => Faker::Internet.email, :password => Devise.friendly_token[0, 20], name: Faker::Name.name, nuid: Random.rand(10000).to_s)
+        end
+
+        get :index, as: :json
+        expect(response).to have_http_status(:success)
+        json_response = response.parsed_body
+        expect(json_response['users']).not_to be_empty
+        # TODO: ensure pagination results are correct
+      end
+    end
   end
 
   describe 'POST #create' do

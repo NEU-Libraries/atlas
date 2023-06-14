@@ -2,6 +2,8 @@
 
 # Users
 class UsersController < ApplicationController
+  include Pagy::Backend
+
   api :POST, '/users', 'Create a user'
   param :name, String, 'Name of the user'
   param :nuid, String, 'NEU ID'
@@ -9,8 +11,7 @@ class UsersController < ApplicationController
     property :id, String, desc: 'User ID'
   end
   def index
-    # TODO: implement pagination
-    @users = User.all
+    @pagination, @users = pagy(User.all)
   end
 
   api :GET, '/users/:id', 'Fetch a user'

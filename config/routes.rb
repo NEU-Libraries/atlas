@@ -9,9 +9,9 @@ Rails.application.routes.draw do
   resources :communities
   resources :collections
   resources :works
-  resources :file_sets
-  resources :blobs
   resources :users
+  resources :file_sets
+  resources :files, :controller => :blobs
 
   # Metadata
   get '/communities/:id/mods', to: 'communities#mods', as: 'community_mods', :defaults => { :format => 'json' }

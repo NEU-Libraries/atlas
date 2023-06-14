@@ -10,7 +10,7 @@ describe UsersController, type: :controller do
   end
 
   describe 'GET #show' do
-    let(:user) { User.create(:email => "test@email.com", :password => "drs12345", :password_confirmation => "drs12345", name:"Temp User", nuid:"000000000") }
+    let(:user) { User.create(:email => Faker::Internet.email, :password => Devise.friendly_token[0, 20], name: Faker::Name.name, nuid: Random.rand(10000).to_s) }
 
     context 'when the user exists' do
       it 'returns the user details' do
@@ -47,5 +47,15 @@ describe UsersController, type: :controller do
   end
 
   describe 'DELETE #destroy' do
+    let(:user) { User.create(:email => Faker::Internet.email, :password => Devise.friendly_token[0, 20], name: Faker::Name.name, nuid: Random.rand(10000).to_s) }
+
+    context 'when user exists' do
+      it 'destroys the user' do
+        expect(User.find(user.id)).to eq(user)
+        delete :destroy, params: { id: user.id }, as: :json
+        expect(response).to have_http_status(:success)
+        expect{User.find(user.id)}.to raise_error(ActiveRecord::RecordNotFound)
+      end
+    end
   end
 end

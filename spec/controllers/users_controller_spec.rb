@@ -41,9 +41,22 @@ describe UsersController, type: :controller do
   end
 
   describe 'POST #create' do
+    it 'creates a user' do
+      post :create, params: { name: Faker::Name.name, nuid: Random.rand(10000).to_s, email: Faker::Internet.email}, as: :json
+      expect(response).to have_http_status(:success)
+      expect(User.count).to eq(1)
+      # TODO: test return user id
+    end
   end
 
   describe 'PATCH #update' do
+    let(:user) { User.create(:email => Faker::Internet.email, :password => Devise.friendly_token[0, 20], name: 'Old Name', nuid: Random.rand(10000).to_s) }
+
+    it 'updates a user with a new name' do
+      patch :update, params: {id: user.id.to_s, user: {name: 'New Name'}}
+      expect(response).to have_http_status(:success)
+      expect(User.find(user.id).name).to eq('New Name')
+    end
   end
 
   describe 'DELETE #destroy' do

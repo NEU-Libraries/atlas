@@ -22,10 +22,6 @@ class BlobsController < ApplicationController
     )
   end
 
-  def mods
-    @blob = Blob.find(params[:id])
-  end
-
   def update
     # Uber basic versioning, by appending
     blob = Blob.find(params[:id])

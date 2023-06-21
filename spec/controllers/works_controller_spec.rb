@@ -22,6 +22,7 @@ describe WorksController, type: :controller do
       json_response = response.parsed_body
       expect(json_response['work']['id']).to eq(work.noid)
       expect(json_response['work']['title']).to eq(title)
+      expect(work.parent.filtered_children.count).to eq(1)
     end
   end
 

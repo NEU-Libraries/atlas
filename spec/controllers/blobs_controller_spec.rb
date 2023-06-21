@@ -23,6 +23,7 @@ describe BlobsController, type: :controller do
 
         json_response = response.parsed_body
         expect(json_response['blob']['id']).to eq(blob.noid)
+        expect(blob.parent).to be_a FileSet
       end
     end
   end

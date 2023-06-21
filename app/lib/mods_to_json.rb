@@ -50,12 +50,4 @@ module MODSToJson
 
     record.json_attributes
   end
-
-  private
-
-    def safe_extract
-      yield
-    rescue NoMethodError
-      ''
-    end
 end

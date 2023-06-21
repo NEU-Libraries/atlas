@@ -19,6 +19,7 @@ describe CommunitiesController, type: :controller do
 
         json_response = response.parsed_body
         expect(json_response['community']['id']).to eq(community.noid)
+        expect(community.children.count).to eq(1)
       end
     end
   end

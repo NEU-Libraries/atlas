@@ -18,8 +18,12 @@ module Relationships
   end
 
   def parent
-    # Accommodate for flipped relationships - member_ids vs a_member_of - via find_inverse_references_by
-    result = Valkyrie.config.metadata_adapter.query_service.find_references_by(resource: self, property: :a_member_of)
+    begin
+      # Accommodate for flipped relationships - member_ids vs a_member_of - via find_inverse_references_by
+      result = Valkyrie.config.metadata_adapter.query_service.find_references_by(resource: self, property: :a_member_of)
+    rescue KeyError
+      #
+    end
     if result.blank?
       result = Valkyrie.config.metadata_adapter.query_service.find_inverse_references_by(resource: self,
                                                                                          property: :member_ids)

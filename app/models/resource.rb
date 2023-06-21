@@ -14,14 +14,6 @@ class Resource < Valkyrie::Resource
     alternate_ids.first.to_s
   end
 
-  def to_param
-    noid
-  end
-
-  def reload
-    Resource.find(id)
-  end
-
   def decorate
     ActiveDecorator::Decorator.instance.decorate(self)
   end

@@ -10,6 +10,10 @@ class Blob < Resource
   # fast lookup for MODS
   attribute :descriptive_metadata_for, Valkyrie::Types::ID.optional
 
+  def versions
+    file_identifiers.count
+  end
+
   def latest_revision
     return nil if file_identifiers.blank?
 

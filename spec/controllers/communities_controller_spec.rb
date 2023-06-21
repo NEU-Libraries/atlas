@@ -43,13 +43,16 @@ describe CommunitiesController, type: :controller do
     let(:community) { CommunityCreator.call }
     it 'displays MODS metadata in JSON for the community' do
       title = 'Mods Test'
+      description = 'Mods Description'
       community.plain_title = title
+      community.plain_description = description
       get :mods, params: { id: community.noid }, as: :json
       expect(response).to have_http_status(:success)
       json_response = response.parsed_body
       expect(json_response['community']).not_to be_empty
       expect(json_response['community']['mods']).not_to be_empty
       expect(json_response['community']['mods']['main_title']['title']).to eq(title)
+      expect(json_response['community']['mods']['abstract']).to eq(description)
     end
   end
 

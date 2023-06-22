@@ -14,7 +14,7 @@ describe BlobsController, type: :controller do
   let(:work) { WorkCreator.call(parent_id: collection.noid) }
 
   describe 'GET #show' do
-    let(:blob) { BlobCreator.call(path: Rails.root.join('spec/fixtures/files/image.png').to_s, work_id: work.noid) }
+    let(:blob) { BlobCreator.call(path: Rails.root.join('spec/fixtures/files/100KB.bin').to_s, work_id: work.noid) }
 
     context 'when the blob exists' do
       it 'returns the blob details' do

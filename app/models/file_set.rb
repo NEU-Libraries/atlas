@@ -12,10 +12,10 @@ class FileSet < Resource
     @files ||= member_ids.map { |id| Blob.find(id) }
   end
 
-  def original_file?
-    files.each do |f|
-      return true if f.use&.include? Valkyrie::Vocab::PCDMUse.OriginalFile
-    end
-    false
-  end
+  # def original_file?
+  #   files.each do |f|
+  #     return true if f.use&.include? Valkyrie::Vocab::PCDMUse.OriginalFile
+  #   end
+  #   false
+  # end
 end

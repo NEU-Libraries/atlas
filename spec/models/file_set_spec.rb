@@ -13,4 +13,11 @@ RSpec.describe FileSet do
   let(:resource_klass) { described_class }
 
   it_behaves_like 'a Valkyrie::Resource'
+
+  describe '#files' do
+    it 'returns Blob objects whose ids are in member_ids' do
+      expect(file_set.files).to be_empty
+      # puts file_set.files.inspect
+    end
+  end
 end

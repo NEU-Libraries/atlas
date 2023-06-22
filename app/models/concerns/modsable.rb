@@ -28,8 +28,6 @@ module Modsable
   def mods_blob
     Valkyrie.config.metadata_adapter.query_service.find_inverse_references_by(resource: self,
                                                                               property: :descriptive_metadata_for).first
-  rescue ArgumentError
-    nil
   end
 
   def mods_json=(raw_xml)

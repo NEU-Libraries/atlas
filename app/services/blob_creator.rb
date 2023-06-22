@@ -25,7 +25,7 @@ class BlobCreator < ApplicationService
         fs = FileSet.find(@file_set_id)
       end
 
-      b = Valkyrie.config.metadata_adapter.persister.save(resource: Blob.new)
+      b = Valkyrie.config.metadata_adapter.persister.save(resource: Blob.new(original_filename: @path.split('/')&.last))
 
       fs.member_ids += [b.id]
       Valkyrie.config.metadata_adapter.persister.save(resource: fs)

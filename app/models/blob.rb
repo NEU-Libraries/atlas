@@ -27,6 +27,6 @@ class Blob < Resource
   end
 
   def extension
-    original_filename.split('.').last
+    original_filename&.split('.')&.last
   end
 end

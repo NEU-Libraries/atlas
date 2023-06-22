@@ -14,7 +14,7 @@ describe BlobsController, type: :controller do
   let(:work) { WorkCreator.call(parent_id: collection.noid) }
 
   describe 'GET #show' do
-    let(:blob) { BlobCreator.call(path: Rails.root.join('spec/fixtures/files/100KB.bin').to_s, work_id: work.noid) }
+    let(:blob) { BlobCreator.call(path: Rails.root.join('spec/fixtures/files/example.bin').to_s, work_id: work.noid) }
 
     context 'when the blob exists' do
       it 'returns the blob details' do
@@ -32,7 +32,7 @@ describe BlobsController, type: :controller do
     context 'when blobs exists' do
       it 'returns a paginated list of all blobs' do
         12.times do
-          BlobCreator.call(path: Rails.root.join('spec/fixtures/files/image.png').to_s, work_id: work.noid)
+          BlobCreator.call(path: Rails.root.join('spec/fixtures/files/example.png').to_s, work_id: work.noid)
         end
 
         get :index, as: :json
@@ -46,14 +46,14 @@ describe BlobsController, type: :controller do
 
   describe 'POST #create' do
     it 'creates a Blob with provided work id as parent' do
-      post :create, params: { work_id: work.noid, binary: Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/image.png')) }
+      post :create, params: { work_id: work.noid, binary: Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/example.png')) }
       expect(response).to have_http_status(:success)
       # TODO: Test id is returned and resolves to resource
     end
   end
 
   describe 'PATCH #update' do
-    let(:blob) { BlobCreator.call(path: Rails.root.join('spec/fixtures/files/image.png').to_s, work_id: work.noid) }
+    let(:blob) { BlobCreator.call(path: Rails.root.join('spec/fixtures/files/example.png').to_s, work_id: work.noid) }
 
     it 'updates a work with provided XML binary' do
       patch :update, params: { id: blob.noid, binary: Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/work-mods.xml')) }
@@ -63,7 +63,7 @@ describe BlobsController, type: :controller do
   end
 
   describe 'DELETE #destroy' do
-    let(:blob) { BlobCreator.call(path: Rails.root.join('spec/fixtures/files/image.png').to_s, work_id: work.noid) }
+    let(:blob) { BlobCreator.call(path: Rails.root.join('spec/fixtures/files/example.png').to_s, work_id: work.noid) }
 
     context 'when blob exists' do
       it 'destroys the blob' do

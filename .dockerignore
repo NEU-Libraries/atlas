@@ -1,0 +1,36 @@
+.circleci
+LICENSE
+VERSION
+README.md
+Changelog.md
+Makefile
+docker-compose.yml
+docs
+
+# Ignore all logfiles and tempfiles.
+/log/*
+/tmp/*
+!/log/.keep
+!/tmp/.keep
+
+.git
+.gitignore
+
+# Ignore bundler config.
+.bundle
+
+# Byebug history
+.byebug_history
+
+# Ignore master key for decrypting credentials and more.
+config/master.key
+
+# Ignore environment files
+*.env
+
+# Ignore database dumps
+*.dump
+
+# Misc files
+.dockerignore
+.cache

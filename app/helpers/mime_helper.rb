@@ -49,7 +49,7 @@ module MimeHelper
     end
 
     def sub_type_check(sub_type)
-      return Classification.text if sub_type.include?('epub') || sub_type == 'pdf'
+      return Classification.text if sub_type.include?('epub') || sub_type == 'pdf' || sub_type =='csv'
 
       nil
     end

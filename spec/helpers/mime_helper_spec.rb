@@ -18,15 +18,15 @@ describe MimeHelper do
       expect(assign_classification(Rails.root.join('spec/fixtures/files/example.tif').to_s)).to eq(Classification.image)
     end
 
-    it 'returns an image classification enumeration for a mp4 file' do
+    it 'returns an video classification enumeration for a mp4 file' do
       expect(assign_classification(Rails.root.join('spec/fixtures/files/example.mp4').to_s)).to eq(Classification.video)
     end
 
-    it 'returns an image classification enumeration for a mp3 file' do
+    it 'returns an audio classification enumeration for a mp3 file' do
       expect(assign_classification(Rails.root.join('spec/fixtures/files/example.mp3').to_s)).to eq(Classification.audio)
     end
 
-    it 'returns an image classification enumeration for a csv file' do
+    it 'returns an text classification enumeration for a csv file' do
       expect(assign_classification(Rails.root.join('spec/fixtures/files/example.csv').to_s)).to eq(Classification.text)
     end
   end

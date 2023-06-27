@@ -1,0 +1,47 @@
+name: Build-Test
+
+on:
+  push:
+    branches: [ "develop" ]
+  pull_request:
+    branches: [ "develop" ]
+
+jobs:
+
+  build_and_test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Github Action cache
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/caches
+        key: ${{ runner.os }}-${{ hashFiles('Gemfile.lock') }}
+    - name: Load Docker image
+      run: |
+        set +o pipefail
+        docker load -i ~/caches/atlas.tar | true
+    - name: Build the Docker image
+      run: docker build --cache-from=nakatomi/atlas_web:latest . --file Dockerfile --tag nakatomi/atlas_web:latest --tag nakatomi/atlas_web:$(cat .version)
+    - name: Save Docker image
+      run: |
+        mkdir -p ~/caches
+        docker save -o ~/caches/atlas.tar nakatomi/atlas_web
+    - name: Setup dockerize
+      uses: zcong1993/setup-dockerize@v2.0.0
+    - name: Start server
+      run: |
+        set -x
+        docker-compose -f docker-compose.yml -f docker-compose.ci.yml up -d
+    - name: Create database and migrate
+      run: |
+        docker-compose exec -T web bundle exec rake db:create
+        docker-compose exec -T web bundle exec rake db:migrate
+    - name: Wait until available
+      run: dockerize -wait http://localhost:3000 -timeout 1m
+    - name: Run tests
+      run: |
+        docker-compose exec -T web cc-test-reporter before-build
+        docker-compose exec -T web bundle exec rake
+        docker-compose exec -T web cc-test-reporter after-build --coverage-input-type simplecov --exit-code $?

@@ -1,0 +1,8 @@
+# Use postgres/example user/password credentials
+version: '3.7'
+services:
+  web:
+    environment:
+      - CC_TEST_REPORTER_ID=e776e19f155f94b6509fb3dfa757462f42cb3259fd4c8aa6211f32b7402b26de
+    volumes:
+      - ./.git:/home/atlas/web/.git

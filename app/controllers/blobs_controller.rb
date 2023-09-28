@@ -29,7 +29,7 @@ class BlobsController < ApplicationController
     path = file.tempfile.path.presence || file.path
     file_id = create_file(path, blob).id
     blob.file_identifiers += [file_id]
-    Atlas.persister.save(resource: blob)
+    @blob = Atlas.persister.save(resource: blob)
   end
 
   def destroy

@@ -13,8 +13,12 @@ class FileSetsController < ApplicationController
   end
 
   def create
-    FileSetCreator.call(work_id: params[:work_id],
-                        classification: Classification.find(params[:classification]))
+    @file_set = FileSetCreator.call(
+      work_id: params[:work_id],
+      classification: Classification.find(
+        params[:classification]
+      )
+    )
   end
 
   def update
@@ -27,7 +31,7 @@ class FileSetsController < ApplicationController
     )
     file_set = FileSet.find(params[:id])
     file_set.member_ids += [blob.id]
-    Atlas.persister.save(resource: file_set)
+    @file_set = Atlas.persister.save(resource: file_set)
   end
 
   def destroy

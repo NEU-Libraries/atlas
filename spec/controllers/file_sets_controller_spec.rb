@@ -51,7 +51,7 @@ describe FileSetsController, type: :controller do
     it 'updates a work with provided XML binary' do
       patch :update, params: { id: file_set.noid, binary: Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/work-mods.xml')) }
       expect(response).to have_http_status(:success)
-      # TODO - check file set children count
+      # TODO: - check file set children count
     end
   end
 

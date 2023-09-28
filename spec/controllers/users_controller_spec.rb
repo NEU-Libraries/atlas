@@ -10,7 +10,7 @@ describe UsersController, type: :controller do
   end
 
   describe 'GET #show' do
-    let(:user) { User.create(:email => Faker::Internet.email, :password => Devise.friendly_token[0, 20], name: Faker::Name.name, nuid: Random.rand(10000).to_s) }
+    let(:user) { User.create(email: Faker::Internet.email, password: Devise.friendly_token[0, 20], name: Faker::Name.name, nuid: Random.rand(10_000).to_s) }
 
     context 'when the user exists' do
       it 'returns the user details' do
@@ -28,7 +28,7 @@ describe UsersController, type: :controller do
     context 'when users exists' do
       it 'returns a paginated list of all users' do
         12.times do
-          User.create(:email => Faker::Internet.email, :password => Devise.friendly_token[0, 20], name: Faker::Name.name, nuid: Random.rand(10000).to_s)
+          User.create(email: Faker::Internet.email, password: Devise.friendly_token[0, 20], name: Faker::Name.name, nuid: Random.rand(10_000).to_s)
         end
 
         get :index, as: :json
@@ -42,7 +42,7 @@ describe UsersController, type: :controller do
 
   describe 'POST #create' do
     it 'creates a user' do
-      post :create, params: { name: Faker::Name.name, nuid: Random.rand(10000).to_s, email: Faker::Internet.email}, as: :json
+      post :create, params: { name: Faker::Name.name, nuid: Random.rand(10_000).to_s, email: Faker::Internet.email }, as: :json
       expect(response).to have_http_status(:success)
       expect(User.count).to eq(1)
       # TODO: test return user id
@@ -50,24 +50,24 @@ describe UsersController, type: :controller do
   end
 
   describe 'PATCH #update' do
-    let(:user) { User.create(:email => Faker::Internet.email, :password => Devise.friendly_token[0, 20], name: 'Old Name', nuid: Random.rand(10000).to_s) }
+    let(:user) { User.create(email: Faker::Internet.email, password: Devise.friendly_token[0, 20], name: 'Old Name', nuid: Random.rand(10_000).to_s) }
 
     it 'updates a user with a new name' do
-      patch :update, params: {id: user.id.to_s, user: {name: 'New Name'}}
+      patch :update, params: { id: user.id.to_s, user: { name: 'New Name' } }
       expect(response).to have_http_status(:success)
       expect(User.find(user.id).name).to eq('New Name')
     end
   end
 
   describe 'DELETE #destroy' do
-    let(:user) { User.create(:email => Faker::Internet.email, :password => Devise.friendly_token[0, 20], name: Faker::Name.name, nuid: Random.rand(10000).to_s) }
+    let(:user) { User.create(email: Faker::Internet.email, password: Devise.friendly_token[0, 20], name: Faker::Name.name, nuid: Random.rand(10_000).to_s) }
 
     context 'when user exists' do
       it 'destroys the user' do
         expect(User.find(user.id)).to eq(user)
         delete :destroy, params: { id: user.id }, as: :json
         expect(response).to have_http_status(:success)
-        expect{User.find(user.id)}.to raise_error(ActiveRecord::RecordNotFound)
+        expect { User.find(user.id) }.to raise_error(ActiveRecord::RecordNotFound)
       end
     end
   end

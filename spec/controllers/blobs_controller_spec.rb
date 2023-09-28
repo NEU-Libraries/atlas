@@ -6,7 +6,7 @@ describe BlobsController, type: :controller do
   render_views
 
   after :each do
-    Atlas.query.find_all_of_model(model: Blob).each do |b| Atlas.persister.delete(resource: b) end
+    Atlas.query.find_all_of_model(model: Blob).each { |b| Atlas.persister.delete(resource: b) }
   end
 
   let(:community) { CommunityCreator.call }

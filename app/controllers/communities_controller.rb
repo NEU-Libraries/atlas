@@ -14,7 +14,7 @@ class CommunitiesController < ApplicationController
 
   def create
     # TODO: XML
-    CommunityCreator.call(parent_id: params[:parent_id])
+    @community = CommunityCreator.call(parent_id: params[:parent_id])
   end
 
   def mods
@@ -23,11 +23,11 @@ class CommunitiesController < ApplicationController
   end
 
   def update
-    community = Community.find(params[:id])
+    @community = Community.find(params[:id])
 
     file = params[:binary]
     path = file.tempfile.path.presence || file.path
-    community.mods_xml = File.read(path)
+    @community.mods_xml = File.read(path)
   end
 
   def destroy

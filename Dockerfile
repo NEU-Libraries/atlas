@@ -22,5 +22,5 @@ WORKDIR /home/atlas/web
 
 RUN echo "IRB.conf[:USE_AUTOCOMPLETE] = false" > /home/atlas/.irbrc
 
-COPY --chown=atlas:atlas . /home/atlas/web
 RUN git config --global --add safe.directory /home/atlas/web
+COPY --chown=atlas:atlas . /home/atlas/web

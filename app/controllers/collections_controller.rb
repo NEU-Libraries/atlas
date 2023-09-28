@@ -14,7 +14,7 @@ class CollectionsController < ApplicationController
 
   def create
     # TODO: XML
-    CollectionCreator.call(parent_id: params[:parent_id])
+    @collection = CollectionCreator.call(parent_id: params[:parent_id])
   end
 
   def mods
@@ -22,11 +22,11 @@ class CollectionsController < ApplicationController
   end
 
   def update
-    collection = Collection.find(params[:id])
+    @collection = Collection.find(params[:id])
 
     file = params[:binary]
     path = file.tempfile.path.presence || file.path
-    collection.mods_xml = File.read(path)
+    @collection.mods_xml = File.read(path)
   end
 
   def destroy

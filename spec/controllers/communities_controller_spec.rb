@@ -71,7 +71,7 @@ describe CommunitiesController, type: :controller do
     let(:community) { CommunityCreator.call }
 
     it 'updates a community with provided XML binary' do
-      patch :update, params: { id: community.noid, binary: Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/work-mods.xml')) }
+      patch :update, params: { id: community.noid, binary: Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/work-mods.xml')) }, as: :json
       expect(response).to have_http_status(:success)
       expect(community.decorate.plain_title).to eq("What's New - How We Respond to Disaster, Episode 1")
       # TODO: - switch to community specific fixture XML

@@ -39,7 +39,7 @@ describe FileSetsController, type: :controller do
 
   describe 'POST #create' do
     it 'creates a FileSet with provided work id as parent' do
-      post :create, params: { work_id: work.noid, classification: Classification.generic.to_s }
+      post :create, params: { work_id: work.noid, classification: Classification.generic.to_s }, as: :json
       expect(response).to have_http_status(:success)
       # TODO: Test id is returned and resolves to resource
     end
@@ -49,7 +49,7 @@ describe FileSetsController, type: :controller do
     let(:file_set) { FileSetCreator.call(work_id: work.noid, classification: Classification.generic) }
 
     it 'updates a work with provided XML binary' do
-      patch :update, params: { id: file_set.noid, binary: Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/work-mods.xml')) }
+      patch :update, params: { id: file_set.noid, binary: Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/work-mods.xml')) }, as: :json
       expect(response).to have_http_status(:success)
       # TODO: - check file set children count
     end

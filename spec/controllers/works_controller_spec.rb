@@ -75,7 +75,7 @@ describe WorksController, type: :controller do
     let(:collection) { CollectionCreator.call(parent_id: community.noid) }
 
     it 'creates a work with provided collection id as parent' do
-      post :create, params: { collection_id: collection.noid }
+      post :create, params: { collection_id: collection.noid }, as: :json
       expect(response).to have_http_status(:success)
       expect(Atlas.query.find_all_of_model(model: Work).count).to eq(1)
       # TODO: Test id is returned and resolves to resource
@@ -88,7 +88,7 @@ describe WorksController, type: :controller do
     let(:work) { WorkCreator.call(parent_id: collection.noid) }
 
     it 'updates a work with provided XML binary' do
-      patch :update, params: { id: work.noid, binary: Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/work-mods.xml')) }
+      patch :update, params: { id: work.noid, binary: Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/work-mods.xml')) }, as: :json
       expect(response).to have_http_status(:success)
       expect(work.decorate.plain_title).to eq("What's New - How We Respond to Disaster, Episode 1")
     end

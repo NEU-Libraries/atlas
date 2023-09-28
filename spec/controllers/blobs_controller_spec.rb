@@ -47,7 +47,7 @@ describe BlobsController, type: :controller do
 
   describe 'POST #create' do
     it 'creates a Blob with provided work id as parent' do
-      post :create, params: { work_id: work.noid, binary: Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/example.png')) }
+      post :create, params: { work_id: work.noid, binary: Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/example.png')) }, as: :json
       expect(response).to have_http_status(:success)
       # TODO: Test id is returned and resolves to resource
     end
@@ -57,7 +57,7 @@ describe BlobsController, type: :controller do
     let(:blob) { BlobCreator.call(path: Rails.root.join('spec/fixtures/files/example.png').to_s, work_id: work.noid) }
 
     it 'updates a work with provided XML binary' do
-      patch :update, params: { id: blob.noid, binary: Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/work-mods.xml')) }
+      patch :update, params: { id: blob.noid, binary: Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/work-mods.xml')) }, as: :json
       expect(response).to have_http_status(:success)
       expect(blob.versions).to eq(2)
     end

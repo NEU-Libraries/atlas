@@ -1,15 +1,15 @@
 development:
-  metadata_adapter: postgres
+  metadata_adapter: composite_persister
   storage_adapter: disk
 
 staging:
-  metadata_adapter: postgres
+  metadata_adapter: composite_persister
   storage_adapter: disk
 
 test:
-  metadata_adapter: memory
+  metadata_adapter: composite_persister
   storage_adapter: test_disk
 
 production:
-  metadata_adapter: postgres
+  metadata_adapter: composite_persister
   storage_adapter: disk

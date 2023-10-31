@@ -26,6 +26,28 @@ Valkyrie::MetadataAdapter.register(
   :memory
 )
 
+Valkyrie::MetadataAdapter.register(
+    Valkyrie::Persistence::Solr::MetadataAdapter.new(
+      connection: Blacklight.default_index.connection,
+      resource_indexer: Valkyrie::Persistence::Solr::CompositeIndexer.new(
+        Valkyrie::Indexers::AccessControlsIndexer,
+        MODSIndexer
+      )
+    ),
+    :index_solr
+  )
+
+  Valkyrie::MetadataAdapter.register(
+    Valkyrie::AdapterContainer.new(
+      persister: Valkyrie::Persistence::CompositePersister.new(
+        Valkyrie::MetadataAdapter.find(:postgres).persister,
+        Valkyrie::MetadataAdapter.find(:index_solr).persister
+      ),
+      query_service: Valkyrie::MetadataAdapter.find(:postgres).query_service
+    ),
+    :composite_persister
+  )
+
 module Atlas
   def self.persister
     Valkyrie.config.metadata_adapter.persister

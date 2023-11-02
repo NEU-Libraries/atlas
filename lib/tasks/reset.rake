@@ -18,7 +18,8 @@ namespace :reset do
 
     DatabaseCleaner.strategy = :deletion
     DatabaseCleaner.clean
-    Blacklight.default_index.connection.delete_by_query '*:*'
-    Blacklight.default_index.connection.commit
+    c = RSolr.connect(:url => 'http://solr:8983/solr/blacklight-core')
+    c.delete_by_query '*:*'
+    c.commit
   end
 end

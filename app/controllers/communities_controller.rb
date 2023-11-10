@@ -22,12 +22,17 @@ class CommunitiesController < ApplicationController
     @community = Community.find(params[:id]).decorate
   end
 
+  def children
+    @children = Community.find(params[:id]).filtered_children
+  end
+
   def update
-    @community = Community.find(params[:id])
+    community = Community.find(params[:id])
 
     file = params[:binary]
     path = file.tempfile.path.presence || file.path
-    @community.mods_xml = File.read(path)
+    community.mods_xml = File.read(path)
+    @community = Atlas.persister.save(resource: community)
   end
 
   def destroy

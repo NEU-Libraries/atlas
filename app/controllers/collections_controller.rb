@@ -21,12 +21,17 @@ class CollectionsController < ApplicationController
     @collection = Collection.find(params[:id]).decorate
   end
 
+  def children
+    @children = Community.find(params[:id]).filtered_children
+  end
+
   def update
-    @collection = Collection.find(params[:id])
+    collection = Collection.find(params[:id])
 
     file = params[:binary]
     path = file.tempfile.path.presence || file.path
-    @collection.mods_xml = File.read(path)
+    collection.mods_xml = File.read(path)
+    @collection = Atlas.persister.save(resource: collection)
   end
 
   def destroy

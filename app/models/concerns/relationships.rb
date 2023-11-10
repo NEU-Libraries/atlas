@@ -31,6 +31,10 @@ module Relationships
     result.first
   end
 
+  def ancestors
+    # TODO: code loop for parent to populate breadcrumbs
+  end
+
   def children
     result = []
     result.concat Valkyrie.config.metadata_adapter.query_service.find_inverse_references_by(

@@ -40,9 +40,12 @@ jobs:
         docker-compose exec -T web bundle exec rake db:migrate
     - name: Wait until available
       run: dockerize -wait http://localhost:3000 -timeout 1m
+    - uses: azure/container-actions/docker-securelogin@master
+      with:
+        username: '${{ secrets.DOCKERHUB_USERNAME }}'
+        password: '${{ secrets.DOCKERHUB_PASSWORD }}'
     - name: Push the Docker image
       run: |
-        echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
         docker push nakatomi/atlas_web:$(cat .version)
     # - name: Run tests
     #   run: |

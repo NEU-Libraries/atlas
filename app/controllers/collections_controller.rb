@@ -22,7 +22,11 @@ class CollectionsController < ApplicationController
   end
 
   def children
-    @children = Community.find(params[:id]).filtered_children
+    @children = Collection.find(params[:id]).filtered_children
+  end
+
+  def ancestors
+    @ancestors = Collection.find(params[:id]).ancestors
   end
 
   def update

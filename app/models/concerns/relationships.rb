@@ -31,8 +31,19 @@ module Relationships
     result.first
   end
 
-  def ancestors
+  def ancestors(resource = nil, pids = [])
     # TODO: code loop for parent to populate breadcrumbs
+    if !resource.nil?
+      p = resource.parent
+    else
+      p = parent
+    end
+    if !p.nil?
+      pids << p.noid
+      ancestors(p, pids)
+    else
+      return pids.reverse
+    end
   end
 
   def children
@@ -45,6 +56,6 @@ module Relationships
   end
 
   def filtered_children
-    children.select { |c| c.is_a?(Collection) || c.is_a?(Work) }.map(&:id).map(&:to_s).to_a
+    children.select { |c| c.is_a?(Collection) || c.is_a?(Work) }.map(&:noid).map(&:to_s).to_a
   end
 end

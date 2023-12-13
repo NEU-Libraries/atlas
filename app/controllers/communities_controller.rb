@@ -26,6 +26,10 @@ class CommunitiesController < ApplicationController
     @children = Community.find(params[:id]).filtered_children
   end
 
+  def ancestors
+    @ancestors = Community.find(params[:id]).ancestors
+  end
+
   def update
     community = Community.find(params[:id])
 

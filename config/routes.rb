@@ -17,9 +17,11 @@ Rails.application.routes.draw do
     # Metadata
     get '/communities/:id/mods', to: 'communities#mods', as: 'community_mods'
     get '/communities/:id/children', to: 'communities#children', as: 'community_children'
+    get '/communities/:id/ancestors', to: 'communities#ancestors', as: 'community_ancestors'
 
     get '/collections/:id/mods', to: 'collections#mods', as: 'collection_mods'
     get '/collections/:id/children', to: 'collections#children', as: 'collection_children'
+    get '/collections/:id/ancestors', to: 'collections#ancestors', as: 'collection_ancestors'
 
     get '/works/:id/mods', to: 'works#mods', as: 'work_mods'
   end

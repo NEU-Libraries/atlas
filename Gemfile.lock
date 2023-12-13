@@ -176,7 +176,7 @@ GEM
       activesupport (>= 5.0.0)
     jmespath (1.6.2)
     json (2.6.3)
-    json-canonicalization (0.3.2)
+    json-canonicalization (0.4.0)
     json-ld (3.2.5)
       htmlentities (~> 4.3)
       json-canonicalization (~> 0.3, >= 0.3.2)

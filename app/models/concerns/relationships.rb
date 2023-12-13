@@ -39,7 +39,7 @@ module Relationships
       p = parent
     end
     if !p.nil?
-      pids << p.noid
+      pids << [p.noid, p.class.to_s]
       ancestors(p, pids)
     else
       return pids.reverse

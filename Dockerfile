@@ -2,8 +2,9 @@ FROM ruby:3.0-slim
 # update the repository sources list
 # and install dependencies
 RUN apt-get update \
-    && apt-get install -y nodejs curl git build-essential libpq-dev libmagic-dev libreoffice \
-    && apt-get -y autoclean
+    && apt-get install -y nodejs curl git build-essential libpq-dev libmagic-dev \
+    && apt-get -y autoremove \
+    && apt-get -y clean
 
 RUN curl -L https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 > /usr/local/bin/cc-test-reporter
 RUN chmod +x /usr/local/bin/cc-test-reporter

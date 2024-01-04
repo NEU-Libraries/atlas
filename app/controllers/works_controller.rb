@@ -23,10 +23,11 @@ class WorksController < ApplicationController
 
   def update
     # curl -F 'id=qrfj8zz' -F 'binary=@test.xml' http://localhost:3000/works/
-    @work = Work.find(params[:id])
+    work = Work.find(params[:id])
     file = params[:binary]
     path = file.tempfile.path.presence || file.path
-    @work.mods_xml = File.read(path)
+    work.mods_xml = File.read(path)
+    @work = Atlas.persister.save(resource: work)
   end
 
   def destroy

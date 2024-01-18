@@ -31,16 +31,32 @@ class CommunitiesController < ApplicationController
   end
 
   def update
-    community = Community.find(params[:id])
+    @community = Community.find(params[:id])
 
-    file = params[:binary]
-    path = file.tempfile.path.presence || file.path
-    community.mods_xml = File.read(path)
-    @community = Atlas.persister.save(resource: community)
+    if params[:binary].present?
+      binary_update
+    elsif params[:metadata].present?
+      metadata_update
+    end
   end
 
   def destroy
     # TODO: restrict to admin user
     Atlas.persister.delete(resource: Community.find(params[:id]))
   end
+
+  private
+
+    def binary_update
+      file = params[:binary]
+      path = file.tempfile.path.presence || file.path
+      @community.mods_xml = File.read(path)
+      @community = Atlas.persister.save(resource: @community)
+    end
+
+    def metadata_update
+      @community.plain_title = params[:metadata]['title']
+      @community.plain_description = params[:metadata]['description']
+      @community = Atlas.persister.save(resource: @community)
+    end
 end

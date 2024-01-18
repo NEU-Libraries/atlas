@@ -30,16 +30,32 @@ class CollectionsController < ApplicationController
   end
 
   def update
-    collection = Collection.find(params[:id])
+    @collection = Collection.find(params[:id])
 
-    file = params[:binary]
-    path = file.tempfile.path.presence || file.path
-    collection.mods_xml = File.read(path)
-    @collection = Atlas.persister.save(resource: collection)
+    if params[:binary].present?
+      binary_update
+    elsif params[:metadata].present?
+      metadata_update
+    end
   end
 
   def destroy
     # TODO: restrict to admin user
     Atlas.persister.delete(resource: Collection.find(params[:id]))
   end
+
+  private
+
+    def binary_update
+      file = params[:binary]
+      path = file.tempfile.path.presence || file.path
+      @collection.mods_xml = File.read(path)
+      @collection = Atlas.persister.save(resource: @collection)
+    end
+
+    def metadata_update
+      @collection.plain_title = params[:metadata]['title']
+      @collection.plain_description = params[:metadata]['description']
+      @collection = Atlas.persister.save(resource: @collection)
+    end
 end

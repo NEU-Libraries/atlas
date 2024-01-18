@@ -56,6 +56,6 @@ module Relationships
   end
 
   def filtered_children
-    children.select { |c| c.is_a?(Collection) || c.is_a?(Work) }.map(&:noid).map(&:to_s).to_a
+    children.select { |c| c.is_a?(Community) || c.is_a?(Collection) || c.is_a?(Work) }.map(&:noid).map(&:to_s).to_a
   end
 end

@@ -2,6 +2,7 @@
 
 class Resource < Valkyrie::Resource
   include Relationships
+  include Modsable
 
   attribute :alternate_ids,
             Valkyrie::Types::Set.of(Valkyrie::Types::ID).meta(ordered: true).default {

@@ -14,6 +14,10 @@ Rails.application.routes.draw do
     resources :file_sets
     resources :files, :controller => :blobs
 
+    # Generics
+    get '/resources/:id', to: 'resources#show'
+    post '/resources/preview', to: 'resources#preview', defaults: { format: 'html' }
+
     # Metadata
     get '/communities/:id/mods', to: 'communities#mods', as: 'community_mods'
     get '/communities/:id/children', to: 'communities#children', as: 'community_children'

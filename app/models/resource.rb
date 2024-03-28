@@ -9,6 +9,9 @@ class Resource < Valkyrie::Resource
               [Valkyrie::ID.new(Minter.mint)]
             }
 
+  # This should be a IIIF url
+  attribute :thumbnail, Valkyrie::Types::String
+
   enable_optimistic_locking
 
   def noid

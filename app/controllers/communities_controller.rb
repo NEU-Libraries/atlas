@@ -57,6 +57,7 @@ class CommunitiesController < ApplicationController
     def metadata_update
       @community.plain_title = params[:metadata]['title']
       @community.plain_description = params[:metadata]['description']
+      @community.safe_thumbnail = params[:metadata]['thumbnail']
       @community = Atlas.persister.save(resource: @community)
     end
 end

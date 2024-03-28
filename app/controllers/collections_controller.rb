@@ -56,6 +56,7 @@ class CollectionsController < ApplicationController
     def metadata_update
       @collection.plain_title = params[:metadata]['title']
       @collection.plain_description = params[:metadata]['description']
+      @collection.safe_thumbnail = params[:metadata]['thumbnail']
       @collection = Atlas.persister.save(resource: @collection)
     end
 end

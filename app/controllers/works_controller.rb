@@ -22,16 +22,34 @@ class WorksController < ApplicationController
   end
 
   def update
-    # curl -F 'id=qrfj8zz' -F 'binary=@test.xml' http://localhost:3000/works/
-    work = Work.find(params[:id])
-    file = params[:binary]
-    path = file.tempfile.path.presence || file.path
-    work.mods_xml = File.read(path)
-    @work = Atlas.persister.save(resource: work)
+    @work = Work.find(params[:id])
+
+    if params[:binary].present?
+      binary_update
+    elsif params[:metadata].present?
+      metadata_update
+    end
   end
 
   def destroy
     # TODO: restrict to admin user
     Atlas.persister.delete(resource: Work.find(params[:id]))
   end
+
+  private
+
+    def binary_update
+      # curl -F 'id=qrfj8zz' -F 'binary=@test.xml' http://localhost:3000/works/
+      file = params[:binary]
+      path = file.tempfile.path.presence || file.path
+      @work.mods_xml = File.read(path)
+      @work = Atlas.persister.save(resource: @work)
+    end
+
+    def metadata_update
+      @work.plain_title = params[:metadata]['title']
+      @work.plain_description = params[:metadata]['description']
+      @work.safe_thumbnail = params[:metadata]['thumbnail']
+      @work = Atlas.persister.save(resource: @work)
+    end
 end

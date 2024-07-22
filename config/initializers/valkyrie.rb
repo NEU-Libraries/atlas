@@ -39,6 +39,17 @@ Rails.application.config.to_prepare do
     )
 
     Valkyrie::MetadataAdapter.register(
+      Valkyrie::Persistence::Solr::MetadataAdapter.new(
+        connection:  RSolr.connect(:url => 'http://solr:8983/solr/blacklight-test'),
+        resource_indexer: Valkyrie::Persistence::Solr::CompositeIndexer.new(
+          Valkyrie::Indexers::AccessControlsIndexer,
+          MODSIndexer
+        )
+      ),
+      :index_solr
+    )
+
+    Valkyrie::MetadataAdapter.register(
       Valkyrie::AdapterContainer.new(
         persister: Valkyrie::Persistence::CompositePersister.new(
           Valkyrie::MetadataAdapter.find(:postgres).persister,
@@ -47,6 +58,17 @@ Rails.application.config.to_prepare do
         query_service: Valkyrie::MetadataAdapter.find(:postgres).query_service
       ),
       :composite_persister
+    )
+
+    Valkyrie::MetadataAdapter.register(
+      Valkyrie::AdapterContainer.new(
+        persister: Valkyrie::Persistence::CompositePersister.new(
+          Valkyrie::MetadataAdapter.find(:postgres).persister,
+          Valkyrie::MetadataAdapter.find(:test_solr).persister
+        ),
+        query_service: Valkyrie::MetadataAdapter.find(:postgres).query_service
+      ),
+      :test_composite_persister
     )
 
   module Atlas

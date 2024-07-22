@@ -46,7 +46,7 @@ Rails.application.config.to_prepare do
           MODSIndexer
         )
       ),
-      :index_solr
+      :test_solr
     )
 
     Valkyrie::MetadataAdapter.register(

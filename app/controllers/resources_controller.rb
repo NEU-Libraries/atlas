@@ -15,5 +15,6 @@ class ResourcesController < ApplicationController
     @resource.mods_json = File.read(path)
     @resource.decorate
     # Need to figure out how to clean up any residual objects
+    respond_to :html
   end
 end

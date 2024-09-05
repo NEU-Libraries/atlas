@@ -47,9 +47,9 @@ class WorksController < ApplicationController
     end
 
     def metadata_update
-      @work.plain_title = params[:metadata]['title']
-      @work.plain_description = params[:metadata]['description']
-      @work.safe_thumbnail = params[:metadata]['thumbnail']
+      @work.plain_title = params[:metadata]['title'] if params[:metadata]['title'].present?
+      @work.plain_description = params[:metadata]['description'] if params[:metadata]['description'].present?
+      @work.safe_thumbnail = params[:metadata]['thumbnail'] if params[:metadata]['thumbnail'].present?
       @work = Atlas.persister.save(resource: @work)
     end
 end

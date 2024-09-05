@@ -15,7 +15,7 @@ Lint/MissingSuper:
 Metrics/ClassLength:
   Max: 120
 Metrics/AbcSize:
-  Max: 20
+  Max: 30
   Exclude:
     - 'app/decorators/*'
     - 'app/lib/mods_decoration.rb'

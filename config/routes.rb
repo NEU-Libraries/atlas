@@ -28,5 +28,8 @@ Rails.application.routes.draw do
     get '/collections/:id/ancestors', to: 'collections#ancestors', as: 'collection_ancestors'
 
     get '/works/:id/mods', to: 'works#mods', as: 'work_mods'
+
+    # Housekeeping
+    get '/reset', to: 'maintenance#reset', as: 'reset'
   end
 end

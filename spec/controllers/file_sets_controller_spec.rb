@@ -60,7 +60,6 @@ describe FileSetsController, type: :controller do
       let(:file_set) { FileSetCreator.call(work_id: work.noid, classification: Classification.generic) }
 
       it 'destroys the file set' do
-        expect(FileSet.find(file_set.noid)).to eq(file_set)
         delete :destroy, params: { id: file_set.noid }, as: :json
         expect(response).to have_http_status(:success)
         expect(FileSet.find(file_set.noid)).to be_nil

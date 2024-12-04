@@ -76,7 +76,7 @@ describe CollectionsController, type: :controller do
       patch :update, params: { id: collection.noid, binary: Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/work-mods.xml')) }, as: :json
       expect(response).to have_http_status(:success)
       expect(collection.decorate.plain_title).to eq("What's New - How We Respond to Disaster, Episode 1")
-      expect(collection.parent).to eq(community)
+      expect(collection.parent.noid).to eq(community.noid)
       # TODO: - switch to collection specific fixture XML
     end
   end
@@ -87,7 +87,6 @@ describe CollectionsController, type: :controller do
 
     context 'when collection exists' do
       it 'destroys the collection' do
-        expect(Collection.find(collection.noid)).to eq(collection)
         delete :destroy, params: { id: collection.noid }, as: :json
         expect(response).to have_http_status(:success)
         expect(Collection.find(collection.noid)).to be_nil

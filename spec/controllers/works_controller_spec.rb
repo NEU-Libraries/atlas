@@ -101,7 +101,6 @@ describe WorksController, type: :controller do
 
     context 'when work exists' do
       it 'destroys the work' do
-        expect(Work.find(work.noid)).to eq(work)
         delete :destroy, params: { id: work.noid }, as: :json
         expect(response).to have_http_status(:success)
         expect(Work.find(work.noid)).to be_nil

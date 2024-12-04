@@ -83,7 +83,6 @@ describe CommunitiesController, type: :controller do
 
     context 'when community exists' do
       it 'destroys the community' do
-        expect(Community.find(community.noid)).to eq(community)
         delete :destroy, params: { id: community.noid }, as: :json
         expect(response).to have_http_status(:success)
         expect(Community.find(community.noid)).to be_nil

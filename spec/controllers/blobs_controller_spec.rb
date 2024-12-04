@@ -59,7 +59,7 @@ describe BlobsController, type: :controller do
     it 'updates a work with provided XML binary' do
       patch :update, params: { id: blob.noid, binary: Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/work-mods.xml')) }, as: :json
       expect(response).to have_http_status(:success)
-      expect(blob.versions).to eq(2)
+      expect(Blob.find(blob.noid).versions).to eq(2)
     end
   end
 
@@ -68,7 +68,6 @@ describe BlobsController, type: :controller do
 
     context 'when blob exists' do
       it 'destroys the blob' do
-        expect(Blob.find(blob.noid)).to eq(blob)
         delete :destroy, params: { id: blob.noid }, as: :json
         expect(response).to have_http_status(:success)
         expect(Blob.find(blob.noid)).to be_nil

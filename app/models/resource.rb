@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 class Resource < Valkyrie::Resource
+  include Valkyrie::Resource::AccessControls
   include Relationships
   include Modsable
 

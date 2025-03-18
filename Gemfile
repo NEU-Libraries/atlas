@@ -42,6 +42,7 @@ gem 'bootsnap', require: false
 gem 'active_decorator'
 gem 'apipie-rails'
 gem 'attr_json'
+gem 'cancancan'
 gem 'devise'
 gem 'devise-jwt'
 gem 'enumerations'

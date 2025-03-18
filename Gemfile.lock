@@ -97,6 +97,7 @@ GEM
     bootsnap (1.16.0)
       msgpack (~> 1.2)
     builder (3.2.4)
+    cancancan (3.6.1)
     concurrent-ruby (1.2.2)
     content_disposition (1.0.0)
     crass (1.0.6)
@@ -397,6 +398,7 @@ DEPENDENCIES
   apipie-rails
   attr_json
   bootsnap
+  cancancan
   database_cleaner
   debug
   devise

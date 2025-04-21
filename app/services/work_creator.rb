@@ -19,6 +19,7 @@ class WorkCreator < ApplicationService
       FileSetCreator.call(work_id: work.id, classification: Classification.descriptive_metadata)
 
       work.mods_xml = @mods_xml
+      work.permissions = work.parent.permissions # TODO: need to work in Sentinels eventually
       meta.persister.save(resource: work)
     end
 end

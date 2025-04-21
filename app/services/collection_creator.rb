@@ -19,6 +19,7 @@ class CollectionCreator < ApplicationService
       FileSetCreator.call(work_id: collection.id, classification: Classification.descriptive_metadata)
 
       collection.mods_xml = @mods_xml
+      collection.permissions = collection.parent.permissions # TODO: need to work in Sentinels eventually
       meta.persister.save(resource: collection)
     end
 end

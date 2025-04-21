@@ -62,6 +62,7 @@ class CommunitiesController < ApplicationController
       @community.plain_title = params[:metadata]['title'] if params[:metadata]['title'].present?
       @community.plain_description = params[:metadata]['description'] if params[:metadata]['description'].present?
       @community.safe_thumbnail = params[:metadata]['thumbnail'] if params[:metadata]['thumbnail'].present?
+      @community.permissions = params[:metadata]['permissions'] if params[:metadata]['permissions'].present?
       @community = Atlas.persister.save(resource: @community)
     end
 end

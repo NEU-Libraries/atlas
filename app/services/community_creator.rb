@@ -19,6 +19,11 @@ class CommunityCreator < ApplicationService
       FileSetCreator.call(work_id: community.id, classification: Classification.descriptive_metadata)
 
       community.mods_xml = @mods_xml
+
+      if !community.parent.blank?
+        community.permissions = community.parent.permissions # TODO: need to work in Sentinels eventually
+      end
+
       meta.persister.save(resource: community)
     end
 end

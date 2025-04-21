@@ -23,6 +23,9 @@ class FileSetCreator < ApplicationService
         end
       ]
       fs.a_member_of = @work_id
+      fs = meta.persister.save(resource: fs)
+
+      fs.permissions = fs.parent.permissions # TODO: need to work in Sentinels eventually
       meta.persister.save(resource: fs)
     end
 end

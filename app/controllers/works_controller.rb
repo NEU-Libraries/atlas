@@ -54,6 +54,8 @@ class WorksController < ApplicationController
       @work.plain_title = params[:metadata]['title'] if params[:metadata]['title'].present?
       @work.plain_description = params[:metadata]['description'] if params[:metadata]['description'].present?
       @work.safe_thumbnail = params[:metadata]['thumbnail'] if params[:metadata]['thumbnail'].present?
+      # permissions
+      @work.permissions = params[:metadata]['permissions'] if params[:metadata]['permissions'].present?
       @work = Atlas.persister.save(resource: @work)
     end
 end

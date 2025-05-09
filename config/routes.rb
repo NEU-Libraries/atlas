@@ -36,5 +36,8 @@ Rails.application.routes.draw do
 
     # Housekeeping
     get '/reset', to: 'maintenance#reset', as: 'reset'
+
+    # Cerberus login
+    post '/token', to: 'admin#token', as: 'token'
   end
 end

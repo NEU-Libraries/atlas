@@ -2,8 +2,12 @@
 
 class AdminController < ApplicationController
   def token
-    # check against secure value to safelist cerberus
+    # TODO: check against secure value to safelist cerberus
     # for a given nuid value return a jti value
-    render :json => Warden::JWTAuth::UserEncoder.new.call(User.find_by_nuid(params[:nuid]), :users, nil)[1]["jti"]
+    user = User.find_by_nuid(params[:nuid])
+    if !user.blank?
+      result = {:token => Warden::JWTAuth::UserEncoder.new.call(user, :users, nil)[1]["jti"]}
+      render :json => result.to_json
+    end
   end
 end

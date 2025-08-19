@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.0].define(version: 2024_11_26_153528) do
+ActiveRecord::Schema[7.0].define(version: 2025_08_18_152806) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
   enable_extension "uuid-ossp"
@@ -56,6 +56,7 @@ ActiveRecord::Schema[7.0].define(version: 2024_11_26_153528) do
     t.string "name"
     t.string "nuid"
     t.string "jti", null: false
+    t.text "groups"
     t.index ["email"], name: "index_users_on_email", unique: true
     t.index ["jti"], name: "index_users_on_jti", unique: true
     t.index ["reset_password_token"], name: "index_users_on_reset_password_token", unique: true

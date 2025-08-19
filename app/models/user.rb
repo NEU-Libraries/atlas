@@ -9,6 +9,8 @@ class User < ApplicationRecord
          :recoverable, :rememberable, :validatable,
          :jwt_authenticatable, jwt_revocation_strategy: self
 
+  serialize(:groups, Array)
+
   def first_name
     parsed_name.given
   end
@@ -19,5 +21,21 @@ class User < ApplicationRecord
 
   def parsed_name
     Namae.parse(name)[0]
+  end
+
+  def add_group(group)
+    gl = self.groups.blank? ? [] : self.groups
+    gl << group
+    self.groups = gl.uniq
+    self.save!
+  end
+
+  def delete_group(group)
+    if !self.groups.blank?
+      gl = self.groups
+      gl.delete(group)
+      self.groups = gl
+      self.save!
+    end
   end
 end

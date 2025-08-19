@@ -6,7 +6,7 @@ class AdminController < ApplicationController
     # for a given nuid value return a jti value
     user = User.find_by_nuid(params[:nuid])
     if !user.blank?
-      result = {:token => Warden::JWTAuth::UserEncoder.new.call(user, :users, nil)[1]["jti"]}
+      result = {:token => Warden::JWTAuth::UserEncoder.new.call(user, :user, nil)[0]}
       render :json => result.to_json
     end
   end

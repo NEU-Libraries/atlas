@@ -30,3 +30,5 @@
 
 # Simplecov
 /coverage/
+
+/config/credentials/development.key

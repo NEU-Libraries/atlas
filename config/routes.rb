@@ -7,7 +7,7 @@ Rails.application.routes.draw do
   devise_for :users, controllers: {
     sessions: "users/sessions",
     registrations: "users/registrations",
-    groups: "users/groups"
+    tokens: "users/tokens"
   }
 
   # Defines the root path route ("/")
@@ -38,10 +38,10 @@ Rails.application.routes.draw do
     # Housekeeping
     get '/reset', to: 'maintenance#reset', as: 'reset'
 
-    # Cerberus login
-    post '/token', to: 'admin#token', as: 'token'
+    # NUID
+    post '/nuid', to: 'users/tokens#token', as: 'token'
 
     # User details
-    post '/users/:id/groups', to: 'users/groups#groups', as: 'groups'
+    post '/token', to: 'users/tokens#show', as: 'user_show'
   end
 end

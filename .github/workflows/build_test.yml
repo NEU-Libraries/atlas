@@ -48,6 +48,4 @@ jobs:
         docker push nakatomi/atlas_web:$(cat .version)
     - name: Run tests
       run: |
-        docker compose exec -T web cc-test-reporter before-build
         docker compose exec -T web bundle exec rake
-        docker compose exec -T web cc-test-reporter after-build --coverage-input-type simplecov --exit-code $?

@@ -1,8 +1,7 @@
 # frozen_string_literal: true
 
-class Users::TokensController < ActionController::API
-  include ActionController::MimeResponds
-  respond_to :json
+class Users::TokensController < ApplicationController
+  before_action :require_auth
 
   def show
     user = Warden::JWTAuth::UserDecoder.new.call(params[:token], :user, nil)
@@ -10,7 +9,6 @@ class Users::TokensController < ActionController::API
   end
 
   def token
-    # TODO: check against secure value to safelist cerberus
     # for a given nuid value return a jti value
     user = User.find_by_nuid(params[:nuid])
     if !user.blank?
@@ -18,4 +16,5 @@ class Users::TokensController < ActionController::API
       render :json => result.to_json
     end
   end
+
 end

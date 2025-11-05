@@ -39,9 +39,9 @@ Rails.application.routes.draw do
     get '/reset', to: 'maintenance#reset', as: 'reset'
 
     # NUID
-    post '/nuid', to: 'users/tokens#token', as: 'token'
+    post '/nuid', to: 'users/tokens#nuid', as: 'nuid'
 
     # User details
-    post '/token', to: 'users/tokens#show', as: 'user_show'
+    get '/user', to: 'users/tokens#show', as: 'user_show'
   end
 end

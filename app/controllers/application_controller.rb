@@ -8,22 +8,34 @@ class ApplicationController < ActionController::API
 
   private
 
-    def auth_token
-      pattern = /^Bearer /
-      header  = request.headers['Authorization']
-      token = header.gsub(pattern, '') if header && header.match(pattern)
+    def parse_headers
+      token_pattern = /^Bearer /
+      token_header  = request.headers['Authorization']
+      @token = token_header.gsub(token_pattern, '') if token_header && token_header.match(token_pattern)
+
+      nuid_pattern = /^NUID /
+      nuid_header  = request.headers['User']
+      @nuid = token_header.gsub(nuid_pattern, '') if nuid_header && nuid_header.match(nuid_pattern)
     end
 
     def require_auth
-      token = auth_token
+      parse_headers
 
-      if !token.blank? && !Rails.application.credentials.cerberus_token.blank?
-        if token == Rails.application.credentials.cerberus_token
-          system_sign_in
-          return
+      if !@token.blank? && !Rails.application.credentials.cerberus_token.blank?
+        if @token == Rails.application.credentials.cerberus_token
+          if !@nuid.blank?
+            user = User.find_by_nuid(@nuid)
+            if !user.blank?
+              @current_user = user
+              return
+            end
+          else
+            system_sign_in
+            return
+          end
         else
           # see if it's actually JWT
-          user = Warden::JWTAuth::UserDecoder.new.call(token, :user, nil)
+          user = Warden::JWTAuth::UserDecoder.new.call(@token, :user, nil)
           if !user.blank?
             @current_user = user
             return

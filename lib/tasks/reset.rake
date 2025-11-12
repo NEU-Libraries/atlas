@@ -12,7 +12,10 @@ namespace :reset do
     WorkCreator.call(parent_id: collection.id, mods_xml: File.read('/home/atlas/web/spec/fixtures/files/work-mods.xml'))
 
     # create cerberus system user
-    User.create(password:Devise.friendly_token[0,20], name: "User, System", nuid:"000000000", email:"drsadmin@northeastern.edu")
+    User.create(password:Devise.friendly_token[0,20], name: "User, System", nuid:"000000000", email:"admin@northeastern.edu", role: :system)
+
+    # create guest system user
+    User.create(password:Devise.friendly_token[0,20], name: "User, Guest", nuid:"000000001", email:"guest@northeastern.edu", role: :guest)
   end
 
   desc 'Clean solr and dbs'

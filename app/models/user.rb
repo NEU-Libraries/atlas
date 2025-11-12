@@ -11,6 +11,13 @@ class User < ApplicationRecord
 
   serialize(:groups, Array)
 
+  enum role: {
+    guest: 0,
+    standard: 1,
+    admin: 2,
+    system: 3
+  }
+
   def first_name
     parsed_name.given
   end

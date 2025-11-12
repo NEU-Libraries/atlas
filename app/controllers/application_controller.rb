@@ -19,18 +19,31 @@ class ApplicationController < ActionController::API
 
       if !token.blank? && !Rails.application.credentials.cerberus_token.blank?
         if token == Rails.application.credentials.cerberus_token
-          @current_user = User.find_by_nuid("000000000")
-          return true
+          system_sign_in
+          return
         else
           # see if it's actually JWT
           user = Warden::JWTAuth::UserDecoder.new.call(token, :user, nil)
           if !user.blank?
             @current_user = user
-            return true
+            return
           end
         end
       end
 
-      render json: {}, status: :forbidden
+      # render json: {}, status: :forbidden
+      # if not, make current_user a shell user with zero permissions
+      # this will allow current_user to not nil out, and for permission checking to work
+      # everywhere as intended
+      guest_sign_in
+    end
+
+    def system_sign_in
+      # TODO - environment protection: in prod, restrict to IP address
+      @current_user = User.find_by_role(:system) # only one should exist
+    end
+
+    def guest_sign_in
+      @current_user = User.find_by_role(:guest) # only one should exist
     end
 end

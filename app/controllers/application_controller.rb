@@ -15,7 +15,7 @@ class ApplicationController < ActionController::API
 
       nuid_pattern = /^NUID /
       nuid_header  = request.headers['User']
-      @nuid = token_header.gsub(nuid_pattern, '') if nuid_header && nuid_header.match(nuid_pattern)
+      @nuid = nuid_header.gsub(nuid_pattern, '') if nuid_header && nuid_header.match(nuid_pattern)
     end
 
     def require_auth

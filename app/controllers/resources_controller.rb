@@ -17,4 +17,8 @@ class ResourcesController < ApplicationController
     # Need to figure out how to clean up any residual objects
     respond_to :html
   end
+
+  def permissions
+    @resource = Resource.find(params[:id])
+  end
 end

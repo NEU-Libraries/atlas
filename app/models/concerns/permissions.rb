@@ -41,6 +41,7 @@ module Permissions
 
   def permissions
     result = Hash.new
+    result[:embargo] = self.embargo_release_date.to_s
     result[:depositor] = self.edit_users
     result[:read] = self.read_groups
     result[:edit] = self.edit_groups
@@ -51,6 +52,7 @@ module Permissions
   def permissions=(hsh)
     # Need to allow for copying another Resource's permissions
     # Heritability, and sentinels down the line
+    self.embargo_release_date = DateTime.parse(hsh[:embargo])
     self.edit_users = hsh[:depositor]
     self.read_groups = hsh[:read]
     self.edit_groups = hsh[:edit]

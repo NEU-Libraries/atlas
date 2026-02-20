@@ -41,7 +41,7 @@ module Permissions
 
   def permissions
     result = Hash.new
-    result[:embargo] = self.embargo_release_date.to_s
+    result[:embargo] = self.embargo_release_date&.to_s
     result[:depositor] = self.edit_users
     result[:read] = self.read_groups
     result[:edit] = self.edit_groups

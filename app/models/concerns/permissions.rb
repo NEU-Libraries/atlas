@@ -3,6 +3,18 @@
 module Permissions
   extend ActiveSupport::Concern
 
+  included do
+    attribute :embargo_release_date, Valkyrie::Types::DateTime.optional
+  end
+
+  def embargoed?
+    # is embargo_release_date
+    return false unless embargo_release_date.present?
+
+    # if it's set, has it passed >, < etc.
+    embargo_release_date > DateTime.now
+  end
+
   def depositor=(nuid)
     self.edit_users = [nuid]
   end

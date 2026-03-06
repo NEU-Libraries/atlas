@@ -52,7 +52,7 @@ module Permissions
   def permissions=(hsh)
     # Need to allow for copying another Resource's permissions
     # Heritability, and sentinels down the line
-    if !hsh[:embargo].blank?
+    if !hsh[:embargo].nil?
       self.embargo_release_date = DateTime.parse(hsh[:embargo])
     end
     self.edit_users = hsh[:depositor]

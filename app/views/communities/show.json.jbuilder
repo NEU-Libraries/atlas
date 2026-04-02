@@ -2,6 +2,7 @@
 
 json.community do
   json.id @community.noid
+  json.valkyrie_id @community.id.to_s
   json.ancestors @community.ancestors
   json.thumbnail @community.thumbnail
   json.title @community.plain_title

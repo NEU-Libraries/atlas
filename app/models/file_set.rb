@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 class FileSet < Resource
-  attribute :type, Valkyrie::Types::String
+  attribute :type, Valkyrie::Types::String # no default - comes from assignment
   attribute :member_ids, Valkyrie::Types::Set.of(Valkyrie::Types::ID)
   attribute :a_member_of, Valkyrie::Types::ID
 

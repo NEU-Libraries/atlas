@@ -17,5 +17,7 @@ class Classification < Enumerations::Base
   value :musical_notation,      name: 'Musical Notation'
   value :descriptive_metadata,  name: 'Descriptive Metadata'
   value :person,                name: 'Faculty and Staff'
-  value :generic,               name: 'File'
+  value :community,             name: 'Community'
+  value :collection,            name: 'Collection'
+  value :generic,               name: 'Work'
 end

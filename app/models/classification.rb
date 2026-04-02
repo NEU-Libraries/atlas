@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# This correlates with Blacklight Facets and Fileset organization
+# Blobs will have their own enumeration for display purposes
+# i.e. Download labels in UX, binary filenames etc.
 class Classification < Enumerations::Base
   value :derivative,            name: 'Derivative'
   value :map,                   name: 'Map'
@@ -13,5 +16,6 @@ class Classification < Enumerations::Base
   value :archive,               name: 'Archive'
   value :musical_notation,      name: 'Musical Notation'
   value :descriptive_metadata,  name: 'Descriptive Metadata'
+  value :person,                name: 'Faculty and Staff'
   value :generic,               name: 'File'
 end

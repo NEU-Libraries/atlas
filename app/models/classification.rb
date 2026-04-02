@@ -19,5 +19,5 @@ class Classification < Enumerations::Base
   value :person,                name: 'Faculty and Staff' # model only
   value :community,             name: 'Community' # model only
   value :collection,            name: 'Collection' # model only
-  value :generic,               name: 'Work' # model only
+  value :work,                  name: 'Work' # model only
 end

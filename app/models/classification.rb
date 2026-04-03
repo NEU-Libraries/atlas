@@ -20,4 +20,5 @@ class Classification < Enumerations::Base
   value :community,             name: 'Community' # model only
   value :collection,            name: 'Collection' # model only
   value :work,                  name: 'Work' # model only
+  value :generic,               name: 'File' # blob/fs fallback
 end

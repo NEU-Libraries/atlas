@@ -2,11 +2,10 @@
 
 module MimeHelper
   def assign_classification(file_path)
-    fm = FileMagic.new(FileMagic::MAGIC_MIME)
-    mime_type = hash_mime_type(fm.file(file_path))
+    hmt = hash_mime_type(mime_type(file_path))
 
-    classification = sub_type_check(mime_type[:sub_type])
-    classification = raw_type_check(mime_type[:raw_type]) if classification.blank?
+    classification = sub_type_check(hmt[:sub_type])
+    classification = raw_type_check(hmt[:raw_type]) if classification.blank?
     classification = ext_check(file_path) if classification.blank?
     return Classification.generic if classification.blank?
 
@@ -22,6 +21,11 @@ module MimeHelper
     elsif %w[ppt pptx pps ppsx].include?(ext)
       Classification.presentation
     end
+  end
+
+  def mime_type(file_path)
+    fm = FileMagic.new(FileMagic::MAGIC_MIME_TYPE)
+    fm.file(file_path)
   end
 
   private

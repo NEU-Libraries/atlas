@@ -24,6 +24,7 @@ class FileSetsController < ApplicationController
   def update
     # Naive first implementation - expect a binary POST
     # and just add it to the existing file set
+    # TODO: pass through original filename and label enumeration
     file = params[:binary]
     blob = BlobCreator.call(
       path: (file.tempfile.path.presence || file.path),

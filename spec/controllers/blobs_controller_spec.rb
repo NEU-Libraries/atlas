@@ -14,7 +14,7 @@ describe BlobsController, type: :controller do
   let(:work) { WorkCreator.call(parent_id: collection.noid) }
 
   describe 'GET #show' do
-    let(:blob) { BlobCreator.call(path: Rails.root.join('spec/fixtures/files/example.bin').to_s, work_id: work.noid) }
+    let(:blob) { BlobCreator.call(path: Rails.root.join('spec/fixtures/files/example.bin').to_s, work_id: work.noid, original_filename: 'example.bin') }
 
     context 'when the blob exists' do
       it 'returns the blob details' do
@@ -33,7 +33,7 @@ describe BlobsController, type: :controller do
     context 'when blobs exists' do
       it 'returns a paginated list of all blobs' do
         12.times do
-          BlobCreator.call(path: Rails.root.join('spec/fixtures/files/example.png').to_s, work_id: work.noid)
+          BlobCreator.call(path: Rails.root.join('spec/fixtures/files/example.png').to_s, work_id: work.noid, original_filename: 'example.png')
         end
 
         get :index, as: :json
@@ -54,7 +54,7 @@ describe BlobsController, type: :controller do
   end
 
   describe 'PATCH #update' do
-    let(:blob) { BlobCreator.call(path: Rails.root.join('spec/fixtures/files/example.png').to_s, work_id: work.noid) }
+    let(:blob) { BlobCreator.call(path: Rails.root.join('spec/fixtures/files/example.png').to_s, work_id: work.noid, original_filename: 'example.png') }
 
     it 'updates a work with provided XML binary' do
       patch :update, params: { id: blob.noid, binary: Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/work-mods.xml')) }, as: :json
@@ -64,7 +64,7 @@ describe BlobsController, type: :controller do
   end
 
   describe 'DELETE #destroy' do
-    let(:blob) { BlobCreator.call(path: Rails.root.join('spec/fixtures/files/example.png').to_s, work_id: work.noid) }
+    let(:blob) { BlobCreator.call(path: Rails.root.join('spec/fixtures/files/example.png').to_s, work_id: work.noid, original_filename: 'example.png') }
 
     context 'when blob exists' do
       it 'destroys the blob' do

@@ -4,10 +4,11 @@ class BlobCreator < ApplicationService
   include FileHelper
   include MimeHelper
 
-  def initialize(path:, work_id: nil, file_set_id: nil)
+  def initialize(path:, work_id: nil, file_set_id: nil, original_filename: nil)
     @work_id = resolve_id(work_id) unless work_id.nil?
     @path = path
     @file_set_id = file_set_id
+    @original_filename = original_filename
   end
 
   def call
@@ -28,7 +29,7 @@ class BlobCreator < ApplicationService
       # TODO: USE and LABEL
       b = Valkyrie.config.metadata_adapter.persister.save(
         resource: Blob.new(
-          original_filename: @path.split('/')&.last,
+          original_filename: @original_filename,
           mime_type: mime_type(@path)
         )
       )

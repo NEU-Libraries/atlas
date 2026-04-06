@@ -17,6 +17,7 @@ class BlobsController < ApplicationController
     file = params[:binary]
     @blob = BlobCreator.call(
       work_id: params[:work_id],
+      original_filename: params[:original_filename],
       path: (file.tempfile.path.presence ||
              file.path)
     )

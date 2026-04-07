@@ -18,6 +18,8 @@ class BlobCreator < ApplicationService
   private
 
     def create_blob
+      label = default_label(@path)
+
       if @work_id
         classification = assign_classification(@path)
         # Collection.new(a_member_of: @parent_id)
@@ -30,7 +32,8 @@ class BlobCreator < ApplicationService
       b = Valkyrie.config.metadata_adapter.persister.save(
         resource: Blob.new(
           original_filename: @original_filename,
-          mime_type: mime_type(@path)
+          mime_type: mime_type(@path),
+          label: label&.name || '' # TODO: temporary nil fix until we zip unknowns
         )
       )
 

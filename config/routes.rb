@@ -36,6 +36,9 @@ Rails.application.routes.draw do
 
     get '/works/:id/mods', to: 'works#mods', as: 'work_mods'
 
+    # Downloads
+    get '/works/:id/files', to: 'works#blobs', as: 'work_files'
+
     # Housekeeping
     get '/reset', to: 'maintenance#reset', as: 'reset'
 

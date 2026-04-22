@@ -21,6 +21,11 @@ class WorksController < ApplicationController
     @work = Work.find(params[:id]).decorate
   end
 
+  def blobs
+    @work = Work.find(params[:id])
+    @file_sets = @work.children.reject { |fs| fs.type == Classification.descriptive_metadata.name }
+  end
+
   def update
     @work = Work.find(params[:id])
 

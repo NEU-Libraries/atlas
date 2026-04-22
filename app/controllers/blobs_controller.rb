@@ -37,4 +37,8 @@ class BlobsController < ApplicationController
     # TODO: restrict to admin user
     Atlas.persister.delete(resource: Blob.find(params[:id]))
   end
+
+  def content
+    # TODO: this needs to be updated at some point - send_file, send_data Cerberus etc.
+  end
 end

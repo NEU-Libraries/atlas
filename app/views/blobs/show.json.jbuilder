@@ -6,5 +6,5 @@ json.blob do
   json.original_filename @blob.original_filename
   json.file_identifiers @blob.file_identifiers
   json.use @blob.use
-  json.label @blob.label
+  json.label Label.find(@blob.label).name
 end

@@ -33,7 +33,8 @@ class BlobCreator < ApplicationService
         resource: Blob.new(
           original_filename: @original_filename,
           mime_type: mime_type(@path),
-          label: label&.name || '' # TODO: temporary nil fix until we zip unknowns
+          size: File.size(@path),
+          label: label&.symbol || '' # TODO: temporary nil fix until we zip unknowns
         )
       )
 

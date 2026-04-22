@@ -6,6 +6,7 @@ class Blob < Resource
   attribute :file_identifiers, Valkyrie::Types::Set.of(Valkyrie::Types::ID).meta(ordered: true)
   attribute :use, Valkyrie::Types::String
   attribute :label, Valkyrie::Types::String # Small Image, Text etc.
+  attribute :size, Valkyrie::Types::String
 
   # fast lookup for MODS
   attribute :descriptive_metadata_for, Valkyrie::Types::ID.optional

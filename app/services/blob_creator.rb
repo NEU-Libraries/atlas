@@ -43,6 +43,13 @@ class BlobCreator < ApplicationService
 
       file_id = create_file(@path, b).id
       b.file_identifiers += [file_id]
+
+      if @work_id
+        # Set permissions - we'll use the works permissions as default
+        # TODO: we need to implement bespoke permissions for Blobs for differentiated access
+        b.permissions = Work.find(@work_id).permissions
+      end
+
       Valkyrie.config.metadata_adapter.persister.save(resource: b)
     end
 end

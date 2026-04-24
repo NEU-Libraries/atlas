@@ -30,4 +30,10 @@ class Blob < Resource
   def extension
     original_filename&.split('.')&.last
   end
+
+  def filename
+    return if label.blank?
+
+    "#{Label.find(label)&.prefix}#{nuid}.#{extension}"
+  end
 end

@@ -34,6 +34,6 @@ class Blob < Resource
   def filename
     return if label.blank?
 
-    "#{Label.find(label)&.prefix}#{nuid}.#{extension}"
+    "#{Label.find(label)&.prefix}#{noid}.#{extension}"
   end
 end

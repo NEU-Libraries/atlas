@@ -29,6 +29,35 @@ describe BlobsController, type: :controller do
     end
   end
 
+  describe 'GET #content' do
+    let(:fixture_path) { Rails.root.join('spec/fixtures/files/example.bin') }
+    let(:blob) do
+      BlobCreator.call(path: fixture_path.to_s,
+                       work_id: work.noid,
+                       original_filename: 'example.bin')
+    end
+
+    context 'when the blob exists and has a file' do
+      it 'streams the binary with attachment disposition and matching content type' do
+        get :content, params: { id: blob.noid }
+
+        expect(response).to have_http_status(:success)
+        expect(response.headers['Content-Type']).to eq(blob.mime_type)
+        expect(response.headers['Content-Disposition']).to include('attachment')
+        expect(response.headers['Content-Disposition']).to include('example.bin')
+        expect(response.body.bytesize).to eq(File.size(fixture_path))
+        expect(response.body.b).to eq(File.binread(fixture_path))
+      end
+    end
+
+    context 'when the blob does not exist' do
+      it 'returns 404' do
+        get :content, params: { id: 'bogus-noid' }
+        expect(response).to have_http_status(:not_found)
+      end
+    end
+  end
+
   describe 'GET #index' do
     context 'when blobs exists' do
       it 'returns a paginated list of all blobs' do

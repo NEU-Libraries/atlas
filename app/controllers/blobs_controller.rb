@@ -38,7 +38,23 @@ class BlobsController < ApplicationController
     Atlas.persister.delete(resource: Blob.find(params[:id]))
   end
 
+  # GET /files/:id/content
+  # send_file hands a Pathname to Rack::Files which chunks at the Rack layer,
+  # so this is memory-safe for 20GB+ files. Once nginx fronts Atlas, un-comment
+  # the X-Accel-Redirect line in config/environments/production.rb so nginx
+  # handles byte-serving natively.
   def content
-    # TODO: this needs to be updated at some point - send_file, send_data Cerberus etc.
+    blob = Blob.find(params[:id])
+    return head(:not_found) if blob.nil?
+
+    file = blob.file
+    return head(:not_found) if file.nil?
+
+    send_file file.disk_path,
+              type: blob.mime_type,
+              disposition: 'attachment',
+              filename: blob.original_filename
+  rescue Valkyrie::StorageAdapter::FileNotFound
+    head :not_found
   end
 end

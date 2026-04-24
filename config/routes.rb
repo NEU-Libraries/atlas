@@ -18,7 +18,9 @@ Rails.application.routes.draw do
     resources :works
     # resources :users
     resources :file_sets
-    resources :files, :controller => :blobs
+    resources :files, :controller => :blobs do
+      get :content, :on => :member
+    end
 
     # Generics
     get '/resources/:id', to: 'resources#show'

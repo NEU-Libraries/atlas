@@ -1,0 +1,32 @@
+# frozen_string_literal: true
+
+require 'rails_helper'
+
+RSpec.describe 'FileSets via atlas_rb', :atlas_rb_server do
+  let(:community)  { CommunityCreator.call }
+  let(:collection) { CollectionCreator.call(parent_id: community.noid) }
+  let(:work)       { WorkCreator.call(parent_id: collection.noid) }
+
+  it 'round-trips a FileSet through the HTTP boundary' do
+    created = AtlasRb::FileSet.create(work.noid, 'generic')
+    expect(created['id']).to be_present
+
+    found = AtlasRb::FileSet.find(created['id'])
+    expect(found['id']).to eq(created['id'])
+  end
+
+  it 'attaches binary content to a FileSet via multipart update' do
+    file_set = FileSetCreator.call(work_id: work.noid, classification: Classification.generic)
+
+    AtlasRb::FileSet.update(file_set.noid, Rails.root.join('spec/fixtures/files/example.bin').to_s)
+
+    expect(FileSet.find(file_set.noid).children.size).to be >= 1
+  end
+
+  it 'destroys a FileSet via HTTP' do
+    file_set = FileSetCreator.call(work_id: work.noid, classification: Classification.generic)
+
+    AtlasRb::FileSet.destroy(file_set.noid)
+    expect(FileSet.find(file_set.noid)).to be_nil
+  end
+end

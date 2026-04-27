@@ -14,7 +14,7 @@ RSpec.describe 'Maintenance', type: :request do
         harnesses and developer-environment seeders.
       D
 
-      response '200', 'state reset' do
+      response '204', 'state reset' do
         run_test!
       end
     end

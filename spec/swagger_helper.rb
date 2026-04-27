@@ -2,6 +2,12 @@
 
 require 'rails_helper'
 
+# rswag-specs uses json-schema, which still routes through MultiJSON by
+# default. MultiJSON support is deprecated upstream — opt out so we use the
+# stdlib JSON parser directly.
+require 'json-schema'
+JSON::Validator.use_multi_json = false
+
 RSpec.configure do |config|
   config.openapi_root = Rails.root.join('openapi').to_s
   config.openapi_format = :yaml
@@ -69,4 +75,28 @@ RSpec.configure do |config|
       }
     }
   }
+end
+
+# Hand-write a multipart/form-data requestBody for an operation. rswag-specs
+# generates a buggy single-field requestBody when several `parameter in:
+# :formData` declarations are present (it picks the first param's schema as
+# the entire body), so use this from inside an operation block to declare
+# the comprehensive doc shape. Pair with per-field `parameter in: :formData`
+# entries (no `schema:` on those, only `type:`), which drive runtime
+# multipart serialization in Rack::Test.
+module Rswag
+  module Specs
+    module ExampleGroupHelpers
+      def multipart_request_body(properties, required: [], description: nil)
+        schema = { type: :object, properties: properties }
+        schema[:required] = required.map(&:to_s) unless required.empty?
+        body = {
+          required: !required.empty?,
+          content: { 'multipart/form-data' => { schema: schema } }
+        }
+        body[:description] = description if description
+        metadata[:operation][:requestBody] = body
+      end
+    end
+  end
 end

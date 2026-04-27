@@ -54,21 +54,24 @@ RSpec.describe 'Communities', type: :request do
       tags 'Communities'
       consumes 'multipart/form-data'
       produces 'application/json'
-      parameter name: :body, in: :body, schema: {
-        type: :object,
-        properties: {
+      description 'Either supply a `binary` MODS XML upload or `metadata[*]` form fields.'
+      parameter name: 'metadata[title]',       in: :formData, required: false
+      parameter name: 'metadata[description]', in: :formData, required: false
+      parameter name: 'metadata[thumbnail]',   in: :formData, required: false
+      parameter name: :binary,                 in: :formData, required: false
+      multipart_request_body(
+        {
           'metadata[title]':       { type: :string },
           'metadata[description]': { type: :string },
           'metadata[thumbnail]':   { type: :string },
-          'metadata[permissions]': { type: :object, additionalProperties: true },
           binary: { type: :string, format: :binary, description: 'MODS XML to apply to the Community' }
         }
-      }
+      )
 
       response '200', 'community updated' do
-        let(:community) { CommunityCreator.call }
-        let(:id)        { community.noid }
-        let(:body)      { { 'metadata[title]' => 'Updated' } }
+        let(:community)          { CommunityCreator.call }
+        let(:id)                 { community.noid }
+        let(:'metadata[title]')  { 'Updated' }
         schema '$ref' => '#/components/schemas/Community'
         run_test!
       end
@@ -77,7 +80,7 @@ RSpec.describe 'Communities', type: :request do
     delete 'Destroy a community' do
       tags 'Communities'
 
-      response '200', 'community destroyed' do
+      response '204', 'community destroyed' do
         let(:community) { CommunityCreator.call }
         let(:id)        { community.noid }
         run_test!
@@ -120,14 +123,15 @@ RSpec.describe 'Communities', type: :request do
   path '/communities/{id}/ancestors' do
     parameter name: :id, in: :path, type: :string
 
-    get 'List ancestor noids of a community' do
+    get 'List ancestors of a community' do
       tags 'Communities'
       produces 'application/json'
+      description 'Returns the ancestor chain as an array of [noid, type-name] pairs.'
 
       response '200', 'ancestors listed' do
         let(:community) { CommunityCreator.call }
         let(:id)        { community.noid }
-        schema type: :array, items: { type: :string }
+        schema '$ref' => '#/components/schemas/Lineage'
         run_test!
       end
     end

@@ -45,16 +45,14 @@ RSpec.describe 'Resources', type: :request do
       consumes 'multipart/form-data'
       produces 'text/html'
       description 'Given raw MODS XML, renders an HTML preview without persisting. Used by the loader/editor surface.'
-      parameter name: :body, in: :body, schema: {
-        type: :object,
-        properties: {
-          binary: { type: :string, format: :binary, description: 'MODS XML to preview' }
-        },
-        required: %w[binary]
-      }
+      parameter name: :binary, in: :formData, required: true
+      multipart_request_body(
+        { binary: { type: :string, format: :binary, description: 'MODS XML to preview' } },
+        required: %i[binary]
+      )
 
       response '200', 'preview rendered' do
-        let(:body) { { binary: Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/work-mods.xml')) } }
+        let(:binary) { Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/work-mods.xml')) }
         run_test!
       end
     end

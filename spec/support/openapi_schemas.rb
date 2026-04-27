@@ -28,7 +28,8 @@ module OpenapiSchemas
       Pagination:  pagination,
       User:        user,
       Permissions: permissions,
-      ResourceRef: resource_ref
+      ResourceRef: resource_ref,
+      Lineage:     lineage
     }
   end
 
@@ -62,7 +63,11 @@ module OpenapiSchemas
       size: { type: :integer, nullable: true },
       filename: { type: :string, nullable: true },
       label: { type: :string, nullable: true },
-      file_identifiers: { type: :array, items: { type: :string } }
+      file_identifiers: {
+        type: :array,
+        items: { type: :object, additionalProperties: true,
+                 description: 'Valkyrie::ID-shaped reference to the underlying bytes' }
+      }
     })
   end
 
@@ -181,11 +186,30 @@ module OpenapiSchemas
     {
       id: { type: :string, description: 'NOID' },
       valkyrie_id: { type: :string, description: 'Valkyrie internal id' },
-      ancestors: { type: :array, items: { type: :string } },
+      ancestors: ancestor_pairs,
       thumbnail: { type: :string, nullable: true },
       title: { type: :string, nullable: true },
       description: { type: :string, nullable: true }
     }
+  end
+
+  # ancestors comes back as an array of [noid, type-name] 2-tuples,
+  # e.g. [["c-123", "Community"], ["col-456", "Collection"]]
+  def ancestor_pairs
+    {
+      type: :array,
+      items: {
+        type: :array,
+        items: { type: :string },
+        minItems: 2,
+        maxItems: 2,
+        description: '[noid, type-name] pair'
+      }
+    }
+  end
+
+  def lineage
+    ancestor_pairs.merge(description: 'Ancestor or descendant chain — array of [noid, type-name] pairs')
   end
 
   def summary_props

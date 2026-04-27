@@ -63,18 +63,16 @@ RSpec.describe 'FileSets', type: :request do
       consumes 'multipart/form-data'
       produces 'application/json'
       description 'Naive first implementation: posts binary content and appends it as a Blob to the existing FileSet.'
-      parameter name: :body, in: :body, schema: {
-        type: :object,
-        properties: {
-          binary: { type: :string, format: :binary, description: 'Binary file to attach' }
-        },
-        required: %w[binary]
-      }
+      parameter name: :binary, in: :formData, required: true
+      multipart_request_body(
+        { binary: { type: :string, format: :binary, description: 'Binary file to attach' } },
+        required: %i[binary]
+      )
 
       response '200', 'binary attached' do
         let(:file_set) { FileSetCreator.call(work_id: work.noid, classification: Classification.generic) }
         let(:id)       { file_set.noid }
-        let(:body)     { { binary: Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/example.bin')) } }
+        let(:binary)   { Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/example.bin')) }
         schema '$ref' => '#/components/schemas/FileSet'
         run_test!
       end
@@ -83,7 +81,7 @@ RSpec.describe 'FileSets', type: :request do
     delete 'Destroy a file set' do
       tags 'FileSets'
 
-      response '200', 'file set destroyed' do
+      response '204', 'file set destroyed' do
         let(:file_set) { FileSetCreator.call(work_id: work.noid, classification: Classification.generic) }
         let(:id)       { file_set.noid }
         run_test!

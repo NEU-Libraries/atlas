@@ -26,24 +26,22 @@ RSpec.describe 'Files (Blobs)', type: :request do
       consumes 'multipart/form-data'
       produces 'application/json'
       description 'Uploads a binary as a Blob attached to a Work.'
-      parameter name: :body, in: :body, schema: {
-        type: :object,
-        properties: {
+      parameter name: :work_id,           in: :formData, required: true
+      parameter name: :original_filename, in: :formData, required: false
+      parameter name: :binary,            in: :formData, required: true
+      multipart_request_body(
+        {
           work_id:           { type: :string, description: 'NOID of the parent Work' },
           original_filename: { type: :string },
           binary:            { type: :string, format: :binary, description: 'File bytes to upload' }
         },
-        required: %w[work_id binary]
-      }
+        required: %i[work_id binary]
+      )
 
       response '200', 'file uploaded' do
-        let(:body) {
-          {
-            work_id:           work.noid,
-            original_filename: 'example.bin',
-            binary:            Rack::Test::UploadedFile.new(fixture)
-          }
-        }
+        let(:work_id)           { work.noid }
+        let(:original_filename) { 'example.bin' }
+        let(:binary)            { Rack::Test::UploadedFile.new(fixture) }
         schema '$ref' => '#/components/schemas/Blob'
         run_test!
       end
@@ -70,18 +68,16 @@ RSpec.describe 'Files (Blobs)', type: :request do
       consumes 'multipart/form-data'
       produces 'application/json'
       description 'Uber-basic versioning: posts a new binary, appends its file identifier to the Blob.'
-      parameter name: :body, in: :body, schema: {
-        type: :object,
-        properties: {
-          binary: { type: :string, format: :binary, description: 'New revision bytes' }
-        },
-        required: %w[binary]
-      }
+      parameter name: :binary, in: :formData, required: true
+      multipart_request_body(
+        { binary: { type: :string, format: :binary, description: 'New revision bytes' } },
+        required: %i[binary]
+      )
 
       response '200', 'revision appended' do
-        let(:blob) { BlobCreator.call(work_id: work.noid, original_filename: 'example.bin', path: fixture.to_s) }
-        let(:id)   { blob.noid }
-        let(:body) { { binary: Rack::Test::UploadedFile.new(fixture) } }
+        let(:blob)   { BlobCreator.call(work_id: work.noid, original_filename: 'example.bin', path: fixture.to_s) }
+        let(:id)     { blob.noid }
+        let(:binary) { Rack::Test::UploadedFile.new(fixture) }
         schema '$ref' => '#/components/schemas/Blob'
         run_test!
       end
@@ -90,7 +86,7 @@ RSpec.describe 'Files (Blobs)', type: :request do
     delete 'Destroy a file' do
       tags 'Files'
 
-      response '200', 'file destroyed' do
+      response '204', 'file destroyed' do
         let(:blob) { BlobCreator.call(work_id: work.noid, original_filename: 'example.bin', path: fixture.to_s) }
         let(:id)   { blob.noid }
         run_test!

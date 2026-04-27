@@ -3,11 +3,22 @@
 require 'swagger_helper'
 
 RSpec.describe 'User', type: :request do
+  let!(:guest) do
+    User.create!(
+      email: 'guest@example.com',
+      password: SecureRandom.hex(16),
+      role: :guest
+    )
+  end
+
   path '/user' do
     get 'Current user details' do
       tags 'User'
       produces 'application/json'
-      description 'Returns the user resolved from the request auth context. Falls back to a guest user when no valid Bearer/NUID is supplied.'
+      description <<~D
+        Returns the user resolved from the request auth context. With no
+        valid Bearer/NUID, falls through to the guest user record.
+      D
 
       response '200', 'user returned' do
         schema '$ref' => '#/components/schemas/User'

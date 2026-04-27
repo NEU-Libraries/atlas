@@ -57,21 +57,24 @@ RSpec.describe 'Collections', type: :request do
       tags 'Collections'
       consumes 'multipart/form-data'
       produces 'application/json'
-      parameter name: :body, in: :body, schema: {
-        type: :object,
-        properties: {
+      description 'Either supply a `binary` MODS XML upload or `metadata[*]` form fields.'
+      parameter name: 'metadata[title]',       in: :formData, required: false
+      parameter name: 'metadata[description]', in: :formData, required: false
+      parameter name: 'metadata[thumbnail]',   in: :formData, required: false
+      parameter name: :binary,                 in: :formData, required: false
+      multipart_request_body(
+        {
           'metadata[title]':       { type: :string },
           'metadata[description]': { type: :string },
           'metadata[thumbnail]':   { type: :string },
-          'metadata[permissions]': { type: :object, additionalProperties: true },
           binary: { type: :string, format: :binary, description: 'MODS XML to apply to the Collection' }
         }
-      }
+      )
 
       response '200', 'collection updated' do
-        let(:collection) { CollectionCreator.call(parent_id: community.noid) }
-        let(:id)         { collection.noid }
-        let(:body)       { { 'metadata[title]' => 'Updated' } }
+        let(:collection)         { CollectionCreator.call(parent_id: community.noid) }
+        let(:id)                 { collection.noid }
+        let(:'metadata[title]')  { 'Updated' }
         schema '$ref' => '#/components/schemas/Collection'
         run_test!
       end
@@ -80,7 +83,7 @@ RSpec.describe 'Collections', type: :request do
     delete 'Destroy a collection' do
       tags 'Collections'
 
-      response '200', 'collection destroyed' do
+      response '204', 'collection destroyed' do
         let(:collection) { CollectionCreator.call(parent_id: community.noid) }
         let(:id)         { collection.noid }
         run_test!
@@ -123,14 +126,15 @@ RSpec.describe 'Collections', type: :request do
   path '/collections/{id}/ancestors' do
     parameter name: :id, in: :path, type: :string
 
-    get 'List ancestor noids of a collection' do
+    get 'List ancestors of a collection' do
       tags 'Collections'
       produces 'application/json'
+      description 'Returns the ancestor chain as an array of [noid, type-name] pairs.'
 
       response '200', 'ancestors listed' do
         let(:collection) { CollectionCreator.call(parent_id: community.noid) }
         let(:id)         { collection.noid }
-        schema type: :array, items: { type: :string }
+        schema '$ref' => '#/components/schemas/Lineage'
         run_test!
       end
     end

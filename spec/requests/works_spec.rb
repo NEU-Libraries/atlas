@@ -61,25 +61,24 @@ RSpec.describe 'Works', type: :request do
       tags 'Works'
       consumes 'multipart/form-data'
       produces 'application/json'
-      description <<~D
-        Updates a Work. Either supply a `binary` MODS XML upload or a
-        `metadata[*]` hash of fields to merge in.
-      D
-      parameter name: :body, in: :body, schema: {
-        type: :object,
-        properties: {
+      description 'Either supply a `binary` MODS XML upload or `metadata[*]` form fields to merge in.'
+      parameter name: 'metadata[title]',       in: :formData, required: false
+      parameter name: 'metadata[description]', in: :formData, required: false
+      parameter name: 'metadata[thumbnail]',   in: :formData, required: false
+      parameter name: :binary,                 in: :formData, required: false
+      multipart_request_body(
+        {
           'metadata[title]':       { type: :string },
           'metadata[description]': { type: :string },
           'metadata[thumbnail]':   { type: :string },
-          'metadata[permissions]': { type: :object, additionalProperties: true },
           binary: { type: :string, format: :binary, description: 'MODS XML to apply to the Work' }
         }
-      }
+      )
 
       response '200', 'work updated' do
-        let(:work) { WorkCreator.call(parent_id: collection.noid) }
-        let(:id)   { work.noid }
-        let(:body) { { 'metadata[title]' => 'Updated' } }
+        let(:work)              { WorkCreator.call(parent_id: collection.noid) }
+        let(:id)                { work.noid }
+        let(:'metadata[title]') { 'Updated' }
         schema '$ref' => '#/components/schemas/Work'
         run_test!
       end
@@ -88,7 +87,7 @@ RSpec.describe 'Works', type: :request do
     delete 'Destroy a work' do
       tags 'Works'
 
-      response '200', 'work destroyed' do
+      response '204', 'work destroyed' do
         let(:work) { WorkCreator.call(parent_id: collection.noid) }
         let(:id)   { work.noid }
         run_test!

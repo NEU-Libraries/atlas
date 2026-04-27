@@ -65,7 +65,12 @@ components:
             ancestors:
               type: array
               items:
-                type: string
+                type: array
+                items:
+                  type: string
+                minItems: 2
+                maxItems: 2
+                description: "[noid, type-name] pair"
             thumbnail:
               type: string
               nullable: true
@@ -99,7 +104,12 @@ components:
             ancestors:
               type: array
               items:
-                type: string
+                type: array
+                items:
+                  type: string
+                minItems: 2
+                maxItems: 2
+                description: "[noid, type-name] pair"
             thumbnail:
               type: string
               nullable: true
@@ -133,7 +143,12 @@ components:
             ancestors:
               type: array
               items:
-                type: string
+                type: array
+                items:
+                  type: string
+                minItems: 2
+                maxItems: 2
+                description: "[noid, type-name] pair"
             thumbnail:
               type: string
               nullable: true
@@ -199,7 +214,9 @@ components:
             file_identifiers:
               type: array
               items:
-                type: string
+                type: object
+                additionalProperties: true
+                description: Valkyrie::ID-shaped reference to the underlying bytes
           required:
           - id
           - mime_type
@@ -414,6 +431,16 @@ components:
       - "$ref": "#/components/schemas/Collection"
       - "$ref": "#/components/schemas/Community"
       - "$ref": "#/components/schemas/FileSet"
+    Lineage:
+      type: array
+      items:
+        type: array
+        items:
+          type: string
+        minItems: 2
+        maxItems: 2
+        description: "[noid, type-name] pair"
+      description: Ancestor or descendant chain — array of [noid, type-name] pairs
 paths:
   "/files":
     get:
@@ -433,14 +460,8 @@ paths:
       - Files
       description: Uploads a binary as a Blob attached to a Work.
       parameters: []
-      responses:
-        '200':
-          description: file uploaded
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/Blob"
       requestBody:
+        required: true
         content:
           multipart/form-data:
             schema:
@@ -458,6 +479,13 @@ paths:
               required:
               - work_id
               - binary
+      responses:
+        '200':
+          description: file uploaded
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Blob"
   "/files/{id}":
     parameters:
     - name: id
@@ -484,14 +512,8 @@ paths:
       description: 'Uber-basic versioning: posts a new binary, appends its file identifier
         to the Blob.'
       parameters: []
-      responses:
-        '200':
-          description: revision appended
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/Blob"
       requestBody:
+        required: true
         content:
           multipart/form-data:
             schema:
@@ -503,12 +525,19 @@ paths:
                   description: New revision bytes
               required:
               - binary
+      responses:
+        '200':
+          description: revision appended
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Blob"
     delete:
       summary: Destroy a file
       tags:
       - Files
       responses:
-        '200':
+        '204':
           description: file destroyed
   "/files/{id}/content":
     parameters:
@@ -586,15 +615,11 @@ paths:
       summary: Update a collection
       tags:
       - Collections
+      description: Either supply a `binary` MODS XML upload or `metadata[*]` form
+        fields.
       parameters: []
-      responses:
-        '200':
-          description: collection updated
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/Collection"
       requestBody:
+        required: false
         content:
           multipart/form-data:
             schema:
@@ -606,19 +631,23 @@ paths:
                   type: string
                 metadata[thumbnail]:
                   type: string
-                metadata[permissions]:
-                  type: object
-                  additionalProperties: true
                 binary:
                   type: string
                   format: binary
                   description: MODS XML to apply to the Collection
+      responses:
+        '200':
+          description: collection updated
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Collection"
     delete:
       summary: Destroy a collection
       tags:
       - Collections
       responses:
-        '200':
+        '204':
           description: collection destroyed
   "/collections/{id}/mods":
     parameters:
@@ -662,18 +691,17 @@ paths:
       schema:
         type: string
     get:
-      summary: List ancestor noids of a collection
+      summary: List ancestors of a collection
       tags:
       - Collections
+      description: Returns the ancestor chain as an array of [noid, type-name] pairs.
       responses:
         '200':
           description: ancestors listed
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  type: string
+                "$ref": "#/components/schemas/Lineage"
   "/communities":
     get:
       summary: List communities
@@ -732,15 +760,11 @@ paths:
       summary: Update a community
       tags:
       - Communities
+      description: Either supply a `binary` MODS XML upload or `metadata[*]` form
+        fields.
       parameters: []
-      responses:
-        '200':
-          description: community updated
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/Community"
       requestBody:
+        required: false
         content:
           multipart/form-data:
             schema:
@@ -752,19 +776,23 @@ paths:
                   type: string
                 metadata[thumbnail]:
                   type: string
-                metadata[permissions]:
-                  type: object
-                  additionalProperties: true
                 binary:
                   type: string
                   format: binary
                   description: MODS XML to apply to the Community
+      responses:
+        '200':
+          description: community updated
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Community"
     delete:
       summary: Destroy a community
       tags:
       - Communities
       responses:
-        '200':
+        '204':
           description: community destroyed
   "/communities/{id}/mods":
     parameters:
@@ -808,18 +836,17 @@ paths:
       schema:
         type: string
     get:
-      summary: List ancestor noids of a community
+      summary: List ancestors of a community
       tags:
       - Communities
+      description: Returns the ancestor chain as an array of [noid, type-name] pairs.
       responses:
         '200':
           description: ancestors listed
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  type: string
+                "$ref": "#/components/schemas/Lineage"
   "/file_sets":
     get:
       summary: List file sets
@@ -886,14 +913,8 @@ paths:
       description: 'Naive first implementation: posts binary content and appends it
         as a Blob to the existing FileSet.'
       parameters: []
-      responses:
-        '200':
-          description: binary attached
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/FileSet"
       requestBody:
+        required: true
         content:
           multipart/form-data:
             schema:
@@ -905,12 +926,19 @@ paths:
                   description: Binary file to attach
               required:
               - binary
+      responses:
+        '200':
+          description: binary attached
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/FileSet"
     delete:
       summary: Destroy a file set
       tags:
       - FileSets
       responses:
-        '200':
+        '204':
           description: file set destroyed
   "/reset":
     get:
@@ -924,7 +952,7 @@ paths:
         **Internal endpoint — do not call from clients.** Used by test
         harnesses and developer-environment seeders.
       responses:
-        '200':
+        '204':
           description: state reset
   "/resources/{id}":
     parameters:
@@ -969,10 +997,8 @@ paths:
       description: Given raw MODS XML, renders an HTML preview without persisting.
         Used by the loader/editor surface.
       parameters: []
-      responses:
-        '200':
-          description: preview rendered
       requestBody:
+        required: true
         content:
           multipart/form-data:
             schema:
@@ -984,13 +1010,17 @@ paths:
                   description: MODS XML to preview
               required:
               - binary
+      responses:
+        '200':
+          description: preview rendered
   "/user":
     get:
       summary: Current user details
       tags:
       - User
-      description: Returns the user resolved from the request auth context. Falls
-        back to a guest user when no valid Bearer/NUID is supplied.
+      description: |
+        Returns the user resolved from the request auth context. With no
+        valid Bearer/NUID, falls through to the guest user record.
       responses:
         '200':
           description: user returned
@@ -1080,18 +1110,11 @@ paths:
       summary: Update a work
       tags:
       - Works
-      description: |
-        Updates a Work. Either supply a `binary` MODS XML upload or a
-        `metadata[*]` hash of fields to merge in.
+      description: Either supply a `binary` MODS XML upload or `metadata[*]` form
+        fields to merge in.
       parameters: []
-      responses:
-        '200':
-          description: work updated
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/Work"
       requestBody:
+        required: false
         content:
           multipart/form-data:
             schema:
@@ -1103,19 +1126,23 @@ paths:
                   type: string
                 metadata[thumbnail]:
                   type: string
-                metadata[permissions]:
-                  type: object
-                  additionalProperties: true
                 binary:
                   type: string
                   format: binary
                   description: MODS XML to apply to the Work
+      responses:
+        '200':
+          description: work updated
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Work"
     delete:
       summary: Destroy a work
       tags:
       - Works
       responses:
-        '200':
+        '204':
           description: work destroyed
   "/works/{id}/mods":
     parameters:

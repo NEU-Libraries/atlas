@@ -1,7 +1,8 @@
 # frozen_string_literal: true
 
 Rails.application.routes.draw do
-  # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html
+  mount Rswag::Api::Engine => '/api-docs'
+  get '/docs', to: 'docs#show'
 
   devise_for :users, controllers: {
     sessions: "users/sessions",
@@ -9,8 +10,6 @@ Rails.application.routes.draw do
     tokens: "users/tokens"
   }
 
-  # Defines the root path route ("/")
-  # root "articles#index"
   defaults format: :json do
     resources :communities
     resources :collections

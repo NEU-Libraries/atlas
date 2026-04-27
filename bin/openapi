@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Regenerate openapi/openapi.yaml from spec/requests/*_spec.rb.
+# Run inside the docker-compose dev environment so the gems are available.
+
+set -euo pipefail
+
+if command -v docker >/dev/null 2>&1 && docker compose ps --status running web >/dev/null 2>&1; then
+  docker compose exec -T web bundle exec rake rswag:specs:swaggerize
+else
+  bundle exec rake rswag:specs:swaggerize
+fi
+
+echo
+echo "Wrote openapi/openapi.yaml. Review with 'git diff openapi/' and commit if expected."

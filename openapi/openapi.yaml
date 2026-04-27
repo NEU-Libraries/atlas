@@ -1,0 +1,1184 @@
+---
+openapi: 3.0.3
+info:
+  title: Atlas API
+  version: '1'
+  description: |
+    Atlas is the Northeastern University Library digital repository API.
+
+    Two consumption surfaces of this document:
+
+    - Humans: Scalar UI at `/docs`
+    - Machines (clients, agents, codegen): the canonical OpenAPI
+      document is served at `/api-docs/openapi.yaml`.
+
+    ### Authentication
+
+    Most write endpoints require a Cerberus system bearer token plus a
+    `User` header carrying the acting NUID. Read endpoints generally
+    allow unauthenticated guest access. Endpoints that require auth
+    declare it explicitly below.
+servers:
+- url: "{scheme}://{host}"
+  variables:
+    scheme:
+      default: https
+      enum:
+      - https
+      - http
+    host:
+      default: atlas.library.northeastern.edu
+tags:
+- name: Communities
+- name: Collections
+- name: Works
+- name: FileSets
+- name: Files
+- name: Resources
+- name: User
+- name: Maintenance
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: Cerberus system token or a devise-jwt user token. Both are accepted.
+    NuidHeader:
+      type: apiKey
+      in: header
+      name: User
+      description: NUID identity asserted by Cerberus, in the form `NUID <nuid>`.
+        Required when calling with the system token to act as a user.
+  schemas:
+    Work:
+      type: object
+      properties:
+        work:
+          type: object
+          properties:
+            id:
+              type: string
+              description: NOID
+            valkyrie_id:
+              type: string
+              description: Valkyrie internal id
+            ancestors:
+              type: array
+              items:
+                type: array
+                items:
+                  type: string
+                minItems: 2
+                maxItems: 2
+                description: "[noid, type-name] pair"
+            thumbnail:
+              type: string
+              nullable: true
+            title:
+              type: string
+              nullable: true
+            description:
+              type: string
+              nullable: true
+          required:
+          - id
+          - valkyrie_id
+          - ancestors
+          - thumbnail
+          - title
+          - description
+      required:
+      - work
+    Collection:
+      type: object
+      properties:
+        collection:
+          type: object
+          properties:
+            id:
+              type: string
+              description: NOID
+            valkyrie_id:
+              type: string
+              description: Valkyrie internal id
+            ancestors:
+              type: array
+              items:
+                type: array
+                items:
+                  type: string
+                minItems: 2
+                maxItems: 2
+                description: "[noid, type-name] pair"
+            thumbnail:
+              type: string
+              nullable: true
+            title:
+              type: string
+              nullable: true
+            description:
+              type: string
+              nullable: true
+          required:
+          - id
+          - valkyrie_id
+          - ancestors
+          - thumbnail
+          - title
+          - description
+      required:
+      - collection
+    Community:
+      type: object
+      properties:
+        community:
+          type: object
+          properties:
+            id:
+              type: string
+              description: NOID
+            valkyrie_id:
+              type: string
+              description: Valkyrie internal id
+            ancestors:
+              type: array
+              items:
+                type: array
+                items:
+                  type: string
+                minItems: 2
+                maxItems: 2
+                description: "[noid, type-name] pair"
+            thumbnail:
+              type: string
+              nullable: true
+            title:
+              type: string
+              nullable: true
+            description:
+              type: string
+              nullable: true
+          required:
+          - id
+          - valkyrie_id
+          - ancestors
+          - thumbnail
+          - title
+          - description
+      required:
+      - community
+    FileSet:
+      type: object
+      properties:
+        file_set:
+          type: object
+          properties:
+            id:
+              type: string
+              description: NOID
+            type:
+              type: string
+              nullable: true
+          required:
+          - id
+          - type
+      required:
+      - file_set
+    Blob:
+      type: object
+      properties:
+        blob:
+          type: object
+          properties:
+            id:
+              type: string
+              description: NOID
+            mime_type:
+              type: string
+              nullable: true
+            original_filename:
+              type: string
+              nullable: true
+            use:
+              type: string
+              nullable: true
+            size:
+              type: integer
+              nullable: true
+            filename:
+              type: string
+              nullable: true
+            label:
+              type: string
+              nullable: true
+            file_identifiers:
+              type: array
+              items:
+                type: object
+                additionalProperties: true
+                description: Valkyrie::ID-shaped reference to the underlying bytes
+          required:
+          - id
+          - mime_type
+          - original_filename
+          - use
+          - size
+          - filename
+          - label
+          - file_identifiers
+      required:
+      - blob
+    WorkSummary:
+      type: object
+      properties:
+        work:
+          type: object
+          properties:
+            id:
+              type: string
+            title:
+              type: string
+              nullable: true
+            description:
+              type: string
+              nullable: true
+          required:
+          - id
+          - title
+          - description
+      required:
+      - work
+    CollectionSummary:
+      type: object
+      properties:
+        collection:
+          type: object
+          properties:
+            id:
+              type: string
+            title:
+              type: string
+              nullable: true
+            description:
+              type: string
+              nullable: true
+          required:
+          - id
+          - title
+          - description
+      required:
+      - collection
+    CommunitySummary:
+      type: object
+      properties:
+        community:
+          type: object
+          properties:
+            id:
+              type: string
+            title:
+              type: string
+              nullable: true
+            description:
+              type: string
+              nullable: true
+          required:
+          - id
+          - title
+          - description
+      required:
+      - community
+    FileSetSummary:
+      type: object
+      properties:
+        file_set:
+          type: object
+          properties:
+            id:
+              type: string
+          required:
+          - id
+      required:
+      - file_set
+    BlobSummary:
+      type: object
+      properties:
+        blob:
+          type: object
+          properties:
+            id:
+              type: string
+          required:
+          - id
+      required:
+      - blob
+    WorksIndex:
+      type: object
+      properties:
+        works:
+          type: array
+          items:
+            "$ref": "#/components/schemas/WorkSummary"
+        pagination:
+          "$ref": "#/components/schemas/Pagination"
+      required:
+      - works
+      - pagination
+    CollectionsIndex:
+      type: object
+      properties:
+        collections:
+          type: array
+          items:
+            "$ref": "#/components/schemas/CollectionSummary"
+        pagination:
+          "$ref": "#/components/schemas/Pagination"
+      required:
+      - collections
+      - pagination
+    CommunitiesIndex:
+      type: object
+      properties:
+        communities:
+          type: array
+          items:
+            "$ref": "#/components/schemas/CommunitySummary"
+        pagination:
+          "$ref": "#/components/schemas/Pagination"
+      required:
+      - communities
+      - pagination
+    FileSetsIndex:
+      type: object
+      properties:
+        file_sets:
+          type: array
+          items:
+            "$ref": "#/components/schemas/FileSetSummary"
+        pagination:
+          "$ref": "#/components/schemas/Pagination"
+      required:
+      - file_sets
+      - pagination
+    BlobsIndex:
+      type: object
+      properties:
+        blobs:
+          type: array
+          items:
+            "$ref": "#/components/schemas/BlobSummary"
+        pagination:
+          "$ref": "#/components/schemas/Pagination"
+      required:
+      - blobs
+      - pagination
+    WorkBlobs:
+      type: array
+      items:
+        type: object
+        properties:
+          noid:
+            type: string
+          mime_type:
+            type: string
+            nullable: true
+          original_filename:
+            type: string
+            nullable: true
+          size:
+            type: integer
+            nullable: true
+          label:
+            type: string
+            nullable: true
+        required:
+        - noid
+    Pagination:
+      type: object
+      description: pagy pagination block
+      additionalProperties: true
+    User:
+      type: object
+      description: Devise/AR User record serialized via to_json. Fields vary; commonly
+        includes id, email, name, role.
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+          nullable: true
+        name:
+          type: string
+          nullable: true
+        role:
+          type: string
+          nullable: true
+      additionalProperties: true
+    Permissions:
+      type: object
+      properties:
+        resource:
+          type: object
+          properties: {}
+          required: []
+          additionalProperties: true
+          description: Permission flags merged from Resource#permissions
+      required:
+      - resource
+    ResourceRef:
+      oneOf:
+      - "$ref": "#/components/schemas/Work"
+      - "$ref": "#/components/schemas/Collection"
+      - "$ref": "#/components/schemas/Community"
+      - "$ref": "#/components/schemas/FileSet"
+    Lineage:
+      type: array
+      items:
+        type: array
+        items:
+          type: string
+        minItems: 2
+        maxItems: 2
+        description: "[noid, type-name] pair"
+      description: Ancestor or descendant chain — array of [noid, type-name] pairs
+paths:
+  "/files":
+    get:
+      summary: List files
+      tags:
+      - Files
+      responses:
+        '200':
+          description: files listed
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/BlobsIndex"
+    post:
+      summary: Upload a file
+      tags:
+      - Files
+      description: Uploads a binary as a Blob attached to a Work.
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                work_id:
+                  type: string
+                  description: NOID of the parent Work
+                original_filename:
+                  type: string
+                binary:
+                  type: string
+                  format: binary
+                  description: File bytes to upload
+              required:
+              - work_id
+              - binary
+      responses:
+        '200':
+          description: file uploaded
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Blob"
+  "/files/{id}":
+    parameters:
+    - name: id
+      in: path
+      description: NOID of the Blob
+      required: true
+      schema:
+        type: string
+    get:
+      summary: Retrieve file metadata
+      tags:
+      - Files
+      responses:
+        '200':
+          description: file found
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Blob"
+    patch:
+      summary: Append a new revision to a file
+      tags:
+      - Files
+      description: 'Uber-basic versioning: posts a new binary, appends its file identifier
+        to the Blob.'
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                binary:
+                  type: string
+                  format: binary
+                  description: New revision bytes
+              required:
+              - binary
+      responses:
+        '200':
+          description: revision appended
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Blob"
+    delete:
+      summary: Destroy a file
+      tags:
+      - Files
+      responses:
+        '204':
+          description: file destroyed
+  "/files/{id}/content":
+    parameters:
+    - name: id
+      in: path
+      description: NOID of the Blob
+      required: true
+      schema:
+        type: string
+    get:
+      summary: Stream file content bytes
+      tags:
+      - Files
+      description: Streams the underlying bytes via send_file with attachment disposition.
+        Memory-safe for large files.
+      responses:
+        '200':
+          description: content streamed
+  "/collections":
+    get:
+      summary: List collections
+      tags:
+      - Collections
+      responses:
+        '200':
+          description: collections listed
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/CollectionsIndex"
+    post:
+      summary: Create a collection
+      tags:
+      - Collections
+      description: Creates a Collection as a child of the given Community.
+      parameters: []
+      responses:
+        '200':
+          description: collection created
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Collection"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                parent_id:
+                  type: string
+                  description: NOID of the parent Community
+              required:
+              - parent_id
+  "/collections/{id}":
+    parameters:
+    - name: id
+      in: path
+      description: NOID of the Collection
+      required: true
+      schema:
+        type: string
+    get:
+      summary: Retrieve a collection
+      tags:
+      - Collections
+      responses:
+        '200':
+          description: collection found
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Collection"
+    patch:
+      summary: Update a collection
+      tags:
+      - Collections
+      description: Either supply a `binary` MODS XML upload or `metadata[*]` form
+        fields.
+      parameters: []
+      requestBody:
+        required: false
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                metadata[title]:
+                  type: string
+                metadata[description]:
+                  type: string
+                metadata[thumbnail]:
+                  type: string
+                binary:
+                  type: string
+                  format: binary
+                  description: MODS XML to apply to the Collection
+      responses:
+        '200':
+          description: collection updated
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Collection"
+    delete:
+      summary: Destroy a collection
+      tags:
+      - Collections
+      responses:
+        '204':
+          description: collection destroyed
+  "/collections/{id}/mods":
+    parameters:
+    - name: id
+      in: path
+      required: true
+      schema:
+        type: string
+    get:
+      summary: Retrieve MODS metadata for a collection
+      tags:
+      - Collections
+      responses:
+        '200':
+          description: mods returned
+  "/collections/{id}/children":
+    parameters:
+    - name: id
+      in: path
+      required: true
+      schema:
+        type: string
+    get:
+      summary: List child noids of a collection
+      tags:
+      - Collections
+      responses:
+        '200':
+          description: children listed
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+  "/collections/{id}/ancestors":
+    parameters:
+    - name: id
+      in: path
+      required: true
+      schema:
+        type: string
+    get:
+      summary: List ancestors of a collection
+      tags:
+      - Collections
+      description: Returns the ancestor chain as an array of [noid, type-name] pairs.
+      responses:
+        '200':
+          description: ancestors listed
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Lineage"
+  "/communities":
+    get:
+      summary: List communities
+      tags:
+      - Communities
+      responses:
+        '200':
+          description: communities listed
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/CommunitiesIndex"
+    post:
+      summary: Create a community
+      tags:
+      - Communities
+      description: Creates a Community. `parent_id` is optional — top-level communities
+        have no parent.
+      parameters: []
+      responses:
+        '200':
+          description: community created
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Community"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                parent_id:
+                  type: string
+                  nullable: true
+  "/communities/{id}":
+    parameters:
+    - name: id
+      in: path
+      description: NOID of the Community
+      required: true
+      schema:
+        type: string
+    get:
+      summary: Retrieve a community
+      tags:
+      - Communities
+      responses:
+        '200':
+          description: community found
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Community"
+    patch:
+      summary: Update a community
+      tags:
+      - Communities
+      description: Either supply a `binary` MODS XML upload or `metadata[*]` form
+        fields.
+      parameters: []
+      requestBody:
+        required: false
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                metadata[title]:
+                  type: string
+                metadata[description]:
+                  type: string
+                metadata[thumbnail]:
+                  type: string
+                binary:
+                  type: string
+                  format: binary
+                  description: MODS XML to apply to the Community
+      responses:
+        '200':
+          description: community updated
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Community"
+    delete:
+      summary: Destroy a community
+      tags:
+      - Communities
+      responses:
+        '204':
+          description: community destroyed
+  "/communities/{id}/mods":
+    parameters:
+    - name: id
+      in: path
+      required: true
+      schema:
+        type: string
+    get:
+      summary: Retrieve MODS metadata for a community
+      tags:
+      - Communities
+      responses:
+        '200':
+          description: mods returned
+  "/communities/{id}/children":
+    parameters:
+    - name: id
+      in: path
+      required: true
+      schema:
+        type: string
+    get:
+      summary: List child noids of a community
+      tags:
+      - Communities
+      responses:
+        '200':
+          description: children listed
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+  "/communities/{id}/ancestors":
+    parameters:
+    - name: id
+      in: path
+      required: true
+      schema:
+        type: string
+    get:
+      summary: List ancestors of a community
+      tags:
+      - Communities
+      description: Returns the ancestor chain as an array of [noid, type-name] pairs.
+      responses:
+        '200':
+          description: ancestors listed
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Lineage"
+  "/file_sets":
+    get:
+      summary: List file sets
+      tags:
+      - FileSets
+      responses:
+        '200':
+          description: file sets listed
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/FileSetsIndex"
+    post:
+      summary: Create a file set
+      tags:
+      - FileSets
+      description: Creates a FileSet under a Work, classified by name (e.g. `generic`).
+      parameters: []
+      responses:
+        '200':
+          description: file set created
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/FileSet"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                work_id:
+                  type: string
+                  description: NOID of the parent Work
+                classification:
+                  type: string
+                  description: Classification name, e.g. generic
+              required:
+              - work_id
+              - classification
+  "/file_sets/{id}":
+    parameters:
+    - name: id
+      in: path
+      description: NOID of the FileSet
+      required: true
+      schema:
+        type: string
+    get:
+      summary: Retrieve a file set
+      tags:
+      - FileSets
+      responses:
+        '200':
+          description: file set found
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/FileSet"
+    patch:
+      summary: Append binary content to a file set
+      tags:
+      - FileSets
+      description: 'Naive first implementation: posts binary content and appends it
+        as a Blob to the existing FileSet.'
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                binary:
+                  type: string
+                  format: binary
+                  description: Binary file to attach
+              required:
+              - binary
+      responses:
+        '200':
+          description: binary attached
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/FileSet"
+    delete:
+      summary: Destroy a file set
+      tags:
+      - FileSets
+      responses:
+        '204':
+          description: file set destroyed
+  "/reset":
+    get:
+      summary: Reset development/test state
+      tags:
+      - Maintenance
+      operationId: maintenance_reset
+      description: |
+        Wipes the database and Solr index. Refuses to run in production.
+
+        **Internal endpoint — do not call from clients.** Used by test
+        harnesses and developer-environment seeders.
+      responses:
+        '204':
+          description: state reset
+  "/resources/{id}":
+    parameters:
+    - name: id
+      in: path
+      description: NOID of any resource (Work, Collection, Community, FileSet)
+      required: true
+      schema:
+        type: string
+    get:
+      summary: Resolve a resource by NOID
+      tags:
+      - Resources
+      description: Generic resolver. Issues a 302 redirect to the typed endpoint (e.g.
+        `/works/{id}`).
+      responses:
+        '302':
+          description: redirect to typed resource
+  "/resources/{id}/permissions":
+    parameters:
+    - name: id
+      in: path
+      required: true
+      schema:
+        type: string
+    get:
+      summary: Permission flags for a resource
+      tags:
+      - Resources
+      responses:
+        '200':
+          description: permissions returned
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Permissions"
+  "/resources/preview":
+    post:
+      summary: Render a temporary resource preview
+      tags:
+      - Resources
+      description: Given raw MODS XML, renders an HTML preview without persisting.
+        Used by the loader/editor surface.
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                binary:
+                  type: string
+                  format: binary
+                  description: MODS XML to preview
+              required:
+              - binary
+      responses:
+        '200':
+          description: preview rendered
+  "/user":
+    get:
+      summary: Current user details
+      tags:
+      - User
+      description: |
+        Returns the user resolved from the request auth context. With no
+        valid Bearer/NUID, falls through to the guest user record.
+      responses:
+        '200':
+          description: user returned
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/User"
+  "/nuid":
+    post:
+      summary: Mint a JWT for a NUID (system-only)
+      tags:
+      - User
+      description: |
+        System-only endpoint used by Cerberus to mint a per-user JWT.
+        Requires the system Bearer token; non-system callers receive 403.
+      parameters: []
+      responses:
+        '403':
+          description: caller is not the system user
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nuid:
+                  type: string
+              required:
+              - nuid
+  "/works":
+    get:
+      summary: List works
+      tags:
+      - Works
+      description: Paginated list of all works.
+      responses:
+        '200':
+          description: works listed
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/WorksIndex"
+    post:
+      summary: Create a work
+      tags:
+      - Works
+      description: Creates a new Work as a child of the given Collection.
+      parameters: []
+      responses:
+        '200':
+          description: work created
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Work"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                collection_id:
+                  type: string
+                  description: NOID of the parent Collection
+              required:
+              - collection_id
+  "/works/{id}":
+    parameters:
+    - name: id
+      in: path
+      description: NOID of the Work
+      required: true
+      schema:
+        type: string
+    get:
+      summary: Retrieve a work
+      tags:
+      - Works
+      responses:
+        '200':
+          description: work found
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Work"
+    patch:
+      summary: Update a work
+      tags:
+      - Works
+      description: Either supply a `binary` MODS XML upload or `metadata[*]` form
+        fields to merge in.
+      parameters: []
+      requestBody:
+        required: false
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                metadata[title]:
+                  type: string
+                metadata[description]:
+                  type: string
+                metadata[thumbnail]:
+                  type: string
+                binary:
+                  type: string
+                  format: binary
+                  description: MODS XML to apply to the Work
+      responses:
+        '200':
+          description: work updated
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Work"
+    delete:
+      summary: Destroy a work
+      tags:
+      - Works
+      responses:
+        '204':
+          description: work destroyed
+  "/works/{id}/mods":
+    parameters:
+    - name: id
+      in: path
+      description: NOID of the Work
+      required: true
+      schema:
+        type: string
+    get:
+      summary: Retrieve MODS metadata for a work
+      tags:
+      - Works
+      description: 'Returns MODS XML by default; pass Accept: application/json for
+        the JSON projection.'
+      responses:
+        '200':
+          description: mods returned
+  "/works/{id}/files":
+    parameters:
+    - name: id
+      in: path
+      description: NOID of the Work
+      required: true
+      schema:
+        type: string
+    get:
+      summary: List files attached to a work
+      tags:
+      - Works
+      description: Returns a flat array of file refs from non-descriptive FileSets
+        attached to the Work.
+      responses:
+        '200':
+          description: files listed
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/WorkBlobs"

@@ -49,3 +49,11 @@ jobs:
     - name: Run tests
       run: |
         docker compose exec -T web bundle exec rake
+
+    - name: Verify OpenAPI doc is up to date
+      run: |
+        docker compose exec -T web bundle exec rake rswag:specs:swaggerize
+        if ! git diff --exit-code -- openapi/; then
+          echo "::error::openapi/openapi.yaml is stale. Run 'bin/openapi' locally and commit the result."
+          exit 1
+        fi

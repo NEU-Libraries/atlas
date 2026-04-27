@@ -64,6 +64,11 @@ group :development, :test do
   gem 'rspec-rails'
   gem 'rubocop-rails'
 
+  # OpenAPI documentation: rspec DSL writes contract specs that double as docs;
+  # rswag-api serves the generated YAML/JSON for Scalar (humans) and bots.
+  gem 'rswag-api',   '~> 2.13'
+  gem 'rswag-specs', '~> 2.13'
+
   gem 'simplecov', require: false
   gem 'simplecov_json_formatter', '0.1.3' # Version 0.1.4 seems to break codeclimate
 end

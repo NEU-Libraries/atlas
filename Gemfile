@@ -69,6 +69,11 @@ group :development, :test do
   gem 'simplecov_json_formatter', '0.1.3' # Version 0.1.4 seems to break codeclimate
 end
 
+group :test do
+  gem 'atlas_rb'
+  gem 'capybara'
+end
+
 group :development do
   # Speed up commands on slow machines / big apps [https://github.com/rails/spring]
   # gem "spring"

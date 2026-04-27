@@ -40,7 +40,6 @@ gem 'bootsnap', require: false
 
 # Atlas specific gems
 gem 'active_decorator'
-gem 'apipie-rails'
 gem 'attr_json'
 gem 'cancancan'
 gem 'devise'

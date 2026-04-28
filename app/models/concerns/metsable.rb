@@ -7,7 +7,7 @@ module Metsable
   include FileHelper
 
   def mets
-    @mets ||= Metadata::METS.find_or_create_by(valkyrie_id: noid)
+    @mets ||= Metadata::METS.find_by(valkyrie_id: noid)
   end
 
   def mets_xml
@@ -29,9 +29,10 @@ module Metsable
   end
 
   def mets_json=(raw_xml)
-    mets_json = mets
-    mets_json.json_attributes = convert_mets_xml_to_json(raw_xml)
-    mets_json.save!
+    record = Metadata::METS.find_or_create_by(valkyrie_id: noid)
+    record.json_attributes = convert_mets_xml_to_json(raw_xml)
+    record.save!
+    @mets = record
   end
 
   private

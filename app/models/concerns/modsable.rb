@@ -8,7 +8,7 @@ module Modsable
   include FileHelper
 
   def mods
-    @mods ||= Metadata::MODS.find_or_create_by(valkyrie_id: noid)
+    @mods ||= Metadata::MODS.find_by(valkyrie_id: noid)
   end
 
   def mods_xml
@@ -30,9 +30,10 @@ module Modsable
   end
 
   def mods_json=(raw_xml)
-    mods_json = mods
-    mods_json.json_attributes = convert_xml_to_json(raw_xml)
-    mods_json.save!
+    record = Metadata::MODS.find_or_create_by(valkyrie_id: noid)
+    record.json_attributes = convert_xml_to_json(raw_xml)
+    record.save!
+    @mods = record
   end
 
   private

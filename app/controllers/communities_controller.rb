@@ -19,7 +19,10 @@ class CommunitiesController < ApplicationController
 
   def mods
     # TODO: support raw XML, in addition to JSON and HTML
-    @community = Community.find(params[:id]).decorate
+    community = Community.find(params[:id])
+    return head(:not_found) if community.nil? || community.mods.nil?
+
+    @community = community.decorate
   end
 
   def children

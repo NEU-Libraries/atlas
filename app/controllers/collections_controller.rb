@@ -18,7 +18,10 @@ class CollectionsController < ApplicationController
   end
 
   def mods
-    @collection = Collection.find(params[:id]).decorate
+    collection = Collection.find(params[:id])
+    return head(:not_found) if collection.nil? || collection.mods.nil?
+
+    @collection = collection.decorate
   end
 
   def children

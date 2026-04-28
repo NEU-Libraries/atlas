@@ -2,7 +2,7 @@
 
 module MODSDecoration
   def plain_title
-    return '' if mods.main_title.blank?
+    return '' if mods.nil? || mods.main_title.blank?
 
     mods.main_title.non_sort +
       mods.main_title.title +
@@ -12,12 +12,12 @@ module MODSDecoration
   end
 
   def plain_description
-    mods.abstract
+    mods&.abstract
   end
 
   # Shared html building for all MODS using models
   def title
-    return '' if mods.main_title.blank?
+    return '' if mods.nil? || mods.main_title.blank?
 
     tag.dt('Title') +
       tag.dd(plain_title)

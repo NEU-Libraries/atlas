@@ -18,7 +18,10 @@ class WorksController < ApplicationController
   end
 
   def mods
-    @work = Work.find(params[:id]).decorate
+    work = Work.find(params[:id])
+    return head(:not_found) if work.nil? || work.mods.nil?
+
+    @work = work.decorate
   end
 
   def blobs

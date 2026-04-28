@@ -14,6 +14,9 @@ class FileSetsController < ApplicationController
 
   def mets
     @file_set = FileSet.find(params[:id])
+    return head(:not_found) if @file_set.nil?
+    return head(:not_found) if Classification.metadata?(@file_set.type)
+    return head(:not_found) if @file_set.mets.nil?
   end
 
   def create

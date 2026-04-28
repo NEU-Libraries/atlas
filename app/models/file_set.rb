@@ -14,10 +14,14 @@ class FileSet < Resource
     @files ||= member_ids.map { |id| Blob.find(id) }
   end
 
+  # User-facing content blobs only — excludes metadata-marked Blobs (METS,
+  # future flat-MODS) so callers iterating over a FileSet's payload don't
+  # accidentally treat the manifest as content.
+  def content_files
+    files.compact.reject(&:metadata?)
+  end
+
   # def original_file?
-  #   files.each do |f|
-  #     return true if f.use&.include? Valkyrie::Vocab::PCDMUse.OriginalFile
-  #   end
-  #   false
+  #   files.any? { |f| f&.use == Role.original_file.name }
   # end
 end

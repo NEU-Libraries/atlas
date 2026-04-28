@@ -15,9 +15,15 @@ RSpec.describe FileSet do
   it_behaves_like 'a Valkyrie::Resource'
 
   describe '#files' do
-    it 'returns Blob objects whose ids are in member_ids' do
-      expect(file_set.files).to be_empty
-      # puts file_set.files.inspect
+    it 'includes the seeded METS Blob' do
+      expect(file_set.files.size).to eq(1)
+      expect(file_set.files.first.use).to eq(Role.structural_metadata.name)
+    end
+  end
+
+  describe '#content_files' do
+    it 'is empty until content Blobs are added (excludes the seeded METS Blob)' do
+      expect(file_set.content_files).to be_empty
     end
   end
 end

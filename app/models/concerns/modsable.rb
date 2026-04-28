@@ -44,7 +44,7 @@ module Modsable
 
     def create_mods_blob
       fs = descriptive_metadata_file_set
-      blob = Atlas.persister.save(resource: Blob.new)
+      blob = Atlas.persister.save(resource: Blob.new(use: Role.descriptive_metadata.name))
       fs.member_ids += [blob.id]
       Atlas.persister.save(resource: fs)
       blob

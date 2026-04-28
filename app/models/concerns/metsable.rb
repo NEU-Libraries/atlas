@@ -24,8 +24,10 @@ module Metsable
     self.mets_json = raw_xml
   end
 
+  # The METS blob is a direct member of self.member_ids, distinguished by
+  # its `use` role marker — not a sub-FileSet.
   def mets_blob
-    structural_metadata_file_set&.files&.first
+    files.compact.find { |b| b.use == Role.structural_metadata.name }
   end
 
   def mets_json=(raw_xml)
@@ -37,15 +39,11 @@ module Metsable
 
   private
 
-    def structural_metadata_file_set
-      children.find { |fs| fs.type == Classification.structural_metadata.name }
-    end
-
     def create_mets_blob
-      fs = structural_metadata_file_set
-      blob = Atlas.persister.save(resource: Blob.new)
-      fs.member_ids += [blob.id]
-      Atlas.persister.save(resource: fs)
+      blob = Atlas.persister.save(resource: Blob.new(use: Role.structural_metadata.name))
+      self.member_ids += [blob.id]
+      Atlas.persister.save(resource: self)
+      @files = nil # invalidate cache so subsequent .files / .mets_blob reflect the new member
       blob
     end
 

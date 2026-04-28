@@ -6,7 +6,7 @@ describe CommunitiesController, type: :controller do
   render_views
 
   after :each do
-    Valkyrie.config.metadata_adapter.persister.wipe!
+    Atlas.persister.wipe!
   end
 
   describe 'GET #show' do

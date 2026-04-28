@@ -3,7 +3,7 @@
 require 'swagger_helper'
 
 RSpec.describe 'Communities', type: :request do
-  after { Valkyrie.config.metadata_adapter.persister.wipe! }
+  after { Atlas.persister.wipe! }
 
   path '/communities' do
     get 'List communities' do

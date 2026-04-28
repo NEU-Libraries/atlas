@@ -7,7 +7,7 @@ RSpec.describe 'Resources', type: :request do
   let(:collection) { CollectionCreator.call(parent_id: community.noid) }
   let(:work)       { WorkCreator.call(parent_id: collection.noid) }
 
-  after { Valkyrie.config.metadata_adapter.persister.wipe! }
+  after { Atlas.persister.wipe! }
 
   path '/resources/{id}' do
     parameter name: :id, in: :path, type: :string, description: 'NOID of any resource (Work, Collection, Community, FileSet)'

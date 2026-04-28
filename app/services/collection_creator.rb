@@ -13,13 +13,12 @@ class CollectionCreator < ApplicationService
   private
 
     def create_collection
-      meta = Valkyrie.config.metadata_adapter
-      collection = meta.persister.save(resource: Collection.new(a_member_of: @parent_id))
+      collection = Atlas.persister.save(resource: Collection.new(a_member_of: @parent_id))
 
       FileSetCreator.call(work_id: collection.id, classification: Classification.descriptive_metadata)
 
       collection.mods_xml = @mods_xml
       collection.permissions = collection.parent.permissions # TODO: need to work in Sentinels eventually
-      meta.persister.save(resource: collection)
+      Atlas.persister.save(resource: collection)
     end
 end

@@ -13,8 +13,7 @@ class CommunityCreator < ApplicationService
   private
 
     def create_community
-      meta = Valkyrie.config.metadata_adapter
-      community = meta.persister.save(resource: Community.new(a_member_of: @parent_id))
+      community = Atlas.persister.save(resource: Community.new(a_member_of: @parent_id))
 
       FileSetCreator.call(work_id: community.id, classification: Classification.descriptive_metadata)
 
@@ -24,6 +23,6 @@ class CommunityCreator < ApplicationService
         community.permissions = community.parent.permissions # TODO: need to work in Sentinels eventually
       end
 
-      meta.persister.save(resource: community)
+      Atlas.persister.save(resource: community)
     end
 end

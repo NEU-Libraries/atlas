@@ -45,7 +45,7 @@ end
 RSpec.configure do |config|
   config.before(:suite) do
     FileUtils.rm_rf(Rails.root.join('tmp', 'files'))
-    Valkyrie.config.metadata_adapter.persister.wipe!
+    Atlas.persister.wipe!
   end
 
   # Remove this line if you're not using ActiveRecord or ActiveRecord fixtures

@@ -13,13 +13,12 @@ class WorkCreator < ApplicationService
   private
 
     def create_work
-      meta = Valkyrie.config.metadata_adapter
-      work = meta.persister.save(resource: Work.new(a_member_of: @parent_id))
+      work = Atlas.persister.save(resource: Work.new(a_member_of: @parent_id))
 
       FileSetCreator.call(work_id: work.id, classification: Classification.descriptive_metadata)
 
       work.mods_xml = @mods_xml
       work.permissions = work.parent.permissions # TODO: need to work in Sentinels eventually
-      meta.persister.save(resource: work)
+      Atlas.persister.save(resource: work)
     end
 end

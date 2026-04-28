@@ -7,7 +7,7 @@ RSpec.describe 'FileSets', type: :request do
   let(:collection) { CollectionCreator.call(parent_id: community.noid) }
   let(:work)       { WorkCreator.call(parent_id: collection.noid) }
 
-  after { Valkyrie.config.metadata_adapter.persister.wipe! }
+  after { Atlas.persister.wipe! }
 
   path '/file_sets' do
     get 'List file sets' do

@@ -42,6 +42,6 @@ RSpec.configure do |config|
   end
 
   config.after(:each, :atlas_rb_server) do
-    Valkyrie.config.metadata_adapter.persister.wipe!
+    Atlas.persister.wipe!
   end
 end

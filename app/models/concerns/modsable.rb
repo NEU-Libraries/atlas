@@ -20,7 +20,7 @@ module Modsable
   def mods_xml=(raw_xml)
     blob = mods_blob || create_mods_blob
     blob.file_identifiers += [create_file(write_tmp_xml(raw_xml), blob, 'descMetadata.xml').version_id]
-    Valkyrie.config.metadata_adapter.persister.save(resource: blob)
+    Atlas.persister.save(resource: blob)
 
     self.mods_json = raw_xml
   end
@@ -42,11 +42,10 @@ module Modsable
     end
 
     def create_mods_blob
-      meta = Valkyrie.config.metadata_adapter
       fs = descriptive_metadata_file_set
-      blob = meta.persister.save(resource: Blob.new)
+      blob = Atlas.persister.save(resource: Blob.new)
       fs.member_ids += [blob.id]
-      meta.persister.save(resource: fs)
+      Atlas.persister.save(resource: fs)
       blob
     end
 

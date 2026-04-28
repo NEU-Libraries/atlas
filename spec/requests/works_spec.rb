@@ -6,7 +6,7 @@ RSpec.describe 'Works', type: :request do
   let(:community)  { CommunityCreator.call }
   let(:collection) { CollectionCreator.call(parent_id: community.noid) }
 
-  after { Valkyrie.config.metadata_adapter.persister.wipe! }
+  after { Atlas.persister.wipe! }
 
   path '/works' do
     get 'List works' do

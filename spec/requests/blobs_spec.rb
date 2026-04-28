@@ -8,7 +8,7 @@ RSpec.describe 'Files (Blobs)', type: :request do
   let(:work)       { WorkCreator.call(parent_id: collection.noid) }
   let(:fixture)    { Rails.root.join('spec/fixtures/files/example.bin') }
 
-  after { Valkyrie.config.metadata_adapter.persister.wipe! }
+  after { Atlas.persister.wipe! }
 
   path '/files' do
     get 'List files' do

@@ -29,7 +29,7 @@ class BlobCreator < ApplicationService
       end
 
       # TODO: USE and LABEL
-      b = Valkyrie.config.metadata_adapter.persister.save(
+      b = Atlas.persister.save(
         resource: Blob.new(
           original_filename: @original_filename,
           mime_type: mime_type(@path),
@@ -39,7 +39,7 @@ class BlobCreator < ApplicationService
       )
 
       fs.member_ids += [b.id]
-      Valkyrie.config.metadata_adapter.persister.save(resource: fs)
+      Atlas.persister.save(resource: fs)
 
       file_id = create_file(@path, b).version_id
       b.file_identifiers += [file_id]
@@ -50,6 +50,6 @@ class BlobCreator < ApplicationService
         b.permissions = Work.find(@work_id).permissions
       end
 
-      Valkyrie.config.metadata_adapter.persister.save(resource: b)
+      Atlas.persister.save(resource: b)
     end
 end

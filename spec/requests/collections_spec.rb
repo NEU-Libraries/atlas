@@ -5,7 +5,7 @@ require 'swagger_helper'
 RSpec.describe 'Collections', type: :request do
   let(:community) { CommunityCreator.call }
 
-  after { Valkyrie.config.metadata_adapter.persister.wipe! }
+  after { Atlas.persister.wipe! }
 
   path '/collections' do
     get 'List collections' do

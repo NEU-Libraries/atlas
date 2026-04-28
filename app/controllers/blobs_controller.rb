@@ -28,7 +28,7 @@ class BlobsController < ApplicationController
     blob = Blob.find(params[:id])
     file = params[:binary]
     path = file.tempfile.path.presence || file.path
-    file_id = create_file(path, blob).id
+    file_id = create_file(path, blob).version_id
     blob.file_identifiers += [file_id]
     @blob = Atlas.persister.save(resource: blob)
   end

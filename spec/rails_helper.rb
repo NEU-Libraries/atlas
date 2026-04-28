@@ -44,6 +44,7 @@ rescue ActiveRecord::PendingMigrationError => e
 end
 RSpec.configure do |config|
   config.before(:suite) do
+    FileUtils.rm_rf(Rails.root.join('tmp', 'files'))
     Valkyrie.config.metadata_adapter.persister.wipe!
   end
 

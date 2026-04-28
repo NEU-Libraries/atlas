@@ -14,6 +14,10 @@ Lint/MissingSuper:
     - 'app/services/**/*'
 Metrics/ClassLength:
   Max: 120
+  Exclude:
+    # OCFL 1.1 write-path coordination naturally long; broken into private
+    # helpers but the class itself stays a single coherent boundary.
+    - 'app/lib/valkyrie/storage/ocfl.rb'
 Metrics/AbcSize:
   Max: 30
   Exclude:
@@ -22,12 +26,18 @@ Metrics/AbcSize:
     - 'app/services/**/*'
     # Nature of object conversion, lots of assignment
     - 'app/lib/mods_to_json.rb'
+    - 'app/lib/valkyrie/storage/ocfl.rb'
 Metrics/CyclomaticComplexity:
   Exclude:
     - 'app/decorators/*'
+    - 'app/lib/valkyrie/storage/ocfl.rb'
 Metrics/PerceivedComplexity:
   Exclude:
     - 'app/decorators/*'
+Metrics/ParameterLists:
+  Exclude:
+    - 'app/lib/valkyrie/storage/ocfl.rb'
+    - 'app/lib/valkyrie/storage/ocfl/inventory.rb'
 Lint/AmbiguousBlockAssociation:
   Enabled: false
 Rails/FindEach:
@@ -43,6 +53,10 @@ Layout/LineLength:
 Metrics/MethodLength:
   Max: 15
   AllowedMethods: ['role_permissions', 'convert_xml_to_json']
+  Exclude:
+    - 'app/lib/valkyrie/storage/ocfl.rb'
+    - 'app/lib/valkyrie/storage/ocfl/inventory.rb'
+    - 'app/lib/valkyrie/storage/ocfl/storage_root.rb'
 Metrics/BlockLength:
   Exclude:
     # BL config too long

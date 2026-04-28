@@ -1,0 +1,129 @@
+# frozen_string_literal: true
+
+require 'rails_helper'
+require 'valkyrie/specs/shared_specs'
+
+# The upstream shared spec calls WebMock.disable!/enable! and shells out to
+# `lsof +D .`. Atlas doesn't carry WebMock and the container has no lsof, so
+# we provide minimal no-op shims rather than adding a system dependency.
+unless defined?(WebMock)
+  module WebMock
+    def self.disable!; end
+    def self.enable!; end
+  end
+end
+
+RSpec.describe Valkyrie::Storage::OCFL do
+  before do
+    # Override the shared spec's `open_files` (which uses lsof) per-example.
+    define_singleton_method(:open_files) { [] }
+  end
+
+  let(:tmpdir) { Dir.mktmpdir('ocfl-spec-') }
+  after { FileUtils.rm_rf(tmpdir) }
+
+  let(:storage_adapter) do
+    described_class.new(
+      storage_root: tmpdir,
+      file_mover: FileUtils.method(:mv),
+      clock: -> { Time.utc(2026, 1, 1) }
+    )
+  end
+
+  # Copy example.bin to a per-example Tempfile so file_mover: :mv doesn't
+  # destroy the source fixture across tests in the shared spec.
+  let(:file) do
+    tmp = Tempfile.new(['ocfl-fixture-', '.bin'])
+    IO.copy_stream(Rails.root.join('spec/fixtures/files/example.bin').to_s, tmp)
+    tmp.rewind
+    tmp
+  end
+
+  it_behaves_like 'a Valkyrie::StorageAdapter'
+
+  describe 'OCFL on-disk layout' do
+    let(:noid_resource) do
+      Class.new(Valkyrie::Resource) do
+        attribute :noid, Valkyrie::Types::String
+      end.new(noid: 'abcd1234e')
+    end
+
+    let(:upload!) do
+      lambda do |io = file, original_filename: 'foo.jpg', resource: noid_resource|
+        storage_adapter.upload(file: io, original_filename: original_filename, resource: resource)
+      end
+    end
+
+    it 'writes storage-root NAMASTE + ocfl_layout.json + extension config' do
+      upload!.call
+      expect(File.read(File.join(tmpdir, '0=ocfl_1.1'))).to eq("ocfl_1.1\n")
+      expect(File).to exist(File.join(tmpdir, 'ocfl_layout.json'))
+      expect(File).to exist(File.join(tmpdir, 'extensions',
+                                      '0007-n-tuple-omit-prefix-storage-layout', 'config.json'))
+    end
+
+    it 'writes object NAMASTE + head inventory + sidecar after upload' do
+      upload!.call
+      object_root = File.join(tmpdir, 'ab', 'cd', 'abcd1234e')
+      expect(File.read(File.join(object_root, '0=ocfl_object_1.1'))).to eq("ocfl_object_1.1\n")
+      expect(File).to exist(File.join(object_root, 'inventory.json'))
+      expect(File).to exist(File.join(object_root, 'inventory.json.sha512'))
+    end
+
+    it 'writes content under v1/content/' do
+      upload!.call
+      object_root = File.join(tmpdir, 'ab', 'cd', 'abcd1234e')
+      expect(File).to exist(File.join(object_root, 'v1', 'content', 'foo.jpg'))
+      expect(File).to exist(File.join(object_root, 'v1', 'inventory.json'))
+      expect(File).to exist(File.join(object_root, 'v1', 'inventory.json.sha512'))
+    end
+
+    it 'lays NOIDs out per extension 0007 with tuple (2,2)' do
+      upload!.call
+      expect(Dir).to exist(File.join(tmpdir, 'ab', 'cd', 'abcd1234e'))
+    end
+
+    it 'reuses an existing manifest digest on duplicate upload (dedup)' do
+      first = upload!.call
+      tmp2 = Tempfile.new(['ocfl-fixture-', '.bin'])
+      IO.copy_stream(Rails.root.join('spec/fixtures/files/example.bin').to_s, tmp2)
+      tmp2.rewind
+      second = storage_adapter.upload_version(id: first.id, file: tmp2)
+
+      object_root = File.join(tmpdir, 'ab', 'cd', 'abcd1234e')
+      inventory = JSON.parse(File.read(File.join(object_root, 'inventory.json')))
+      expect(inventory['manifest'].size).to eq(1)
+      expect(File).not_to exist(File.join(object_root, 'v2', 'content', 'foo.jpg'))
+      expect(second.version_id).not_to eq(first.version_id)
+    end
+
+    it 'special-cases descriptive_metadata_for blobs to descMetadata.xml' do
+      desc_resource = Class.new(Valkyrie::Resource) do
+        attribute :noid, Valkyrie::Types::String
+        attribute :descriptive_metadata_for, Valkyrie::Types::ID.optional
+      end.new(noid: 'efgh5678i', descriptive_metadata_for: Valkyrie::ID.new('parent-noid'))
+
+      tmp = Tempfile.new(['mods-', '.xml'])
+      tmp.write('<mods/>')
+      tmp.rewind
+      storage_adapter.upload(file: tmp, original_filename: 'whatever.xml', resource: desc_resource)
+
+      object_root = File.join(tmpdir, 'ef', 'gh', 'efgh5678i')
+      expect(File).to exist(File.join(object_root, 'v1', 'content', 'descMetadata.xml'))
+      inventory = JSON.parse(File.read(File.join(object_root, 'inventory.json')))
+      state_paths = inventory['versions']['v1']['state'].values.flatten
+      expect(state_paths).to eq(['descMetadata.xml'])
+    end
+
+    it 'self-validates: every manifest digest matches the on-disk content sha512' do
+      upload!.call
+      object_root = File.join(tmpdir, 'ab', 'cd', 'abcd1234e')
+      inventory = JSON.parse(File.read(File.join(object_root, 'inventory.json')))
+      inventory['manifest'].each do |digest, paths|
+        paths.each do |p|
+          expect(Digest::SHA512.file(File.join(object_root, p)).hexdigest).to eq(digest)
+        end
+      end
+    end
+  end
+end

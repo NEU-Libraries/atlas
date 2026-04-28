@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mets xmlns="http://www.loc.gov/METS/"
+      xmlns:xlink="http://www.w3.org/1999/xlink"
+      xmlns:drs="https://repository.neu.edu/spec/v1"
+      OBJID="urn:neu-drs:fixturefs"
+      LABEL="FileSet">
+  <metsHdr CREATEDATE="2026-04-28T00:00:00Z">
+    <agent ROLE="CREATOR" TYPE="OTHER">
+      <name>Atlas</name>
+    </agent>
+  </metsHdr>
+  <fileSec>
+    <fileGrp>
+      <file ID="blob-1" MIMETYPE="image/tiff" USE="preservation"/>
+      <file ID="blob-2" MIMETYPE="image/jpeg" USE="access"/>
+    </fileGrp>
+  </fileSec>
+  <structMap TYPE="logical">
+    <div TYPE="fileSet" LABEL="page-images"/>
+  </structMap>
+</mets>

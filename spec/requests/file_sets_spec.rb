@@ -88,4 +88,20 @@ RSpec.describe 'FileSets', type: :request do
       end
     end
   end
+
+  path '/file_sets/{id}/mets' do
+    parameter name: :id, in: :path, type: :string, description: 'NOID of the FileSet'
+
+    get 'Retrieve METS metadata for a file set' do
+      tags 'FileSets'
+      produces 'application/json'
+      description 'Returns the JSON projection of the FileSet structural (METS) metadata.'
+
+      response '200', 'mets returned' do
+        let(:file_set) { FileSetCreator.call(work_id: work.noid, classification: Classification.generic) }
+        let(:id)       { file_set.noid }
+        run_test!
+      end
+    end
+  end
 end

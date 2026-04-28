@@ -35,7 +35,18 @@ class BlobsController < ApplicationController
 
   def destroy
     # TODO: restrict to admin user
-    Atlas.persister.delete(resource: Blob.find(params[:id]))
+    blob = Blob.find(params[:id])
+    return head(:not_found) if blob.nil?
+
+    parent_fs = blob.parent
+    blob_id   = blob.id
+    Atlas.persister.delete(resource: blob)
+
+    return unless parent_fs.is_a?(FileSet)
+
+    parent_fs.member_ids -= [blob_id]
+    parent_fs = Atlas.persister.save(resource: parent_fs)
+    METSRebuilder.call(file_set: parent_fs)
   end
 
   # GET /files/:id/content

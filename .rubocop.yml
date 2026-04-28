@@ -9,6 +9,7 @@ AllCops:
     - 'config/**/*'
     # Template naturally long
     - 'app/lib/mods_builder.rb'
+    - 'app/lib/mets_builder.rb'
 Lint/MissingSuper:
   Exclude:
     - 'app/services/**/*'

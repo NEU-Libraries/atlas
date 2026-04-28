@@ -16,9 +16,18 @@ class Classification < Enumerations::Base
   value :archive,               name: 'Archive'
   value :musical_notation,      name: 'Musical Notation'
   value :descriptive_metadata,  name: 'Descriptive Metadata' # fs only
+  value :structural_metadata,   name: 'Structural Metadata' # fs only
   value :person,                name: 'Faculty and Staff' # model only
   value :community,             name: 'Community' # model only
   value :collection,            name: 'Collection' # model only
   value :work,                  name: 'Work' # model only
   value :generic,               name: 'File' # blob/fs fallback
+
+  def self.metadata_names
+    [descriptive_metadata.name, structural_metadata.name].freeze
+  end
+
+  def self.metadata?(name)
+    metadata_names.include?(name)
+  end
 end

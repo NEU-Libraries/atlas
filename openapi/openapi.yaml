@@ -940,6 +940,22 @@ paths:
       responses:
         '204':
           description: file set destroyed
+  "/file_sets/{id}/mets":
+    parameters:
+    - name: id
+      in: path
+      description: NOID of the FileSet
+      required: true
+      schema:
+        type: string
+    get:
+      summary: Retrieve METS metadata for a file set
+      tags:
+      - FileSets
+      description: Returns the JSON projection of the FileSet structural (METS) metadata.
+      responses:
+        '200':
+          description: mets returned
   "/reset":
     get:
       summary: Reset development/test state

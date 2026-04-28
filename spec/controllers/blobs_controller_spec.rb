@@ -101,6 +101,21 @@ describe BlobsController, type: :controller do
         expect(response).to have_http_status(:success)
         expect(Blob.find(blob.noid)).to be_nil
       end
+
+      it 'removes the orphan id from the parent FileSet member_ids and regenerates METS' do
+        parent_id = blob.parent.id
+        blob_id   = blob.id
+
+        delete :destroy, params: { id: blob.noid }, as: :json
+
+        parent = FileSet.find(parent_id)
+        expect(parent.member_ids).not_to include(blob_id)
+
+        file_ids = Nokogiri::XML(parent.mets_xml)
+                           .xpath('//m:fileSec//m:file/@ID', m: METSBuilder::METS_NS)
+                           .map(&:value)
+        expect(file_ids).not_to include("f-#{blob.noid}")
+      end
     end
   end
 end

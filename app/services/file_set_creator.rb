@@ -20,16 +20,14 @@ class FileSetCreator < ApplicationService
       fs.permissions = fs.parent.permissions # TODO: need to work in Sentinels eventually
       fs = Atlas.persister.save(resource: fs)
 
-      seed_mets(fs) if seed_mets?
+      if seed_mets?
+        fs.mets_xml = fs.mets_template
+        fs = FileSet.find(fs.id) # reload: mets_xml= mutated self via persister, so the local fs is stale
+      end
       fs
     end
 
     def seed_mets?
       !Classification.metadata?(@classification.name)
-    end
-
-    def seed_mets(file_set)
-      FileSetCreator.call(work_id: file_set.id, classification: Classification.structural_metadata)
-      file_set.mets_xml = file_set.mets_template
     end
 end

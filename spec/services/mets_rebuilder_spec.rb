@@ -56,11 +56,14 @@ RSpec.describe METSRebuilder do
       desc_fs = work.children.find { |c| c.is_a?(FileSet) && c.type == Classification.descriptive_metadata.name }
       expect { described_class.call(file_set: desc_fs) }.not_to raise_error
     end
+  end
 
-    it 'is a no-op for structural_metadata' do
-      content_fs = FileSetCreator.call(work_id: work.noid, classification: Classification.generic)
-      struct_fs = content_fs.children.find { |c| c.is_a?(FileSet) && c.type == Classification.structural_metadata.name }
-      expect { described_class.call(file_set: struct_fs) }.not_to raise_error
+  describe 'fileSec contents' do
+    it 'excludes the METS Blob itself' do
+      blob = BlobCreator.call(path: fixture_path, work_id: work.noid, original_filename: 'example.png')
+      fs = blob.parent
+
+      expect(file_ids_in(fs)).not_to include("f-#{fs.mets_blob.noid}")
     end
   end
 

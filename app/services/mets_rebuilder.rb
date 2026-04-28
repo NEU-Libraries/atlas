@@ -13,9 +13,8 @@ class METSRebuilder < ApplicationService
   def call
     return @file_set if @file_set.nil?
     return @file_set if Classification.metadata?(@file_set.type)
-    return @file_set if @file_set.send(:structural_metadata_file_set).nil?
 
-    new_xml = mets_for(@file_set, blobs: live_blobs, created_at: existing_created_at)
+    new_xml = mets_for(@file_set, blobs: @file_set.content_files, created_at: existing_created_at)
     return @file_set if new_xml == @file_set.mets_xml
 
     @file_set.mets_xml = new_xml
@@ -29,10 +28,6 @@ class METSRebuilder < ApplicationService
 
       id = file_set.respond_to?(:id) ? file_set.id : file_set
       FileSet.find(id)
-    end
-
-    def live_blobs
-      @file_set.files.compact
     end
 
     def existing_created_at

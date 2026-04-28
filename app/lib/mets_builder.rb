@@ -12,7 +12,7 @@ module METSBuilder
 
   def mets_for(file_set, created_at: nil, blobs: nil)
     build_mets(
-      blobs: blobs || file_set.files,
+      blobs: blobs || file_set.content_files,
       created_at: created_at.presence || Time.now.utc.iso8601,
       objid: file_set.noid.present? ? "urn:neu-drs:#{file_set.noid}" : '',
       label: file_set.type.presence || 'FileSet'

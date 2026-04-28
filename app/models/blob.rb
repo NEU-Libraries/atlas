@@ -37,4 +37,8 @@ class Blob < Resource
 
     "#{Label.find(label)&.prefix}#{noid}.#{extension}"
   end
+
+  def metadata?
+    use == Role.descriptive_metadata.name || use == Role.structural_metadata.name
+  end
 end

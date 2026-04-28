@@ -15,13 +15,7 @@ class FileSetCreator < ApplicationService
     def create_file_set
       meta = Valkyrie.config.metadata_adapter
 
-      # make blob shell
       fs = FileSet.new(type: @classification.name)
-      fs.member_ids += [
-        if @classification.symbol == :descriptive_metadata
-          meta.persister.save(resource: Blob.new(descriptive_metadata_for: @work_id)).id
-        end
-      ]
       fs.a_member_of = @work_id
       fs = meta.persister.save(resource: fs)
 

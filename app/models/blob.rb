@@ -8,9 +8,6 @@ class Blob < Resource
   attribute :label, Valkyrie::Types::String # Small Image, Text etc.
   attribute :size, Valkyrie::Types::String
 
-  # fast lookup for MODS
-  attribute :descriptive_metadata_for, Valkyrie::Types::ID.optional
-
   def versions
     file_identifiers.count
   end

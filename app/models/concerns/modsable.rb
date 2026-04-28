@@ -18,7 +18,7 @@ module Modsable
   end
 
   def mods_xml=(raw_xml)
-    blob = mods_blob
+    blob = mods_blob || create_mods_blob
     blob.file_identifiers += [create_file(write_tmp_xml(raw_xml), blob, 'descMetadata.xml').version_id]
     Valkyrie.config.metadata_adapter.persister.save(resource: blob)
 
@@ -26,8 +26,7 @@ module Modsable
   end
 
   def mods_blob
-    Valkyrie.config.metadata_adapter.query_service.find_inverse_references_by(resource: self,
-                                                                              property: :descriptive_metadata_for).first
+    descriptive_metadata_file_set&.files&.first
   end
 
   def mods_json=(raw_xml)
@@ -37,6 +36,19 @@ module Modsable
   end
 
   private
+
+    def descriptive_metadata_file_set
+      children.find { |fs| fs.type == Classification.descriptive_metadata.name }
+    end
+
+    def create_mods_blob
+      meta = Valkyrie.config.metadata_adapter
+      fs = descriptive_metadata_file_set
+      blob = meta.persister.save(resource: Blob.new)
+      fs.member_ids += [blob.id]
+      meta.persister.save(resource: fs)
+      blob
+    end
 
     def write_tmp_xml(raw_xml)
       xml_path = Rails.root.join('tmp', "#{Time.now.to_f.to_s.gsub!('.', '-')}.xml").to_s

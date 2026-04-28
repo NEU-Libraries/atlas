@@ -12,6 +12,10 @@ class FileSetsController < ApplicationController
     @file_set = FileSet.find(params[:id])
   end
 
+  def mets
+    @file_set = FileSet.find(params[:id])
+  end
+
   def create
     @file_set = FileSetCreator.call(
       work_id: params[:work_id],

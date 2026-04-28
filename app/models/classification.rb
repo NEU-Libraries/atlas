@@ -16,6 +16,7 @@ class Classification < Enumerations::Base
   value :archive,               name: 'Archive'
   value :musical_notation,      name: 'Musical Notation'
   value :descriptive_metadata,  name: 'Descriptive Metadata' # fs only
+  value :structural_metadata,   name: 'Structural Metadata' # fs only
   value :person,                name: 'Faculty and Staff' # model only
   value :community,             name: 'Community' # model only
   value :collection,            name: 'Collection' # model only

@@ -36,6 +36,8 @@ Rails.application.routes.draw do
 
     get '/works/:id/mods', to: 'works#mods', as: 'work_mods'
 
+    get '/file_sets/:id/mets', to: 'file_sets#mets', as: 'file_set_mets'
+
     # Downloads
     get '/works/:id/files', to: 'works#blobs', as: 'work_files'
 

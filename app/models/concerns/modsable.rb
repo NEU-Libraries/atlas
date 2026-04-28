@@ -19,7 +19,7 @@ module Modsable
 
   def mods_xml=(raw_xml)
     blob = mods_blob
-    blob.file_identifiers += [create_file(write_tmp_xml(raw_xml), blob).version_id]
+    blob.file_identifiers += [create_file(write_tmp_xml(raw_xml), blob, 'descMetadata.xml').version_id]
     Valkyrie.config.metadata_adapter.persister.save(resource: blob)
 
     self.mods_json = raw_xml

@@ -97,24 +97,6 @@ RSpec.describe Valkyrie::Storage::OCFL do
       expect(second.version_id).not_to eq(first.version_id)
     end
 
-    it 'special-cases descriptive_metadata_for blobs to descMetadata.xml' do
-      desc_resource = Class.new(Valkyrie::Resource) do
-        attribute :noid, Valkyrie::Types::String
-        attribute :descriptive_metadata_for, Valkyrie::Types::ID.optional
-      end.new(noid: 'efgh5678i', descriptive_metadata_for: Valkyrie::ID.new('parent-noid'))
-
-      tmp = Tempfile.new(['mods-', '.xml'])
-      tmp.write('<mods/>')
-      tmp.rewind
-      storage_adapter.upload(file: tmp, original_filename: 'whatever.xml', resource: desc_resource)
-
-      object_root = File.join(tmpdir, 'ef', 'gh', 'efgh5678i')
-      expect(File).to exist(File.join(object_root, 'v1', 'content', 'descMetadata.xml'))
-      inventory = JSON.parse(File.read(File.join(object_root, 'inventory.json')))
-      state_paths = inventory['versions']['v1']['state'].values.flatten
-      expect(state_paths).to eq(['descMetadata.xml'])
-    end
-
     it 'self-validates: every manifest digest matches the on-disk content sha512' do
       upload!.call
       object_root = File.join(tmpdir, 'ab', 'cd', 'abcd1234e')

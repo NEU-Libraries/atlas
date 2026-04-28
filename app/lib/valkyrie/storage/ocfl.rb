@@ -50,8 +50,7 @@ module Valkyrie
 
       def upload(file:, original_filename:, resource:, **_extra)
         key = resolve_key(resource)
-        logical_path = logical_path_for(resource: resource, original_filename: original_filename)
-        perform_upload(key: key, source: file, logical_path: logical_path)
+        perform_upload(key: key, source: file, logical_path: sanitize_filename(original_filename))
       end
 
       def upload_version(id:, file:)
@@ -117,14 +116,6 @@ module Valkyrie
             resource.noid
           else
             resource.id.to_s
-          end
-        end
-
-        def logical_path_for(resource:, original_filename:)
-          if resource.respond_to?(:descriptive_metadata_for) && resource.descriptive_metadata_for.present?
-            'descMetadata.xml'
-          else
-            sanitize_filename(original_filename)
           end
         end
 

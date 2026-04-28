@@ -296,8 +296,13 @@ components:
           properties:
             id:
               type: string
+              description: NOID
+            type:
+              type: string
+              nullable: true
           required:
           - id
+          - type
       required:
       - file_set
     BlobSummary:

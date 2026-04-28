@@ -86,7 +86,10 @@ module OpenapiSchemas
   end
 
   def file_set_summary
-    wrapped(:file_set, { id: { type: :string } })
+    wrapped(:file_set, {
+      id: { type: :string, description: 'NOID' },
+      type: { type: :string, nullable: true }
+    })
   end
 
   def blob_summary

@@ -41,7 +41,7 @@ class BlobCreator < ApplicationService
       fs.member_ids += [b.id]
       Valkyrie.config.metadata_adapter.persister.save(resource: fs)
 
-      file_id = create_file(@path, b).id
+      file_id = create_file(@path, b).version_id
       b.file_identifiers += [file_id]
 
       if @work_id

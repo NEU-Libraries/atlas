@@ -22,4 +22,12 @@ class Classification < Enumerations::Base
   value :collection,            name: 'Collection' # model only
   value :work,                  name: 'Work' # model only
   value :generic,               name: 'File' # blob/fs fallback
+
+  def self.metadata_names
+    [descriptive_metadata.name, structural_metadata.name].freeze
+  end
+
+  def self.metadata?(name)
+    metadata_names.include?(name)
+  end
 end

@@ -25,11 +25,7 @@ class FileSetCreator < ApplicationService
     end
 
     def seed_mets?
-      metadata_classifications = [
-        Classification.descriptive_metadata.name,
-        Classification.structural_metadata.name
-      ]
-      metadata_classifications.exclude?(@classification.name)
+      !Classification.metadata?(@classification.name)
     end
 
     def seed_mets(file_set)

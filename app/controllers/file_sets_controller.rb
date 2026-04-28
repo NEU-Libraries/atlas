@@ -30,13 +30,11 @@ class FileSetsController < ApplicationController
     # and just add it to the existing file set
     # TODO: pass through original filename and label enumeration
     file = params[:binary]
-    blob = BlobCreator.call(
+    BlobCreator.call(
       path: (file.tempfile.path.presence || file.path),
       file_set_id: params[:id]
     )
-    file_set = FileSet.find(params[:id])
-    file_set.member_ids += [blob.id]
-    @file_set = Atlas.persister.save(resource: file_set)
+    @file_set = FileSet.find(params[:id])
   end
 
   def destroy

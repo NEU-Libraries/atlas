@@ -18,18 +18,25 @@ class BlobCreator < ApplicationService
   private
 
     def create_blob
-      label = default_label(@path)
+      fs   = resolve_file_set
+      blob = save_initial_blob
+      attach_to_file_set(fs, blob)
+      blob = upload_and_save(blob)
+      METSRebuilder.call(file_set: fs)
+      blob
+    end
 
+    def resolve_file_set
       if @work_id
-        classification = assign_classification(@path)
-        # Collection.new(a_member_of: @parent_id)
-        fs = FileSetCreator.call(work_id: @work_id, classification: classification)
+        FileSetCreator.call(work_id: @work_id, classification: assign_classification(@path))
       else
-        fs = FileSet.find(@file_set_id)
+        FileSet.find(@file_set_id)
       end
+    end
 
-      # TODO: USE and LABEL
-      b = Atlas.persister.save(
+    def save_initial_blob
+      label = default_label(@path)
+      Atlas.persister.save(
         resource: Blob.new(
           original_filename: @original_filename,
           mime_type: mime_type(@path),
@@ -37,19 +44,17 @@ class BlobCreator < ApplicationService
           label: label&.symbol || '' # TODO: temporary nil fix until we zip unknowns
         )
       )
+    end
 
-      fs.member_ids += [b.id]
-      Atlas.persister.save(resource: fs)
+    def attach_to_file_set(file_set, blob)
+      file_set.member_ids += [blob.id]
+      Atlas.persister.save(resource: file_set)
+    end
 
-      file_id = create_file(@path, b).version_id
-      b.file_identifiers += [file_id]
-
-      if @work_id
-        # Set permissions - we'll use the works permissions as default
-        # TODO: we need to implement bespoke permissions for Blobs for differentiated access
-        b.permissions = Work.find(@work_id).permissions
-      end
-
-      Atlas.persister.save(resource: b)
+    def upload_and_save(blob)
+      blob.file_identifiers += [create_file(@path, blob).version_id]
+      # TODO: implement bespoke Blob permissions for differentiated access
+      blob.permissions = Work.find(@work_id).permissions if @work_id
+      Atlas.persister.save(resource: blob)
     end
 end

@@ -97,6 +97,13 @@ RSpec.describe Valkyrie::Storage::OCFL do
       expect(second.version_id).not_to eq(first.version_id)
     end
 
+    it 'records inventory id as urn:neu-drs:<noid> per OCFL W005' do
+      upload!.call
+      object_root = File.join(tmpdir, 'ab', 'cd', 'abcd1234e')
+      inventory = JSON.parse(File.read(File.join(object_root, 'inventory.json')))
+      expect(inventory['id']).to eq('urn:neu-drs:abcd1234e')
+    end
+
     it 'self-validates: every manifest digest matches the on-disk content sha512' do
       upload!.call
       object_root = File.join(tmpdir, 'ab', 'cd', 'abcd1234e')

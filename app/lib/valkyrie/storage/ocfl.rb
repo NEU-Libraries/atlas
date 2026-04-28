@@ -14,6 +14,10 @@ module Valkyrie
       PROTOCOL = 'ocfl://'
       INVENTORY_FILENAME = 'inventory.json'
       SIDECAR_SUFFIX = '.sha512'
+      # OCFL spec W005 says inventory `id` SHOULD be a URI. We use a locally-
+      # scoped URN keyed on NOID so the id stays bound to the durable layer
+      # (NOID, encoded in the path) rather than to a hostname or to Postgres.
+      INVENTORY_ID_NAMESPACE = 'urn:neu-drs'
 
       attr_reader :storage_root, :file_mover, :clock, :user_agent, :digest_algorithm
 
@@ -119,6 +123,10 @@ module Valkyrie
           end
         end
 
+        def inventory_id_for(key)
+          "#{INVENTORY_ID_NAMESPACE}:#{key}"
+        end
+
         def sanitize_filename(name)
           parts = name.to_s.split('/').reject { |p| p.empty? || p == '..' || p == '.' }
           parts.empty? ? 'file' : parts.join('/')
@@ -171,7 +179,7 @@ module Valkyrie
           io.rewind if io.respond_to?(:rewind)
 
           base_inventory = load_inventory(object_root: object_root) ||
-                           Inventory.empty(id: key, digest_algorithm: digest_algorithm)
+                           Inventory.empty(id: inventory_id_for(key), digest_algorithm: digest_algorithm)
 
           next_n = base_inventory.head_int + 1
           next_v = "v#{next_n}"

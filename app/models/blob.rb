@@ -27,6 +27,10 @@ class Blob < Resource
     Valkyrie.config.storage_adapter.find_by(id: latest_revision)
   end
 
+  def path
+    file&.io&.path
+  end
+
   def extension
     original_filename&.split('.')&.last
   end

@@ -65,5 +65,6 @@ class WorksController < ApplicationController
       # permissions
       @work.permissions = params[:metadata]['permissions'] if params[:metadata]['permissions'].present?
       @work = Atlas.persister.save(resource: @work)
+      @work.write_preservation_envelope!
     end
 end

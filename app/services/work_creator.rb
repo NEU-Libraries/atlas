@@ -19,6 +19,8 @@ class WorkCreator < ApplicationService
 
       work.mods_xml = @mods_xml
       work.permissions = work.parent.permissions # TODO: need to work in Sentinels eventually
-      Atlas.persister.save(resource: work)
+      work = Atlas.persister.save(resource: work)
+      work.write_preservation_envelope!
+      work
     end
 end

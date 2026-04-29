@@ -7,10 +7,36 @@ RSpec.describe Modsable do
   let(:collection) { CollectionCreator.call(parent_id: community.noid) }
   let(:work) { WorkCreator.call(parent_id: collection.noid) }
 
+  def envelope_files_for(noid)
+    object_root = Rails.root.join('tmp', 'files', noid[0..1], noid[2..3], noid)
+    return [] unless object_root.exist?
+
+    Dir.glob(object_root.join('v*', 'content', '*.json').to_s).map { |p| File.basename(p) }.uniq.sort
+  end
+
+  def latest_relationships(noid)
+    object_root = Rails.root.join('tmp', 'files', noid[0..1], noid[2..3], noid)
+    inventory = JSON.parse(File.read(object_root.join('inventory.json')))
+    head_state = inventory.fetch('versions').fetch(inventory.fetch('head')).fetch('state')
+    digest, = head_state.find { |_d, paths| paths.include?('relationships.json') }
+    physical = inventory.fetch('manifest').fetch(digest).first
+    JSON.parse(File.read(object_root.join(physical)), symbolize_names: true)
+  end
+
   describe '#mods_xml=' do
     it 'stores the descriptive-metadata blob under the canonical descMetadata.xml filename' do
       stored_id = work.mods_blob.file_identifiers.last.to_s
       expect(stored_id).to end_with('/descMetadata.xml')
+    end
+
+    it 'emits a properties.json envelope for the new MODS Blob' do
+      expect(envelope_files_for(work.mods_blob.noid)).to include('properties.json', 'permissions.json')
+    end
+
+    it 're-emits the descriptive-metadata FileSet relationships.json with the MODS Blob in member_ids' do
+      desc_fs = work.children.find { |c| c.is_a?(FileSet) && c.type == Classification.descriptive_metadata.name }
+      relationships = latest_relationships(desc_fs.noid)
+      expect(relationships[:member_ids]).to include(work.mods_blob.noid)
     end
   end
 end

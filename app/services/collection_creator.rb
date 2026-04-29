@@ -19,6 +19,8 @@ class CollectionCreator < ApplicationService
 
       collection.mods_xml = @mods_xml
       collection.permissions = collection.parent.permissions # TODO: need to work in Sentinels eventually
-      Atlas.persister.save(resource: collection)
+      collection = Atlas.persister.save(resource: collection)
+      collection.write_preservation_envelope!
+      collection
     end
 end

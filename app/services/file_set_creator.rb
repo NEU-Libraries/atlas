@@ -24,6 +24,8 @@ class FileSetCreator < ApplicationService
         fs.mets_xml = fs.mets_template
         fs = FileSet.find(fs.id) # reload: mets_xml= mutated self via persister, so the local fs is stale
       end
+
+      fs.write_preservation_envelope!
       fs
     end
 

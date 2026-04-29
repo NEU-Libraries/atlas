@@ -50,13 +50,16 @@ class BlobCreator < ApplicationService
 
     def attach_to_file_set(file_set, blob)
       file_set.member_ids += [blob.id]
-      Atlas.persister.save(resource: file_set)
+      file_set = Atlas.persister.save(resource: file_set)
+      file_set.write_preservation_envelope!
     end
 
     def upload_and_save(blob)
       blob.file_identifiers += [create_file(@path, blob).version_id]
       # TODO: implement bespoke Blob permissions for differentiated access
       blob.permissions = Work.find(@work_id).permissions if @work_id
-      Atlas.persister.save(resource: blob)
+      blob = Atlas.persister.save(resource: blob)
+      blob.write_preservation_envelope!
+      blob
     end
 end

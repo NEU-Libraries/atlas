@@ -47,6 +47,7 @@ class BlobsController < ApplicationController
 
     parent_fs.member_ids -= [blob_id]
     parent_fs = Atlas.persister.save(resource: parent_fs)
+    parent_fs.write_preservation_envelope!
     METSRebuilder.call(file_set: parent_fs)
   end
 

@@ -67,5 +67,6 @@ class CommunitiesController < ApplicationController
       @community.safe_thumbnail = params[:metadata]['thumbnail'] if params[:metadata]['thumbnail'].present?
       @community.permissions = params[:metadata]['permissions'] if params[:metadata]['permissions'].present?
       @community = Atlas.persister.save(resource: @community)
+      @community.write_preservation_envelope!
     end
 end

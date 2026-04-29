@@ -41,4 +41,26 @@ class Blob < Resource
   def metadata?
     use == Role.descriptive_metadata.name || use == Role.structural_metadata.name
   end
+
+  # Blobs are graph leaves with no a_member_of / member_ids of their own —
+  # parent linkage lives one hop up in the FileSet's member_ids. What they
+  # do carry is preservation-critical descriptive payload (use, label,
+  # filename, mime, size). The most load-bearing is `use`: it's what tells
+  # a reconstitution tool that descMetadata.xml is MODS, not a content blob.
+  def graph_payload
+    {
+      schema_version: Preservable::ENVELOPE_SCHEMA_VERSION,
+      noid: noid,
+      type: 'Blob',
+      use: use,
+      original_filename: original_filename,
+      mime_type: mime_type,
+      size: size,
+      label: label
+    }
+  end
+
+  def graph_filename
+    'properties.json'
+  end
 end

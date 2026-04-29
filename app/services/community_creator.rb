@@ -23,6 +23,8 @@ class CommunityCreator < ApplicationService
         community.permissions = community.parent.permissions # TODO: need to work in Sentinels eventually
       end
 
-      Atlas.persister.save(resource: community)
+      community = Atlas.persister.save(resource: community)
+      community.write_preservation_envelope!
+      community
     end
 end

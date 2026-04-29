@@ -44,6 +44,8 @@ module Metsable
       self.member_ids += [blob.id]
       Atlas.persister.save(resource: self)
       @files = nil # invalidate cache so subsequent .files / .mets_blob reflect the new member
+      blob.write_preservation_envelope!
+      write_preservation_envelope!
       blob
     end
 

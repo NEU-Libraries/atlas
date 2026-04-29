@@ -4,6 +4,7 @@ class Resource < Valkyrie::Resource
   include Valkyrie::Resource::AccessControls
   include Relationships
   include Permissions
+  include Preservable
   include Modsable
 
   attribute :alternate_ids,

@@ -18,7 +18,8 @@ class CollectionCreator < ApplicationService
       FileSetCreator.call(work_id: collection.id, classification: Classification.descriptive_metadata)
 
       collection.mods_xml = @mods_xml
-      collection.permissions = collection.parent.permissions # TODO: need to work in Sentinels eventually
+      collection.permissions = collection.parent.permissions
+      collection.add_edit_group('northeastern:drs:repository:staff') # Default entry so DPS can work with all items
       collection = Atlas.persister.save(resource: collection)
       collection.write_preservation_envelope!
       collection

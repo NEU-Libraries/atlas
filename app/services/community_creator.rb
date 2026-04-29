@@ -19,8 +19,9 @@ class CommunityCreator < ApplicationService
 
       community.mods_xml = @mods_xml
 
-      if !community.parent.blank?
-        community.permissions = community.parent.permissions # TODO: need to work in Sentinels eventually
+      if community.parent.present?
+        community.permissions = community.parent.permissions
+        community.add_edit_group('northeastern:drs:repository:staff') # Default entry so DPS can work with all items
       end
 
       community = Atlas.persister.save(resource: community)

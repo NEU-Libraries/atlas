@@ -18,7 +18,8 @@ class WorkCreator < ApplicationService
       FileSetCreator.call(work_id: work.id, classification: Classification.descriptive_metadata)
 
       work.mods_xml = @mods_xml
-      work.permissions = work.parent.permissions # TODO: need to work in Sentinels eventually
+      work.permissions = work.parent.permissions
+      work.add_edit_group('northeastern:drs:repository:staff') # Default entry so DPS can work with all items
       work = Atlas.persister.save(resource: work)
       work.write_preservation_envelope!
       work

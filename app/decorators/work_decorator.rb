@@ -52,7 +52,7 @@ module WorkDecorator
 
   def permanent_url
     tag.dt('Permanent URL') +
-      tag.dd(linkify(mods.identifiers&.first))
+      tag.dd(linkify(mods.permanent_url))
   end
 
   def access_condition

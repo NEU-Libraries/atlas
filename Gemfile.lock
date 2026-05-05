@@ -380,6 +380,9 @@ GEM
       rubocop (>= 1.33.0, < 2.0)
     ruby-filemagic (0.7.3)
     ruby-progressbar (1.13.0)
+    sanitize (6.1.3)
+      crass (~> 1.0.2)
+      nokogiri (>= 1.12.0)
     shrine (3.4.0)
       content_disposition (~> 1.0)
       down (~> 5.1)
@@ -463,6 +466,7 @@ DEPENDENCIES
   rswag-specs (~> 2.13)
   rubocop-rails
   ruby-filemagic
+  sanitize
   simplecov
   simplecov_json_formatter (= 0.1.3)
   tzinfo-data

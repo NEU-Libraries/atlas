@@ -53,6 +53,7 @@ gem 'pagy'
 gem 'rack-cors'
 gem 'rsolr'
 gem 'ruby-filemagic'
+gem 'sanitize'
 gem 'valkyrie'
 gem 'valkyrie-shrine'
 

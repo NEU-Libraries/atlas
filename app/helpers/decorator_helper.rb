@@ -34,7 +34,11 @@ module DecoratorHelper
   }.freeze
 
   URL_CANDIDATE_RE = %r{https?://[^\s<>]+}
-  URL_TRAILING_PUNCT_RE = /[).,;:!?'"\]]+\z/
+  # Brackets (), [], {} are *not* in here -- bracket balance is owned by
+  # split_at_url_boundary, which preserves matched pairs (Wikipedia-style
+  # "Foo_(disambiguation)") and peels stray closers off into the trailing
+  # text. Only sentence terminators belong here.
+  URL_TRAILING_PUNCT_RE = /[.,;:!?'"]+\z/
 
   def prefix_field(prefix, field)
     return prefix + field if field.present?
@@ -99,19 +103,47 @@ module DecoratorHelper
       remainder = text
       while (m = remainder.match(URL_CANDIDATE_RE))
         out << m.pre_match
-        out << render_url_match(m[0])
-        remainder = m.post_match
+        rendered, after = render_url_match(m[0])
+        out << rendered
+        # 'after' is text the regex slurped past the real URL boundary;
+        # prepend to the remainder so a second URL hidden in there still
+        # gets matched on the next loop pass.
+        remainder = after + m.post_match
       end
       out << remainder
       out
     end
 
     def render_url_match(match)
-      candidate, trailing = strip_trailing_punct(match)
+      candidate, after = split_at_url_boundary(match)
+      candidate, trailing = strip_trailing_punct(candidate)
       decoded = CGI.unescapeHTML(candidate)
       uri = safe_uri(decoded)
       head = uri ? link_tag(decoded, uri) : candidate
-      head + trailing
+      [head + trailing, after]
+    end
+
+    # The URL regex is greedy and only stops at whitespace, so a paste like
+    # "(http://example.com)Copyright" matches everything from "http" to the
+    # final 't'. Walk the match tracking bracket balance: the first closing
+    # bracket without a matching opener inside the URL is where the URL
+    # really ends. This keeps Wikipedia-style "Foo_(disambiguation)" URLs
+    # intact while peeling off stray ")Copyright..." text that ran on past
+    # the URL.
+    BRACKET_PAIRS = { ')' => '(', ']' => '[', '}' => '{' }.freeze
+
+    def split_at_url_boundary(str)
+      depth = Hash.new(0)
+      str.each_char.with_index do |ch, i|
+        if (opener = BRACKET_PAIRS[ch])
+          return [str[0...i], str[i..]] if depth[opener].zero?
+
+          depth[opener] -= 1
+        elsif BRACKET_PAIRS.value?(ch)
+          depth[ch] += 1
+        end
+      end
+      [str, '']
     end
 
     def strip_trailing_punct(str)

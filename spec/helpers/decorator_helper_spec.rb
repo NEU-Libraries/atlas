@@ -53,6 +53,28 @@ describe DecoratorHelper do
         .to include('http://example.com/foo</a>.')
     end
 
+    it 'terminates URL at an unbalanced ) when text runs on without whitespace' do
+      input = '(http://rightsstatements.org/page/InC/1.0/?language=en)Copyright restrictions may apply.'
+      result = helper.linkify(input)
+      expect(result).to include('href="http://rightsstatements.org/page/InC/1.0/?language=en"')
+      expect(result).to include('?language=en</a>)Copyright restrictions may apply.')
+      expect(result).not_to include('en)Copyright')
+    end
+
+    it 'keeps balanced parens inside a URL (Wikipedia-style)' do
+      input = 'See https://en.wikipedia.org/wiki/Foo_(disambiguation) here.'
+      expect(helper.linkify(input)).to include(
+        'href="https://en.wikipedia.org/wiki/Foo_(disambiguation)"'
+      )
+    end
+
+    it 'splits two URLs separated only by punctuation' do
+      input = 'http://a.example.com/x)http://b.example.com/y'
+      result = helper.linkify(input)
+      expect(result).to include('href="http://a.example.com/x"')
+      expect(result).to include('href="http://b.example.com/y"')
+    end
+
     it 'does not link a URL whose host has no dot' do
       expect(helper.linkify('go to http://localhost/foo'))
         .to eq('go to http://localhost/foo')

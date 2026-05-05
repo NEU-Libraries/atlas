@@ -33,8 +33,9 @@ module MODSToJson
     record.digital_origin = mods_obj.physical_description.digitalOrigin.text.squish
 
     # Abstract/Description
-    # This can have multiple entries, need to test
-    record.abstract = mods_obj.abstract.text.squish
+    # This can have multiple entries, need to test. Use the paragraph-aware
+    # normaliser so blank-line breaks survive into the access copy.
+    record.abstract = TextNormalizer.normalize_paragraphs(mods_obj.abstract.text)
 
     # Related item
     record.related_series = extract_related_series(mods_obj)
@@ -46,7 +47,7 @@ module MODSToJson
     record.identifiers = extract_identifiers(mods_obj)
 
     # Use and reproduction
-    record.access_condition = mods_obj.accessCondition.text.squish
+    record.access_condition = TextNormalizer.normalize_paragraphs(mods_obj.accessCondition.text)
 
     record.json_attributes
   end

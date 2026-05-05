@@ -22,29 +22,29 @@ describe DecoratorHelper do
 
     it 'escapes plain text containing no URLs' do
       expect(helper.linkify('Hello & welcome'))
-        .to eq('Hello &amp; welcome')
+        .to eq('<p>Hello &amp; welcome</p>')
     end
 
     it 'links a bare http URL' do
       expect(helper.linkify('http://hdl.handle.net/2047/D20254217')).to eq(
-        '<a href="http://hdl.handle.net/2047/D20254217" rel="nofollow noopener" ' \
-        'target="_blank">http://hdl.handle.net/2047/D20254217</a>'
+        '<p><a href="http://hdl.handle.net/2047/D20254217" rel="nofollow noopener" ' \
+        'target="_blank">http://hdl.handle.net/2047/D20254217</a></p>'
       )
     end
 
     it 'links an https URL' do
       expect(helper.linkify('see https://example.com/path here')).to eq(
-        'see <a href="https://example.com/path" rel="nofollow noopener" ' \
-        'target="_blank">https://example.com/path</a> here'
+        '<p>see <a href="https://example.com/path" rel="nofollow noopener" ' \
+        'target="_blank">https://example.com/path</a> here</p>'
       )
     end
 
     it 'leaves trailing punctuation outside the link (parenthesised URL)' do
       input = 'rights (http://rightsstatements.org/page/InC/1.0/?language=en)'
       expect(helper.linkify(input)).to eq(
-        'rights (<a href="http://rightsstatements.org/page/InC/1.0/?language=en" ' \
+        '<p>rights (<a href="http://rightsstatements.org/page/InC/1.0/?language=en" ' \
         'rel="nofollow noopener" target="_blank">' \
-        'http://rightsstatements.org/page/InC/1.0/?language=en</a>)'
+        'http://rightsstatements.org/page/InC/1.0/?language=en</a>)</p>'
       )
     end
 
@@ -77,59 +77,67 @@ describe DecoratorHelper do
 
     it 'does not link a URL whose host has no dot' do
       expect(helper.linkify('go to http://localhost/foo'))
-        .to eq('go to http://localhost/foo')
+        .to eq('<p>go to http://localhost/foo</p>')
     end
 
     it 'does not link a malformed URL (parse failure)' do
       expect(helper.linkify('weird http://[bad/'))
-        .to eq('weird http://[bad/')
+        .to eq('<p>weird http://[bad/</p>')
     end
 
     it 'does not link non-http(s) schemes' do
       expect(helper.linkify('javascript:alert(1)'))
-        .to eq('javascript:alert(1)')
+        .to eq('<p>javascript:alert(1)</p>')
     end
 
     it 'preserves <sup> and <sub> from curator input' do
       expect(helper.linkify('H<sub>2</sub>O and E=mc<sup>2</sup>'))
-        .to eq('H<sub>2</sub>O and E=mc<sup>2</sup>')
+        .to eq('<p>H<sub>2</sub>O and E=mc<sup>2</sup></p>')
     end
 
     it 'strips disallowed inline tags' do
       expect(helper.linkify('<b>important</b> and <i>note</i>'))
-        .to eq('important and note')
+        .to eq('<p>important and note</p>')
     end
 
     it 'strips curator-typed <a> tags entirely (link-text remains as plain text)' do
       input = 'See <a href="https://example.com">click here</a> for info.'
-      expect(helper.linkify(input)).to eq('See click here for info.')
+      expect(helper.linkify(input)).to eq('<p>See click here for info.</p>')
     end
 
     it 'strips <script> contents along with the tag' do
       input = 'Hello <script>alert(1)</script> world'
-      expect(helper.linkify(input)).to eq('Hello  world')
+      expect(helper.linkify(input)).to eq('<p>Hello  world</p>')
     end
 
     it 'strips <style> contents along with the tag' do
       input = 'Pre <style>body{}</style> post'
-      expect(helper.linkify(input)).to eq('Pre  post')
+      expect(helper.linkify(input)).to eq('<p>Pre  post</p>')
     end
 
-    it 'turns a blank-line paragraph break into <br><br>' do
-      expect(helper.linkify("first\n\nsecond")).to eq('first<br><br>second')
+    it 'wraps a single paragraph in <p>' do
+      expect(helper.linkify('only one')).to eq('<p>only one</p>')
     end
 
-    it 'caps multiple consecutive newlines at exactly one <br><br>' do
-      expect(helper.linkify("first\n\n\n\n\nsecond")).to eq('first<br><br>second')
+    it 'wraps each blank-line-delimited paragraph in its own <p>' do
+      expect(helper.linkify("first\n\nsecond")).to eq('<p>first</p><p>second</p>')
+    end
+
+    it 'collapses runs of blank lines into a single paragraph break' do
+      expect(helper.linkify("first\n\n\n\n\nsecond")).to eq('<p>first</p><p>second</p>')
+    end
+
+    it 'drops blank paragraphs (whitespace-only between blank lines)' do
+      expect(helper.linkify("first\n\n   \n\nsecond")).to eq('<p>first</p><p>second</p>')
     end
 
     it 'treats lone newlines as a single space (soft wrap)' do
-      expect(helper.linkify("wrap\nped")).to eq('wrap ped')
+      expect(helper.linkify("wrap\nped")).to eq('<p>wrap ped</p>')
     end
 
     it 'strips curator-typed <br> tags (br is not in the whitelist)' do
       expect(helper.linkify('a<br><br><br><br>b'))
-        .to eq('ab')
+        .to eq('<p>ab</p>')
     end
 
     it 'returns an html_safe string' do
@@ -139,16 +147,16 @@ describe DecoratorHelper do
     it 'links the parenthesised rightsstatements URL alongside surrounding rights text' do
       input = 'In Copyright: blah (http://rightsstatements.org/page/InC/1.0/?language=en)'
       result = helper.linkify(input)
-      expect(result).to start_with('In Copyright: blah (<a href=')
-      expect(result).to end_with('?language=en</a>)')
+      expect(result).to start_with('<p>In Copyright: blah (<a href=')
+      expect(result).to end_with('?language=en</a>)</p>')
     end
 
     it 'handles a paragraph with both <sub> and an autolinked URL' do
       input = "H<sub>2</sub>O reference\n\nSee https://example.com/x for details."
       expect(helper.linkify(input)).to eq(
-        'H<sub>2</sub>O reference<br><br>See ' \
+        '<p>H<sub>2</sub>O reference</p><p>See ' \
         '<a href="https://example.com/x" rel="nofollow noopener" target="_blank">' \
-        'https://example.com/x</a> for details.'
+        'https://example.com/x</a> for details.</p>'
       )
     end
   end

@@ -8,10 +8,11 @@ module DecoratorHelper
   include ActionView::Helpers # Seems to be neccessary due to Atlas being an API app
 
   # Inline tags that survive sanitisation. We deliberately omit <br>, <a>,
-  # and structural tags: <br>'s are minted from blank lines by linkify
-  # itself, <a>'s come from URL detection, and structural tags (<dt>, <dd>,
-  # <p>) are emitted by the decorator. Any of these typed by curators get
-  # stripped -- the goal is to prevent attempts to make metadata "pretty".
+  # and structural tags: <a>'s come from URL detection, <p>'s are minted
+  # from blank-line paragraph breaks by linkify itself, and other
+  # structural tags (<dt>, <dd>) are emitted by the decorator. Any of
+  # these typed by curators get stripped -- the goal is to prevent
+  # attempts to make metadata "pretty".
   LINKIFY_ALLOWED_TAGS = %w[sup sub].freeze
 
   # Sanitize's default :whitespace_elements config inserts whitespace where
@@ -58,9 +59,10 @@ module DecoratorHelper
 
   # Render curator-authored freetext as a safe HTML fragment:
   #   1. Sanitize against a tiny inline whitelist (sup/sub only).
-  #   2. Convert blank-line paragraph breaks into <br><br>; treat lone
-  #      newlines as soft wraps (collapsed to a space). Caps vertical
-  #      whitespace at exactly one paragraph break regardless of input.
+  #   2. Split on blank-line paragraph breaks and wrap each paragraph in
+  #      <p>...</p>; treat lone newlines as soft wraps (collapsed to a
+  #      space). Emits <p> uniformly so consumers like Cerberus can own
+  #      vertical spacing via CSS.
   #   3. Auto-link http(s) URLs that survive a strict URI.parse validation.
   #      Anything that fails to parse stays as plain (escaped) text.
   #   4. Mark the result html_safe.
@@ -82,13 +84,17 @@ module DecoratorHelper
   private
 
     def paragraphize(html)
-      html.gsub(/\n{2,}/, '<br><br>').tr("\n", ' ')
+      html.split(/\n{2,}/)
+          .map { |para| para.tr("\n", ' ') }
+          .compact_blank
+          .map { |para| "<p>#{para}</p>" }
+          .join
     end
 
     # html is already sanitised (only <sup>/<sub> tags survive, plus
-    # <br><br> we just inserted). Walk it as a stream, splitting around
-    # tags. Tags pass through untouched; text segments get URL detection
-    # with non-URL text re-escaped.
+    # <p>...</p> wrappers we just inserted). Walk it as a stream, splitting
+    # around tags. Tags pass through untouched; text segments get URL
+    # detection with non-URL text re-escaped.
     def autolink(html)
       segments = html.split(/(<[^>]+>)/)
       segments.map { |seg| seg.start_with?('<') ? seg : autolink_text(seg) }.join

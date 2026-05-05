@@ -48,6 +48,7 @@ module MODSToJson
 
     # Permanent URL
     record.identifiers = extract_identifiers(mods_obj)
+    record.permanent_url = extract_permanent_url(mods_obj)
 
     # Use and reproduction
     # Same multi-element handling as abstract -- two consecutive

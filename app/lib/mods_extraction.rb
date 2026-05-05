@@ -63,6 +63,10 @@ module MODSExtraction
     result
   end
 
+  def extract_permanent_url(mods_obj)
+    mods_obj.identifier.detect { |i| i['type'] == 'hdl' }&.text&.squish
+  end
+
   private
 
     def safe_date_parse(str)

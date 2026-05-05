@@ -33,9 +33,12 @@ module MODSToJson
     record.digital_origin = mods_obj.physical_description.digitalOrigin.text.squish
 
     # Abstract/Description
-    # This can have multiple entries, need to test. Use the paragraph-aware
-    # normaliser so blank-line breaks survive into the access copy.
-    record.abstract = TextNormalizer.normalize_paragraphs(mods_obj.abstract.text)
+    # MODS allows multiple <abstract> elements. Calling .text on the
+    # NodeSet would smoosh them together with no separator; instead
+    # normalise each one and join with a paragraph break. Use the
+    # paragraph-aware normaliser so blank-line breaks survive into the
+    # access copy.
+    record.abstract = join_paragraphs(mods_obj.abstract)
 
     # Related item
     record.related_series = extract_related_series(mods_obj)
@@ -47,8 +50,24 @@ module MODSToJson
     record.identifiers = extract_identifiers(mods_obj)
 
     # Use and reproduction
-    record.access_condition = TextNormalizer.normalize_paragraphs(mods_obj.accessCondition.text)
+    # Same multi-element handling as abstract -- two consecutive
+    # <accessCondition> elements would otherwise concatenate into one
+    # blob (e.g. "...?language=en)Copyright restrictions...").
+    record.access_condition = join_paragraphs(mods_obj.accessCondition)
 
     record.json_attributes
   end
+
+  private
+
+    # Iterate a NodeSet, normalise each element's text as paragraphs, drop
+    # empties, join with the canonical blank-line paragraph break.
+    def join_paragraphs(node_set)
+      parts = []
+      node_set.each do |node|
+        normalized = TextNormalizer.normalize_paragraphs(node.text)
+        parts << normalized unless normalized.empty?
+      end
+      parts.join("\n\n")
+    end
 end

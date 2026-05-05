@@ -12,14 +12,14 @@ namespace :atlas do
         Atlas.query.find_all_of_model(model: klass).each do |resource|
           resource.write_preservation_envelope!
           total += 1
-          puts "  envelopes written: #{total}" if (total % 100).zero?
+          Rails.logger.info "  envelopes written: #{total}" if (total % 100).zero?
         rescue StandardError => e
           errors += 1
-          warn "  envelope failed for #{klass.name} #{resource.noid}: #{e.message}"
+          Rails.logger.warn "  envelope failed for #{klass.name} #{resource.noid}: #{e.message}"
         end
       end
 
-      puts "atlas:preservation:backfill_envelopes complete — wrote #{total}, #{errors} errors"
+      Rails.logger.info "atlas:preservation:backfill_envelopes complete — wrote #{total}, #{errors} errors"
     end
   end
 end

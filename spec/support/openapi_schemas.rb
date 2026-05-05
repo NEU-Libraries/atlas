@@ -192,7 +192,8 @@ module OpenapiSchemas
       ancestors: ancestor_pairs,
       thumbnail: { type: :string, nullable: true },
       title: { type: :string, nullable: true },
-      description: { type: :string, nullable: true }
+      description: { type: :string, nullable: true },
+      permanent_url: { type: :string, nullable: true }
     }
   end
 

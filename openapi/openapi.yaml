@@ -80,6 +80,9 @@ components:
             description:
               type: string
               nullable: true
+            permanent_url:
+              type: string
+              nullable: true
           required:
           - id
           - valkyrie_id
@@ -87,6 +90,7 @@ components:
           - thumbnail
           - title
           - description
+          - permanent_url
       required:
       - work
     Collection:
@@ -119,6 +123,9 @@ components:
             description:
               type: string
               nullable: true
+            permanent_url:
+              type: string
+              nullable: true
           required:
           - id
           - valkyrie_id
@@ -126,6 +133,7 @@ components:
           - thumbnail
           - title
           - description
+          - permanent_url
       required:
       - collection
     Community:
@@ -158,6 +166,9 @@ components:
             description:
               type: string
               nullable: true
+            permanent_url:
+              type: string
+              nullable: true
           required:
           - id
           - valkyrie_id
@@ -165,6 +176,7 @@ components:
           - thumbnail
           - title
           - description
+          - permanent_url
       required:
       - community
     FileSet:

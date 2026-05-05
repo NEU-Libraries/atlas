@@ -7,4 +7,5 @@ json.collection do
   json.thumbnail @collection.thumbnail
   json.title @collection.plain_title
   json.description @collection.plain_description
+  json.permanent_url @collection.mods&.permanent_url
 end

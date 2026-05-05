@@ -7,4 +7,5 @@ json.work do
   json.thumbnail @work.thumbnail
   json.title @work.plain_title
   json.description @work.plain_description
+  json.permanent_url @work.mods&.permanent_url
 end

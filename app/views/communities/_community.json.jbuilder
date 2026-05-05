@@ -7,4 +7,5 @@ json.community do
   json.thumbnail @community.thumbnail
   json.title @community.plain_title
   json.description @community.plain_description
+  json.permanent_url @community.mods&.permanent_url
 end

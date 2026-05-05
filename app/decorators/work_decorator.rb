@@ -52,11 +52,11 @@ module WorkDecorator
 
   def permanent_url
     tag.dt('Permanent URL') +
-      tag.dd(mods.identifiers&.first)
+      tag.dd(linkify(mods.identifiers&.first))
   end
 
   def access_condition
     tag.dt('Use and reproduction') +
-      tag.dd(mods.access_condition)
+      tag.dd(linkify(mods.access_condition))
   end
 end

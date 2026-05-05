@@ -12,7 +12,8 @@ class MODSIndexer
 
     {
       title_tsim: decorated_resource.plain_title,
-      description_tsim: decorated_resource.plain_description
+      description_tsim: decorated_resource.plain_description,
+      permanent_url_ssi: decorated_resource.mods&.permanent_url
     }
   end
 

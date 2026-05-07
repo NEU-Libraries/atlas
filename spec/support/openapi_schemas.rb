@@ -171,11 +171,11 @@ module OpenapiSchemas
   # `User` schema above, which documents the AR `to_json` output of GET /user.
   def provisioned_user
     wrapped(:user, {
-      id:     { type: :integer },
-      nuid:   { type: :string },
-      name:   { type: :string, nullable: true },
-      email:  { type: :string, nullable: true },
-      role:   { type: :string },
+      id: { type: :integer },
+      nuid: { type: :string },
+      name: { type: :string, nullable: true },
+      email: { type: :string, nullable: true },
+      role: { type: :string },
       groups: { type: :array, items: { type: :string } }
     })
   end

@@ -67,8 +67,8 @@ RSpec.describe 'User', type: :request do
         type: :object,
         properties: {
           groups: { type: :array, items: { type: :string } },
-          email:  { type: :string },
-          name:   { type: :string }
+          email: { type: :string },
+          name: { type: :string }
         }
       }
 
@@ -77,9 +77,9 @@ RSpec.describe 'User', type: :request do
 
         let!(:system_user) do
           User.create!(
-            email:    'system@example.com',
+            email: 'system@example.com',
             password: SecureRandom.hex(16),
-            role:     :system
+            role: :system
           )
         end
         let(:system_token) { 'test-system-token' }
@@ -92,8 +92,8 @@ RSpec.describe 'User', type: :request do
         let(:body) do
           {
             groups: ['northeastern:staff', 'drs:editors'],
-            email:  'jane@example.edu',
-            name:   'Jane Doe'
+            email: 'jane@example.edu',
+            name: 'Jane Doe'
           }
         end
         run_test! do |response|

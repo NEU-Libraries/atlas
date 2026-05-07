@@ -27,6 +27,7 @@ module OpenapiSchemas
       WorkBlobs:   work_blobs,
       Pagination:  pagination,
       User:        user,
+      ProvisionedUser: provisioned_user,
       Permissions: permissions,
       ResourceRef: resource_ref,
       Lineage:     lineage
@@ -163,6 +164,20 @@ module OpenapiSchemas
       },
       additionalProperties: true
     }
+  end
+
+  # PUT /users/by_nuid/{nuid} — strict shape pinned to the response partial
+  # at app/views/users/_user.json.jbuilder. Distinct from the permissive
+  # `User` schema above, which documents the AR `to_json` output of GET /user.
+  def provisioned_user
+    wrapped(:user, {
+      id:     { type: :integer },
+      nuid:   { type: :string },
+      name:   { type: :string, nullable: true },
+      email:  { type: :string, nullable: true },
+      role:   { type: :string },
+      groups: { type: :array, items: { type: :string } }
+    })
   end
 
   def permissions

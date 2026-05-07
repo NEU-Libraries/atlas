@@ -49,5 +49,8 @@ Rails.application.routes.draw do
 
     # User details
     get '/user', to: 'users/tokens#show', as: 'user_show'
+
+    # SSO user provisioning (system-only)
+    put '/users/by_nuid/:nuid', to: 'users#update', as: 'user_provision'
   end
 end

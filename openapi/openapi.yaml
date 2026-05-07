@@ -431,6 +431,37 @@ components:
           type: string
           nullable: true
       additionalProperties: true
+    ProvisionedUser:
+      type: object
+      properties:
+        user:
+          type: object
+          properties:
+            id:
+              type: integer
+            nuid:
+              type: string
+            name:
+              type: string
+              nullable: true
+            email:
+              type: string
+              nullable: true
+            role:
+              type: string
+            groups:
+              type: array
+              items:
+                type: string
+          required:
+          - id
+          - nuid
+          - name
+          - email
+          - role
+          - groups
+      required:
+      - user
     Permissions:
       type: object
       properties:
@@ -1083,6 +1114,52 @@ paths:
                   type: string
               required:
               - nuid
+  "/users/by_nuid/{nuid}":
+    put:
+      summary: Find-or-create a user and replace their groups (system-only)
+      tags:
+      - User
+      description: |
+        System-only endpoint used by Cerberus on SSO callback. Idempotent
+        on NUID; replaces (not merges) the supplied groups onto the user.
+        Requires the system Bearer token (no `User:` header); non-system
+        callers receive 403.
+      security:
+      - BearerAuth: []
+      parameters:
+      - name: nuid
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: user upserted
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProvisionedUser"
+        '403':
+          description: caller is not the system user
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                groups:
+                  type: array
+                  items:
+                    type: string
+                email:
+                  type: string
+                name:
+                  type: string
   "/works":
     get:
       summary: List works

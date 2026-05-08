@@ -47,6 +47,29 @@ class CollectionsController < ApplicationController
     Atlas.persister.delete(resource: Collection.find(params[:id]))
   end
 
+  def tombstone
+    @collection = Collection.find(params[:id])
+
+    if @collection.live_children?
+      render json: { error: 'cannot tombstone a non-empty collection',
+                     code:  'has_live_children' },
+             status: :unprocessable_entity and return
+    end
+
+    @collection.tombstoned    = true
+    @collection.tombstoned_at = Time.current
+    @collection.tombstoned_by = @nuid
+    @collection = Atlas.persister.save(resource: @collection).decorate
+  end
+
+  def restore
+    @collection = Collection.find(params[:id])
+    @collection.tombstoned    = false
+    @collection.tombstoned_at = nil
+    @collection.tombstoned_by = nil
+    @collection = Atlas.persister.save(resource: @collection).decorate
+  end
+
   private
 
     def binary_update

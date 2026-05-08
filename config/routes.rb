@@ -11,9 +11,24 @@ Rails.application.routes.draw do
   }
 
   defaults format: :json do
-    resources :communities
-    resources :collections
-    resources :works
+    resources :communities do
+      member do
+        post :tombstone
+        post :restore
+      end
+    end
+    resources :collections do
+      member do
+        post :tombstone
+        post :restore
+      end
+    end
+    resources :works do
+      member do
+        post :tombstone
+        post :restore
+      end
+    end
     # resources :users
     resources :file_sets
     resources :files, :controller => :blobs do

@@ -89,4 +89,63 @@ describe CommunitiesController, type: :controller do
       end
     end
   end
+
+  describe 'POST #tombstone' do
+    let(:community) { CommunityCreator.call }
+
+    it 'tombstones an empty community' do
+      request.headers['User'] = 'NUID 000000002'
+      post :tombstone, params: { id: community.noid }, as: :json
+
+      expect(response).to have_http_status(:success)
+      json = response.parsed_body['community']
+      expect(json['tombstoned']).to be(true)
+      expect(json['tombstoned_at']).to be_present
+
+      reloaded = Community.find(community.noid)
+      expect(reloaded.tombstoned).to be(true)
+      expect(reloaded.tombstoned_at).to be_present
+    end
+
+    it 'refuses with 422 has_live_children when a live Collection is a member' do
+      CollectionCreator.call(parent_id: community.noid)
+
+      post :tombstone, params: { id: community.noid }, as: :json
+
+      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response.parsed_body['code']).to eq('has_live_children')
+      expect(Community.find(community.noid).tombstoned).to be(false)
+    end
+
+    it 'succeeds when the only members are themselves tombstoned' do
+      child = CollectionCreator.call(parent_id: community.noid)
+      child.tombstoned = true
+      Atlas.persister.save(resource: child)
+
+      post :tombstone, params: { id: community.noid }, as: :json
+
+      expect(response).to have_http_status(:success)
+      expect(Community.find(community.noid).tombstoned).to be(true)
+    end
+  end
+
+  describe 'POST #restore' do
+    let(:community) do
+      c = CommunityCreator.call
+      c.tombstoned = true
+      c.tombstoned_at = Time.current
+      c.tombstoned_by = '000000002'
+      Atlas.persister.save(resource: c)
+    end
+
+    it 'clears tombstone fields' do
+      post :restore, params: { id: community.noid }, as: :json
+
+      expect(response).to have_http_status(:success)
+      reloaded = Community.find(community.noid)
+      expect(reloaded.tombstoned).to be(false)
+      expect(reloaded.tombstoned_at).to be_nil
+      expect(reloaded.tombstoned_by).to be_nil
+    end
+  end
 end

@@ -44,6 +44,22 @@ class WorksController < ApplicationController
     Atlas.persister.delete(resource: Work.find(params[:id]))
   end
 
+  def tombstone
+    @work = Work.find(params[:id])
+    @work.tombstoned    = true
+    @work.tombstoned_at = Time.current
+    @work.tombstoned_by = @nuid
+    @work = Atlas.persister.save(resource: @work).decorate
+  end
+
+  def restore
+    @work = Work.find(params[:id])
+    @work.tombstoned    = false
+    @work.tombstoned_at = nil
+    @work.tombstoned_by = nil
+    @work = Atlas.persister.save(resource: @work).decorate
+  end
+
   private
 
     def binary_update

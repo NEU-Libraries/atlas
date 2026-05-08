@@ -50,6 +50,7 @@ module Permissions
     result[:depositor] = edit_users
     result[:read] = read_groups
     result[:edit] = edit_groups
+    result[:type] = self.class.name
 
     result
   end

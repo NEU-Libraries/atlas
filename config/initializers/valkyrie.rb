@@ -32,7 +32,8 @@ Rails.application.config.to_prepare do
         connection:  RSolr.connect(:url => 'http://solr:8983/solr/blacklight-core'),
         resource_indexer: Valkyrie::Persistence::Solr::CompositeIndexer.new(
           Valkyrie::Indexers::AccessControlsIndexer,
-          MODSIndexer
+          MODSIndexer,
+          TombstoneIndexer
         )
       ),
       :index_solr
@@ -43,7 +44,8 @@ Rails.application.config.to_prepare do
         connection:  RSolr.connect(:url => 'http://solr:8983/solr/blacklight-test'),
         resource_indexer: Valkyrie::Persistence::Solr::CompositeIndexer.new(
           Valkyrie::Indexers::AccessControlsIndexer,
-          MODSIndexer
+          MODSIndexer,
+          TombstoneIndexer
         )
       ),
       :test_solr

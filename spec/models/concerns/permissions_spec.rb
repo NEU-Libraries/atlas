@@ -36,6 +36,14 @@ RSpec.describe Permissions do
     end
   end
 
+  describe '#permissions' do
+    it 'returns the resource class name as :type' do
+      expect(community.permissions[:type]).to eq('Community')
+      expect(collection.permissions[:type]).to eq('Collection')
+      expect(work.permissions[:type]).to eq('Work')
+    end
+  end
+
   describe '#permissions=' do
     let(:base_hsh) do
       { embargo: nil, depositor: ['nu1'], read: ['public'], edit: ['northeastern:editors'] }

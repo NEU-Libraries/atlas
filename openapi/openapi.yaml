@@ -83,6 +83,17 @@ components:
             permanent_url:
               type: string
               nullable: true
+            tombstoned:
+              type: boolean
+              description: Withdrawn-from-discovery flag
+            tombstoned_at:
+              type: string
+              nullable: true
+              description: ISO-8601 timestamp set when tombstoned
+            tombstoned_by:
+              type: string
+              nullable: true
+              description: NUID of the user who tombstoned the resource
           required:
           - id
           - valkyrie_id
@@ -91,6 +102,9 @@ components:
           - title
           - description
           - permanent_url
+          - tombstoned
+          - tombstoned_at
+          - tombstoned_by
       required:
       - work
     Collection:
@@ -126,6 +140,17 @@ components:
             permanent_url:
               type: string
               nullable: true
+            tombstoned:
+              type: boolean
+              description: Withdrawn-from-discovery flag
+            tombstoned_at:
+              type: string
+              nullable: true
+              description: ISO-8601 timestamp set when tombstoned
+            tombstoned_by:
+              type: string
+              nullable: true
+              description: NUID of the user who tombstoned the resource
           required:
           - id
           - valkyrie_id
@@ -134,6 +159,9 @@ components:
           - title
           - description
           - permanent_url
+          - tombstoned
+          - tombstoned_at
+          - tombstoned_by
       required:
       - collection
     Community:
@@ -169,6 +197,17 @@ components:
             permanent_url:
               type: string
               nullable: true
+            tombstoned:
+              type: boolean
+              description: Withdrawn-from-discovery flag
+            tombstoned_at:
+              type: string
+              nullable: true
+              description: ISO-8601 timestamp set when tombstoned
+            tombstoned_by:
+              type: string
+              nullable: true
+              description: NUID of the user who tombstoned the resource
           required:
           - id
           - valkyrie_id
@@ -177,6 +216,9 @@ components:
           - title
           - description
           - permanent_url
+          - tombstoned
+          - tombstoned_at
+          - tombstoned_by
       required:
       - community
     FileSet:
@@ -750,6 +792,48 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Lineage"
+  "/collections/{id}/tombstone":
+    parameters:
+    - name: id
+      in: path
+      required: true
+      schema:
+        type: string
+    post:
+      summary: Tombstone a collection
+      tags:
+      - Collections
+      description: Marks a Collection as tombstoned. Refuses with 422 if the collection
+        has live (non-tombstoned) members.
+      responses:
+        '200':
+          description: collection tombstoned
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Collection"
+        '422':
+          description: collection has live members
+  "/collections/{id}/restore":
+    parameters:
+    - name: id
+      in: path
+      required: true
+      schema:
+        type: string
+    post:
+      summary: Restore a tombstoned collection
+      tags:
+      - Collections
+      description: Clears the tombstone flag on a Collection. Cerberus does not expose
+        this — call from operator console.
+      responses:
+        '200':
+          description: collection restored
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Collection"
   "/communities":
     get:
       summary: List communities
@@ -895,6 +979,48 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Lineage"
+  "/communities/{id}/tombstone":
+    parameters:
+    - name: id
+      in: path
+      required: true
+      schema:
+        type: string
+    post:
+      summary: Tombstone a community
+      tags:
+      - Communities
+      description: Marks a Community as tombstoned. Refuses with 422 if the community
+        has live (non-tombstoned) members.
+      responses:
+        '200':
+          description: community tombstoned
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Community"
+        '422':
+          description: community has live members
+  "/communities/{id}/restore":
+    parameters:
+    - name: id
+      in: path
+      required: true
+      schema:
+        type: string
+    post:
+      summary: Restore a tombstoned community
+      tags:
+      - Communities
+      description: Clears the tombstone flag on a Community. Cerberus does not expose
+        this — call from operator console.
+      responses:
+        '200':
+          description: community restored
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Community"
   "/file_sets":
     get:
       summary: List file sets
@@ -1292,3 +1418,43 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/WorkBlobs"
+  "/works/{id}/tombstone":
+    parameters:
+    - name: id
+      in: path
+      required: true
+      schema:
+        type: string
+    post:
+      summary: Tombstone a work
+      tags:
+      - Works
+      description: Marks a Work as tombstoned. Always succeeds; FileSets and Blobs
+        ride along with the parent Work.
+      responses:
+        '200':
+          description: work tombstoned
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Work"
+  "/works/{id}/restore":
+    parameters:
+    - name: id
+      in: path
+      required: true
+      schema:
+        type: string
+    post:
+      summary: Restore a tombstoned work
+      tags:
+      - Works
+      description: Clears the tombstone flag on a Work. Cerberus does not expose this
+        — call from operator console.
+      responses:
+        '200':
+          description: work restored
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Work"

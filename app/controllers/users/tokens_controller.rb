@@ -7,7 +7,7 @@ class Users::TokensController < ApplicationController
   end
 
   def nuid
-    if current_user.system?
+    if current_user&.system?
       user = User.find_by_nuid(params[:nuid])
       if !user.blank?
         result = {:token => Warden::JWTAuth::UserEncoder.new.call(user, :user, nil)[0]}

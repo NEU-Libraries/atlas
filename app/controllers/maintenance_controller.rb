@@ -19,5 +19,11 @@ class MaintenanceController < ApplicationController
 
     # create cerberus system user
     User.create(password:Devise.friendly_token[0,20], name: "User, System", nuid:"000000000", email:"admin@northeastern.edu", role: :system)
+
+    # create guest system user
+    User.create(password:Devise.friendly_token[0,20], name: "User, Guest", nuid:"000000001", email:"guest@northeastern.edu", role: :guest)
+
+    # create DPS user
+    User.create(password:Devise.friendly_token[0,20], name: "Doe, Jane", nuid:"000000002", email:"dps@northeastern.edu", role: :standard, groups: ["northeastern:drs:repository:staff"])
   end
 end

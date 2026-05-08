@@ -3,6 +3,8 @@
 module Permissions
   extend ActiveSupport::Concern
 
+  STAFF_EDIT_GROUP = 'northeastern:drs:repository:staff'
+
   included do
     attribute :embargo_release_date, Valkyrie::Types::DateTime.optional
   end
@@ -36,6 +38,7 @@ module Permissions
   end
 
   def delete_edit_group(group_name)
+    return if group_name == STAFF_EDIT_GROUP
     return unless edit_groups.include?(group_name)
 
     self.edit_groups = edit_groups.map(&:clone).reject! { |gn| gn == group_name }
@@ -62,7 +65,13 @@ module Permissions
 
     self.edit_users = hsh[:depositor]
     self.read_groups = hsh[:read]
-    self.edit_groups = hsh[:edit]
+
+    incoming_edit = Array(hsh[:edit])
+    self.edit_groups = if incoming_edit.include?(STAFF_EDIT_GROUP)
+                         incoming_edit
+                       else
+                         incoming_edit.unshift(STAFF_EDIT_GROUP)
+                       end
   end
 
   def public?

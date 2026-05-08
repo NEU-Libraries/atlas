@@ -128,4 +128,42 @@ RSpec.describe 'Works', type: :request do
       end
     end
   end
+
+  path '/works/{id}/tombstone' do
+    parameter name: :id, in: :path, type: :string
+
+    post 'Tombstone a work' do
+      tags 'Works'
+      produces 'application/json'
+      description 'Marks a Work as tombstoned. Always succeeds; FileSets and Blobs ride along with the parent Work.'
+
+      response '200', 'work tombstoned' do
+        let(:work) { WorkCreator.call(parent_id: collection.noid) }
+        let(:id)   { work.noid }
+        schema '$ref' => '#/components/schemas/Work'
+        run_test!
+      end
+    end
+  end
+
+  path '/works/{id}/restore' do
+    parameter name: :id, in: :path, type: :string
+
+    post 'Restore a tombstoned work' do
+      tags 'Works'
+      produces 'application/json'
+      description 'Clears the tombstone flag on a Work. Cerberus does not expose this — call from operator console.'
+
+      response '200', 'work restored' do
+        let(:work) do
+          w = WorkCreator.call(parent_id: collection.noid)
+          w.tombstoned = true
+          Atlas.persister.save(resource: w)
+        end
+        let(:id) { work.noid }
+        schema '$ref' => '#/components/schemas/Work'
+        run_test!
+      end
+    end
+  end
 end

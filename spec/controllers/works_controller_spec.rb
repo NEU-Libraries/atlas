@@ -107,4 +107,47 @@ describe WorksController, type: :controller do
       end
     end
   end
+
+  describe 'POST #tombstone' do
+    let(:community)  { CommunityCreator.call }
+    let(:collection) { CollectionCreator.call(parent_id: community.noid) }
+    let(:work)       { WorkCreator.call(parent_id: collection.noid) }
+
+    it 'tombstones a Work regardless of attached FileSets' do
+      # Works always tombstone — children (FileSets/Blobs) ride along.
+      request.headers['User'] = 'NUID 000000002'
+      post :tombstone, params: { id: work.noid }, as: :json
+
+      expect(response).to have_http_status(:success)
+      json = response.parsed_body['work']
+      expect(json['tombstoned']).to be(true)
+      expect(json['tombstoned_at']).to be_present
+
+      reloaded = Work.find(work.noid)
+      expect(reloaded.tombstoned).to be(true)
+      expect(reloaded.tombstoned_at).to be_present
+    end
+  end
+
+  describe 'POST #restore' do
+    let(:community)  { CommunityCreator.call }
+    let(:collection) { CollectionCreator.call(parent_id: community.noid) }
+    let(:work) do
+      w = WorkCreator.call(parent_id: collection.noid)
+      w.tombstoned = true
+      w.tombstoned_at = Time.current
+      w.tombstoned_by = '000000002'
+      Atlas.persister.save(resource: w)
+    end
+
+    it 'clears tombstone fields' do
+      post :restore, params: { id: work.noid }, as: :json
+
+      expect(response).to have_http_status(:success)
+      reloaded = Work.find(work.noid)
+      expect(reloaded.tombstoned).to be(false)
+      expect(reloaded.tombstoned_at).to be_nil
+      expect(reloaded.tombstoned_by).to be_nil
+    end
+  end
 end

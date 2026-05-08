@@ -58,4 +58,8 @@ module Relationships
   def filtered_children
     children.select { |c| c.is_a?(Community) || c.is_a?(Collection) || c.is_a?(Work) }.map(&:noid).map(&:to_s).to_a
   end
+
+  def live_children?
+    children.any? { |c| (c.is_a?(Community) || c.is_a?(Collection) || c.is_a?(Work)) && !c.tombstoned }
+  end
 end

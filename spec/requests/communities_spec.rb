@@ -136,4 +136,49 @@ RSpec.describe 'Communities', type: :request do
       end
     end
   end
+
+  path '/communities/{id}/tombstone' do
+    parameter name: :id, in: :path, type: :string
+
+    post 'Tombstone a community' do
+      tags 'Communities'
+      produces 'application/json'
+      description 'Marks a Community as tombstoned. Refuses with 422 if the community has live (non-tombstoned) members.'
+
+      response '200', 'community tombstoned' do
+        let(:community) { CommunityCreator.call }
+        let(:id)        { community.noid }
+        schema '$ref' => '#/components/schemas/Community'
+        run_test!
+      end
+
+      response '422', 'community has live members' do
+        let(:community) { CommunityCreator.call }
+        let(:id)        { community.noid }
+        before { CollectionCreator.call(parent_id: community.noid) }
+        run_test!
+      end
+    end
+  end
+
+  path '/communities/{id}/restore' do
+    parameter name: :id, in: :path, type: :string
+
+    post 'Restore a tombstoned community' do
+      tags 'Communities'
+      produces 'application/json'
+      description 'Clears the tombstone flag on a Community. Cerberus does not expose this — call from operator console.'
+
+      response '200', 'community restored' do
+        let(:community) do
+          c = CommunityCreator.call
+          c.tombstoned = true
+          Atlas.persister.save(resource: c)
+        end
+        let(:id) { community.noid }
+        schema '$ref' => '#/components/schemas/Community'
+        run_test!
+      end
+    end
+  end
 end

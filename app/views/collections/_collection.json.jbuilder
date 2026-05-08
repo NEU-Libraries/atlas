@@ -8,4 +8,7 @@ json.collection do
   json.title @collection.plain_title
   json.description @collection.plain_description
   json.permanent_url @collection.mods&.permanent_url
+  json.tombstoned @collection.tombstoned
+  json.tombstoned_at @collection.tombstoned_at&.to_s
+  json.tombstoned_by @collection.tombstoned_by
 end

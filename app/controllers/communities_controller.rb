@@ -48,6 +48,29 @@ class CommunitiesController < ApplicationController
     Atlas.persister.delete(resource: Community.find(params[:id]))
   end
 
+  def tombstone
+    @community = Community.find(params[:id])
+
+    if @community.live_children?
+      render json: { error: 'cannot tombstone a non-empty community',
+                     code:  'has_live_children' },
+             status: :unprocessable_entity and return
+    end
+
+    @community.tombstoned    = true
+    @community.tombstoned_at = Time.current
+    @community.tombstoned_by = @nuid
+    @community = Atlas.persister.save(resource: @community).decorate
+  end
+
+  def restore
+    @community = Community.find(params[:id])
+    @community.tombstoned    = false
+    @community.tombstoned_at = nil
+    @community.tombstoned_by = nil
+    @community = Atlas.persister.save(resource: @community).decorate
+  end
+
   private
 
     def binary_update

@@ -15,6 +15,10 @@ class Resource < Valkyrie::Resource
   # This should be a IIIF url
   attribute :thumbnail, Valkyrie::Types::String
 
+  attribute :tombstoned,    Valkyrie::Types::Bool.default(false)
+  attribute :tombstoned_at, Valkyrie::Types::DateTime.optional
+  attribute :tombstoned_by, Valkyrie::Types::String.optional
+
   enable_optimistic_locking
 
   def noid

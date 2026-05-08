@@ -208,7 +208,10 @@ module OpenapiSchemas
       thumbnail: { type: :string, nullable: true },
       title: { type: :string, nullable: true },
       description: { type: :string, nullable: true },
-      permanent_url: { type: :string, nullable: true }
+      permanent_url: { type: :string, nullable: true },
+      tombstoned: { type: :boolean, description: 'Withdrawn-from-discovery flag' },
+      tombstoned_at: { type: :string, nullable: true, description: 'ISO-8601 timestamp set when tombstoned' },
+      tombstoned_by: { type: :string, nullable: true, description: 'NUID of the user who tombstoned the resource' }
     }
   end
 

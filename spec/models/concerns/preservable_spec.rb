@@ -123,7 +123,7 @@ RSpec.describe Preservable do
         embargo: '2026-12-31T00:00:00+00:00',
         depositor: ['nu123'],
         read: ['public'],
-        edit: ['northeastern:editors']
+        edit: [Permissions::STAFF_EDIT_GROUP, 'northeastern:editors']
       }
       Atlas.persister.save(resource: work)
 
@@ -132,7 +132,7 @@ RSpec.describe Preservable do
 
       expect(payload[:depositor]).to eq(['nu123'])
       expect(payload[:read]).to eq(['public'])
-      expect(payload[:edit]).to eq(['northeastern:editors'])
+      expect(payload[:edit]).to eq([Permissions::STAFF_EDIT_GROUP, 'northeastern:editors'])
       expect(payload[:embargo]).to start_with('2026-12-31')
     end
 

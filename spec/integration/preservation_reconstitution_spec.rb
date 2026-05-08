@@ -141,7 +141,7 @@ RSpec.describe 'OCFL preservation reconstitution', type: :integration do
       embargo: nil,
       depositor: ['nu999'],
       read: ['public'],
-      edit: ['northeastern:editors']
+      edit: [Permissions::STAFF_EDIT_GROUP, 'northeastern:editors']
     }
     Atlas.persister.save(resource: community)
     community.write_preservation_envelope!
@@ -156,6 +156,6 @@ RSpec.describe 'OCFL preservation reconstitution', type: :integration do
 
     expect(fresh.edit_users).to eq(['nu999'])
     expect(fresh.read_groups).to eq(['public'])
-    expect(fresh.edit_groups).to eq(['northeastern:editors'])
+    expect(fresh.edit_groups).to eq([Permissions::STAFF_EDIT_GROUP, 'northeastern:editors'])
   end
 end

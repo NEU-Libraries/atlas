@@ -77,7 +77,7 @@ RSpec.describe PreservationEnvelopeWriter do
         embargo: '2026-12-31T00:00:00+00:00',
         depositor: ['nu123'],
         read: ['public'],
-        edit: ['northeastern:editors']
+        edit: [Permissions::STAFF_EDIT_GROUP, 'northeastern:editors']
       }
       Atlas.persister.save(resource: work)
       described_class.call(resource: work)
@@ -93,7 +93,7 @@ RSpec.describe PreservationEnvelopeWriter do
 
       expect(reloaded.edit_users).to eq(['nu123'])
       expect(reloaded.read_groups).to eq(['public'])
-      expect(reloaded.edit_groups).to eq(['northeastern:editors'])
+      expect(reloaded.edit_groups).to eq([Permissions::STAFF_EDIT_GROUP, 'northeastern:editors'])
       expect(reloaded.embargo_release_date.to_s).to start_with('2026-12-31')
     end
 

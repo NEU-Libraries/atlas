@@ -19,7 +19,7 @@ class CollectionCreator < ApplicationService
 
       collection.mods_xml = @mods_xml
       collection.permissions = collection.parent.permissions
-      collection.add_edit_group('northeastern:drs:repository:staff') # Default entry so DPS can work with all items
+      collection.add_edit_group(Permissions::STAFF_EDIT_GROUP) # Default entry so DPS can work with all items
       collection = Atlas.persister.save(resource: collection)
       collection.write_preservation_envelope!
       collection

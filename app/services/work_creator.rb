@@ -19,7 +19,7 @@ class WorkCreator < ApplicationService
 
       work.mods_xml = @mods_xml
       work.permissions = work.parent.permissions
-      work.add_edit_group('northeastern:drs:repository:staff') # Default entry so DPS can work with all items
+      work.add_edit_group(Permissions::STAFF_EDIT_GROUP) # Default entry so DPS can work with all items
       work = Atlas.persister.save(resource: work)
       work.write_preservation_envelope!
       work

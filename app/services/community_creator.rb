@@ -21,7 +21,7 @@ class CommunityCreator < ApplicationService
 
       if community.parent.present?
         community.permissions = community.parent.permissions
-        community.add_edit_group('northeastern:drs:repository:staff') # Default entry so DPS can work with all items
+        community.add_edit_group(Permissions::STAFF_EDIT_GROUP) # Default entry so DPS can work with all items
       end
 
       community = Atlas.persister.save(resource: community)

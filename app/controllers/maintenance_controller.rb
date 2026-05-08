@@ -16,5 +16,8 @@ class MaintenanceController < ApplicationController
 
     c.delete_by_query '*:*'
     c.commit
+
+    # create cerberus system user
+    User.create(password:Devise.friendly_token[0,20], name: "User, System", nuid:"000000000", email:"admin@northeastern.edu", role: :system)
   end
 end

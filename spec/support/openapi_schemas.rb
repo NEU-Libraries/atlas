@@ -37,7 +37,7 @@ module OpenapiSchemas
   # ---- detail shapes (one wrapped object) ----
 
   def work
-    wrapped(:work, base_resource_props)
+    wrapped(:work, base_resource_props.merge(work_only_props))
   end
 
   def collection
@@ -51,7 +51,10 @@ module OpenapiSchemas
   def file_set
     wrapped(:file_set, {
       id: { type: :string, description: 'NOID' },
-      type: { type: :string, nullable: true }
+      type: { type: :string, nullable: true },
+      tombstoned: { type: :boolean, description: 'Withdrawn-from-discovery flag' },
+      tombstoned_at: { type: :string, nullable: true, description: 'ISO-8601 timestamp set when tombstoned' },
+      tombstoned_by: { type: :string, nullable: true, description: 'NUID of the user who tombstoned the resource' }
     })
   end
 
@@ -68,14 +71,17 @@ module OpenapiSchemas
         type: :array,
         items: { type: :object, additionalProperties: true,
                  description: 'Valkyrie::ID-shaped reference to the underlying bytes' }
-      }
+      },
+      tombstoned: { type: :boolean, description: 'Withdrawn-from-discovery flag' },
+      tombstoned_at: { type: :string, nullable: true, description: 'ISO-8601 timestamp set when tombstoned' },
+      tombstoned_by: { type: :string, nullable: true, description: 'NUID of the user who tombstoned the resource' }
     })
   end
 
   # ---- summary shapes (used by index actions) ----
 
   def work_summary
-    wrapped(:work, summary_props)
+    wrapped(:work, summary_props.merge(work_only_props))
   end
 
   def collection_summary
@@ -86,11 +92,11 @@ module OpenapiSchemas
     wrapped(:community, summary_props)
   end
 
+  # FileSet index uses the same _file_set partial as show, so summary and
+  # detail share the same shape (including tombstone fields). Reusing
+  # `file_set` keeps the two in lockstep.
   def file_set_summary
-    wrapped(:file_set, {
-      id: { type: :string, description: 'NOID' },
-      type: { type: :string, nullable: true }
-    })
+    file_set
   end
 
   def blob_summary
@@ -239,6 +245,14 @@ module OpenapiSchemas
       id: { type: :string },
       title: { type: :string, nullable: true },
       description: { type: :string, nullable: true }
+    }
+  end
+
+  # Fields that live on Work but not on Collection/Community.
+  def work_only_props
+    {
+      in_progress: { type: :boolean,
+                     description: 'Cerberus-driven workflow flag; true until the bulk-deposit job marks the Work complete.' }
     }
   end
 

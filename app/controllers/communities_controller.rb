@@ -9,7 +9,10 @@ class CommunitiesController < ApplicationController
   end
 
   def show
-    @community = Community.find(params[:id]).decorate
+    @community = Community.find(params[:id])&.decorate
+    return head(:not_found) if @community.nil?
+
+    render :show, status: (@community.tombstoned ? :gone : :ok)
   end
 
   def create
@@ -26,11 +29,19 @@ class CommunitiesController < ApplicationController
   end
 
   def children
-    @children = Community.find(params[:id]).filtered_children
+    @community = Community.find(params[:id])&.decorate
+    return head(:not_found) if @community.nil?
+    return render(:show, status: :gone) if @community.tombstoned
+
+    @children = @community.filtered_children
   end
 
   def ancestors
-    @ancestors = Community.find(params[:id]).ancestors
+    @community = Community.find(params[:id])&.decorate
+    return head(:not_found) if @community.nil?
+    return render(:show, status: :gone) if @community.tombstoned
+
+    @ancestors = @community.ancestors
   end
 
   def update

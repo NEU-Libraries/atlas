@@ -4,6 +4,7 @@
 class BlobsController < ApplicationController
   include LazyPagination
   include FileHelper
+  include IdempotentCreate
 
   def index
     @pagination, @blobs = paginate_model(Blob)
@@ -11,9 +12,17 @@ class BlobsController < ApplicationController
 
   def show
     @blob = Blob.find(params[:id])
+    return head(:not_found) if @blob.nil?
+
+    render :show, status: (@blob.tombstoned ? :gone : :ok)
   end
 
   def create
+    if (record = find_idempotency_record(Blob))
+      @blob = Blob.find(record.resource_noid)
+      return render_idempotent_resource(@blob)
+    end
+
     file = params[:binary]
     @blob = BlobCreator.call(
       work_id: params[:work_id],
@@ -22,6 +31,7 @@ class BlobsController < ApplicationController
       path: (file.tempfile.path.presence ||
              file.path)
     )
+    record_idempotency_key!(@blob.noid, Blob)
   end
 
   def update

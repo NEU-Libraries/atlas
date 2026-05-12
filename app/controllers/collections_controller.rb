@@ -9,7 +9,10 @@ class CollectionsController < ApplicationController
   end
 
   def show
-    @collection = Collection.find(params[:id]).decorate
+    @collection = Collection.find(params[:id])&.decorate
+    return head(:not_found) if @collection.nil?
+
+    render :show, status: (@collection.tombstoned ? :gone : :ok)
   end
 
   def create
@@ -25,11 +28,19 @@ class CollectionsController < ApplicationController
   end
 
   def children
-    @children = Collection.find(params[:id]).filtered_children
+    @collection = Collection.find(params[:id])&.decorate
+    return head(:not_found) if @collection.nil?
+    return render(:show, status: :gone) if @collection.tombstoned
+
+    @children = @collection.filtered_children
   end
 
   def ancestors
-    @ancestors = Collection.find(params[:id]).ancestors
+    @collection = Collection.find(params[:id])&.decorate
+    return head(:not_found) if @collection.nil?
+    return render(:show, status: :gone) if @collection.tombstoned
+
+    @ancestors = @collection.ancestors
   end
 
   def update

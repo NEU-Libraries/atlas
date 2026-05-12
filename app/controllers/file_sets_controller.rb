@@ -3,6 +3,7 @@
 # File Sets
 class FileSetsController < ApplicationController
   include LazyPagination
+  include IdempotentCreate
 
   def index
     @pagination, @file_sets = paginate_model(FileSet)
@@ -10,6 +11,9 @@ class FileSetsController < ApplicationController
 
   def show
     @file_set = FileSet.find(params[:id])
+    return head(:not_found) if @file_set.nil?
+
+    render :show, status: (@file_set.tombstoned ? :gone : :ok)
   end
 
   def mets
@@ -20,12 +24,18 @@ class FileSetsController < ApplicationController
   end
 
   def create
+    if (record = find_idempotency_record(FileSet))
+      @file_set = FileSet.find(record.resource_noid)
+      return render_idempotent_resource(@file_set)
+    end
+
     @file_set = FileSetCreator.call(
       work_id: params[:work_id],
       classification: Classification.find(
         params[:classification]
       )
     )
+    record_idempotency_key!(@file_set.noid, FileSet)
   end
 
   def update

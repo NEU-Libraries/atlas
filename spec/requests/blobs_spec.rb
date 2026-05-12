@@ -7,6 +7,10 @@ RSpec.describe 'Files (Blobs)', type: :request do
   let(:collection) { CollectionCreator.call(parent_id: community.noid) }
   let(:work)       { WorkCreator.call(parent_id: collection.noid) }
   let(:fixture)    { Rails.root.join('spec/fixtures/files/example.bin') }
+  let!(:guest) do
+    User.find_by_role(:guest) ||
+      User.create!(email: 'guest@example.com', password: SecureRandom.hex(16), role: :guest)
+  end
 
   after { Atlas.persister.wipe! }
 
@@ -25,10 +29,19 @@ RSpec.describe 'Files (Blobs)', type: :request do
       tags 'Files'
       consumes 'multipart/form-data'
       produces 'application/json'
-      description 'Uploads a binary as a Blob attached to a Work.'
+      description <<~DESC
+        Uploads a binary as a Blob attached to a Work.
+
+        Idempotent on the optional `Idempotency-Key` header: a repeat
+        request from the same caller with the same key returns the
+        originally-created Blob without re-uploading. 410 + tombstone
+        payload if the underlying Blob has been tombstoned.
+      DESC
       parameter name: :work_id,           in: :formData, required: true
       parameter name: :original_filename, in: :formData, required: false
       parameter name: :binary,            in: :formData, required: true
+      parameter name: :'Idempotency-Key', in: :header, type: :string, required: false,
+                description: 'Client-supplied UUID; repeats return the existing resource.'
       multipart_request_body(
         {
           work_id:           { type: :string, description: 'NOID of the parent Work' },
@@ -42,6 +55,43 @@ RSpec.describe 'Files (Blobs)', type: :request do
         let(:work_id)           { work.noid }
         let(:original_filename) { 'example.bin' }
         let(:binary)            { Rack::Test::UploadedFile.new(fixture) }
+        let(:'Idempotency-Key') { nil }
+        schema '$ref' => '#/components/schemas/Blob'
+        run_test!
+      end
+
+      response '200', 'idempotent replay returns existing blob' do
+        let(:work_id)           { work.noid }
+        let(:original_filename) { 'example.bin' }
+        let(:binary)            { Rack::Test::UploadedFile.new(fixture) }
+        let(:idempotency_key)   { SecureRandom.uuid }
+        let(:'Idempotency-Key') { idempotency_key }
+        let!(:existing) do
+          b = BlobCreator.call(work_id: work.noid, original_filename: 'example.bin', path: fixture.to_s)
+          IdempotencyKey.create!(user: guest, key: idempotency_key,
+                                 resource_type: 'Blob', resource_noid: b.noid)
+          b
+        end
+        schema '$ref' => '#/components/schemas/Blob'
+        run_test! do |response|
+          expect(JSON.parse(response.body).dig('blob', 'id')).to eq(existing.noid)
+        end
+      end
+
+      response '410', 'idempotent replay on a tombstoned blob' do
+        let(:work_id)           { work.noid }
+        let(:original_filename) { 'example.bin' }
+        let(:binary)            { Rack::Test::UploadedFile.new(fixture) }
+        let(:idempotency_key)   { SecureRandom.uuid }
+        let(:'Idempotency-Key') { idempotency_key }
+        let!(:existing) do
+          b = BlobCreator.call(work_id: work.noid, original_filename: 'example.bin', path: fixture.to_s)
+          b.tombstoned = true
+          b = Atlas.persister.save(resource: b)
+          IdempotencyKey.create!(user: guest, key: idempotency_key,
+                                 resource_type: 'Blob', resource_noid: b.noid)
+          b
+        end
         schema '$ref' => '#/components/schemas/Blob'
         run_test!
       end
@@ -58,6 +108,17 @@ RSpec.describe 'Files (Blobs)', type: :request do
       response '200', 'file found' do
         let(:blob) { BlobCreator.call(work_id: work.noid, original_filename: 'example.bin', path: fixture.to_s) }
         let(:id)   { blob.noid }
+        schema '$ref' => '#/components/schemas/Blob'
+        run_test!
+      end
+
+      response '410', 'file tombstoned' do
+        let(:blob) do
+          b = BlobCreator.call(work_id: work.noid, original_filename: 'example.bin', path: fixture.to_s)
+          b.tombstoned = true
+          Atlas.persister.save(resource: b)
+        end
+        let(:id) { blob.noid }
         schema '$ref' => '#/components/schemas/Blob'
         run_test!
       end

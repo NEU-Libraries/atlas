@@ -6,6 +6,7 @@ json.works do |root|
       json.id work.noid
       json.title work.plain_title
       json.description work.plain_description
+      json.in_progress work.in_progress
     end
   end
 end

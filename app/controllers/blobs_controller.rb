@@ -5,7 +5,9 @@ class BlobsController < ApplicationController
   include LazyPagination
   include FileHelper
   include TombstoneAware
+  include IdempotentCreate
   tombstone_aware_for resource_class: Blob, var: :blob, decorate: false
+  idempotent_for      resource_class: Blob, var: :blob, decorate: false
 
   def index
     @pagination, @blobs = paginate_model(Blob)
@@ -24,6 +26,7 @@ class BlobsController < ApplicationController
       path: (file.tempfile.path.presence ||
              file.path)
     )
+    record_idempotency_key!(@blob.noid)
   end
 
   def update

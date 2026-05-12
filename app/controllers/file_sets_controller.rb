@@ -4,7 +4,9 @@
 class FileSetsController < ApplicationController
   include LazyPagination
   include TombstoneAware
+  include IdempotentCreate
   tombstone_aware_for resource_class: FileSet, var: :file_set, decorate: false
+  idempotent_for      resource_class: FileSet, var: :file_set, decorate: false
 
   def index
     @pagination, @file_sets = paginate_model(FileSet)
@@ -28,6 +30,7 @@ class FileSetsController < ApplicationController
         params[:classification]
       )
     )
+    record_idempotency_key!(@file_set.noid)
   end
 
   def update

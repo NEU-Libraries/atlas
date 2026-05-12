@@ -4,7 +4,9 @@
 class WorksController < ApplicationController
   include LazyPagination
   include TombstoneAware
+  include IdempotentCreate
   tombstone_aware_for resource_class: Work, var: :work
+  idempotent_for      resource_class: Work, var: :work
 
   def index
     @pagination, @works = paginate_model(Work)
@@ -17,6 +19,7 @@ class WorksController < ApplicationController
   def create
     # TODO: XML
     @work = WorkCreator.call(parent_id: params[:collection_id])
+    record_idempotency_key!(@work.noid)
   end
 
   def mods

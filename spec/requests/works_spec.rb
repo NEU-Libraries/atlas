@@ -55,6 +55,17 @@ RSpec.describe 'Works', type: :request do
         schema '$ref' => '#/components/schemas/Work'
         run_test!
       end
+
+      response '410', 'work tombstoned' do
+        let(:work) do
+          w = WorkCreator.call(parent_id: collection.noid)
+          w.tombstoned = true
+          Atlas.persister.save(resource: w)
+        end
+        let(:id) { work.noid }
+        schema '$ref' => '#/components/schemas/Work'
+        run_test!
+      end
     end
 
     patch 'Update a work' do

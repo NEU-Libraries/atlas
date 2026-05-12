@@ -51,6 +51,17 @@ RSpec.describe 'Collections', type: :request do
         schema '$ref' => '#/components/schemas/Collection'
         run_test!
       end
+
+      response '410', 'collection tombstoned' do
+        let(:collection) do
+          c = CollectionCreator.call(parent_id: community.noid)
+          c.tombstoned = true
+          Atlas.persister.save(resource: c)
+        end
+        let(:id) { collection.noid }
+        schema '$ref' => '#/components/schemas/Collection'
+        run_test!
+      end
     end
 
     patch 'Update a collection' do
@@ -120,6 +131,17 @@ RSpec.describe 'Collections', type: :request do
         schema type: :array, items: { type: :string }
         run_test!
       end
+
+      response '410', 'collection tombstoned' do
+        let(:collection) do
+          c = CollectionCreator.call(parent_id: community.noid)
+          c.tombstoned = true
+          Atlas.persister.save(resource: c)
+        end
+        let(:id) { collection.noid }
+        schema '$ref' => '#/components/schemas/Collection'
+        run_test!
+      end
     end
   end
 
@@ -135,6 +157,17 @@ RSpec.describe 'Collections', type: :request do
         let(:collection) { CollectionCreator.call(parent_id: community.noid) }
         let(:id)         { collection.noid }
         schema '$ref' => '#/components/schemas/Lineage'
+        run_test!
+      end
+
+      response '410', 'collection tombstoned' do
+        let(:collection) do
+          c = CollectionCreator.call(parent_id: community.noid)
+          c.tombstoned = true
+          Atlas.persister.save(resource: c)
+        end
+        let(:id) { collection.noid }
+        schema '$ref' => '#/components/schemas/Collection'
         run_test!
       end
     end

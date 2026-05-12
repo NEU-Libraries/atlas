@@ -61,6 +61,17 @@ RSpec.describe 'Files (Blobs)', type: :request do
         schema '$ref' => '#/components/schemas/Blob'
         run_test!
       end
+
+      response '410', 'file tombstoned' do
+        let(:blob) do
+          b = BlobCreator.call(work_id: work.noid, original_filename: 'example.bin', path: fixture.to_s)
+          b.tombstoned = true
+          Atlas.persister.save(resource: b)
+        end
+        let(:id) { blob.noid }
+        schema '$ref' => '#/components/schemas/Blob'
+        run_test!
+      end
     end
 
     patch 'Append a new revision to a file' do

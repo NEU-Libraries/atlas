@@ -3,13 +3,15 @@
 # Works
 class WorksController < ApplicationController
   include LazyPagination
+  include TombstoneAware
+  tombstone_aware_for resource_class: Work, var: :work
 
   def index
     @pagination, @works = paginate_model(Work)
   end
 
   def show
-    @work = Work.find(params[:id]).decorate
+    # @work set by TombstoneAware before_action
   end
 
   def create

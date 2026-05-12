@@ -48,6 +48,17 @@ RSpec.describe 'Communities', type: :request do
         schema '$ref' => '#/components/schemas/Community'
         run_test!
       end
+
+      response '410', 'community tombstoned' do
+        let(:community) do
+          c = CommunityCreator.call
+          c.tombstoned = true
+          Atlas.persister.save(resource: c)
+        end
+        let(:id) { community.noid }
+        schema '$ref' => '#/components/schemas/Community'
+        run_test!
+      end
     end
 
     patch 'Update a community' do
@@ -117,6 +128,17 @@ RSpec.describe 'Communities', type: :request do
         schema type: :array, items: { type: :string }
         run_test!
       end
+
+      response '410', 'community tombstoned' do
+        let(:community) do
+          c = CommunityCreator.call
+          c.tombstoned = true
+          Atlas.persister.save(resource: c)
+        end
+        let(:id) { community.noid }
+        schema '$ref' => '#/components/schemas/Community'
+        run_test!
+      end
     end
   end
 
@@ -132,6 +154,17 @@ RSpec.describe 'Communities', type: :request do
         let(:community) { CommunityCreator.call }
         let(:id)        { community.noid }
         schema '$ref' => '#/components/schemas/Lineage'
+        run_test!
+      end
+
+      response '410', 'community tombstoned' do
+        let(:community) do
+          c = CommunityCreator.call
+          c.tombstoned = true
+          Atlas.persister.save(resource: c)
+        end
+        let(:id) { community.noid }
+        schema '$ref' => '#/components/schemas/Community'
         run_test!
       end
     end

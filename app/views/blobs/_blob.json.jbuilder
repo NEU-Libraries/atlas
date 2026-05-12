@@ -9,4 +9,7 @@ json.blob do
   json.filename @blob.filename
   json.label Label.find(@blob.label)&.name
   json.file_identifiers @blob.file_identifiers
+  json.tombstoned @blob.tombstoned
+  json.tombstoned_at @blob.tombstoned_at&.to_s
+  json.tombstoned_by @blob.tombstoned_by
 end

@@ -4,13 +4,15 @@
 class BlobsController < ApplicationController
   include LazyPagination
   include FileHelper
+  include TombstoneAware
+  tombstone_aware_for resource_class: Blob, var: :blob, decorate: false
 
   def index
     @pagination, @blobs = paginate_model(Blob)
   end
 
   def show
-    @blob = Blob.find(params[:id])
+    # @blob set by TombstoneAware before_action
   end
 
   def create

@@ -51,7 +51,10 @@ module OpenapiSchemas
   def file_set
     wrapped(:file_set, {
       id: { type: :string, description: 'NOID' },
-      type: { type: :string, nullable: true }
+      type: { type: :string, nullable: true },
+      tombstoned: { type: :boolean, description: 'Withdrawn-from-discovery flag' },
+      tombstoned_at: { type: :string, nullable: true, description: 'ISO-8601 timestamp set when tombstoned' },
+      tombstoned_by: { type: :string, nullable: true, description: 'NUID of the user who tombstoned the resource' }
     })
   end
 
@@ -68,7 +71,10 @@ module OpenapiSchemas
         type: :array,
         items: { type: :object, additionalProperties: true,
                  description: 'Valkyrie::ID-shaped reference to the underlying bytes' }
-      }
+      },
+      tombstoned: { type: :boolean, description: 'Withdrawn-from-discovery flag' },
+      tombstoned_at: { type: :string, nullable: true, description: 'ISO-8601 timestamp set when tombstoned' },
+      tombstoned_by: { type: :string, nullable: true, description: 'NUID of the user who tombstoned the resource' }
     })
   end
 

@@ -3,13 +3,15 @@
 # File Sets
 class FileSetsController < ApplicationController
   include LazyPagination
+  include TombstoneAware
+  tombstone_aware_for resource_class: FileSet, var: :file_set, decorate: false
 
   def index
     @pagination, @file_sets = paginate_model(FileSet)
   end
 
   def show
-    @file_set = FileSet.find(params[:id])
+    # @file_set set by TombstoneAware before_action
   end
 
   def mets

@@ -56,6 +56,17 @@ RSpec.describe 'FileSets', type: :request do
         schema '$ref' => '#/components/schemas/FileSet'
         run_test!
       end
+
+      response '410', 'file set tombstoned' do
+        let(:file_set) do
+          fs = FileSetCreator.call(work_id: work.noid, classification: Classification.generic)
+          fs.tombstoned = true
+          Atlas.persister.save(resource: fs)
+        end
+        let(:id) { file_set.noid }
+        schema '$ref' => '#/components/schemas/FileSet'
+        run_test!
+      end
     end
 
     patch 'Append binary content to a file set' do

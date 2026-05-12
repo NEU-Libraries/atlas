@@ -44,6 +44,7 @@ module IdempotentCreate
     def idempotency_key_replay
       key = request.headers['Idempotency-Key']
       return if key.blank?
+      return if @current_user.nil? # misconfigured guest seed — fall through to plain create
 
       record = IdempotencyKey.find_by(
         user_id: @current_user.id, key: key,
@@ -67,6 +68,7 @@ module IdempotentCreate
     def record_idempotency_key!(resource_noid)
       key = request.headers['Idempotency-Key']
       return if key.blank?
+      return if @current_user.nil?
 
       IdempotencyKey.create!(
         user: @current_user, key: key,

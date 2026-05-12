@@ -92,11 +92,11 @@ module OpenapiSchemas
     wrapped(:community, summary_props)
   end
 
+  # FileSet index uses the same _file_set partial as show, so summary and
+  # detail share the same shape (including tombstone fields). Reusing
+  # `file_set` keeps the two in lockstep.
   def file_set_summary
-    wrapped(:file_set, {
-      id: { type: :string, description: 'NOID' },
-      type: { type: :string, nullable: true }
-    })
+    file_set
   end
 
   def blob_summary

@@ -5,6 +5,13 @@ require 'swagger_helper'
 RSpec.describe 'Works', type: :request do
   let(:community)  { CommunityCreator.call }
   let(:collection) { CollectionCreator.call(parent_id: community.noid) }
+  # Idempotency-Key replay scopes records to the guest user when no other
+  # auth context is present; seed one so the rswag examples can persist
+  # their setup IdempotencyKey rows.
+  let!(:guest) do
+    User.find_by_role(:guest) ||
+      User.create!(email: 'guest@example.com', password: SecureRandom.hex(16), role: :guest)
+  end
 
   after { Atlas.persister.wipe! }
 
@@ -99,7 +106,7 @@ RSpec.describe 'Works', type: :request do
         let(:'Idempotency-Key') { idempotency_key }
         let!(:existing) do
           w = WorkCreator.call(parent_id: collection.noid)
-          IdempotencyKey.create!(user: User.find_by_role(:guest), key: idempotency_key,
+          IdempotencyKey.create!(user: guest, key: idempotency_key,
                                  resource_type: 'Work', resource_noid: w.noid)
           w
         end
@@ -117,7 +124,7 @@ RSpec.describe 'Works', type: :request do
           w = WorkCreator.call(parent_id: collection.noid)
           w.tombstoned = true
           w = Atlas.persister.save(resource: w)
-          IdempotencyKey.create!(user: User.find_by_role(:guest), key: idempotency_key,
+          IdempotencyKey.create!(user: guest, key: idempotency_key,
                                  resource_type: 'Work', resource_noid: w.noid)
           w
         end

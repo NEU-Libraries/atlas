@@ -6,6 +6,10 @@ RSpec.describe 'FileSets', type: :request do
   let(:community)  { CommunityCreator.call }
   let(:collection) { CollectionCreator.call(parent_id: community.noid) }
   let(:work)       { WorkCreator.call(parent_id: collection.noid) }
+  let!(:guest) do
+    User.find_by_role(:guest) ||
+      User.create!(email: 'guest@example.com', password: SecureRandom.hex(16), role: :guest)
+  end
 
   after { Atlas.persister.wipe! }
 
@@ -57,7 +61,7 @@ RSpec.describe 'FileSets', type: :request do
         let(:'Idempotency-Key') { idempotency_key }
         let!(:existing) do
           fs = FileSetCreator.call(work_id: work.noid, classification: Classification.generic)
-          IdempotencyKey.create!(user: User.find_by_role(:guest), key: idempotency_key,
+          IdempotencyKey.create!(user: guest, key: idempotency_key,
                                  resource_type: 'FileSet', resource_noid: fs.noid)
           fs
         end
@@ -75,7 +79,7 @@ RSpec.describe 'FileSets', type: :request do
           fs = FileSetCreator.call(work_id: work.noid, classification: Classification.generic)
           fs.tombstoned = true
           fs = Atlas.persister.save(resource: fs)
-          IdempotencyKey.create!(user: User.find_by_role(:guest), key: idempotency_key,
+          IdempotencyKey.create!(user: guest, key: idempotency_key,
                                  resource_type: 'FileSet', resource_noid: fs.noid)
           fs
         end

@@ -37,7 +37,7 @@ module OpenapiSchemas
   # ---- detail shapes (one wrapped object) ----
 
   def work
-    wrapped(:work, base_resource_props)
+    wrapped(:work, base_resource_props.merge(work_only_props))
   end
 
   def collection
@@ -81,7 +81,7 @@ module OpenapiSchemas
   # ---- summary shapes (used by index actions) ----
 
   def work_summary
-    wrapped(:work, summary_props)
+    wrapped(:work, summary_props.merge(work_only_props))
   end
 
   def collection_summary
@@ -245,6 +245,14 @@ module OpenapiSchemas
       id: { type: :string },
       title: { type: :string, nullable: true },
       description: { type: :string, nullable: true }
+    }
+  end
+
+  # Fields that live on Work but not on Collection/Community.
+  def work_only_props
+    {
+      in_progress: { type: :boolean,
+                     description: 'Cerberus-driven workflow flag; true until the bulk-deposit job marks the Work complete.' }
     }
   end
 

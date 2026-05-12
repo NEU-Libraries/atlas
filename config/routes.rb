@@ -27,6 +27,7 @@ Rails.application.routes.draw do
       member do
         post :tombstone
         post :restore
+        post :complete
       end
     end
     # resources :users

@@ -9,7 +9,7 @@ class WorksController < ApplicationController
   idempotent_for      resource_class: Work, var: :work
 
   def index
-    @pagination, @works = paginate_model(Work)
+    @pagination, @works = paginate_model(Work, filters: index_filters)
   end
 
   def show
@@ -65,7 +65,21 @@ class WorksController < ApplicationController
     @work = Atlas.persister.save(resource: @work).decorate
   end
 
+  def complete
+    @work = Work.find(params[:id])
+    return head(:not_found) if @work.nil?
+
+    @work.in_progress = false
+    @work = Atlas.persister.save(resource: @work).decorate
+  end
+
   private
+
+    def index_filters
+      return {} unless params.key?(:in_progress)
+
+      { in_progress: ActiveModel::Type::Boolean.new.cast(params[:in_progress]) }
+    end
 
     def binary_update
       # curl -F 'id=qrfj8zz' -F 'binary=@test.xml' http://localhost:3000/works/

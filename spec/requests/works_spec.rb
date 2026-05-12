@@ -12,12 +12,54 @@ RSpec.describe 'Works', type: :request do
     get 'List works' do
       tags 'Works'
       produces 'application/json'
-      description 'Paginated list of all works.'
+      description <<~DESC
+        Paginated list of all works.
+
+        Pass `?in_progress=true` to see only Works that Cerberus has not
+        yet marked complete (operator-friendly "what's stuck?" view).
+        Pass `?in_progress=false` to see only completed Works.
+      DESC
+      parameter name: :in_progress, in: :query, type: :boolean, required: false,
+                description: 'Filter by in_progress state. Omit for no filtering.'
 
       response '200', 'works listed' do
+        let(:in_progress) { nil }
         before { 2.times { WorkCreator.call(parent_id: collection.noid) } }
         schema '$ref' => '#/components/schemas/WorksIndex'
         run_test!
+      end
+
+      response '200', 'in-progress works listed' do
+        let(:in_progress) { true }
+        before do
+          # one in-progress (default), one completed
+          WorkCreator.call(parent_id: collection.noid)
+          w = WorkCreator.call(parent_id: collection.noid)
+          w.in_progress = false
+          Atlas.persister.save(resource: w)
+        end
+        schema '$ref' => '#/components/schemas/WorksIndex'
+        run_test! do |response|
+          works = JSON.parse(response.body).fetch('works')
+          expect(works.size).to eq(1)
+          expect(works.first.dig('work', 'in_progress')).to be true
+        end
+      end
+
+      response '200', 'completed works listed' do
+        let(:in_progress) { false }
+        before do
+          WorkCreator.call(parent_id: collection.noid)
+          w = WorkCreator.call(parent_id: collection.noid)
+          w.in_progress = false
+          Atlas.persister.save(resource: w)
+        end
+        schema '$ref' => '#/components/schemas/WorksIndex'
+        run_test! do |response|
+          works = JSON.parse(response.body).fetch('works')
+          expect(works.size).to eq(1)
+          expect(works.first.dig('work', 'in_progress')).to be false
+        end
       end
     end
 
@@ -217,6 +259,30 @@ RSpec.describe 'Works', type: :request do
         let(:id) { work.noid }
         schema '$ref' => '#/components/schemas/Work'
         run_test!
+      end
+    end
+  end
+
+  path '/works/{id}/complete' do
+    parameter name: :id, in: :path, type: :string
+
+    post 'Mark a work complete' do
+      tags 'Works'
+      produces 'application/json'
+      description <<~DESC
+        Flips `in_progress` to false. Cerberus calls this after its
+        per-record Solid Queue job confirms all expected children
+        (FileSets / Blobs) are deposited. Idempotent — calling on an
+        already-complete Work simply re-saves with in_progress: false.
+      DESC
+
+      response '200', 'work marked complete' do
+        let(:work) { WorkCreator.call(parent_id: collection.noid) }
+        let(:id)   { work.noid }
+        schema '$ref' => '#/components/schemas/Work'
+        run_test! do |response|
+          expect(JSON.parse(response.body).dig('work', 'in_progress')).to be false
+        end
       end
     end
   end

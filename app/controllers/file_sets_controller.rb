@@ -3,17 +3,17 @@
 # File Sets
 class FileSetsController < ApplicationController
   include LazyPagination
-  include TombstoneAware
   include IdempotentCreate
-  tombstone_aware_for resource_class: FileSet, var: :file_set, decorate: false
-  idempotent_for      resource_class: FileSet, var: :file_set, decorate: false
 
   def index
     @pagination, @file_sets = paginate_model(FileSet)
   end
 
   def show
-    # @file_set set by TombstoneAware before_action
+    @file_set = FileSet.find(params[:id])
+    return head(:not_found) if @file_set.nil?
+
+    render :show, status: (@file_set.tombstoned ? :gone : :ok)
   end
 
   def mets
@@ -24,13 +24,18 @@ class FileSetsController < ApplicationController
   end
 
   def create
+    if (record = find_idempotency_record(FileSet))
+      @file_set = FileSet.find(record.resource_noid)
+      return render_idempotent_resource(@file_set)
+    end
+
     @file_set = FileSetCreator.call(
       work_id: params[:work_id],
       classification: Classification.find(
         params[:classification]
       )
     )
-    record_idempotency_key!(@file_set.noid)
+    record_idempotency_key!(@file_set.noid, FileSet)
   end
 
   def update

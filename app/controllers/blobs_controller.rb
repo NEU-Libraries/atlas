@@ -4,20 +4,25 @@
 class BlobsController < ApplicationController
   include LazyPagination
   include FileHelper
-  include TombstoneAware
   include IdempotentCreate
-  tombstone_aware_for resource_class: Blob, var: :blob, decorate: false
-  idempotent_for      resource_class: Blob, var: :blob, decorate: false
 
   def index
     @pagination, @blobs = paginate_model(Blob)
   end
 
   def show
-    # @blob set by TombstoneAware before_action
+    @blob = Blob.find(params[:id])
+    return head(:not_found) if @blob.nil?
+
+    render :show, status: (@blob.tombstoned ? :gone : :ok)
   end
 
   def create
+    if (record = find_idempotency_record(Blob))
+      @blob = Blob.find(record.resource_noid)
+      return render_idempotent_resource(@blob)
+    end
+
     file = params[:binary]
     @blob = BlobCreator.call(
       work_id: params[:work_id],
@@ -26,7 +31,7 @@ class BlobsController < ApplicationController
       path: (file.tempfile.path.presence ||
              file.path)
     )
-    record_idempotency_key!(@blob.noid)
+    record_idempotency_key!(@blob.noid, Blob)
   end
 
   def update

@@ -3,15 +3,16 @@
 # Communities
 class CommunitiesController < ApplicationController
   include LazyPagination
-  include TombstoneAware
-  tombstone_aware_for resource_class: Community, var: :community
 
   def index
     @pagination, @communities = paginate_model(Community)
   end
 
   def show
-    # @community set by TombstoneAware before_action
+    @community = Community.find(params[:id])&.decorate
+    return head(:not_found) if @community.nil?
+
+    render :show, status: (@community.tombstoned ? :gone : :ok)
   end
 
   def create
@@ -28,10 +29,18 @@ class CommunitiesController < ApplicationController
   end
 
   def children
+    @community = Community.find(params[:id])&.decorate
+    return head(:not_found) if @community.nil?
+    return render(:show, status: :gone) if @community.tombstoned
+
     @children = @community.filtered_children
   end
 
   def ancestors
+    @community = Community.find(params[:id])&.decorate
+    return head(:not_found) if @community.nil?
+    return render(:show, status: :gone) if @community.tombstoned
+
     @ancestors = @community.ancestors
   end
 

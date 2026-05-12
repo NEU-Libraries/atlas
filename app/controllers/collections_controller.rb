@@ -3,15 +3,16 @@
 # Collections
 class CollectionsController < ApplicationController
   include LazyPagination
-  include TombstoneAware
-  tombstone_aware_for resource_class: Collection, var: :collection
 
   def index
     @pagination, @collections = paginate_model(Collection)
   end
 
   def show
-    # @collection set by TombstoneAware before_action
+    @collection = Collection.find(params[:id])&.decorate
+    return head(:not_found) if @collection.nil?
+
+    render :show, status: (@collection.tombstoned ? :gone : :ok)
   end
 
   def create
@@ -27,10 +28,18 @@ class CollectionsController < ApplicationController
   end
 
   def children
+    @collection = Collection.find(params[:id])&.decorate
+    return head(:not_found) if @collection.nil?
+    return render(:show, status: :gone) if @collection.tombstoned
+
     @children = @collection.filtered_children
   end
 
   def ancestors
+    @collection = Collection.find(params[:id])&.decorate
+    return head(:not_found) if @collection.nil?
+    return render(:show, status: :gone) if @collection.tombstoned
+
     @ancestors = @collection.ancestors
   end
 

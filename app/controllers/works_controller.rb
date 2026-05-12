@@ -3,23 +3,28 @@
 # Works
 class WorksController < ApplicationController
   include LazyPagination
-  include TombstoneAware
   include IdempotentCreate
-  tombstone_aware_for resource_class: Work, var: :work
-  idempotent_for      resource_class: Work, var: :work
 
   def index
     @pagination, @works = paginate_model(Work, filters: index_filters)
   end
 
   def show
-    # @work set by TombstoneAware before_action
+    @work = Work.find(params[:id])&.decorate
+    return head(:not_found) if @work.nil?
+
+    render :show, status: (@work.tombstoned ? :gone : :ok)
   end
 
   def create
+    if (record = find_idempotency_record(Work))
+      @work = Work.find(record.resource_noid)&.decorate
+      return render_idempotent_resource(@work)
+    end
+
     # TODO: XML
     @work = WorkCreator.call(parent_id: params[:collection_id])
-    record_idempotency_key!(@work.noid)
+    record_idempotency_key!(@work.noid, Work)
   end
 
   def mods

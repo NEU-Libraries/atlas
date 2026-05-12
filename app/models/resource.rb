@@ -28,4 +28,16 @@ class Resource < Valkyrie::Resource
   def decorate
     ActiveDecorator::Decorator.instance.decorate(self)
   end
+
+  def tombstone(by:)
+    self.tombstoned    = true
+    self.tombstoned_at = Time.current
+    self.tombstoned_by = by
+  end
+
+  def restore
+    self.tombstoned    = false
+    self.tombstoned_at = nil
+    self.tombstoned_by = nil
+  end
 end

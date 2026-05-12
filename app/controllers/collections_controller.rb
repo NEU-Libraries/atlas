@@ -67,17 +67,13 @@ class CollectionsController < ApplicationController
              status: :unprocessable_entity and return
     end
 
-    @collection.tombstoned    = true
-    @collection.tombstoned_at = Time.current
-    @collection.tombstoned_by = @nuid
+    @collection.tombstone(by: @nuid)
     @collection = Atlas.persister.save(resource: @collection).decorate
   end
 
   def restore
     @collection = Collection.find(params[:id])
-    @collection.tombstoned    = false
-    @collection.tombstoned_at = nil
-    @collection.tombstoned_by = nil
+    @collection.restore
     @collection = Atlas.persister.save(resource: @collection).decorate
   end
 

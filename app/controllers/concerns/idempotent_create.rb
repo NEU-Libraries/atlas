@@ -28,7 +28,9 @@ module IdempotentCreate
     class_attribute :idempotent_var
     class_attribute :idempotent_decorate, default: true
 
+    # rubocop:disable Rails/LexicallyScopedActionFilter
     before_action :idempotency_key_replay, only: :create
+    # rubocop:enable Rails/LexicallyScopedActionFilter
   end
 
   class_methods do
@@ -43,8 +45,7 @@ module IdempotentCreate
 
     def idempotency_key_replay
       key = request.headers['Idempotency-Key']
-      return if key.blank?
-      return if @current_user.nil? # misconfigured guest seed — fall through to plain create
+      return if key.blank? || @current_user.nil?
 
       record = IdempotencyKey.find_by(
         user_id: @current_user.id, key: key,
@@ -52,17 +53,18 @@ module IdempotentCreate
       )
       return unless record
 
+      replay_existing_resource(record)
+    end
+
+    def replay_existing_resource(record)
       resource = self.class.idempotent_resource_class.find(record.resource_noid)
       return head(:gone) if resource.nil?
 
       resource = resource.decorate if self.class.idempotent_decorate
       instance_variable_set("@#{self.class.idempotent_var}", resource)
+      return render(:show, status: :gone) if resource.tombstoned
 
-      if resource.tombstoned
-        render :show, status: :gone
-      else
-        render :create
-      end
+      render :create
     end
 
     def record_idempotency_key!(resource_noid)

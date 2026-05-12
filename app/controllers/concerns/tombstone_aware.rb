@@ -22,8 +22,12 @@ module TombstoneAware
     class_attribute :tombstone_resource_var
     class_attribute :tombstone_decorate, default: true
 
+    # Each including controller wires the action set itself; this concern's
+    # before_action filters by name only.
+    # rubocop:disable Rails/LexicallyScopedActionFilter
     before_action :find_and_reject_if_tombstoned,
                   only: %i[show children ancestors]
+    # rubocop:enable Rails/LexicallyScopedActionFilter
   end
 
   class_methods do

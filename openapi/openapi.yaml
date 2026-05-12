@@ -94,6 +94,10 @@ components:
               type: string
               nullable: true
               description: NUID of the user who tombstoned the resource
+            in_progress:
+              type: boolean
+              description: Cerberus-driven workflow flag; true until the bulk-deposit
+                job marks the Work complete.
           required:
           - id
           - valkyrie_id
@@ -105,6 +109,7 @@ components:
           - tombstoned
           - tombstoned_at
           - tombstoned_by
+          - in_progress
       required:
       - work
     Collection:
@@ -233,9 +238,23 @@ components:
             type:
               type: string
               nullable: true
+            tombstoned:
+              type: boolean
+              description: Withdrawn-from-discovery flag
+            tombstoned_at:
+              type: string
+              nullable: true
+              description: ISO-8601 timestamp set when tombstoned
+            tombstoned_by:
+              type: string
+              nullable: true
+              description: NUID of the user who tombstoned the resource
           required:
           - id
           - type
+          - tombstoned
+          - tombstoned_at
+          - tombstoned_by
       required:
       - file_set
     Blob:
@@ -271,6 +290,17 @@ components:
                 type: object
                 additionalProperties: true
                 description: Valkyrie::ID-shaped reference to the underlying bytes
+            tombstoned:
+              type: boolean
+              description: Withdrawn-from-discovery flag
+            tombstoned_at:
+              type: string
+              nullable: true
+              description: ISO-8601 timestamp set when tombstoned
+            tombstoned_by:
+              type: string
+              nullable: true
+              description: NUID of the user who tombstoned the resource
           required:
           - id
           - mime_type
@@ -280,6 +310,9 @@ components:
           - filename
           - label
           - file_identifiers
+          - tombstoned
+          - tombstoned_at
+          - tombstoned_by
       required:
       - blob
     WorkSummary:
@@ -296,10 +329,15 @@ components:
             description:
               type: string
               nullable: true
+            in_progress:
+              type: boolean
+              description: Cerberus-driven workflow flag; true until the bulk-deposit
+                job marks the Work complete.
           required:
           - id
           - title
           - description
+          - in_progress
       required:
       - work
     CollectionSummary:
@@ -354,9 +392,23 @@ components:
             type:
               type: string
               nullable: true
+            tombstoned:
+              type: boolean
+              description: Withdrawn-from-discovery flag
+            tombstoned_at:
+              type: string
+              nullable: true
+              description: ISO-8601 timestamp set when tombstoned
+            tombstoned_by:
+              type: string
+              nullable: true
+              description: NUID of the user who tombstoned the resource
           required:
           - id
           - type
+          - tombstoned
+          - tombstoned_at
+          - tombstoned_by
       required:
       - file_set
     BlobSummary:
@@ -548,8 +600,20 @@ paths:
       summary: Upload a file
       tags:
       - Files
-      description: Uploads a binary as a Blob attached to a Work.
-      parameters: []
+      description: |
+        Uploads a binary as a Blob attached to a Work.
+
+        Idempotent on the optional `Idempotency-Key` header: a repeat
+        request from the same caller with the same key returns the
+        originally-created Blob without re-uploading. 410 + tombstone
+        payload if the underlying Blob has been tombstoned.
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: false
+        description: Client-supplied UUID; repeats return the existing resource.
+        schema:
+          type: string
       requestBody:
         required: true
         content:
@@ -571,7 +635,13 @@ paths:
               - binary
       responses:
         '200':
-          description: file uploaded
+          description: idempotent replay returns existing blob
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Blob"
+        '410':
+          description: idempotent replay on a tombstoned blob
           content:
             application/json:
               schema:
@@ -591,6 +661,12 @@ paths:
       responses:
         '200':
           description: file found
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Blob"
+        '410':
+          description: file tombstoned
           content:
             application/json:
               schema:
@@ -701,6 +777,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Collection"
+        '410':
+          description: collection tombstoned
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Collection"
     patch:
       summary: Update a collection
       tags:
@@ -773,6 +855,12 @@ paths:
                 type: array
                 items:
                   type: string
+        '410':
+          description: collection tombstoned
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Collection"
   "/collections/{id}/ancestors":
     parameters:
     - name: id
@@ -792,6 +880,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Lineage"
+        '410':
+          description: collection tombstoned
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Collection"
   "/collections/{id}/tombstone":
     parameters:
     - name: id
@@ -888,6 +982,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Community"
+        '410':
+          description: community tombstoned
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Community"
     patch:
       summary: Update a community
       tags:
@@ -960,6 +1060,12 @@ paths:
                 type: array
                 items:
                   type: string
+        '410':
+          description: community tombstoned
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Community"
   "/communities/{id}/ancestors":
     parameters:
     - name: id
@@ -979,6 +1085,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Lineage"
+        '410':
+          description: community tombstoned
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Community"
   "/communities/{id}/tombstone":
     parameters:
     - name: id
@@ -1037,11 +1149,29 @@ paths:
       summary: Create a file set
       tags:
       - FileSets
-      description: Creates a FileSet under a Work, classified by name (e.g. `generic`).
-      parameters: []
+      description: |
+        Creates a FileSet under a Work, classified by name (e.g. `generic`).
+
+        Idempotent on the optional `Idempotency-Key` header: a repeat
+        request from the same caller with the same key returns the
+        originally-created FileSet. 410 + tombstone payload if the
+        underlying FileSet has been tombstoned in the interim.
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: false
+        description: Client-supplied UUID; repeats return the existing resource.
+        schema:
+          type: string
       responses:
         '200':
-          description: file set created
+          description: idempotent replay returns existing file set
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/FileSet"
+        '410':
+          description: idempotent replay on a tombstoned file set
           content:
             application/json:
               schema:
@@ -1076,6 +1206,12 @@ paths:
       responses:
         '200':
           description: file set found
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/FileSet"
+        '410':
+          description: file set tombstoned
           content:
             application/json:
               schema:
@@ -1291,10 +1427,22 @@ paths:
       summary: List works
       tags:
       - Works
-      description: Paginated list of all works.
+      description: |
+        Paginated list of all works.
+
+        Pass `?in_progress=true` to see only Works that Cerberus has not
+        yet marked complete (operator-friendly "what's stuck?" view).
+        Pass `?in_progress=false` to see only completed Works.
+      parameters:
+      - name: in_progress
+        in: query
+        required: false
+        description: Filter by in_progress state. Omit for no filtering.
+        schema:
+          type: boolean
       responses:
         '200':
-          description: works listed
+          description: completed works listed
           content:
             application/json:
               schema:
@@ -1303,11 +1451,30 @@ paths:
       summary: Create a work
       tags:
       - Works
-      description: Creates a new Work as a child of the given Collection.
-      parameters: []
+      description: |
+        Creates a new Work as a child of the given Collection.
+
+        Idempotent on the optional `Idempotency-Key` header: a repeat
+        request from the same caller with the same key returns the
+        originally-created Work instead of creating a new one. If the
+        underlying Work has since been tombstoned, the replay returns
+        410 with the tombstone payload (same body shape as GET).
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: false
+        description: Client-supplied UUID; repeats return the existing resource.
+        schema:
+          type: string
       responses:
         '200':
-          description: work created
+          description: idempotent replay returns existing work
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Work"
+        '410':
+          description: idempotent replay on a tombstoned work
           content:
             application/json:
               schema:
@@ -1338,6 +1505,12 @@ paths:
       responses:
         '200':
           description: work found
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Work"
+        '410':
+          description: work tombstoned
           content:
             application/json:
               schema:
@@ -1454,6 +1627,29 @@ paths:
       responses:
         '200':
           description: work restored
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Work"
+  "/works/{id}/complete":
+    parameters:
+    - name: id
+      in: path
+      required: true
+      schema:
+        type: string
+    post:
+      summary: Mark a work complete
+      tags:
+      - Works
+      description: |
+        Flips `in_progress` to false. Cerberus calls this after its
+        per-record Solid Queue job confirms all expected children
+        (FileSets / Blobs) are deposited. Idempotent — calling on an
+        already-complete Work simply re-saves with in_progress: false.
+      responses:
+        '200':
+          description: work marked complete
           content:
             application/json:
               schema:

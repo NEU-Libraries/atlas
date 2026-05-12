@@ -68,17 +68,13 @@ class CommunitiesController < ApplicationController
              status: :unprocessable_entity and return
     end
 
-    @community.tombstoned    = true
-    @community.tombstoned_at = Time.current
-    @community.tombstoned_by = @nuid
+    @community.tombstone(by: @nuid)
     @community = Atlas.persister.save(resource: @community).decorate
   end
 
   def restore
     @community = Community.find(params[:id])
-    @community.tombstoned    = false
-    @community.tombstoned_at = nil
-    @community.tombstoned_by = nil
+    @community.restore
     @community = Atlas.persister.save(resource: @community).decorate
   end
 

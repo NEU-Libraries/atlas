@@ -56,17 +56,13 @@ class WorksController < ApplicationController
 
   def tombstone
     @work = Work.find(params[:id])
-    @work.tombstoned    = true
-    @work.tombstoned_at = Time.current
-    @work.tombstoned_by = @nuid
+    @work.tombstone(by: @nuid)
     @work = Atlas.persister.save(resource: @work).decorate
   end
 
   def restore
     @work = Work.find(params[:id])
-    @work.tombstoned    = false
-    @work.tombstoned_at = nil
-    @work.tombstoned_by = nil
+    @work.restore
     @work = Atlas.persister.save(resource: @work).decorate
   end
 

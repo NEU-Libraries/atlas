@@ -25,7 +25,14 @@ RSpec.describe 'FileSets', type: :request do
       tags 'FileSets'
       consumes 'application/json'
       produces 'application/json'
-      description 'Creates a FileSet under a Work, classified by name (e.g. `generic`).'
+      description <<~DESC
+        Creates a FileSet under a Work, classified by name (e.g. `generic`).
+
+        Idempotent on the optional `Idempotency-Key` header: a repeat
+        request from the same caller with the same key returns the
+        originally-created FileSet. 410 + tombstone payload if the
+        underlying FileSet has been tombstoned in the interim.
+      DESC
       parameter name: :body, in: :body, schema: {
         type: :object,
         properties: {
@@ -34,9 +41,44 @@ RSpec.describe 'FileSets', type: :request do
         },
         required: %w[work_id classification]
       }
+      parameter name: :'Idempotency-Key', in: :header, type: :string, required: false,
+                description: 'Client-supplied UUID; repeats return the existing resource.'
 
       response '200', 'file set created' do
         let(:body) { { work_id: work.noid, classification: 'generic' } }
+        let(:'Idempotency-Key') { nil }
+        schema '$ref' => '#/components/schemas/FileSet'
+        run_test!
+      end
+
+      response '200', 'idempotent replay returns existing file set' do
+        let(:body) { { work_id: work.noid, classification: 'generic' } }
+        let(:idempotency_key) { SecureRandom.uuid }
+        let(:'Idempotency-Key') { idempotency_key }
+        let!(:existing) do
+          fs = FileSetCreator.call(work_id: work.noid, classification: Classification.generic)
+          IdempotencyKey.create!(user: User.find_by_role(:guest), key: idempotency_key,
+                                 resource_type: 'FileSet', resource_noid: fs.noid)
+          fs
+        end
+        schema '$ref' => '#/components/schemas/FileSet'
+        run_test! do |response|
+          expect(JSON.parse(response.body).dig('file_set', 'id')).to eq(existing.noid)
+        end
+      end
+
+      response '410', 'idempotent replay on a tombstoned file set' do
+        let(:body) { { work_id: work.noid, classification: 'generic' } }
+        let(:idempotency_key) { SecureRandom.uuid }
+        let(:'Idempotency-Key') { idempotency_key }
+        let!(:existing) do
+          fs = FileSetCreator.call(work_id: work.noid, classification: Classification.generic)
+          fs.tombstoned = true
+          fs = Atlas.persister.save(resource: fs)
+          IdempotencyKey.create!(user: User.find_by_role(:guest), key: idempotency_key,
+                                 resource_type: 'FileSet', resource_noid: fs.noid)
+          fs
+        end
         schema '$ref' => '#/components/schemas/FileSet'
         run_test!
       end

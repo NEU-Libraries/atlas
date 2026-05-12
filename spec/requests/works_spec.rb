@@ -25,7 +25,15 @@ RSpec.describe 'Works', type: :request do
       tags 'Works'
       consumes 'application/json'
       produces 'application/json'
-      description 'Creates a new Work as a child of the given Collection.'
+      description <<~DESC
+        Creates a new Work as a child of the given Collection.
+
+        Idempotent on the optional `Idempotency-Key` header: a repeat
+        request from the same caller with the same key returns the
+        originally-created Work instead of creating a new one. If the
+        underlying Work has since been tombstoned, the replay returns
+        410 with the tombstone payload (same body shape as GET).
+      DESC
       parameter name: :body, in: :body, schema: {
         type: :object,
         properties: {
@@ -33,9 +41,44 @@ RSpec.describe 'Works', type: :request do
         },
         required: %w[collection_id]
       }
+      parameter name: :'Idempotency-Key', in: :header, type: :string, required: false,
+                description: 'Client-supplied UUID; repeats return the existing resource.'
 
       response '200', 'work created' do
         let(:body) { { collection_id: collection.noid } }
+        let(:'Idempotency-Key') { nil }
+        schema '$ref' => '#/components/schemas/Work'
+        run_test!
+      end
+
+      response '200', 'idempotent replay returns existing work' do
+        let(:body) { { collection_id: collection.noid } }
+        let(:idempotency_key) { SecureRandom.uuid }
+        let(:'Idempotency-Key') { idempotency_key }
+        let!(:existing) do
+          w = WorkCreator.call(parent_id: collection.noid)
+          IdempotencyKey.create!(user: User.find_by_role(:guest), key: idempotency_key,
+                                 resource_type: 'Work', resource_noid: w.noid)
+          w
+        end
+        schema '$ref' => '#/components/schemas/Work'
+        run_test! do |response|
+          expect(JSON.parse(response.body).dig('work', 'id')).to eq(existing.noid)
+        end
+      end
+
+      response '410', 'idempotent replay on a tombstoned work' do
+        let(:body) { { collection_id: collection.noid } }
+        let(:idempotency_key) { SecureRandom.uuid }
+        let(:'Idempotency-Key') { idempotency_key }
+        let!(:existing) do
+          w = WorkCreator.call(parent_id: collection.noid)
+          w.tombstoned = true
+          w = Atlas.persister.save(resource: w)
+          IdempotencyKey.create!(user: User.find_by_role(:guest), key: idempotency_key,
+                                 resource_type: 'Work', resource_noid: w.noid)
+          w
+        end
         schema '$ref' => '#/components/schemas/Work'
         run_test!
       end

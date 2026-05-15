@@ -66,15 +66,19 @@ RSpec.describe 'Communities', type: :request do
       consumes 'multipart/form-data'
       produces 'application/json'
       description 'Either supply a `binary` MODS XML upload or `metadata[*]` form fields.'
-      parameter name: 'metadata[title]',       in: :formData, required: false
-      parameter name: 'metadata[description]', in: :formData, required: false
-      parameter name: 'metadata[thumbnail]',   in: :formData, required: false
-      parameter name: :binary,                 in: :formData, required: false
+      parameter name: 'metadata[title]',         in: :formData, required: false
+      parameter name: 'metadata[description]',   in: :formData, required: false
+      parameter name: 'metadata[thumbnail]',     in: :formData, required: false
+      parameter name: 'metadata[thumbnail_2x]',  in: :formData, required: false
+      parameter name: 'metadata[preview]',       in: :formData, required: false
+      parameter name: :binary,                   in: :formData, required: false
       multipart_request_body(
         {
-          'metadata[title]':       { type: :string },
-          'metadata[description]': { type: :string },
-          'metadata[thumbnail]':   { type: :string },
+          'metadata[title]':         { type: :string },
+          'metadata[description]':   { type: :string },
+          'metadata[thumbnail]':     { type: :string },
+          'metadata[thumbnail_2x]':  { type: :string },
+          'metadata[preview]':       { type: :string },
           binary: { type: :string, format: :binary, description: 'MODS XML to apply to the Community' }
         }
       )
@@ -85,6 +89,21 @@ RSpec.describe 'Communities', type: :request do
         let(:'metadata[title]')  { 'Updated' }
         schema '$ref' => '#/components/schemas/Community'
         run_test!
+      end
+
+      response '200', 'all three thumbnail-family keys land in one PATCH' do
+        let(:community)                { CommunityCreator.call }
+        let(:id)                       { community.noid }
+        let(:'metadata[thumbnail]')    { 'https://iiif.example/iiif/3/m.jp2/full/!85,85/0/default.jpg' }
+        let(:'metadata[thumbnail_2x]') { 'https://iiif.example/iiif/3/m.jp2/full/!170,170/0/default.jpg' }
+        let(:'metadata[preview]')      { 'https://iiif.example/iiif/3/m.jp2/full/500,/0/default.jpg' }
+        schema '$ref' => '#/components/schemas/Community'
+        run_test! do |response|
+          body = JSON.parse(response.body).fetch('community')
+          expect(body['thumbnail']).to    eq('https://iiif.example/iiif/3/m.jp2/full/!85,85/0/default.jpg')
+          expect(body['thumbnail_2x']).to eq('https://iiif.example/iiif/3/m.jp2/full/!170,170/0/default.jpg')
+          expect(body['preview']).to      eq('https://iiif.example/iiif/3/m.jp2/full/500,/0/default.jpg')
+        end
       end
     end
 

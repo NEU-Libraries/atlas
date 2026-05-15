@@ -182,15 +182,19 @@ RSpec.describe 'Works', type: :request do
       consumes 'multipart/form-data'
       produces 'application/json'
       description 'Either supply a `binary` MODS XML upload or `metadata[*]` form fields to merge in.'
-      parameter name: 'metadata[title]',       in: :formData, required: false
-      parameter name: 'metadata[description]', in: :formData, required: false
-      parameter name: 'metadata[thumbnail]',   in: :formData, required: false
-      parameter name: :binary,                 in: :formData, required: false
+      parameter name: 'metadata[title]',         in: :formData, required: false
+      parameter name: 'metadata[description]',   in: :formData, required: false
+      parameter name: 'metadata[thumbnail]',     in: :formData, required: false
+      parameter name: 'metadata[thumbnail_2x]',  in: :formData, required: false
+      parameter name: 'metadata[preview]',       in: :formData, required: false
+      parameter name: :binary,                   in: :formData, required: false
       multipart_request_body(
         {
-          'metadata[title]':       { type: :string },
-          'metadata[description]': { type: :string },
-          'metadata[thumbnail]':   { type: :string },
+          'metadata[title]':         { type: :string },
+          'metadata[description]':   { type: :string },
+          'metadata[thumbnail]':     { type: :string },
+          'metadata[thumbnail_2x]':  { type: :string },
+          'metadata[preview]':       { type: :string },
           binary: { type: :string, format: :binary, description: 'MODS XML to apply to the Work' }
         }
       )
@@ -219,6 +223,31 @@ RSpec.describe 'Works', type: :request do
           expect(members.size).to eq(1)
           expect(members.first).to be_a(Delegate)
           expect(members.first.use).to eq(Role.thumbnail_image.name)
+        end
+      end
+
+      response '200', 'all three thumbnail-family keys land in one PATCH' do
+        let(:work)                     { WorkCreator.call(parent_id: collection.noid) }
+        let(:id)                       { work.noid }
+        let(:'metadata[thumbnail]')    { 'https://iiif.example/iiif/3/abc.jp2/full/!85,85/0/default.jpg' }
+        let(:'metadata[thumbnail_2x]') { 'https://iiif.example/iiif/3/abc.jp2/full/!170,170/0/default.jpg' }
+        let(:'metadata[preview]')      { 'https://iiif.example/iiif/3/abc.jp2/full/500,/0/default.jpg' }
+        schema '$ref' => '#/components/schemas/Work'
+        run_test! do |response|
+          body = JSON.parse(response.body).fetch('work')
+          expect(body['thumbnail']).to    eq('https://iiif.example/iiif/3/abc.jp2/full/!85,85/0/default.jpg')
+          expect(body['thumbnail_2x']).to eq('https://iiif.example/iiif/3/abc.jp2/full/!170,170/0/default.jpg')
+          expect(body['preview']).to      eq('https://iiif.example/iiif/3/abc.jp2/full/500,/0/default.jpg')
+
+          reloaded = Work.find(work.noid)
+          deriv_fs = reloaded.children.find { |c| c.is_a?(FileSet) && c.type == Classification.derivative.name }
+          members  = Atlas.query.find_members(resource: deriv_fs).to_a.select { |m| m.is_a?(Delegate) }
+          uses     = members.map(&:use)
+          expect(uses).to contain_exactly(
+            Role.thumbnail_image.name,
+            Role.thumbnail_image_2x.name,
+            Role.preview_image.name
+          )
         end
       end
     end

@@ -15,10 +15,4 @@ module MODSAssignment
     mods_obj.abstract.first.content = desc_str
     self.mods_xml = mods_obj.to_xml
   end
-
-  def safe_thumbnail=(uuid)
-    return if uuid.blank?
-
-    self.thumbnail = uuid
-  end
 end

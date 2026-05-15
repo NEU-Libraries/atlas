@@ -4,6 +4,7 @@
 class WorksController < ApplicationController
   include LazyPagination
   include IdempotentCreate
+  include ThumbnailMetadata
 
   def index
     @pagination, @works = paginate_model(Work, filters: index_filters)
@@ -104,16 +105,10 @@ class WorksController < ApplicationController
       @work.permissions = params[:metadata]['permissions'] if params[:metadata]['permissions'].present?
       @work = Atlas.persister.save(resource: @work)
       @work.write_preservation_envelope!
-      # DelegateUpdater rotates @work's optimistic_lock_token via the
-      # parent-reindex save, so it runs after the in-memory mutations
-      # above have been persisted — otherwise the controller's @work
-      # save loses to a StaleObjectError.
-      if params[:metadata]['thumbnail'].present?
-        DelegateUpdater.call(
-          resource_id: @work.id,
-          use:         Role.thumbnail_image.name,
-          uri:         params[:metadata]['thumbnail']
-        )
-      end
+      # Thumbnail-family Delegates rotate @work's optimistic_lock_token
+      # via DelegateUpdater's parent-reindex save, so they run after the
+      # in-memory mutations above have been persisted — otherwise the
+      # controller's @work save loses to a StaleObjectError.
+      process_thumbnail_metadata(resource_id: @work.id, metadata: params[:metadata])
     end
 end

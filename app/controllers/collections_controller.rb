@@ -3,6 +3,7 @@
 # Collections
 class CollectionsController < ApplicationController
   include LazyPagination
+  include ThumbnailMetadata
 
   def index
     @pagination, @collections = paginate_model(Collection)
@@ -96,15 +97,9 @@ class CollectionsController < ApplicationController
       @collection.permissions = params[:metadata]['permissions'] if params[:metadata]['permissions'].present?
       @collection = Atlas.persister.save(resource: @collection)
       @collection.write_preservation_envelope!
-      # DelegateUpdater rotates @collection's optimistic_lock_token via
-      # the parent-reindex save; runs after the controller's own save to
-      # avoid a StaleObjectError.
-      if params[:metadata]['thumbnail'].present?
-        DelegateUpdater.call(
-          resource_id: @collection.id,
-          use:         Role.thumbnail_image.name,
-          uri:         params[:metadata]['thumbnail']
-        )
-      end
+      # Thumbnail-family Delegates rotate @collection's
+      # optimistic_lock_token via DelegateUpdater's parent-reindex save;
+      # run after the controller's own save to avoid a StaleObjectError.
+      process_thumbnail_metadata(resource_id: @collection.id, metadata: params[:metadata])
     end
 end

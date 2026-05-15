@@ -25,4 +25,11 @@ class Classification < Enumerations::Base
   def self.metadata?(name)
     name == descriptive_metadata.name
   end
+
+  # A FileSet of this classification gets a preservation envelope written
+  # to OCFL. `:derivative` FileSets host fungible Delegates pointing at
+  # external assets — no preservation-critical state lives there.
+  def self.preserved?(name)
+    name != derivative.name
+  end
 end

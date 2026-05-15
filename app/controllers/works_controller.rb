@@ -34,9 +34,12 @@ class WorksController < ApplicationController
     @work = work.decorate
   end
 
-  def blobs
+  def assets
     @work = Work.find(params[:id])
-    @file_sets = @work.children.reject { |fs| fs.type == Classification.descriptive_metadata.name }
+    @assets = @work.children
+                   .reject { |fs| fs.type == Classification.descriptive_metadata.name }
+                   .flat_map { |fs| Atlas.query.find_members(resource: fs).to_a }
+                   .select   { |m| Role.downloadable?(m.use) }
   end
 
   def update

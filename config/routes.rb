@@ -56,7 +56,9 @@ Rails.application.routes.draw do
     get '/file_sets/:id/mets', to: 'file_sets#mets', as: 'file_set_mets'
 
     # Downloads
-    get '/works/:id/files', to: 'works#blobs', as: 'work_files'
+    get '/works/:id/assets', to: 'works#assets', as: 'work_assets'
+    # Legacy bridge — Cerberus calls /files; remove once it migrates to /assets.
+    get '/works/:id/files',  to: 'works#assets', as: 'work_files'
 
     # Housekeeping
     get '/reset', to: 'maintenance#reset', as: 'reset'

@@ -185,6 +185,25 @@ RSpec.describe 'Works', type: :request do
         schema '$ref' => '#/components/schemas/Work'
         run_test!
       end
+
+      response '200', 'thumbnail update creates a Delegate and surfaces on read' do
+        let(:work)                  { WorkCreator.call(parent_id: collection.noid) }
+        let(:id)                    { work.noid }
+        let(:'metadata[thumbnail]') { 'https://iiif.example/iiif/2/abc/full/!200,200/0/default.jpg' }
+        schema '$ref' => '#/components/schemas/Work'
+        run_test! do |response|
+          expect(JSON.parse(response.body).dig('work', 'thumbnail'))
+            .to eq('https://iiif.example/iiif/2/abc/full/!200,200/0/default.jpg')
+
+          reloaded = Work.find(work.noid)
+          deriv_fs = reloaded.children.find { |c| c.is_a?(FileSet) && c.type == Classification.derivative.name }
+          expect(deriv_fs).not_to be_nil
+          members  = Atlas.query.find_members(resource: deriv_fs).to_a
+          expect(members.size).to eq(1)
+          expect(members.first).to be_a(Delegate)
+          expect(members.first.use).to eq(Role.thumbnail_image.name)
+        end
+      end
     end
 
     delete 'Destroy a work' do
@@ -215,18 +234,71 @@ RSpec.describe 'Works', type: :request do
     end
   end
 
+  path '/works/{id}/assets' do
+    parameter name: :id, in: :path, type: :string, description: 'NOID of the Work'
+
+    get 'List downloadable assets attached to a work' do
+      tags 'Works'
+      produces 'application/json'
+      description <<~DESC
+        Returns a polymorphic array of downloadable assets attached to the
+        Work: held binaries (Blob entries with size + original_filename)
+        and external pointer-only derivatives (Delegate entries with
+        use + uri, e.g. IIIF-served sized image variants). Thumbnails
+        (Role.thumbnail_image) and metadata roles are excluded by
+        Role.downloadable?.
+      DESC
+
+      response '200', 'assets listed' do
+        let(:work) { WorkCreator.call(parent_id: collection.noid) }
+        let(:id)   { work.noid }
+        schema '$ref' => '#/components/schemas/WorkAssets'
+        run_test!
+      end
+
+      response '200', 'thumbnail Delegate is excluded; non-thumbnail Delegate is included' do
+        let(:work) { WorkCreator.call(parent_id: collection.noid) }
+        let(:id)   { work.noid }
+        before do
+          DelegateCreator.call(
+            resource_id: work.id,
+            use:         Role.thumbnail_image.name,
+            uri:         'https://iiif.example/thumb.jpg'
+          )
+          # Sized derivative — Role.downloadable? returns true since it's
+          # not in the blocklist. Acts as a stand-in for a future
+          # small/medium/large_image role.
+          DelegateCreator.call(
+            resource_id: work.id,
+            use:         Role.service_file.name,
+            uri:         'https://iiif.example/service.jpg'
+          )
+        end
+        schema '$ref' => '#/components/schemas/WorkAssets'
+        run_test! do |response|
+          assets = JSON.parse(response.body)
+          uses = assets.map { |a| a['use'] }.compact
+          expect(uses).to include(Role.service_file.name)
+          expect(uses).not_to include(Role.thumbnail_image.name)
+        end
+      end
+    end
+  end
+
+  # Bridge route for Cerberus during /files → /assets migration. Same
+  # action, same schema; remove once Cerberus has migrated.
   path '/works/{id}/files' do
     parameter name: :id, in: :path, type: :string, description: 'NOID of the Work'
 
-    get 'List files attached to a work' do
+    get 'List downloadable assets (legacy alias for /assets)' do
       tags 'Works'
       produces 'application/json'
-      description 'Returns a flat array of file refs from non-descriptive FileSets attached to the Work.'
+      description 'Legacy alias for /works/{id}/assets. Slated for removal once Cerberus migrates.'
 
-      response '200', 'files listed' do
+      response '200', 'assets listed' do
         let(:work) { WorkCreator.call(parent_id: collection.noid) }
         let(:id)   { work.noid }
-        schema '$ref' => '#/components/schemas/WorkBlobs'
+        schema '$ref' => '#/components/schemas/WorkAssets'
         run_test!
       end
     end

@@ -14,6 +14,7 @@ module OpenapiSchemas
       Community:   community,
       FileSet:     file_set,
       Blob:        blob,
+      Delegate:    delegate,
       WorkSummary: work_summary,
       CollectionSummary: collection_summary,
       CommunitySummary: community_summary,
@@ -24,7 +25,7 @@ module OpenapiSchemas
       CommunitiesIndex: communities_index,
       FileSetsIndex: file_sets_index,
       BlobsIndex:  blobs_index,
-      WorkBlobs:   work_blobs,
+      WorkAssets:  work_assets,
       Pagination:  pagination,
       User:        user,
       ProvisionedUser: provisioned_user,
@@ -72,6 +73,24 @@ module OpenapiSchemas
         items: { type: :object, additionalProperties: true,
                  description: 'Valkyrie::ID-shaped reference to the underlying bytes' }
       },
+      tombstoned: { type: :boolean, description: 'Withdrawn-from-discovery flag' },
+      tombstoned_at: { type: :string, nullable: true, description: 'ISO-8601 timestamp set when tombstoned' },
+      tombstoned_by: { type: :string, nullable: true, description: 'NUID of the user who tombstoned the resource' }
+    })
+  end
+
+  # A Delegate is a Blob-shaped resource with no held binary — points
+  # at an asset elsewhere via `uri`. Lives as a member of a `:derivative`
+  # FileSet to represent sized image variants and similar derivatives.
+  def delegate
+    wrapped(:delegate, {
+      id: { type: :string, description: 'NOID' },
+      valkyrie_id: { type: :string, description: 'Valkyrie internal id' },
+      use: { type: :string, nullable: true },
+      uri: { type: :string, nullable: true, description: 'Where the asset can be fetched (IIIF URL for image roles)' },
+      mime_type: { type: :string, nullable: true },
+      original_filename: { type: :string, nullable: true },
+      label: { type: :string, nullable: true },
       tombstoned: { type: :boolean, description: 'Withdrawn-from-discovery flag' },
       tombstoned_at: { type: :string, nullable: true, description: 'ISO-8601 timestamp set when tombstoned' },
       tombstoned_by: { type: :string, nullable: true, description: 'NUID of the user who tombstoned the resource' }
@@ -127,21 +146,41 @@ module OpenapiSchemas
 
   # ---- specialized shapes ----
 
-  # GET /works/:id/files — flat array of file refs from FileSets attached to a Work.
-  # Mirrors app/views/works/blobs.json.jbuilder.
-  def work_blobs
+  # GET /works/:id/assets — polymorphic array of downloadable assets attached
+  # to a Work. Mirrors app/views/works/assets.json.jbuilder: each item is
+  # shaped after its underlying model (Blob = held binary; Delegate =
+  # pointer-only). Thumbnails (Role.thumbnail_image) and metadata roles
+  # are excluded by Role.downloadable?.
+  def work_assets
     {
       type: :array,
       items: {
-        type: :object,
-        properties: {
-          noid: { type: :string },
-          mime_type: { type: :string, nullable: true },
-          original_filename: { type: :string, nullable: true },
-          size: { type: :integer, nullable: true },
-          label: { type: :string, nullable: true }
-        },
-        required: %w[noid]
+        oneOf: [
+          {
+            type: :object,
+            properties: {
+              noid: { type: :string },
+              mime_type: { type: :string, nullable: true },
+              original_filename: { type: :string, nullable: true },
+              size: { type: :integer, nullable: true },
+              label: { type: :string, nullable: true }
+            },
+            required: %w[noid],
+            description: 'Blob asset — held binary'
+          },
+          {
+            type: :object,
+            properties: {
+              noid: { type: :string },
+              mime_type: { type: :string, nullable: true },
+              use: { type: :string, nullable: true },
+              uri: { type: :string, nullable: true },
+              label: { type: :string, nullable: true }
+            },
+            required: %w[noid],
+            description: 'Delegate asset — external pointer (e.g. IIIF URL)'
+          }
+        ]
       }
     }
   end
@@ -199,7 +238,8 @@ module OpenapiSchemas
         { '$ref' => '#/components/schemas/Work' },
         { '$ref' => '#/components/schemas/Collection' },
         { '$ref' => '#/components/schemas/Community' },
-        { '$ref' => '#/components/schemas/FileSet' }
+        { '$ref' => '#/components/schemas/FileSet' },
+        { '$ref' => '#/components/schemas/Delegate' }
       ]
     }
   end

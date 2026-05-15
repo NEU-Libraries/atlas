@@ -21,6 +21,7 @@ class DelegateCreator < ApplicationService
     fs       = resolve_file_set
     delegate = save_delegate
     attach_to_file_set(fs, delegate)
+    reindex_parent!
     delegate
   end
 
@@ -56,5 +57,13 @@ class DelegateCreator < ApplicationService
     def attach_to_file_set(file_set, delegate)
       file_set.member_ids += [delegate.id]
       Atlas.persister.save(resource: file_set)
+    end
+
+    # Re-save the parent so the composite indexer fires ThumbnailIndexer
+    # against it — without this, the parent's Solr doc would carry stale
+    # (or absent) thumbnail_ssi after a Delegate mutation since Delegates
+    # are graph leaves and don't trigger parent re-indexing on their own.
+    def reindex_parent!
+      Atlas.persister.save(resource: Resource.find(@resource_id))
     end
 end

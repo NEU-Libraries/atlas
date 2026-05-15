@@ -42,6 +42,12 @@ class DelegateUpdater < ApplicationService
 
     def update(delegate)
       delegate.uri = @uri
-      Atlas.persister.save(resource: delegate)
+      saved = Atlas.persister.save(resource: delegate)
+      # See DelegateCreator#reindex_parent! — the parent's Solr doc needs
+      # an explicit re-save to pick up the new uri via ThumbnailIndexer.
+      # The create branch goes through DelegateCreator, which handles its
+      # own parent re-save.
+      Atlas.persister.save(resource: Resource.find(@resource_id))
+      saved
     end
 end

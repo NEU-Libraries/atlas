@@ -74,6 +74,17 @@ components:
             thumbnail:
               type: string
               nullable: true
+              description: IIIF URL of the :thumbnail_image Delegate (~85px), or null
+            thumbnail_2x:
+              type: string
+              nullable: true
+              description: IIIF URL of the :thumbnail_image_2x Delegate (~170px retina),
+                or null
+            preview:
+              type: string
+              nullable: true
+              description: IIIF URL of the :preview_image Delegate (~500px hero),
+                or null
             title:
               type: string
               nullable: true
@@ -103,6 +114,8 @@ components:
           - valkyrie_id
           - ancestors
           - thumbnail
+          - thumbnail_2x
+          - preview
           - title
           - description
           - permanent_url
@@ -136,6 +149,17 @@ components:
             thumbnail:
               type: string
               nullable: true
+              description: IIIF URL of the :thumbnail_image Delegate (~85px), or null
+            thumbnail_2x:
+              type: string
+              nullable: true
+              description: IIIF URL of the :thumbnail_image_2x Delegate (~170px retina),
+                or null
+            preview:
+              type: string
+              nullable: true
+              description: IIIF URL of the :preview_image Delegate (~500px hero),
+                or null
             title:
               type: string
               nullable: true
@@ -161,6 +185,8 @@ components:
           - valkyrie_id
           - ancestors
           - thumbnail
+          - thumbnail_2x
+          - preview
           - title
           - description
           - permanent_url
@@ -193,6 +219,17 @@ components:
             thumbnail:
               type: string
               nullable: true
+              description: IIIF URL of the :thumbnail_image Delegate (~85px), or null
+            thumbnail_2x:
+              type: string
+              nullable: true
+              description: IIIF URL of the :thumbnail_image_2x Delegate (~170px retina),
+                or null
+            preview:
+              type: string
+              nullable: true
+              description: IIIF URL of the :preview_image Delegate (~500px hero),
+                or null
             title:
               type: string
               nullable: true
@@ -218,6 +255,8 @@ components:
           - valkyrie_id
           - ancestors
           - thumbnail
+          - thumbnail_2x
+          - preview
           - title
           - description
           - permanent_url
@@ -1608,7 +1647,8 @@ paths:
       - Works
       responses:
         '200':
-          description: work found
+          description: all three thumbnail tiers project onto the Work JSON when Delegates
+            exist
           content:
             application/json:
               schema:

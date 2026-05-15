@@ -35,6 +35,10 @@ RSpec.describe DelegateCreator do
     end
 
     it 'does not write a preservation envelope for the derivative FileSet or the Delegate' do
+      # Force the Work to be created first so its setup-time preservation
+      # writes don't count against the expectation below — we only care
+      # about envelope activity during the DelegateCreator call.
+      work
       expect(PreservationEnvelopeWriter).not_to receive(:call)
       described_class.call(
         resource_id: work.id,

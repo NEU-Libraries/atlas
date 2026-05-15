@@ -3,4 +3,5 @@
 module CommunityDecorator
   include DecoratorHelper
   include MODSDecoration
+  include ThumbnailProjection
 end

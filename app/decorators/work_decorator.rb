@@ -3,6 +3,7 @@
 module WorkDecorator
   include DecoratorHelper
   include MODSDecoration
+  include ThumbnailProjection
 
   def names
     return '' if mods.names.blank?

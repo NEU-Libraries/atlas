@@ -94,7 +94,13 @@ class CommunitiesController < ApplicationController
       end
       @community.plain_title = params[:metadata]['title'] if params[:metadata]['title'].present?
       @community.plain_description = params[:metadata]['description'] if params[:metadata]['description'].present?
-      @community.safe_thumbnail = params[:metadata]['thumbnail'] if params[:metadata]['thumbnail'].present?
+      if params[:metadata]['thumbnail'].present?
+        DelegateUpdater.call(
+          resource_id: @community.id,
+          use:         Role.thumbnail_image.name,
+          uri:         params[:metadata]['thumbnail']
+        )
+      end
       @community.permissions = params[:metadata]['permissions'] if params[:metadata]['permissions'].present?
       @community = Atlas.persister.save(resource: @community)
       @community.write_preservation_envelope!

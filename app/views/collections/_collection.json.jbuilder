@@ -4,7 +4,7 @@ json.collection do
   json.id @collection.noid
   json.valkyrie_id @collection.id.to_s
   json.ancestors @collection.ancestors
-  json.thumbnail @collection.thumbnail
+  json.thumbnail @collection.thumbnail_uri
   json.title @collection.plain_title
   json.description @collection.plain_description
   json.permanent_url @collection.mods&.permanent_url

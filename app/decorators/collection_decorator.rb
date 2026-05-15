@@ -3,4 +3,5 @@
 module CollectionDecorator
   include DecoratorHelper
   include MODSDecoration
+  include ThumbnailProjection
 end

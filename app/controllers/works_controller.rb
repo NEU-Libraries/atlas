@@ -100,6 +100,14 @@ class WorksController < ApplicationController
       end
       @work.plain_title = params[:metadata]['title'] if params[:metadata]['title'].present?
       @work.plain_description = params[:metadata]['description'] if params[:metadata]['description'].present?
+      # permissions
+      @work.permissions = params[:metadata]['permissions'] if params[:metadata]['permissions'].present?
+      @work = Atlas.persister.save(resource: @work)
+      @work.write_preservation_envelope!
+      # DelegateUpdater rotates @work's optimistic_lock_token via the
+      # parent-reindex save, so it runs after the in-memory mutations
+      # above have been persisted — otherwise the controller's @work
+      # save loses to a StaleObjectError.
       if params[:metadata]['thumbnail'].present?
         DelegateUpdater.call(
           resource_id: @work.id,
@@ -107,9 +115,5 @@ class WorksController < ApplicationController
           uri:         params[:metadata]['thumbnail']
         )
       end
-      # permissions
-      @work.permissions = params[:metadata]['permissions'] if params[:metadata]['permissions'].present?
-      @work = Atlas.persister.save(resource: @work)
-      @work.write_preservation_envelope!
     end
 end

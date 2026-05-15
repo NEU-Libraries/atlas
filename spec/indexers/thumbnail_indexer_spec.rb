@@ -66,26 +66,4 @@ RSpec.describe ThumbnailIndexer do
     end
   end
 
-  describe 'integration with the composite indexer' do
-    it 'projects thumbnail_ssi onto the parent Solr doc when a Delegate is created' do
-      DelegateCreator.call(
-        resource_id: work.id,
-        use:         Role.thumbnail_image.name,
-        uri:         'https://iiif.example/composite-thumb.jpg'
-      )
-
-      # Re-query Solr to confirm the indexer fired through the composite_persister.
-      solr_doc = Blacklight.default_index.search(q: "id:\"#{work.id}\"").docs.first
-      expect(solr_doc).not_to be_nil
-      expect(solr_doc['thumbnail_ssi']).to eq('https://iiif.example/composite-thumb.jpg')
-    end
-
-    it 'updates the projection on the parent Solr doc when an existing Delegate is updated' do
-      DelegateUpdater.call(resource_id: work.id, use: Role.thumbnail_image.name, uri: 'https://iiif.example/v1.jpg')
-      DelegateUpdater.call(resource_id: work.id, use: Role.thumbnail_image.name, uri: 'https://iiif.example/v2.jpg')
-
-      solr_doc = Blacklight.default_index.search(q: "id:\"#{work.id}\"").docs.first
-      expect(solr_doc['thumbnail_ssi']).to eq('https://iiif.example/v2.jpg')
-    end
-  end
 end

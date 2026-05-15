@@ -40,6 +40,21 @@ RSpec.describe DelegateUpdater do
       members  = Atlas.query.find_members(resource: deriv_fs).to_a
       expect(members.size).to eq(1)
     end
+
+    it 're-saves the parent on update so ThumbnailIndexer fires' do
+      described_class.call(
+        resource_id: work.id,
+        use:         Role.thumbnail_image.name,
+        uri:         'https://iiif.example/v1.jpg'
+      )
+      token_after_create = Work.find(work.noid).optimistic_lock_token
+      described_class.call(
+        resource_id: work.id,
+        use:         Role.thumbnail_image.name,
+        uri:         'https://iiif.example/v2.jpg'
+      )
+      expect(Work.find(work.noid).optimistic_lock_token).not_to eq(token_after_create)
+    end
   end
 
   describe '.call with a different `use` on a resource that already has another Delegate' do

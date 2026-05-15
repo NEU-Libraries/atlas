@@ -46,6 +46,16 @@ RSpec.describe DelegateCreator do
         uri:         'https://iiif.example/thumb.jpg'
       )
     end
+
+    it 're-saves the parent resource so ThumbnailIndexer fires' do
+      initial_token = Work.find(work.noid).optimistic_lock_token
+      described_class.call(
+        resource_id: work.id,
+        use:         Role.thumbnail_image.name,
+        uri:         'https://iiif.example/thumb.jpg'
+      )
+      expect(Work.find(work.noid).optimistic_lock_token).not_to eq(initial_token)
+    end
   end
 
   describe '.call on a Work that already has a :derivative FileSet' do

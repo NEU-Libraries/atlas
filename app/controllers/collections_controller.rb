@@ -93,6 +93,12 @@ class CollectionsController < ApplicationController
       end
       @collection.plain_title = params[:metadata]['title'] if params[:metadata]['title'].present?
       @collection.plain_description = params[:metadata]['description'] if params[:metadata]['description'].present?
+      @collection.permissions = params[:metadata]['permissions'] if params[:metadata]['permissions'].present?
+      @collection = Atlas.persister.save(resource: @collection)
+      @collection.write_preservation_envelope!
+      # DelegateUpdater rotates @collection's optimistic_lock_token via
+      # the parent-reindex save; runs after the controller's own save to
+      # avoid a StaleObjectError.
       if params[:metadata]['thumbnail'].present?
         DelegateUpdater.call(
           resource_id: @collection.id,
@@ -100,8 +106,5 @@ class CollectionsController < ApplicationController
           uri:         params[:metadata]['thumbnail']
         )
       end
-      @collection.permissions = params[:metadata]['permissions'] if params[:metadata]['permissions'].present?
-      @collection = Atlas.persister.save(resource: @collection)
-      @collection.write_preservation_envelope!
     end
 end

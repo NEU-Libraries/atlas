@@ -916,13 +916,17 @@ paths:
                   type: string
                 metadata[thumbnail]:
                   type: string
+                metadata[thumbnail_2x]:
+                  type: string
+                metadata[preview]:
+                  type: string
                 binary:
                   type: string
                   format: binary
                   description: MODS XML to apply to the Collection
       responses:
         '200':
-          description: collection updated
+          description: all three thumbnail-family keys land in one PATCH
           content:
             application/json:
               schema:
@@ -1121,13 +1125,17 @@ paths:
                   type: string
                 metadata[thumbnail]:
                   type: string
+                metadata[thumbnail_2x]:
+                  type: string
+                metadata[preview]:
+                  type: string
                 binary:
                   type: string
                   format: binary
                   description: MODS XML to apply to the Community
       responses:
         '200':
-          description: community updated
+          description: all three thumbnail-family keys land in one PATCH
           content:
             application/json:
               schema:
@@ -1679,13 +1687,17 @@ paths:
                   type: string
                 metadata[thumbnail]:
                   type: string
+                metadata[thumbnail_2x]:
+                  type: string
+                metadata[preview]:
+                  type: string
                 binary:
                   type: string
                   format: binary
                   description: MODS XML to apply to the Work
       responses:
         '200':
-          description: thumbnail update creates a Delegate and surfaces on read
+          description: all three thumbnail-family keys land in one PATCH
           content:
             application/json:
               schema:

@@ -35,6 +35,7 @@ Rails.application.routes.draw do
     resources :files, :controller => :blobs do
       get :content, :on => :member
     end
+    resources :delegates, only: :show
 
     # Generics
     get '/resources/:id', to: 'resources#show'

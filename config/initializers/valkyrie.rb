@@ -33,7 +33,8 @@ Rails.application.config.to_prepare do
         resource_indexer: Valkyrie::Persistence::Solr::CompositeIndexer.new(
           Valkyrie::Indexers::AccessControlsIndexer,
           MODSIndexer,
-          TombstoneIndexer
+          TombstoneIndexer,
+          ThumbnailIndexer
         )
       ),
       :index_solr
@@ -45,7 +46,8 @@ Rails.application.config.to_prepare do
         resource_indexer: Valkyrie::Persistence::Solr::CompositeIndexer.new(
           Valkyrie::Indexers::AccessControlsIndexer,
           MODSIndexer,
-          TombstoneIndexer
+          TombstoneIndexer,
+          ThumbnailIndexer
         )
       ),
       :test_solr

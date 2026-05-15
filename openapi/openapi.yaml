@@ -315,6 +315,58 @@ components:
           - tombstoned_by
       required:
       - blob
+    Delegate:
+      type: object
+      properties:
+        delegate:
+          type: object
+          properties:
+            id:
+              type: string
+              description: NOID
+            valkyrie_id:
+              type: string
+              description: Valkyrie internal id
+            use:
+              type: string
+              nullable: true
+            uri:
+              type: string
+              nullable: true
+              description: Where the asset can be fetched (IIIF URL for image roles)
+            mime_type:
+              type: string
+              nullable: true
+            original_filename:
+              type: string
+              nullable: true
+            label:
+              type: string
+              nullable: true
+            tombstoned:
+              type: boolean
+              description: Withdrawn-from-discovery flag
+            tombstoned_at:
+              type: string
+              nullable: true
+              description: ISO-8601 timestamp set when tombstoned
+            tombstoned_by:
+              type: string
+              nullable: true
+              description: NUID of the user who tombstoned the resource
+          required:
+          - id
+          - valkyrie_id
+          - use
+          - uri
+          - mime_type
+          - original_filename
+          - label
+          - tombstoned
+          - tombstoned_at
+          - tombstoned_by
+      required:
+      - delegate
     WorkSummary:
       type: object
       properties:
@@ -483,27 +535,48 @@ components:
       required:
       - blobs
       - pagination
-    WorkBlobs:
+    WorkAssets:
       type: array
       items:
-        type: object
-        properties:
-          noid:
-            type: string
-          mime_type:
-            type: string
-            nullable: true
-          original_filename:
-            type: string
-            nullable: true
-          size:
-            type: integer
-            nullable: true
-          label:
-            type: string
-            nullable: true
-        required:
-        - noid
+        oneOf:
+        - type: object
+          properties:
+            noid:
+              type: string
+            mime_type:
+              type: string
+              nullable: true
+            original_filename:
+              type: string
+              nullable: true
+            size:
+              type: integer
+              nullable: true
+            label:
+              type: string
+              nullable: true
+          required:
+          - noid
+          description: Blob asset — held binary
+        - type: object
+          properties:
+            noid:
+              type: string
+            mime_type:
+              type: string
+              nullable: true
+            use:
+              type: string
+              nullable: true
+            uri:
+              type: string
+              nullable: true
+            label:
+              type: string
+              nullable: true
+          required:
+          - noid
+          description: Delegate asset — external pointer (e.g. IIIF URL)
     Pagination:
       type: object
       description: pagy pagination block
@@ -573,6 +646,7 @@ components:
       - "$ref": "#/components/schemas/Collection"
       - "$ref": "#/components/schemas/Community"
       - "$ref": "#/components/schemas/FileSet"
+      - "$ref": "#/components/schemas/Delegate"
     Lineage:
       type: array
       items:
@@ -1133,6 +1207,36 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Community"
+  "/delegates/{id}":
+    parameters:
+    - name: id
+      in: path
+      description: NOID of the Delegate
+      required: true
+      schema:
+        type: string
+    get:
+      summary: Retrieve a Delegate
+      tags:
+      - Delegates
+      description: |
+        Returns a binary-less Delegate resource — carries the same
+        structural metadata as a Blob (use, label, mime_type) plus a
+        generic `uri` pointing at where the asset can be fetched
+        (an IIIF URL for image roles).
+      responses:
+        '200':
+          description: delegate found
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Delegate"
+        '410':
+          description: delegate tombstoned
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Delegate"
   "/file_sets":
     get:
       summary: List file sets
@@ -1541,7 +1645,7 @@ paths:
                   description: MODS XML to apply to the Work
       responses:
         '200':
-          description: work updated
+          description: thumbnail update creates a Delegate and surfaces on read
           content:
             application/json:
               schema:
@@ -1570,6 +1674,32 @@ paths:
       responses:
         '200':
           description: mods returned
+  "/works/{id}/assets":
+    parameters:
+    - name: id
+      in: path
+      description: NOID of the Work
+      required: true
+      schema:
+        type: string
+    get:
+      summary: List downloadable assets attached to a work
+      tags:
+      - Works
+      description: |
+        Returns a polymorphic array of downloadable assets attached to the
+        Work: held binaries (Blob entries with size + original_filename)
+        and external pointer-only derivatives (Delegate entries with
+        use + uri, e.g. IIIF-served sized image variants). Thumbnails
+        (Role.thumbnail_image) and metadata roles are excluded by
+        Role.downloadable?.
+      responses:
+        '200':
+          description: thumbnail Delegate is excluded; non-thumbnail Delegate is included
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/WorkAssets"
   "/works/{id}/files":
     parameters:
     - name: id
@@ -1579,18 +1709,18 @@ paths:
       schema:
         type: string
     get:
-      summary: List files attached to a work
+      summary: List downloadable assets (legacy alias for /assets)
       tags:
       - Works
-      description: Returns a flat array of file refs from non-descriptive FileSets
-        attached to the Work.
+      description: Legacy alias for /works/{id}/assets. Slated for removal once Cerberus
+        migrates.
       responses:
         '200':
-          description: files listed
+          description: assets listed
           content:
             application/json:
               schema:
-                "$ref": "#/components/schemas/WorkBlobs"
+                "$ref": "#/components/schemas/WorkAssets"
   "/works/{id}/tombstone":
     parameters:
     - name: id

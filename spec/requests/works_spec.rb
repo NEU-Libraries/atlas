@@ -158,6 +158,23 @@ RSpec.describe 'Works', type: :request do
         schema '$ref' => '#/components/schemas/Work'
         run_test!
       end
+
+      response '200', 'all three thumbnail tiers project onto the Work JSON when Delegates exist' do
+        let(:work) { WorkCreator.call(parent_id: collection.noid) }
+        let(:id)   { work.noid }
+        before do
+          DelegateCreator.call(resource_id: work.id, use: Role.thumbnail_image.name,    uri: 'https://iiif.example/85.jpg')
+          DelegateCreator.call(resource_id: work.id, use: Role.thumbnail_image_2x.name, uri: 'https://iiif.example/170.jpg')
+          DelegateCreator.call(resource_id: work.id, use: Role.preview_image.name,      uri: 'https://iiif.example/500.jpg')
+        end
+        schema '$ref' => '#/components/schemas/Work'
+        run_test! do |response|
+          body = JSON.parse(response.body).fetch('work')
+          expect(body['thumbnail']).to    eq('https://iiif.example/85.jpg')
+          expect(body['thumbnail_2x']).to eq('https://iiif.example/170.jpg')
+          expect(body['preview']).to      eq('https://iiif.example/500.jpg')
+        end
+      end
     end
 
     patch 'Update a work' do

@@ -900,8 +900,12 @@ paths:
       summary: Update a collection
       tags:
       - Collections
-      description: Either supply a `binary` MODS XML upload or `metadata[*]` form
-        fields.
+      description: |
+        Update descriptive metadata on a Collection. Either supply a
+        `binary` MODS XML upload or `metadata[*]` form fields.
+
+        Thumbnail-family URI writes have their own purpose-specific
+        endpoint — see `PATCH /collections/{id}/thumbnails`.
       parameters: []
       requestBody:
         required: false
@@ -914,19 +918,13 @@ paths:
                   type: string
                 metadata[description]:
                   type: string
-                metadata[thumbnail]:
-                  type: string
-                metadata[thumbnail_2x]:
-                  type: string
-                metadata[preview]:
-                  type: string
                 binary:
                   type: string
                   format: binary
                   description: MODS XML to apply to the Collection
       responses:
         '200':
-          description: all three thumbnail-family keys land in one PATCH
+          description: collection updated
           content:
             application/json:
               schema:
@@ -1003,6 +1001,47 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Collection"
+  "/collections/{id}/thumbnails":
+    parameters:
+    - name: id
+      in: path
+      description: NOID of the Collection
+      required: true
+      schema:
+        type: string
+    patch:
+      summary: Attach thumbnail-family IIIF Delegate URIs to a collection
+      tags:
+      - Collections
+      description: |
+        Upserts one or more thumbnail-tier Delegates on the Collection
+        (85px `thumbnail`, 170px `thumbnail_2x`, 500px `preview`). Missing
+        keys are left untouched. Mirrors the Works endpoint of the same
+        shape; collection-level thumbnails surface in the Cerberus
+        browse UI.
+      parameters: []
+      responses:
+        '200':
+          description: all three thumbnail-family keys land in one PATCH
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Collection"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                thumbnail:
+                  type: string
+                  description: IIIF URL for the 85px thumbnail tier
+                thumbnail_2x:
+                  type: string
+                  description: IIIF URL for the 170px retina thumbnail tier
+                preview:
+                  type: string
+                  description: IIIF URL for the 500px hero preview tier
   "/collections/{id}/tombstone":
     parameters:
     - name: id
@@ -1109,8 +1148,12 @@ paths:
       summary: Update a community
       tags:
       - Communities
-      description: Either supply a `binary` MODS XML upload or `metadata[*]` form
-        fields.
+      description: |
+        Update descriptive metadata on a Community. Either supply a
+        `binary` MODS XML upload or `metadata[*]` form fields.
+
+        Thumbnail-family URI writes have their own purpose-specific
+        endpoint — see `PATCH /communities/{id}/thumbnails`.
       parameters: []
       requestBody:
         required: false
@@ -1123,19 +1166,13 @@ paths:
                   type: string
                 metadata[description]:
                   type: string
-                metadata[thumbnail]:
-                  type: string
-                metadata[thumbnail_2x]:
-                  type: string
-                metadata[preview]:
-                  type: string
                 binary:
                   type: string
                   format: binary
                   description: MODS XML to apply to the Community
       responses:
         '200':
-          description: all three thumbnail-family keys land in one PATCH
+          description: community updated
           content:
             application/json:
               schema:
@@ -1212,6 +1249,47 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Community"
+  "/communities/{id}/thumbnails":
+    parameters:
+    - name: id
+      in: path
+      description: NOID of the Community
+      required: true
+      schema:
+        type: string
+    patch:
+      summary: Attach thumbnail-family IIIF Delegate URIs to a community
+      tags:
+      - Communities
+      description: |
+        Upserts one or more thumbnail-tier Delegates on the Community
+        (85px `thumbnail`, 170px `thumbnail_2x`, 500px `preview`). Missing
+        keys are left untouched. Mirrors the Works endpoint of the same
+        shape; community-level thumbnails surface in the Cerberus
+        browse UI.
+      parameters: []
+      responses:
+        '200':
+          description: all three thumbnail-family keys land in one PATCH
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Community"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                thumbnail:
+                  type: string
+                  description: IIIF URL for the 85px thumbnail tier
+                thumbnail_2x:
+                  type: string
+                  description: IIIF URL for the 170px retina thumbnail tier
+                preview:
+                  type: string
+                  description: IIIF URL for the 500px hero preview tier
   "/communities/{id}/tombstone":
     parameters:
     - name: id
@@ -1671,8 +1749,14 @@ paths:
       summary: Update a work
       tags:
       - Works
-      description: Either supply a `binary` MODS XML upload or `metadata[*]` form
-        fields to merge in.
+      description: |
+        Update descriptive metadata on a Work. Either supply a `binary`
+        MODS XML upload or `metadata[*]` form fields to merge in.
+
+        Programmatic Delegate writes (thumbnail-family URIs, sized image
+        derivatives) no longer ride this endpoint — see the dedicated
+        `PATCH /works/{id}/thumbnails` and `PATCH /works/{id}/image_derivatives`
+        routes.
       parameters: []
       requestBody:
         required: false
@@ -1685,19 +1769,13 @@ paths:
                   type: string
                 metadata[description]:
                   type: string
-                metadata[thumbnail]:
-                  type: string
-                metadata[thumbnail_2x]:
-                  type: string
-                metadata[preview]:
-                  type: string
                 binary:
                   type: string
                   format: binary
                   description: MODS XML to apply to the Work
       responses:
         '200':
-          description: all three thumbnail-family keys land in one PATCH
+          description: work updated
           content:
             application/json:
               schema:
@@ -1752,6 +1830,95 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/WorkAssets"
+  "/works/{id}/thumbnails":
+    parameters:
+    - name: id
+      in: path
+      description: NOID of the Work
+      required: true
+      schema:
+        type: string
+    patch:
+      summary: Attach thumbnail-family IIIF Delegate URIs to a work
+      tags:
+      - Works
+      description: |
+        Upserts one or more thumbnail-tier Delegates on the Work — the
+        85px `thumbnail`, the 170px `thumbnail_2x`, and the 500px hero
+        `preview`. Each non-blank URI is dispatched to DelegateUpdater
+        against its matching Role; missing keys are left untouched.
+
+        Purpose-specific: machine-set IIIF URLs, fixed three-key shape,
+        no user content. Cerberus's ThumbnailCreationJob is the primary
+        caller.
+      parameters: []
+      responses:
+        '200':
+          description: all three thumbnail-family keys land in one PATCH
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Work"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                thumbnail:
+                  type: string
+                  description: IIIF URL for the 85px thumbnail tier
+                thumbnail_2x:
+                  type: string
+                  description: IIIF URL for the 170px retina thumbnail tier
+                preview:
+                  type: string
+                  description: IIIF URL for the 500px hero preview tier
+  "/works/{id}/image_derivatives":
+    parameters:
+    - name: id
+      in: path
+      description: NOID of the Work
+      required: true
+      schema:
+        type: string
+    patch:
+      summary: Attach sized-image IIIF Delegate URIs to a work
+      tags:
+      - Works
+      description: |
+        Upserts one or more downloadable image-derivative Delegates on
+        the Work — `small`, `medium`, and `large` IIIF URLs. Each
+        non-blank URI is dispatched to DelegateUpdater against its
+        matching Role (small_image / medium_image / large_image);
+        missing keys are left untouched.
+
+        Sibling of `/thumbnails`. These derivatives surface in
+        `/works/{id}/assets` and are intended to be downloaded directly
+        rather than rendered as UI chrome.
+      parameters: []
+      responses:
+        '200':
+          description: all three image-derivative keys land in one PATCH
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Work"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                small:
+                  type: string
+                  description: IIIF URL for the small image tier
+                medium:
+                  type: string
+                  description: IIIF URL for the medium image tier
+                large:
+                  type: string
+                  description: IIIF URL for the large image tier
   "/works/{id}/files":
     parameters:
     - name: id

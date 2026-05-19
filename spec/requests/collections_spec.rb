@@ -68,20 +68,20 @@ RSpec.describe 'Collections', type: :request do
       tags 'Collections'
       consumes 'multipart/form-data'
       produces 'application/json'
-      description 'Either supply a `binary` MODS XML upload or `metadata[*]` form fields.'
+      description <<~DESC
+        Update descriptive metadata on a Collection. Either supply a
+        `binary` MODS XML upload or `metadata[*]` form fields.
+
+        Thumbnail-family URI writes have their own purpose-specific
+        endpoint — see `PATCH /collections/{id}/thumbnails`.
+      DESC
       parameter name: 'metadata[title]',         in: :formData, required: false
       parameter name: 'metadata[description]',   in: :formData, required: false
-      parameter name: 'metadata[thumbnail]',     in: :formData, required: false
-      parameter name: 'metadata[thumbnail_2x]',  in: :formData, required: false
-      parameter name: 'metadata[preview]',       in: :formData, required: false
       parameter name: :binary,                   in: :formData, required: false
       multipart_request_body(
         {
           'metadata[title]':         { type: :string },
           'metadata[description]':   { type: :string },
-          'metadata[thumbnail]':     { type: :string },
-          'metadata[thumbnail_2x]':  { type: :string },
-          'metadata[preview]':       { type: :string },
           binary: { type: :string, format: :binary, description: 'MODS XML to apply to the Collection' }
         }
       )
@@ -92,21 +92,6 @@ RSpec.describe 'Collections', type: :request do
         let(:'metadata[title]')  { 'Updated' }
         schema '$ref' => '#/components/schemas/Collection'
         run_test!
-      end
-
-      response '200', 'all three thumbnail-family keys land in one PATCH' do
-        let(:collection)               { CollectionCreator.call(parent_id: community.noid) }
-        let(:id)                       { collection.noid }
-        let(:'metadata[thumbnail]')    { 'https://iiif.example/iiif/3/c.jp2/full/!85,85/0/default.jpg' }
-        let(:'metadata[thumbnail_2x]') { 'https://iiif.example/iiif/3/c.jp2/full/!170,170/0/default.jpg' }
-        let(:'metadata[preview]')      { 'https://iiif.example/iiif/3/c.jp2/full/500,/0/default.jpg' }
-        schema '$ref' => '#/components/schemas/Collection'
-        run_test! do |response|
-          body = JSON.parse(response.body).fetch('collection')
-          expect(body['thumbnail']).to    eq('https://iiif.example/iiif/3/c.jp2/full/!85,85/0/default.jpg')
-          expect(body['thumbnail_2x']).to eq('https://iiif.example/iiif/3/c.jp2/full/!170,170/0/default.jpg')
-          expect(body['preview']).to      eq('https://iiif.example/iiif/3/c.jp2/full/500,/0/default.jpg')
-        end
       end
     end
 
@@ -188,6 +173,50 @@ RSpec.describe 'Collections', type: :request do
         let(:id) { collection.noid }
         schema '$ref' => '#/components/schemas/Collection'
         run_test!
+      end
+    end
+  end
+
+  path '/collections/{id}/thumbnails' do
+    parameter name: :id, in: :path, type: :string, description: 'NOID of the Collection'
+
+    patch 'Attach thumbnail-family IIIF Delegate URIs to a collection' do
+      tags 'Collections'
+      consumes 'application/json'
+      produces 'application/json'
+      description <<~DESC
+        Upserts one or more thumbnail-tier Delegates on the Collection
+        (85px `thumbnail`, 170px `thumbnail_2x`, 500px `preview`). Missing
+        keys are left untouched. Mirrors the Works endpoint of the same
+        shape; collection-level thumbnails surface in the Cerberus
+        browse UI.
+      DESC
+      parameter name: :body, in: :body, schema: {
+        type: :object,
+        properties: {
+          thumbnail: { type: :string, description: 'IIIF URL for the 85px thumbnail tier' },
+          thumbnail_2x: { type: :string, description: 'IIIF URL for the 170px retina thumbnail tier' },
+          preview: { type: :string, description: 'IIIF URL for the 500px hero preview tier' }
+        }
+      }
+
+      response '200', 'all three thumbnail-family keys land in one PATCH' do
+        let(:collection) { CollectionCreator.call(parent_id: community.noid) }
+        let(:id) { collection.noid }
+        let(:body) do
+          {
+            thumbnail: 'https://iiif.example/iiif/3/c.jp2/full/!85,85/0/default.jpg',
+            thumbnail_2x: 'https://iiif.example/iiif/3/c.jp2/full/!170,170/0/default.jpg',
+            preview: 'https://iiif.example/iiif/3/c.jp2/full/500,/0/default.jpg'
+          }
+        end
+        schema '$ref' => '#/components/schemas/Collection'
+        run_test! do |response|
+          json = JSON.parse(response.body).fetch('collection')
+          expect(json['thumbnail']).to eq('https://iiif.example/iiif/3/c.jp2/full/!85,85/0/default.jpg')
+          expect(json['thumbnail_2x']).to eq('https://iiif.example/iiif/3/c.jp2/full/!170,170/0/default.jpg')
+          expect(json['preview']).to eq('https://iiif.example/iiif/3/c.jp2/full/500,/0/default.jpg')
+        end
       end
     end
   end

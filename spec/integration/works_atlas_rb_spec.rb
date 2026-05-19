@@ -93,24 +93,11 @@ RSpec.describe 'Works via atlas_rb', :atlas_rb_server do
     end
   end
 
-  describe 'PATCH metadata[thumbnail]' do
-    it 'round-trips a thumbnail URI through atlas_rb and surfaces it on the next find' do
-      work = WorkCreator.call(parent_id: collection.noid)
-      uri  = 'https://iiif.example/iiif/3/abc.jp2/full/!85,85/0/default.jpg'
-
-      AtlasRb::Work.metadata(work.noid, thumbnail: uri)
-      expect(AtlasRb::Work.find(work.noid)['thumbnail']).to eq(uri)
-
-      # Repeated PATCH upserts in place: the derivative FileSet still holds
-      # exactly one thumbnail_image Delegate, just with the newer URI.
-      uri_v2 = 'https://iiif.example/iiif/3/abc.jp2/full/!85,85/0/default.jpg?v2'
-      AtlasRb::Work.metadata(work.noid, thumbnail: uri_v2)
-
-      reloaded = Work.find(work.noid)
-      deriv_fs = reloaded.children.find { |c| c.is_a?(FileSet) && c.type == Classification.derivative.name }
-      members  = Atlas.query.find_members(resource: deriv_fs).to_a.select { |m| m.is_a?(Delegate) && m.use == Role.thumbnail_image.name }
-      expect(members.size).to    eq(1)
-      expect(members.first.uri).to eq(uri_v2)
-    end
-  end
+  # Programmatic thumbnail URI writes moved off the generic
+  # `metadata[…]` PATCH bag onto purpose-specific endpoints
+  # (`PATCH /works/{id}/thumbnails`, `PATCH /works/{id}/image_derivatives`).
+  # The request specs in spec/requests/works_spec.rb cover the new
+  # endpoint shape end-to-end. An atlas_rb-bound integration spec will
+  # be added back once the gem ships the matching `set_thumbnails` /
+  # `set_image_derivatives` bindings.
 end

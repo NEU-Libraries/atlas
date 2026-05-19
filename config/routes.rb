@@ -15,12 +15,14 @@ Rails.application.routes.draw do
       member do
         post :tombstone
         post :restore
+        patch :thumbnails, action: :update_thumbnails
       end
     end
     resources :collections do
       member do
         post :tombstone
         post :restore
+        patch :thumbnails, action: :update_thumbnails
       end
     end
     resources :works do
@@ -28,6 +30,8 @@ Rails.application.routes.draw do
         post :tombstone
         post :restore
         post :complete
+        patch :thumbnails, action: :update_thumbnails
+        patch :image_derivatives, action: :update_image_derivatives
       end
     end
     # resources :users

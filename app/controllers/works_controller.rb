@@ -4,7 +4,19 @@
 class WorksController < ApplicationController
   include LazyPagination
   include IdempotentCreate
-  include ThumbnailMetadata
+  include DelegateUris
+
+  THUMBNAIL_ROLES = {
+    'thumbnail' => Role.thumbnail_image,
+    'thumbnail_2x' => Role.thumbnail_image_2x,
+    'preview' => Role.preview_image
+  }.freeze
+
+  IMAGE_DERIVATIVE_ROLES = {
+    'small' => Role.small_image,
+    'medium' => Role.medium_image,
+    'large' => Role.large_image
+  }.freeze
 
   def index
     @pagination, @works = paginate_model(Work, filters: index_filters)
@@ -51,6 +63,24 @@ class WorksController < ApplicationController
     elsif params[:metadata].present?
       metadata_update
     end
+  end
+
+  def update_thumbnails
+    @work = Work.find(params[:id])
+    return head(:not_found) if @work.nil?
+
+    apply_delegate_uris(resource_id: @work.id, mapping: THUMBNAIL_ROLES, source: params)
+    @work = Work.find(@work.id).decorate
+    render :show
+  end
+
+  def update_image_derivatives
+    @work = Work.find(params[:id])
+    return head(:not_found) if @work.nil?
+
+    apply_delegate_uris(resource_id: @work.id, mapping: IMAGE_DERIVATIVE_ROLES, source: params)
+    @work = Work.find(@work.id).decorate
+    render :show
   end
 
   def destroy
@@ -105,10 +135,5 @@ class WorksController < ApplicationController
       @work.permissions = params[:metadata]['permissions'] if params[:metadata]['permissions'].present?
       @work = Atlas.persister.save(resource: @work)
       @work.write_preservation_envelope!
-      # Thumbnail-family Delegates rotate @work's optimistic_lock_token
-      # via DelegateUpdater's parent-reindex save, so they run after the
-      # in-memory mutations above have been persisted — otherwise the
-      # controller's @work save loses to a StaleObjectError.
-      process_thumbnail_metadata(resource_id: @work.id, metadata: params[:metadata])
     end
 end

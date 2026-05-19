@@ -61,8 +61,6 @@ Rails.application.routes.draw do
 
     # Downloads
     get '/works/:id/assets', to: 'works#assets', as: 'work_assets'
-    # Legacy bridge — Cerberus calls /files; remove once it migrates to /assets.
-    get '/works/:id/files',  to: 'works#assets', as: 'work_files'
 
     # Housekeeping
     get '/reset', to: 'maintenance#reset', as: 'reset'

@@ -418,25 +418,6 @@ RSpec.describe 'Works', type: :request do
     end
   end
 
-  # Bridge route for Cerberus during /files → /assets migration. Same
-  # action, same schema; remove once Cerberus has migrated.
-  path '/works/{id}/files' do
-    parameter name: :id, in: :path, type: :string, description: 'NOID of the Work'
-
-    get 'List downloadable assets (legacy alias for /assets)' do
-      tags 'Works'
-      produces 'application/json'
-      description 'Legacy alias for /works/{id}/assets. Slated for removal once Cerberus migrates.'
-
-      response '200', 'assets listed' do
-        let(:work) { WorkCreator.call(parent_id: collection.noid) }
-        let(:id)   { work.noid }
-        schema '$ref' => '#/components/schemas/WorkAssets'
-        run_test!
-      end
-    end
-  end
-
   path '/works/{id}/tombstone' do
     parameter name: :id, in: :path, type: :string
 

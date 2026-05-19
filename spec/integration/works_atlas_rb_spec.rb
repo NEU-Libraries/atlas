@@ -53,22 +53,6 @@ RSpec.describe 'Works via atlas_rb', :atlas_rb_server do
     end
   end
 
-  describe '.files (deprecated alias)' do
-    it 'returns the same payload as .assets via the /files bridge route' do
-      work = WorkCreator.call(parent_id: collection.noid)
-      DelegateCreator.call(resource_id: work.id, use: Role.large_image.name, uri: 'https://iiif.example/large.jpg')
-
-      assets = AtlasRb::Work.assets(work.noid)
-      files  = AtlasRb::Work.files(work.noid)
-
-      # Both call the same underlying action — Atlas keeps /works/:id/files
-      # as a bridge while Cerberus migrates. The two responses should match
-      # element-for-element.
-      expect(files.map { |a| a['use'] || a['original_filename'] })
-        .to eq(assets.map { |a| a['use'] || a['original_filename'] })
-    end
-  end
-
   describe '.find — thumbnail-family projections' do
     it 'surfaces thumbnail, thumbnail_2x, and preview on the Work JSON when the Delegates exist' do
       work = WorkCreator.call(parent_id: collection.noid)

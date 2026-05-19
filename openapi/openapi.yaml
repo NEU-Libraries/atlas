@@ -1919,27 +1919,6 @@ paths:
                 large:
                   type: string
                   description: IIIF URL for the large image tier
-  "/works/{id}/files":
-    parameters:
-    - name: id
-      in: path
-      description: NOID of the Work
-      required: true
-      schema:
-        type: string
-    get:
-      summary: List downloadable assets (legacy alias for /assets)
-      tags:
-      - Works
-      description: Legacy alias for /works/{id}/assets. Slated for removal once Cerberus
-        migrates.
-      responses:
-        '200':
-          description: assets listed
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/WorkAssets"
   "/works/{id}/tombstone":
     parameters:
     - name: id

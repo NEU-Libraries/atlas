@@ -93,11 +93,80 @@ RSpec.describe 'Works via atlas_rb', :atlas_rb_server do
     end
   end
 
-  # Programmatic thumbnail URI writes moved off the generic
-  # `metadata[…]` PATCH bag onto purpose-specific endpoints
-  # (`PATCH /works/{id}/thumbnails`, `PATCH /works/{id}/image_derivatives`).
-  # The request specs in spec/requests/works_spec.rb cover the new
-  # endpoint shape end-to-end. An atlas_rb-bound integration spec will
-  # be added back once the gem ships the matching `set_thumbnails` /
-  # `set_image_derivatives` bindings.
+  describe '.set_thumbnails' do
+    it 'round-trips the three thumbnail-tier URIs through atlas_rb and surfaces them on the next find' do
+      work = WorkCreator.call(parent_id: collection.noid)
+
+      AtlasRb::Work.set_thumbnails(
+        work.noid,
+        thumbnail: 'https://iiif.example/iiif/3/abc.jp2/full/!85,85/0/default.jpg',
+        thumbnail_2x: 'https://iiif.example/iiif/3/abc.jp2/full/!170,170/0/default.jpg',
+        preview: 'https://iiif.example/iiif/3/abc.jp2/full/500,/0/default.jpg'
+      )
+
+      found = AtlasRb::Work.find(work.noid)
+      expect(found['thumbnail']).to eq('https://iiif.example/iiif/3/abc.jp2/full/!85,85/0/default.jpg')
+      expect(found['thumbnail_2x']).to eq('https://iiif.example/iiif/3/abc.jp2/full/!170,170/0/default.jpg')
+      expect(found['preview']).to eq('https://iiif.example/iiif/3/abc.jp2/full/500,/0/default.jpg')
+    end
+
+    it 'upserts in place — repeated calls hold one Delegate per role with the latest URI' do
+      work = WorkCreator.call(parent_id: collection.noid)
+      uri_v1 = 'https://iiif.example/iiif/3/abc.jp2/full/!85,85/0/default.jpg'
+      uri_v2 = 'https://iiif.example/iiif/3/abc.jp2/full/!85,85/0/default.jpg?v2'
+
+      AtlasRb::Work.set_thumbnails(work.noid, thumbnail: uri_v1)
+      AtlasRb::Work.set_thumbnails(work.noid, thumbnail: uri_v2)
+
+      reloaded = Work.find(work.noid)
+      deriv_fs = reloaded.children.find { |c| c.is_a?(FileSet) && c.type == Classification.derivative.name }
+      members = Atlas.query.find_members(resource: deriv_fs).to_a
+                     .select { |m| m.is_a?(Delegate) && m.use == Role.thumbnail_image.name }
+      expect(members.size).to eq(1)
+      expect(members.first.uri).to eq(uri_v2)
+    end
+
+    it 'leaves tiers untouched when their key is omitted' do
+      work = WorkCreator.call(parent_id: collection.noid)
+      preview_uri = 'https://iiif.example/iiif/3/abc.jp2/full/500,/0/default.jpg'
+
+      AtlasRb::Work.set_thumbnails(work.noid, preview: preview_uri)
+      AtlasRb::Work.set_thumbnails(work.noid, thumbnail: 'https://iiif.example/iiif/3/abc.jp2/full/!85,85/0/default.jpg')
+
+      found = AtlasRb::Work.find(work.noid)
+      expect(found['preview']).to eq(preview_uri)
+      expect(found['thumbnail']).to eq('https://iiif.example/iiif/3/abc.jp2/full/!85,85/0/default.jpg')
+    end
+  end
+
+  describe '.set_image_derivatives' do
+    it 'attaches small/medium/large Delegates that surface in .assets' do
+      work = WorkCreator.call(parent_id: collection.noid)
+
+      AtlasRb::Work.set_image_derivatives(
+        work.noid,
+        small: 'https://iiif.example/iiif/3/abc.jp2/full/800,/0/default.jpg',
+        medium: 'https://iiif.example/iiif/3/abc.jp2/full/1600,/0/default.jpg',
+        large: 'https://iiif.example/iiif/3/abc.jp2/full/full/0/default.jpg'
+      )
+
+      assets = AtlasRb::Work.assets(work.noid)
+      by_use = assets.to_h { |a| [a['use'], a['uri']] }
+      expect(by_use[Role.small_image.name]).to eq('https://iiif.example/iiif/3/abc.jp2/full/800,/0/default.jpg')
+      expect(by_use[Role.medium_image.name]).to eq('https://iiif.example/iiif/3/abc.jp2/full/1600,/0/default.jpg')
+      expect(by_use[Role.large_image.name]).to eq('https://iiif.example/iiif/3/abc.jp2/full/full/0/default.jpg')
+    end
+
+    it 'leaves tiers untouched when their key is omitted' do
+      work = WorkCreator.call(parent_id: collection.noid)
+      large = 'https://iiif.example/iiif/3/abc.jp2/full/full/0/default.jpg'
+
+      AtlasRb::Work.set_image_derivatives(work.noid, large: large)
+      AtlasRb::Work.set_image_derivatives(work.noid, small: 'https://iiif.example/iiif/3/abc.jp2/full/800,/0/default.jpg')
+
+      assets = AtlasRb::Work.assets(work.noid)
+      uses = assets.pluck('use').compact
+      expect(uses).to contain_exactly(Role.small_image.name, Role.large_image.name)
+    end
+  end
 end

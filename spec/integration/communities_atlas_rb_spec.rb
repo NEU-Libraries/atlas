@@ -30,4 +30,22 @@ RSpec.describe 'Communities via atlas_rb', :atlas_rb_server do
     AtlasRb::Community.destroy(created['id'])
     expect(Community.find(created['id'])).to be_nil
   end
+
+  describe '.set_thumbnails' do
+    it 'round-trips the three thumbnail-tier URIs through atlas_rb and surfaces them on the next find' do
+      community = CommunityCreator.call
+
+      AtlasRb::Community.set_thumbnails(
+        community.noid,
+        thumbnail: 'https://iiif.example/iiif/3/m.jp2/full/!85,85/0/default.jpg',
+        thumbnail_2x: 'https://iiif.example/iiif/3/m.jp2/full/!170,170/0/default.jpg',
+        preview: 'https://iiif.example/iiif/3/m.jp2/full/500,/0/default.jpg'
+      )
+
+      found = AtlasRb::Community.find(community.noid)
+      expect(found['thumbnail']).to eq('https://iiif.example/iiif/3/m.jp2/full/!85,85/0/default.jpg')
+      expect(found['thumbnail_2x']).to eq('https://iiif.example/iiif/3/m.jp2/full/!170,170/0/default.jpg')
+      expect(found['preview']).to eq('https://iiif.example/iiif/3/m.jp2/full/500,/0/default.jpg')
+    end
+  end
 end

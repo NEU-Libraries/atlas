@@ -1,32 +1,129 @@
 # frozen_string_literal: true
 
+# Wire-level authorization for the JSON API. Every controller action consults
+# this matrix via `authorize!`; the application_controller `check_authorization`
+# hook raises CanCan::AuthorizationNotPerformed if an action forgets to call
+# authorize, so the piece-2 footgun ("add :reject_system_principal to every
+# new write action") is structurally impossible.
+#
+# Companion layer: Cerberus has its own Ability (UI-gating concern — controls
+# whether buttons render). Atlas's Ability is the deep-defense / system-of-
+# record layer; Cerberus is the user-experience layer. Divergence between the
+# two is recoverable rather than a privilege escalation: if Atlas says "no"
+# but Cerberus said "yes," the user sees an actionable element that 403s when
+# clicked. If Cerberus says "no" but Atlas says "yes," a direct API caller
+# can still reach Atlas — Atlas's Ability is then the effective gate.
+#
+# Conventions for callers:
+#  - **Class-level check** (`authorize! :create, Work`) when the decision does
+#    NOT depend on the resource's state. Use for :create, admin-only :destroy,
+#    :read on resource classes, and verbs targeting models with no per-row
+#    ACL (User, AuditEvent).
+#  - **Instance-level check** (`authorize! :update, @work`) when the decision
+#    DOES depend on resource state. The group-ACL block-form rules below need
+#    a concrete resource to read edit_users / edit_groups from; bare class
+#    checks would silently pass for users who don't have ACL access.
 class Ability
   include CanCan::Ability
 
+  # update_thumbnails / update_image_derivatives / complete travel with :update
+  # for the purposes of ACL gating — they all mutate the resource's state and
+  # callers who can :update can do these too. Keeps the group-ACL block-form
+  # rules to a single :update declaration per resource class.
+  UPDATE_ALIASES = %i[update_thumbnails update_image_derivatives complete].freeze
+
   def initialize(user)
-    # Define abilities for the user here. For example:
-    #
-    #   return unless user.present?
-    #   can :read, :all
-    #   return unless user.admin?
-    #   can :manage, :all
-    #
-    # The first argument to `can` is the action you are giving the user
-    # permission to do.
-    # If you pass :manage it will apply to every action. Other common actions
-    # here are :read, :create, :update and :destroy.
-    #
-    # The second argument is the resource the user can perform the action on.
-    # If you pass :all it will apply to every resource. Otherwise pass a Ruby
-    # class of the resource.
-    #
-    # The third argument is an optional hash of conditions to further filter the
-    # objects.
-    # For example, here the user can only update published articles.
-    #
-    #   can :update, Article, published: true
-    #
-    # See the wiki for details:
-    # https://github.com/CanCanCommunity/cancancan/blob/develop/docs/define_check_abilities.md
+    # @current_user is never nil under piece-2 require_auth — at worst it
+    # falls through to the :guest fixture. Guard anyway so Ability can be
+    # constructed in isolation (specs, console).
+    user ||= User.find_by_role(:guest)
+
+    alias_action(*UPDATE_ALIASES, to: :update)
+
+    # Hard floor: :anonymous never authenticates and never carries ability.
+    # require_auth 401s before reaching here; this is belt-and-suspenders.
+    return if user.anonymous?
+
+    # Read floor: any authenticated principal (incl. :guest) can read every
+    # repository resource. Visibility lives on the resource itself
+    # (Permissions concern); Atlas defers to it.
+    can :read, Resource
+
+    apply_role_abilities(user)
+    apply_group_abilities(user)
   end
+
+  private
+
+    def apply_role_abilities(user)
+      case user.role.to_sym
+      when :system
+        # Non-human bookend. Tightly enumerated: SSO user provisioning +
+        # JWT mint, plus the Q7 carve-out for container creation so the
+        # seed task can bootstrap Communities/Collections. The piece-2
+        # reject_system_principal sprinkle is what this list replaces —
+        # :system explicitly cannot author Works, mutate any resource, or
+        # tombstone/restore/destroy anything.
+        can :provision,  User
+        can :mint_token, User
+        can :read,       User
+        can :create,     Community
+        can :create,     Collection
+      when :guest
+        # Read floor only. Devise /user shape lets guests fetch their own
+        # session info — no resource-modifying ability.
+        can :read, User
+      when :standard, :loader, :privileged
+        # All three authenticate as standard humans at Atlas's wire. Their
+        # role-derived UI differentiation (loader's batch-ingest surface,
+        # privileged's proxy-upload radio) lives in Cerberus's Ability
+        # layer; Atlas's endpoints don't distinguish at the wire level. If
+        # a future piece adds an Atlas-side rule keyed on :loader or
+        # :privileged, split this case out then — don't pre-encode rules
+        # for endpoints Atlas doesn't expose.
+        can :read,    User
+        can :preview, Resource
+
+        # Container + Work creation. Group ACLs gate per-instance updates;
+        # creates are class-level (no resource to inspect yet).
+        can :create, Work
+        can :create, Community
+        can :create, Collection
+
+        # FileSet / Blob writes are not group-ACL-gated at the wire — they
+        # hang off Works and Atlas doesn't cheaply trace FS→Work ownership.
+        # The role gate at Work creation is the entry barrier; once you
+        # can author a Work, you can attach FileSets and Blobs to it.
+        # :destroy intentionally absent — admin only.
+        can %i[create update], FileSet
+        can %i[create update], Blob
+      when :admin
+        # The wildcard. Minimal membership by design; bypasses both role
+        # enumeration and group ACLs.
+        can :manage, :all
+      end
+    end
+
+    def apply_group_abilities(user)
+      return if user.admin?      # wildcard already granted
+      return if user.system?     # non-human; no group axis
+      return if user.anonymous?  # never authenticates
+      return if user.guest?      # read floor only
+
+      [Work, Collection, Community].each do |klass|
+        can %i[update tombstone restore], klass do |resource|
+          group_acl_grants?(resource, user)
+        end
+      end
+    end
+
+    # Group ACL match: caller's NUID is in the resource's edit_users list, OR
+    # any of the caller's groups intersect the resource's edit_groups. Shape
+    # mirrors the Cerberus-side check; both layers consult the same envelope.
+    def group_acl_grants?(resource, user)
+      return false if resource.nil?
+
+      Array(resource.edit_users).include?(user.nuid) ||
+        (Array(resource.edit_groups) & Array(user.groups)).any?
+    end
 end

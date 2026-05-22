@@ -11,11 +11,18 @@ class User < ApplicationRecord
 
   serialize(:groups, Array)
 
+  # Ordered by privilege gradient. anonymous and system are non-human bookends
+  # (single-row each, seeded fixtures). The middle five are human roles, with
+  # :loader / :privileged / :admin granted manually rather than derived from
+  # IdP group membership.
   enum role: {
-    guest: 0,
-    standard: 1,
-    admin: 2,
-    system: 3
+    anonymous: 0,
+    guest: 1,
+    standard: 2,
+    loader: 3,
+    privileged: 4,
+    admin: 5,
+    system: 6
   }
 
   def first_name

@@ -99,7 +99,6 @@ describe CollectionsController, type: :controller do
     let(:collection) { CollectionCreator.call(parent_id: community.noid) }
 
     it 'tombstones an empty collection' do
-      request.headers['User'] = 'NUID 000000002'
       post :tombstone, params: { id: collection.noid }, as: :json
 
       expect(response).to have_http_status(:success)

@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'rails_helper'
+require 'cancan/matchers'
 
 # Role × (resource, action) coverage for the Ability layer. One describe
 # block per principal role. The Cerberus-side Ability is its own concern and

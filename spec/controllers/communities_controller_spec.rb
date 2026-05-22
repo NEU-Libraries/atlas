@@ -94,7 +94,6 @@ describe CommunitiesController, type: :controller do
     let(:community) { CommunityCreator.call }
 
     it 'tombstones an empty community' do
-      request.headers['User'] = 'NUID 000000002'
       post :tombstone, params: { id: community.noid }, as: :json
 
       expect(response).to have_http_status(:success)

@@ -7,7 +7,14 @@ require 'rails_helper'
 # the HTTP boundary and re-fetches via atlas_rb to confirm the persisted
 # state surfaced by the show endpoint matches expectations.
 RSpec.describe 'Tombstone bindings via atlas_rb', :atlas_rb_server do
-  let(:nuid) { '000000002' }
+  # Pre-piece-7 this spec used a :privileged NUID (000000002) and relied on
+  # require_auth's guest fall-through (empty ATLAS_TOKEN) to bypass auth
+  # entirely while still stamping the User-header NUID into tombstoned_by.
+  # With piece 7's Ability layer the wire requires a principal that
+  # actually has :tombstone on the resource — admin (wildcard) is the
+  # simplest. The audit-stamp behavior under test is independent of who
+  # the actor is.
+  let(:nuid) { '000000004' }
 
   describe 'AtlasRb::Work' do
     let(:community)  { CommunityCreator.call }

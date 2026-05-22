@@ -2,7 +2,7 @@
 
 require 'swagger_helper'
 
-RSpec.describe 'User', type: :request do
+RSpec.describe 'User', type: :request, default_auth: false do
   let!(:guest) do
     User.create!(
       email: 'guest@example.com',

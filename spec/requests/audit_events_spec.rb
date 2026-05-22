@@ -11,8 +11,9 @@ RSpec.describe 'Audit history endpoint', type: :request do
   end
 
   let!(:admin) do
-    User.create!(email: 'admin@example.invalid', password: SecureRandom.hex(16),
-                 nuid: '000000004', name: 'User, Admin', role: :admin)
+    User.find_by_nuid('000000004') ||
+      User.create!(email: 'admin@example.invalid', password: SecureRandom.hex(16),
+                   nuid: '000000004', name: 'User, Admin', role: :admin)
   end
   let!(:guest) do
     User.find_by_role(:guest) ||

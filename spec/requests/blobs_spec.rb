@@ -68,7 +68,7 @@ RSpec.describe 'Files (Blobs)', type: :request do
         let(:'Idempotency-Key') { idempotency_key }
         let!(:existing) do
           b = BlobCreator.call(work_id: work.noid, original_filename: 'example.bin', path: fixture.to_s)
-          IdempotencyKey.create!(user: guest, key: idempotency_key,
+          IdempotencyKey.create!(user: User.find_by_nuid('000000004'), key: idempotency_key,
                                  resource_type: 'Blob', resource_noid: b.noid)
           b
         end
@@ -88,7 +88,7 @@ RSpec.describe 'Files (Blobs)', type: :request do
           b = BlobCreator.call(work_id: work.noid, original_filename: 'example.bin', path: fixture.to_s)
           b.tombstoned = true
           b = Atlas.persister.save(resource: b)
-          IdempotencyKey.create!(user: guest, key: idempotency_key,
+          IdempotencyKey.create!(user: User.find_by_nuid('000000004'), key: idempotency_key,
                                  resource_type: 'Blob', resource_noid: b.noid)
           b
         end

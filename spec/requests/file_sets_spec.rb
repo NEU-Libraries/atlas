@@ -61,7 +61,7 @@ RSpec.describe 'FileSets', type: :request do
         let(:'Idempotency-Key') { idempotency_key }
         let!(:existing) do
           fs = FileSetCreator.call(work_id: work.noid, classification: Classification.generic)
-          IdempotencyKey.create!(user: guest, key: idempotency_key,
+          IdempotencyKey.create!(user: User.find_by_nuid('000000004'), key: idempotency_key,
                                  resource_type: 'FileSet', resource_noid: fs.noid)
           fs
         end
@@ -79,7 +79,7 @@ RSpec.describe 'FileSets', type: :request do
           fs = FileSetCreator.call(work_id: work.noid, classification: Classification.generic)
           fs.tombstoned = true
           fs = Atlas.persister.save(resource: fs)
-          IdempotencyKey.create!(user: guest, key: idempotency_key,
+          IdempotencyKey.create!(user: User.find_by_nuid('000000004'), key: idempotency_key,
                                  resource_type: 'FileSet', resource_noid: fs.noid)
           fs
         end

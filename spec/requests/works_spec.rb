@@ -106,7 +106,7 @@ RSpec.describe 'Works', type: :request do
         let(:'Idempotency-Key') { idempotency_key }
         let!(:existing) do
           w = WorkCreator.call(parent_id: collection.noid)
-          IdempotencyKey.create!(user: guest, key: idempotency_key,
+          IdempotencyKey.create!(user: User.find_by_nuid('000000004'), key: idempotency_key,
                                  resource_type: 'Work', resource_noid: w.noid)
           w
         end
@@ -124,7 +124,7 @@ RSpec.describe 'Works', type: :request do
           w = WorkCreator.call(parent_id: collection.noid)
           w.tombstoned = true
           w = Atlas.persister.save(resource: w)
-          IdempotencyKey.create!(user: guest, key: idempotency_key,
+          IdempotencyKey.create!(user: User.find_by_nuid('000000004'), key: idempotency_key,
                                  resource_type: 'Work', resource_noid: w.noid)
           w
         end

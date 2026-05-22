@@ -115,7 +115,6 @@ describe WorksController, type: :controller do
 
     it 'tombstones a Work regardless of attached FileSets' do
       # Works always tombstone — children (FileSets/Blobs) ride along.
-      request.headers['User'] = 'NUID 000000002'
       post :tombstone, params: { id: work.noid }, as: :json
 
       expect(response).to have_http_status(:success)

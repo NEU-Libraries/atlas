@@ -5,11 +5,15 @@ require 'rails_helper'
 # The piece-2 auth-matrix regression. Verifies the require_auth rewrite
 # (closes both pre-piece-2 footguns: missing User header silently elevating
 # to :system, and a mismatched token silently falling through to guest) and
-# the per-endpoint :system-principal allowlist on resource-writing actions.
+# — since piece 7 — the Ability-layer 403s on write actions for principals
+# that lack the required ability (notably :system on Work writes).
 #
 # See gap_reports/proxy_uploader_and_system_auth.md and
 # gap_reports/plan_atlas.md piece 2 for the design rationale.
-RSpec.describe 'Auth matrix', type: :request do
+#
+# default_auth: false — this spec drives the auth matrix by hand, so the
+# global admin-default in spec/support/auth_request_helper.rb does not apply.
+RSpec.describe 'Auth matrix', type: :request, default_auth: false do
   let(:cerberus_token) { 'test-cerberus-token' }
 
   before do
@@ -80,12 +84,13 @@ RSpec.describe 'Auth matrix', type: :request do
     end
   end
 
-  describe 'per-endpoint reject_system_principal' do
+  describe 'Ability-driven 403s on write actions' do
     it 'rejects the :system principal on POST /works' do
       post '/works',
            params:  { collection_id: collection.noid }.to_json,
            headers: auth_headers(nuid: system_user.nuid).merge('Content-Type' => 'application/json')
       expect(response).to have_http_status(:forbidden)
+      expect(response.parsed_body).to include('action' => 'create', 'subject' => 'Work')
     end
 
     it 'rejects the :system principal on Work tombstone' do

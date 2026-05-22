@@ -2,11 +2,46 @@
 
 class ApplicationController < ActionController::API
   include ActionController::MimeResponds
+  include CanCan::ControllerAdditions
   respond_to :json
 
   before_action :require_auth
 
+  # Strict mode: any controller action that forgets to call `authorize!`
+  # raises CanCan::AuthorizationNotPerformed. The piece-2 footgun ("add
+  # reject_system_principal to every new write action") becomes
+  # structurally impossible — adding a new endpoint without authorize!
+  # fails its first test.
+  check_authorization unless: :public_endpoint?
+
+  # Structured 403 for ability denials. The piece-2 shape was
+  # `{ error: "system principal cannot author resources" }` (specific
+  # to one rule); the new shape carries the ability metadata so
+  # callers can branch on action/subject if needed.
+  rescue_from CanCan::AccessDenied do |exception|
+    render json: {
+      error:   exception.message,
+      action:  exception.action,
+      subject: exception.subject.is_a?(Class) ? exception.subject.name : exception.subject.class.name
+    }, status: :forbidden
+  end
+
   private
+
+    # CanCan looks up `current_user` to construct the Ability. Atlas's
+    # auth shape is Bearer + NUID header (require_auth above) which sets
+    # @current_user; override the CanCan helper to source from it.
+    def current_ability
+      @current_ability ||= Ability.new(@current_user)
+    end
+
+    # Endpoints that legitimately skip authorization. None today —
+    # `DocsController` inherits ActionController::Base so it's already
+    # exempt by class. Kept as the escape hatch for any future
+    # health-check / metrics endpoint that wants to opt out.
+    def public_endpoint?
+      false
+    end
 
     def parse_headers
       token_pattern = /^Bearer /
@@ -50,20 +85,6 @@ class ApplicationController < ActionController::API
 
     def guest_sign_in
       @current_user = User.find_by_role(:guest) # only one should exist
-    end
-
-    # Per-endpoint allowlist guard. The :system principal exists for
-    # service-to-service operations (currently just SSO user provisioning);
-    # it must not be able to author repository resources. Mount this as a
-    # before_action with `only:` on each write action that should reject
-    # system callers. Per Q7 (settled lean), container creates
-    # (Communities/Collections #create) currently still accept the system
-    # principal so the seed task can run — the rest of the write surface
-    # rejects it.
-    def reject_system_principal
-      return unless @current_user&.system?
-
-      render_error(:forbidden, 'system principal cannot author resources')
     end
 
     def render_error(status, message)

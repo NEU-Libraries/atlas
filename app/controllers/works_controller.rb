@@ -1,6 +1,13 @@
 # frozen_string_literal: true
 
 # Works
+# rubocop:disable Metrics/ClassLength
+# Piece 3 added three depositor-resolution helpers (proxy_uploader_nuid,
+# depositor_nuid, parent_collection_for_depositor) that push us five lines
+# over the 120-line bar. Extracting them to a separate object would
+# overweight the indirection vs. the work they do. The Ability-layer
+# work (plan_atlas_ability_layer.md piece 7) is the natural place to
+# revisit whether the resolution belongs here at all.
 class WorksController < ApplicationController
   include LazyPagination
   include IdempotentCreate
@@ -40,7 +47,13 @@ class WorksController < ApplicationController
     end
 
     # TODO: XML
-    @work = WorkCreator.call(parent_id: params[:collection_id])
+    @work = WorkCreator.call(
+      parent_id:         params[:collection_id],
+      proxy_uploader:    proxy_uploader_nuid,
+      depositor:         depositor_nuid,
+      actor_nuid:        @current_user&.nuid,
+      on_behalf_of_nuid: @on_behalf_of
+    )
     record_idempotency_key!(@work.noid, Work)
   end
 
@@ -120,6 +133,37 @@ class WorksController < ApplicationController
       { in_progress: ActiveModel::Type::Boolean.new.cast(params[:in_progress]) }
     end
 
+    # The hands-on-keyboard actor for this create. During acting-as
+    # (piece 5) the On-Behalf-Of header populates @on_behalf_of and the
+    # target NUID becomes the proxy_uploader; otherwise the authenticated
+    # caller is the proxy_uploader.
+    def proxy_uploader_nuid
+      @on_behalf_of.presence || @current_user&.nuid
+    end
+
+    # The intellectual owner. Resolution order:
+    #   1. explicit form param (the in-band proxy radio supplies the
+    #      parent collection's depositor; piece 5 acting-as does not use
+    #      this path).
+    #   2. parent collection's default depositor (the anonymous-batch
+    #      shape — points the collection at the :anonymous user and
+    #      every Work inherits).
+    #   3. proxy_uploader (self-deposit fallback).
+    def depositor_nuid
+      return params[:depositor] if params[:depositor].present?
+
+      collection = parent_collection_for_depositor
+      return collection.depositor if collection&.depositor.present?
+
+      proxy_uploader_nuid
+    end
+
+    def parent_collection_for_depositor
+      return nil if params[:collection_id].blank?
+
+      Collection.find(params[:collection_id])
+    end
+
     def binary_update
       # curl -F 'id=qrfj8zz' -F 'binary=@test.xml' http://localhost:3000/works/
       file = params[:binary]
@@ -141,3 +185,4 @@ class WorksController < ApplicationController
       @work.write_preservation_envelope!
     end
 end
+# rubocop:enable Metrics/ClassLength

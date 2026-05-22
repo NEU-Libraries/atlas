@@ -6,13 +6,13 @@ RSpec.describe User do
   describe 'role enum' do
     it 'orders by privilege gradient' do
       expect(described_class.roles).to eq(
-        'anonymous' => 0,
-        'guest' => 1,
-        'standard' => 2,
-        'loader' => 3,
+        'anonymous'  => 0,
+        'guest'      => 1,
+        'standard'   => 2,
+        'loader'     => 3,
         'privileged' => 4,
-        'admin' => 5,
-        'system' => 6
+        'admin'      => 5,
+        'system'     => 6
       )
     end
 

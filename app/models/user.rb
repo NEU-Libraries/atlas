@@ -16,13 +16,13 @@ class User < ApplicationRecord
   # :loader / :privileged / :admin granted manually rather than derived from
   # IdP group membership.
   enum role: {
-    anonymous: 0,
-    guest: 1,
-    standard: 2,
-    loader: 3,
+    anonymous:  0,
+    guest:      1,
+    standard:   2,
+    loader:     3,
     privileged: 4,
-    admin: 5,
-    system: 6
+    admin:      5,
+    system:     6
   }
 
   def first_name

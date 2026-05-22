@@ -2,28 +2,14 @@
 
 # Works
 # rubocop:disable Metrics/ClassLength
-# Piece 3 added three depositor-resolution helpers (proxy_uploader_nuid,
-# depositor_nuid, parent_collection_for_depositor) that push us five lines
-# over the 120-line bar. Extracting them to a separate object would
-# overweight the indirection vs. the work they do. The Ability-layer
-# work (plan_atlas_ability_layer.md piece 7) is the natural place to
-# revisit whether the resolution belongs here at all.
+# Five lines over the 120-line bar from the depositor-resolution helpers
+# (proxy_uploader_nuid, depositor_nuid, parent_collection_for_depositor)
+# added in piece 3. Extracting them to a separate object would overweight
+# the indirection vs. the work they do.
 class WorksController < ApplicationController
   include LazyPagination
   include IdempotentCreate
   include DelegateUris
-
-  THUMBNAIL_ROLES = {
-    'thumbnail' => Role.thumbnail_image,
-    'thumbnail_2x' => Role.thumbnail_image_2x,
-    'preview' => Role.preview_image
-  }.freeze
-
-  IMAGE_DERIVATIVE_ROLES = {
-    'small' => Role.small_image,
-    'medium' => Role.medium_image,
-    'large' => Role.large_image
-  }.freeze
 
   def index
     authorize! :read, Work
@@ -90,7 +76,7 @@ class WorksController < ApplicationController
     authorize! :update_thumbnails, @work
     return head(:not_found) if @work.nil?
 
-    apply_delegate_uris(resource_id: @work.id, mapping: THUMBNAIL_ROLES, source: params)
+    apply_thumbnail_uris(resource_id: @work.id)
     @work = Work.find(@work.id).decorate
     render :show
   end
@@ -100,7 +86,7 @@ class WorksController < ApplicationController
     authorize! :update_image_derivatives, @work
     return head(:not_found) if @work.nil?
 
-    apply_delegate_uris(resource_id: @work.id, mapping: IMAGE_DERIVATIVE_ROLES, source: params)
+    apply_image_derivative_uris(resource_id: @work.id)
     @work = Work.find(@work.id).decorate
     render :show
   end

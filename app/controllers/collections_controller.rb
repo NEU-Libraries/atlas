@@ -10,12 +10,6 @@ class CollectionsController < ApplicationController
   # for :create lives in Ability#apply_role_abilities; once a dedicated
   # container-creation role exists, that carve-out goes away.
 
-  THUMBNAIL_ROLES = {
-    'thumbnail' => Role.thumbnail_image,
-    'thumbnail_2x' => Role.thumbnail_image_2x,
-    'preview' => Role.preview_image
-  }.freeze
-
   def index
     authorize! :read, Collection
     @pagination, @collections = paginate_model(Collection)
@@ -77,7 +71,7 @@ class CollectionsController < ApplicationController
     authorize! :update_thumbnails, @collection
     return head(:not_found) if @collection.nil?
 
-    apply_delegate_uris(resource_id: @collection.id, mapping: THUMBNAIL_ROLES, source: params)
+    apply_thumbnail_uris(resource_id: @collection.id)
     @collection = Collection.find(@collection.id).decorate
     render :show
   end

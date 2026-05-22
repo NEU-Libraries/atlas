@@ -10,12 +10,6 @@ class CommunitiesController < ApplicationController
   # for :create lives in Ability#apply_role_abilities; once a dedicated
   # container-creation role exists, that carve-out goes away.
 
-  THUMBNAIL_ROLES = {
-    'thumbnail' => Role.thumbnail_image,
-    'thumbnail_2x' => Role.thumbnail_image_2x,
-    'preview' => Role.preview_image
-  }.freeze
-
   def index
     authorize! :read, Community
     @pagination, @communities = paginate_model(Community)
@@ -78,7 +72,7 @@ class CommunitiesController < ApplicationController
     authorize! :update_thumbnails, @community
     return head(:not_found) if @community.nil?
 
-    apply_delegate_uris(resource_id: @community.id, mapping: THUMBNAIL_ROLES, source: params)
+    apply_thumbnail_uris(resource_id: @community.id)
     @community = Community.find(@community.id).decorate
     render :show
   end

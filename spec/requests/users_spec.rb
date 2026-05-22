@@ -5,9 +5,9 @@ require 'swagger_helper'
 RSpec.describe 'User', type: :request, default_auth: false do
   let!(:guest) do
     User.create!(
-      email: 'guest@example.com',
+      email:    'guest@example.com',
       password: SecureRandom.hex(16),
-      role: :guest
+      role:     :guest
     )
   end
 
@@ -37,9 +37,9 @@ RSpec.describe 'User', type: :request, default_auth: false do
         Requires the system Bearer token; non-system callers receive 403.
       D
       parameter name: :body, in: :body, schema: {
-        type: :object,
+        type:       :object,
         properties: { nuid: { type: :string } },
-        required: %w[nuid]
+        required:   %w[nuid]
       }
 
       response '403', 'caller is not the system user' do
@@ -64,13 +64,13 @@ RSpec.describe 'User', type: :request, default_auth: false do
       parameter name: :nuid, in: :path, type: :string
       parameter name: :Authorization, in: :header, type: :string, required: false
       parameter name: :User, in: :header, type: :string, required: false,
-                description: "Acting principal, e.g. \"NUID 000000000\" for the system user"
+                description: 'Acting principal, e.g. "NUID 000000000" for the system user'
       parameter name: :body, in: :body, schema: {
-        type: :object,
+        type:       :object,
         properties: {
           groups: { type: :array, items: { type: :string } },
-          email: { type: :string },
-          name: { type: :string }
+          email:  { type: :string },
+          name:   { type: :string }
         }
       }
 
@@ -96,8 +96,8 @@ RSpec.describe 'User', type: :request, default_auth: false do
         let(:body) do
           {
             groups: ['northeastern:staff', 'drs:editors'],
-            email: 'jane@example.edu',
-            name: 'Jane Doe'
+            email:  'jane@example.edu',
+            name:   'Jane Doe'
           }
         end
         run_test! do |response|

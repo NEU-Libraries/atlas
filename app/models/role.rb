@@ -42,6 +42,6 @@ class Role < Enumerations::Base
   ].freeze
 
   def self.downloadable?(name)
-    !NON_DOWNLOADABLE.include?(name)
+    NON_DOWNLOADABLE.exclude?(name)
   end
 end

@@ -49,12 +49,12 @@ RSpec.describe User do
     end
 
     it 'resolves each role to its fixture row' do
-      expect(described_class.find_by_role(:anonymous)).to  eq(anonymous)
-      expect(described_class.find_by_role(:system)).to     eq(system_user)
-      expect(described_class.find_by_role(:guest)).to      eq(guest)
-      expect(described_class.find_by_role(:loader)).to     eq(loader)
-      expect(described_class.find_by_role(:privileged)).to eq(privileged)
-      expect(described_class.find_by_role(:admin)).to      eq(admin)
+      expect(described_class.find_by(role: :anonymous)).to  eq(anonymous)
+      expect(described_class.find_by(role: :system)).to     eq(system_user)
+      expect(described_class.find_by(role: :guest)).to      eq(guest)
+      expect(described_class.find_by(role: :loader)).to     eq(loader)
+      expect(described_class.find_by(role: :privileged)).to eq(privileged)
+      expect(described_class.find_by(role: :admin)).to      eq(admin)
     end
 
     it 'exposes predicate methods for the new roles' do

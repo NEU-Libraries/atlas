@@ -13,7 +13,7 @@ class UserProvisioner < ApplicationService
 
   def call
     User.transaction do
-      user = User.find_by_nuid(@nuid) || User.new(nuid: @nuid, role: :standard)
+      user = User.find_by(nuid: @nuid) || User.new(nuid: @nuid, role: :standard)
       user.email    = @email if @email.present?
       user.name     = @name  if @name.present?
       user.password = SecureRandom.hex(16) if user.new_record?

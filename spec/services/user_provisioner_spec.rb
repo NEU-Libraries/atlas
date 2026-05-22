@@ -6,10 +6,10 @@ RSpec.describe UserProvisioner do
   describe '.call when no User exists for the NUID' do
     it 'creates a new User with the supplied attributes' do
       user = described_class.call(
-        nuid: '001234567',
+        nuid:   '001234567',
         groups: ['northeastern:staff', 'drs:editors'],
-        email: 'jane@example.edu',
-        name: 'Jane Doe'
+        email:  'jane@example.edu',
+        name:   'Jane Doe'
       )
 
       expect(user).to be_persisted
@@ -24,12 +24,12 @@ RSpec.describe UserProvisioner do
   describe '.call when a User already exists for the NUID' do
     let!(:existing) do
       User.create!(
-        nuid: '001234567',
-        email: 'old@example.edu',
-        name: 'Old Name',
+        nuid:     '001234567',
+        email:    'old@example.edu',
+        name:     'Old Name',
         password: SecureRandom.hex(16),
-        role: :standard,
-        groups: ['stale:group']
+        role:     :standard,
+        groups:   ['stale:group']
       )
     end
 
@@ -40,7 +40,7 @@ RSpec.describe UserProvisioner do
 
     it 'replaces (does not merge) the groups array' do
       user = described_class.call(
-        nuid: '001234567',
+        nuid:   '001234567',
         groups: ['fresh:group']
       )
       expect(user.groups).to eq(['fresh:group'])
@@ -49,10 +49,10 @@ RSpec.describe UserProvisioner do
 
     it 'updates email and name when supplied' do
       user = described_class.call(
-        nuid: '001234567',
+        nuid:   '001234567',
         groups: [],
-        email: 'new@example.edu',
-        name: 'New Name'
+        email:  'new@example.edu',
+        name:   'New Name'
       )
       expect(user.email).to eq('new@example.edu')
       expect(user.name).to eq('New Name')
@@ -68,24 +68,24 @@ RSpec.describe UserProvisioner do
   describe '.call with a duplicate-email collision' do
     let!(:taken) do
       User.create!(
-        nuid: '999999999',
-        email: 'taken@example.edu',
+        nuid:     '999999999',
+        email:    'taken@example.edu',
         password: SecureRandom.hex(16),
-        role: :standard
+        role:     :standard
       )
     end
 
     it 'rolls back without creating a partial record' do
       expect do
         described_class.call(
-          nuid: '001234567',
+          nuid:   '001234567',
           groups: ['x'],
-          email: 'taken@example.edu',
-          name: 'Collision'
+          email:  'taken@example.edu',
+          name:   'Collision'
         )
       end.to raise_error(ActiveRecord::RecordInvalid)
 
-      expect(User.find_by_nuid('001234567')).to be_nil
+      expect(User.find_by(nuid: '001234567')).to be_nil
     end
   end
 end

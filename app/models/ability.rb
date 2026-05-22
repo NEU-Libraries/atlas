@@ -37,7 +37,7 @@ class Ability
     # falls through to the :guest fixture. Guard anyway so Ability can be
     # constructed in isolation (specs, console) and so a missing guest
     # row in the test DB doesn't crash the controller.
-    user ||= User.find_by_role(:guest)
+    user ||= User.find_by(role: :guest)
 
     alias_action(*UPDATE_ALIASES, to: :update)
 

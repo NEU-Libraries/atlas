@@ -50,10 +50,10 @@ RSpec.describe 'Collections via atlas_rb', :atlas_rb_server do
 
       AtlasRb::Collection.set_thumbnails(
         collection.noid,
-        thumbnail: 'https://iiif.example/iiif/3/c.jp2/full/!85,85/0/default.jpg',
+        thumbnail:    'https://iiif.example/iiif/3/c.jp2/full/!85,85/0/default.jpg',
         thumbnail_2x: 'https://iiif.example/iiif/3/c.jp2/full/!170,170/0/default.jpg',
-        preview: 'https://iiif.example/iiif/3/c.jp2/full/500,/0/default.jpg',
-        nuid: admin_nuid
+        preview:      'https://iiif.example/iiif/3/c.jp2/full/500,/0/default.jpg',
+        nuid:         admin_nuid
       )
 
       found = AtlasRb::Collection.find(collection.noid, nuid: admin_nuid)

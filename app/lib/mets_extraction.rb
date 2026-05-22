@@ -12,9 +12,9 @@ module METSExtraction
   def extract_mets_files(doc)
     doc.xpath('//m:fileSec//m:file', m: METSBuilder::METS_NS).map do |node|
       Metadata::Fields::FileEntry.new(
-        id: node['ID'].to_s,
+        id:        node['ID'].to_s,
         mime_type: node['MIMETYPE'].to_s,
-        use: node['USE'].to_s
+        use:       node['USE'].to_s
       )
     end
   end

@@ -29,10 +29,10 @@ class BlobsController < ApplicationController
 
     file = params[:binary]
     @blob = BlobCreator.call(
-      work_id: params[:work_id],
+      work_id:           params[:work_id],
       original_filename: params[:original_filename],
-      use: params[:use],
-      path: (file.tempfile.path.presence ||
+      use:               params[:use],
+      path:              (file.tempfile.path.presence ||
              file.path)
     )
     record_idempotency_key!(@blob.noid, Blob)
@@ -80,9 +80,9 @@ class BlobsController < ApplicationController
     return head(:not_found) if file.nil?
 
     send_file file.disk_path,
-              type: blob.mime_type,
+              type:        blob.mime_type,
               disposition: 'attachment',
-              filename: blob.original_filename
+              filename:    blob.original_filename
   rescue Valkyrie::StorageAdapter::FileNotFound
     head :not_found
   end

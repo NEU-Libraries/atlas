@@ -7,7 +7,7 @@ RSpec.describe 'FileSets', type: :request do
   let(:collection) { CollectionCreator.call(parent_id: community.noid) }
   let(:work)       { WorkCreator.call(parent_id: collection.noid) }
   let!(:guest) do
-    User.find_by_role(:guest) ||
+    User.find_by(role: :guest) ||
       User.create!(email: 'guest@example.com', password: SecureRandom.hex(16), role: :guest)
   end
 
@@ -38,12 +38,12 @@ RSpec.describe 'FileSets', type: :request do
         underlying FileSet has been tombstoned in the interim.
       DESC
       parameter name: :body, in: :body, schema: {
-        type: :object,
+        type:       :object,
         properties: {
-          work_id: { type: :string, description: 'NOID of the parent Work' },
+          work_id:        { type: :string, description: 'NOID of the parent Work' },
           classification: { type: :string, description: 'Classification name, e.g. generic' }
         },
-        required: %w[work_id classification]
+        required:   %w[work_id classification]
       }
       parameter name: :'Idempotency-Key', in: :header, type: :string, required: false,
                 description: 'Client-supplied UUID; repeats return the existing resource.'
@@ -61,7 +61,7 @@ RSpec.describe 'FileSets', type: :request do
         let(:'Idempotency-Key') { idempotency_key }
         let!(:existing) do
           fs = FileSetCreator.call(work_id: work.noid, classification: Classification.generic)
-          IdempotencyKey.create!(user: User.find_by_nuid('000000004'), key: idempotency_key,
+          IdempotencyKey.create!(user: User.find_by(nuid: '000000004'), key: idempotency_key,
                                  resource_type: 'FileSet', resource_noid: fs.noid)
           fs
         end
@@ -79,7 +79,7 @@ RSpec.describe 'FileSets', type: :request do
           fs = FileSetCreator.call(work_id: work.noid, classification: Classification.generic)
           fs.tombstoned = true
           fs = Atlas.persister.save(resource: fs)
-          IdempotencyKey.create!(user: User.find_by_nuid('000000004'), key: idempotency_key,
+          IdempotencyKey.create!(user: User.find_by(nuid: '000000004'), key: idempotency_key,
                                  resource_type: 'FileSet', resource_noid: fs.noid)
           fs
         end

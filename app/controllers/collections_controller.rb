@@ -87,8 +87,8 @@ class CollectionsController < ApplicationController
     authorize! :tombstone, @collection
 
     if @collection.live_children?
-      render json: { error: 'cannot tombstone a non-empty collection',
-                     code:  'has_live_children' },
+      render json:   { error: 'cannot tombstone a non-empty collection',
+                       code:  'has_live_children' },
              status: :unprocessable_entity and return
     end
 
@@ -114,9 +114,7 @@ class CollectionsController < ApplicationController
 
     def metadata_update
       # allow for custom noid for testing purposes
-      if Rails.env.test?
-        @collection.alternate_ids = params[:metadata]['noid'] if params[:metadata]['noid'].present?
-      end
+      @collection.alternate_ids = params[:metadata]['noid'] if Rails.env.test? && params[:metadata]['noid'].present?
       @collection.plain_title = params[:metadata]['title'] if params[:metadata]['title'].present?
       @collection.plain_description = params[:metadata]['description'] if params[:metadata]['description'].present?
       @collection.permissions = params[:metadata]['permissions'] if params[:metadata]['permissions'].present?

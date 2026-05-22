@@ -44,7 +44,7 @@ RSpec.describe 'Works via atlas_rb', :atlas_rb_server do
       DelegateCreator.call(resource_id: work.id, use: Role.large_image.name,     uri: 'https://iiif.example/large.jpg')
 
       assets = AtlasRb::Work.assets(work.noid, nuid: admin_nuid)
-      uses   = assets.map { |a| a['use'] }.compact
+      uses   = assets.pluck('use').compact
 
       # The Blob entry has no `use` in the assets shape; the Delegate
       # entries carry their Role names. Thumbnail Image must NOT appear.
@@ -87,10 +87,10 @@ RSpec.describe 'Works via atlas_rb', :atlas_rb_server do
 
       AtlasRb::Work.set_thumbnails(
         work.noid,
-        thumbnail: 'https://iiif.example/iiif/3/abc.jp2/full/!85,85/0/default.jpg',
+        thumbnail:    'https://iiif.example/iiif/3/abc.jp2/full/!85,85/0/default.jpg',
         thumbnail_2x: 'https://iiif.example/iiif/3/abc.jp2/full/!170,170/0/default.jpg',
-        preview: 'https://iiif.example/iiif/3/abc.jp2/full/500,/0/default.jpg',
-        nuid: admin_nuid
+        preview:      'https://iiif.example/iiif/3/abc.jp2/full/500,/0/default.jpg',
+        nuid:         admin_nuid
       )
 
       found = AtlasRb::Work.find(work.noid, nuid: admin_nuid)
@@ -134,10 +134,10 @@ RSpec.describe 'Works via atlas_rb', :atlas_rb_server do
 
       AtlasRb::Work.set_image_derivatives(
         work.noid,
-        small: 'https://iiif.example/iiif/3/abc.jp2/full/800,/0/default.jpg',
+        small:  'https://iiif.example/iiif/3/abc.jp2/full/800,/0/default.jpg',
         medium: 'https://iiif.example/iiif/3/abc.jp2/full/1600,/0/default.jpg',
-        large: 'https://iiif.example/iiif/3/abc.jp2/full/full/0/default.jpg',
-        nuid: admin_nuid
+        large:  'https://iiif.example/iiif/3/abc.jp2/full/full/0/default.jpg',
+        nuid:   admin_nuid
       )
 
       assets = AtlasRb::Work.assets(work.noid, nuid: admin_nuid)

@@ -40,10 +40,10 @@ class BlobCreator < ApplicationService
       Atlas.persister.save(
         resource: Blob.new(
           original_filename: @original_filename,
-          mime_type: mime_type(@path),
-          size: File.size(@path),
-          label: label&.symbol || '', # TODO: temporary nil fix until we zip unknowns
-          use: @use
+          mime_type:         mime_type(@path),
+          size:              File.size(@path),
+          label:             label&.symbol || '', # TODO: temporary nil fix until we zip unknowns
+          use:               @use
         )
       )
     end

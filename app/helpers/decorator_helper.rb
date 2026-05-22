@@ -28,9 +28,9 @@ module DecoratorHelper
   end.freeze
 
   LINKIFY_SANITIZE_CONFIG = {
-    elements: LINKIFY_ALLOWED_TAGS,
-    attributes: {},
-    remove_contents: %w[script style],
+    elements:            LINKIFY_ALLOWED_TAGS,
+    attributes:          {},
+    remove_contents:     %w[script style],
     whitespace_elements: QUIET_WHITESPACE_ELEMENTS
   }.freeze
 

@@ -25,8 +25,8 @@ RSpec.describe Valkyrie::Storage::OCFL do
   let(:storage_adapter) do
     described_class.new(
       storage_root: tmpdir,
-      file_mover: FileUtils.method(:mv),
-      clock: -> { Time.utc(2026, 1, 1) }
+      file_mover:   FileUtils.method(:mv),
+      clock:        -> { Time.utc(2026, 1, 1) }
     )
   end
 

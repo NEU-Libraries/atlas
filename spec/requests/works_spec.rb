@@ -9,7 +9,7 @@ RSpec.describe 'Works', type: :request do
   # auth context is present; seed one so the rswag examples can persist
   # their setup IdempotencyKey rows.
   let!(:guest) do
-    User.find_by_role(:guest) ||
+    User.find_by(role: :guest) ||
       User.create!(email: 'guest@example.com', password: SecureRandom.hex(16), role: :guest)
   end
 
@@ -84,11 +84,11 @@ RSpec.describe 'Works', type: :request do
         410 with the tombstone payload (same body shape as GET).
       DESC
       parameter name: :body, in: :body, schema: {
-        type: :object,
+        type:       :object,
         properties: {
           collection_id: { type: :string, description: 'NOID of the parent Collection' }
         },
-        required: %w[collection_id]
+        required:   %w[collection_id]
       }
       parameter name: :'Idempotency-Key', in: :header, type: :string, required: false,
                 description: 'Client-supplied UUID; repeats return the existing resource.'
@@ -106,7 +106,7 @@ RSpec.describe 'Works', type: :request do
         let(:'Idempotency-Key') { idempotency_key }
         let!(:existing) do
           w = WorkCreator.call(parent_id: collection.noid)
-          IdempotencyKey.create!(user: User.find_by_nuid('000000004'), key: idempotency_key,
+          IdempotencyKey.create!(user: User.find_by(nuid: '000000004'), key: idempotency_key,
                                  resource_type: 'Work', resource_noid: w.noid)
           w
         end
@@ -124,7 +124,7 @@ RSpec.describe 'Works', type: :request do
           w = WorkCreator.call(parent_id: collection.noid)
           w.tombstoned = true
           w = Atlas.persister.save(resource: w)
-          IdempotencyKey.create!(user: User.find_by_nuid('000000004'), key: idempotency_key,
+          IdempotencyKey.create!(user: User.find_by(nuid: '000000004'), key: idempotency_key,
                                  resource_type: 'Work', resource_noid: w.noid)
           w
         end
@@ -195,9 +195,9 @@ RSpec.describe 'Works', type: :request do
       parameter name: :binary,                   in: :formData, required: false
       multipart_request_body(
         {
-          'metadata[title]':         { type: :string },
-          'metadata[description]':   { type: :string },
-          binary: { type: :string, format: :binary, description: 'MODS XML to apply to the Work' }
+          'metadata[title]':       { type: :string },
+          'metadata[description]': { type: :string },
+          binary:                  { type: :string, format: :binary, description: 'MODS XML to apply to the Work' }
         }
       )
 
@@ -281,7 +281,7 @@ RSpec.describe 'Works', type: :request do
         schema '$ref' => '#/components/schemas/WorkAssets'
         run_test! do |response|
           assets = JSON.parse(response.body)
-          uses = assets.map { |a| a['use'] }.compact
+          uses = assets.pluck('use').compact
           expect(uses).to include(Role.service_file.name)
           expect(uses).not_to include(Role.thumbnail_image.name)
         end
@@ -307,11 +307,11 @@ RSpec.describe 'Works', type: :request do
         caller.
       DESC
       parameter name: :body, in: :body, schema: {
-        type: :object,
+        type:       :object,
         properties: {
-          thumbnail: { type: :string, description: 'IIIF URL for the 85px thumbnail tier' },
+          thumbnail:    { type: :string, description: 'IIIF URL for the 85px thumbnail tier' },
           thumbnail_2x: { type: :string, description: 'IIIF URL for the 170px retina thumbnail tier' },
-          preview: { type: :string, description: 'IIIF URL for the 500px hero preview tier' }
+          preview:      { type: :string, description: 'IIIF URL for the 500px hero preview tier' }
         }
       }
 
@@ -327,7 +327,7 @@ RSpec.describe 'Works', type: :request do
           reloaded = Work.find(work.noid)
           deriv_fs = reloaded.children.find { |c| c.is_a?(FileSet) && c.type == Classification.derivative.name }
           expect(deriv_fs).not_to be_nil
-          members  = Atlas.query.find_members(resource: deriv_fs).to_a
+          members = Atlas.query.find_members(resource: deriv_fs).to_a
           expect(members.size).to eq(1)
           expect(members.first).to be_a(Delegate)
           expect(members.first.use).to eq(Role.thumbnail_image.name)
@@ -339,9 +339,9 @@ RSpec.describe 'Works', type: :request do
         let(:id)   { work.noid }
         let(:body) do
           {
-            thumbnail: 'https://iiif.example/iiif/3/abc.jp2/full/!85,85/0/default.jpg',
+            thumbnail:    'https://iiif.example/iiif/3/abc.jp2/full/!85,85/0/default.jpg',
             thumbnail_2x: 'https://iiif.example/iiif/3/abc.jp2/full/!170,170/0/default.jpg',
-            preview: 'https://iiif.example/iiif/3/abc.jp2/full/500,/0/default.jpg'
+            preview:      'https://iiif.example/iiif/3/abc.jp2/full/500,/0/default.jpg'
           }
         end
         schema '$ref' => '#/components/schemas/Work'
@@ -384,11 +384,11 @@ RSpec.describe 'Works', type: :request do
         rather than rendered as UI chrome.
       DESC
       parameter name: :body, in: :body, schema: {
-        type: :object,
+        type:       :object,
         properties: {
-          small: { type: :string, description: 'IIIF URL for the small image tier' },
+          small:  { type: :string, description: 'IIIF URL for the small image tier' },
           medium: { type: :string, description: 'IIIF URL for the medium image tier' },
-          large: { type: :string, description: 'IIIF URL for the large image tier' }
+          large:  { type: :string, description: 'IIIF URL for the large image tier' }
         }
       }
 
@@ -397,9 +397,9 @@ RSpec.describe 'Works', type: :request do
         let(:id) { work.noid }
         let(:body) do
           {
-            small: 'https://iiif.example/iiif/3/abc.jp2/full/800,/0/default.jpg',
+            small:  'https://iiif.example/iiif/3/abc.jp2/full/800,/0/default.jpg',
             medium: 'https://iiif.example/iiif/3/abc.jp2/full/1600,/0/default.jpg',
-            large: 'https://iiif.example/iiif/3/abc.jp2/full/full/0/default.jpg'
+            large:  'https://iiif.example/iiif/3/abc.jp2/full/full/0/default.jpg'
           }
         end
         schema '$ref' => '#/components/schemas/Work'
@@ -409,9 +409,9 @@ RSpec.describe 'Works', type: :request do
           members = Atlas.query.find_members(resource: deriv_fs).to_a.select { |m| m.is_a?(Delegate) }
           uris_by_use = members.to_h { |m| [m.use, m.uri] }
           expect(uris_by_use).to eq(
-            Role.small_image.name => 'https://iiif.example/iiif/3/abc.jp2/full/800,/0/default.jpg',
+            Role.small_image.name  => 'https://iiif.example/iiif/3/abc.jp2/full/800,/0/default.jpg',
             Role.medium_image.name => 'https://iiif.example/iiif/3/abc.jp2/full/1600,/0/default.jpg',
-            Role.large_image.name => 'https://iiif.example/iiif/3/abc.jp2/full/full/0/default.jpg'
+            Role.large_image.name  => 'https://iiif.example/iiif/3/abc.jp2/full/full/0/default.jpg'
           )
         end
       end

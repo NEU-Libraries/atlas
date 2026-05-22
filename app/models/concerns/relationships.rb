@@ -33,17 +33,15 @@ module Relationships
 
   def ancestors(resource = nil, pids = [])
     # TODO: code loop for parent to populate breadcrumbs
-    if !resource.nil?
-      p = resource.parent
-    else
-      p = parent
-    end
-    if !p.nil?
-      pids << [p.noid, p.class.to_s]
-      ancestors(p, pids)
-    else
-      return pids.reverse
-    end
+    p = if resource.nil?
+          parent
+        else
+          resource.parent
+        end
+    return pids.reverse if p.nil?
+
+    pids << [p.noid, p.class.to_s]
+    ancestors(p, pids)
   end
 
   def children

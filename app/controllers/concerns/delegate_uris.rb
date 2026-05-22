@@ -40,8 +40,8 @@ module DelegateUris
 
         DelegateUpdater.call(
           resource_id: resource_id,
-          use: role.name,
-          uri: source[key]
+          use:         role.name,
+          uri:         source[key]
         )
       end
     end

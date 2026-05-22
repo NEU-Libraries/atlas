@@ -16,11 +16,11 @@ module Preservable
   def graph_payload
     {
       schema_version: ENVELOPE_SCHEMA_VERSION,
-      noid: noid,
-      type: self.class.name,
+      noid:           noid,
+      type:           self.class.name,
       classification: respond_to?(:type) ? type : nil,
-      a_member_of: parent_noids,
-      member_ids: member_noids
+      a_member_of:    parent_noids,
+      member_ids:     member_noids
     }
   end
 

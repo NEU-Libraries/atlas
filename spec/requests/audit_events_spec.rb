@@ -11,12 +11,12 @@ RSpec.describe 'Audit history endpoint', type: :request do
   end
 
   let!(:admin) do
-    User.find_by_nuid('000000004') ||
+    User.find_by(nuid: '000000004') ||
       User.create!(email: 'admin@example.invalid', password: SecureRandom.hex(16),
                    nuid: '000000004', name: 'User, Admin', role: :admin)
   end
   let!(:guest) do
-    User.find_by_role(:guest) ||
+    User.find_by(role: :guest) ||
       User.create!(email: 'guest@example.invalid', password: SecureRandom.hex(16),
                    nuid: '000000001', name: 'User, Guest', role: :guest)
   end

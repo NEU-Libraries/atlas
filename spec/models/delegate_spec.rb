@@ -10,8 +10,8 @@ RSpec.describe Delegate do
   it 'persists via Atlas.persister and round-trips by NOID' do
     saved = Atlas.persister.save(
       resource: Delegate.new(
-        use: Role.thumbnail_image.name,
-        uri: 'https://iiif.example/iiif/2/abc/full/!200,200/0/default.jpg',
+        use:       Role.thumbnail_image.name,
+        uri:       'https://iiif.example/iiif/2/abc/full/!200,200/0/default.jpg',
         mime_type: 'image/jpeg'
       )
     )

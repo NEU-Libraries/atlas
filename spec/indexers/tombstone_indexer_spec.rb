@@ -6,13 +6,13 @@ RSpec.describe TombstoneIndexer do
   describe '#to_solr' do
     it 'emits the three tombstone fields with Solr suffixes' do
       resource = Work.new(
-        tombstoned: true,
+        tombstoned:    true,
         tombstoned_at: DateTime.parse('2026-05-08T12:00:00Z'),
         tombstoned_by: '000000002'
       )
 
       expect(described_class.new(resource: resource).to_solr).to eq(
-        tombstoned_bsi: 'true',
+        tombstoned_bsi:    'true',
         tombstoned_at_dti: DateTime.parse('2026-05-08T12:00:00Z'),
         tombstoned_by_ssi: '000000002'
       )

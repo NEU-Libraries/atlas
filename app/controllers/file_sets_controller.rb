@@ -35,7 +35,7 @@ class FileSetsController < ApplicationController
     end
 
     @file_set = FileSetCreator.call(
-      work_id: params[:work_id],
+      work_id:        params[:work_id],
       classification: Classification.find(
         params[:classification]
       )
@@ -50,7 +50,7 @@ class FileSetsController < ApplicationController
     # TODO: pass through original filename and label enumeration
     file = params[:binary]
     BlobCreator.call(
-      path: (file.tempfile.path.presence || file.path),
+      path:        (file.tempfile.path.presence || file.path),
       file_set_id: params[:id]
     )
     @file_set = FileSet.find(params[:id])

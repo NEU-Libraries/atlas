@@ -17,10 +17,10 @@ RSpec.configure do |config|
 
   config.openapi_specs = {
     'openapi.yaml' => {
-      openapi: '3.0.3',
-      info: {
-        title: 'Atlas API',
-        version: '1',
+      openapi:    '3.0.3',
+      info:       {
+        title:       'Atlas API',
+        version:     '1',
         description: <<~DESC
           Atlas is the Northeastern University Library digital repository API.
 
@@ -38,16 +38,16 @@ RSpec.configure do |config|
           declare it explicitly below.
         DESC
       },
-      servers: [
+      servers:    [
         {
-          url: '{scheme}://{host}',
+          url:       '{scheme}://{host}',
           variables: {
             scheme: { default: 'https', enum: %w[https http] },
             host:   { default: 'atlas.library.northeastern.edu' }
           }
         }
       ],
-      tags: [
+      tags:       [
         { name: 'Communities' },
         { name: 'Collections' },
         { name: 'Works' },
@@ -60,18 +60,18 @@ RSpec.configure do |config|
       components: {
         securitySchemes: {
           BearerAuth: {
-            type: :http,
-            scheme: :bearer,
+            type:        :http,
+            scheme:      :bearer,
             description: 'Cerberus system token or a devise-jwt user token. Both are accepted.'
           },
           NuidHeader: {
-            type: :apiKey,
-            in: :header,
-            name: 'User',
+            type:        :apiKey,
+            in:          :header,
+            name:        'User',
             description: 'NUID identity asserted by Cerberus, in the form `NUID <nuid>`. Required when calling with the system token to act as a user.'
           }
         },
-        schemas: OpenapiSchemas.all
+        schemas:         OpenapiSchemas.all
       }
     }
   }
@@ -92,7 +92,7 @@ module Rswag
         schema[:required] = required.map(&:to_s) unless required.empty?
         body = {
           required: !required.empty?,
-          content: { 'multipart/form-data' => { schema: schema } }
+          content:  { 'multipart/form-data' => { schema: schema } }
         }
         body[:description] = description if description
         metadata[:operation][:requestBody] = body

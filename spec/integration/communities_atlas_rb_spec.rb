@@ -39,10 +39,10 @@ RSpec.describe 'Communities via atlas_rb', :atlas_rb_server do
 
       AtlasRb::Community.set_thumbnails(
         community.noid,
-        thumbnail: 'https://iiif.example/iiif/3/m.jp2/full/!85,85/0/default.jpg',
+        thumbnail:    'https://iiif.example/iiif/3/m.jp2/full/!85,85/0/default.jpg',
         thumbnail_2x: 'https://iiif.example/iiif/3/m.jp2/full/!170,170/0/default.jpg',
-        preview: 'https://iiif.example/iiif/3/m.jp2/full/500,/0/default.jpg',
-        nuid: admin_nuid
+        preview:      'https://iiif.example/iiif/3/m.jp2/full/500,/0/default.jpg',
+        nuid:         admin_nuid
       )
 
       found = AtlasRb::Community.find(community.noid, nuid: admin_nuid)

@@ -32,7 +32,7 @@ ATLAS_RB_SERVER_ADMIN_NUID = '000000004'
 module AtlasRbServer
   class << self
     def boot
-      @server ||= begin
+      @boot ||= begin
         Capybara.server = :puma, { Silent: true }
         Capybara::Server.new(Rails.application).boot.tap do |server|
           ENV['ATLAS_URL']   = "http://#{server.host}:#{server.port}"
@@ -50,7 +50,7 @@ RSpec.configure do |config|
     allow(Rails.application.credentials)
       .to receive(:cerberus_token).and_return(ATLAS_RB_SERVER_TOKEN)
 
-    User.find_by_nuid(ATLAS_RB_SERVER_ADMIN_NUID) ||
+    User.find_by(nuid: ATLAS_RB_SERVER_ADMIN_NUID) ||
       User.create!(email: 'admin-atlas-rb@example.invalid', password: SecureRandom.hex(16),
                    nuid: ATLAS_RB_SERVER_ADMIN_NUID, name: 'User, Admin', role: :admin)
   end

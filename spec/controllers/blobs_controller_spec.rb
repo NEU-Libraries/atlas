@@ -32,8 +32,8 @@ describe BlobsController, type: :controller do
   describe 'GET #content' do
     let(:fixture_path) { Rails.root.join('spec/fixtures/files/example.bin') }
     let(:blob) do
-      BlobCreator.call(path: fixture_path.to_s,
-                       work_id: work.noid,
+      BlobCreator.call(path:              fixture_path.to_s,
+                       work_id:           work.noid,
                        original_filename: 'example.bin')
     end
 

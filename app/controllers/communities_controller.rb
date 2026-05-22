@@ -88,8 +88,8 @@ class CommunitiesController < ApplicationController
     authorize! :tombstone, @community
 
     if @community.live_children?
-      render json: { error: 'cannot tombstone a non-empty community',
-                     code:  'has_live_children' },
+      render json:   { error: 'cannot tombstone a non-empty community',
+                       code:  'has_live_children' },
              status: :unprocessable_entity and return
     end
 
@@ -115,9 +115,7 @@ class CommunitiesController < ApplicationController
 
     def metadata_update
       # allow for custom noid for testing purposes
-      if Rails.env.test?
-        @community.alternate_ids = params[:metadata]['noid'] if params[:metadata]['noid'].present?
-      end
+      @community.alternate_ids = params[:metadata]['noid'] if Rails.env.test? && params[:metadata]['noid'].present?
       @community.plain_title = params[:metadata]['title'] if params[:metadata]['title'].present?
       @community.plain_description = params[:metadata]['description'] if params[:metadata]['description'].present?
       @community.permissions = params[:metadata]['permissions'] if params[:metadata]['permissions'].present?

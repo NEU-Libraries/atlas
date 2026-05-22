@@ -9,29 +9,29 @@ module OpenapiSchemas
 
   def all
     {
-      Work:        work,
-      Collection:  collection,
-      Community:   community,
-      FileSet:     file_set,
-      Blob:        blob,
-      Delegate:    delegate,
-      WorkSummary: work_summary,
+      Work:              work,
+      Collection:        collection,
+      Community:         community,
+      FileSet:           file_set,
+      Blob:              blob,
+      Delegate:          delegate,
+      WorkSummary:       work_summary,
       CollectionSummary: collection_summary,
-      CommunitySummary: community_summary,
-      FileSetSummary: file_set_summary,
-      BlobSummary: blob_summary,
-      WorksIndex:  works_index,
-      CollectionsIndex: collections_index,
-      CommunitiesIndex: communities_index,
-      FileSetsIndex: file_sets_index,
-      BlobsIndex:  blobs_index,
-      WorkAssets:  work_assets,
-      Pagination:  pagination,
-      User:        user,
-      ProvisionedUser: provisioned_user,
-      Permissions: permissions,
-      ResourceRef: resource_ref,
-      Lineage:     lineage
+      CommunitySummary:  community_summary,
+      FileSetSummary:    file_set_summary,
+      BlobSummary:       blob_summary,
+      WorksIndex:        works_index,
+      CollectionsIndex:  collections_index,
+      CommunitiesIndex:  communities_index,
+      FileSetsIndex:     file_sets_index,
+      BlobsIndex:        blobs_index,
+      WorkAssets:        work_assets,
+      Pagination:        pagination,
+      User:              user,
+      ProvisionedUser:   provisioned_user,
+      Permissions:       permissions,
+      ResourceRef:       resource_ref,
+      Lineage:           lineage
     }
   end
 
@@ -51,32 +51,32 @@ module OpenapiSchemas
 
   def file_set
     wrapped(:file_set, {
-      id: { type: :string, description: 'NOID' },
-      type: { type: :string, nullable: true },
-      tombstoned: { type: :boolean, description: 'Withdrawn-from-discovery flag' },
-      tombstoned_at: { type: :string, nullable: true, description: 'ISO-8601 timestamp set when tombstoned' },
-      tombstoned_by: { type: :string, nullable: true, description: 'NUID of the user who tombstoned the resource' }
-    })
+              id:            { type: :string, description: 'NOID' },
+              type:          { type: :string, nullable: true },
+              tombstoned:    { type: :boolean, description: 'Withdrawn-from-discovery flag' },
+              tombstoned_at: { type: :string, nullable: true, description: 'ISO-8601 timestamp set when tombstoned' },
+              tombstoned_by: { type: :string, nullable: true, description: 'NUID of the user who tombstoned the resource' }
+            })
   end
 
   def blob
     wrapped(:blob, {
-      id: { type: :string, description: 'NOID' },
-      mime_type: { type: :string, nullable: true },
-      original_filename: { type: :string, nullable: true },
-      use: { type: :string, nullable: true },
-      size: { type: :integer, nullable: true },
-      filename: { type: :string, nullable: true },
-      label: { type: :string, nullable: true },
-      file_identifiers: {
-        type: :array,
-        items: { type: :object, additionalProperties: true,
+              id:                { type: :string, description: 'NOID' },
+              mime_type:         { type: :string, nullable: true },
+              original_filename: { type: :string, nullable: true },
+              use:               { type: :string, nullable: true },
+              size:              { type: :integer, nullable: true },
+              filename:          { type: :string, nullable: true },
+              label:             { type: :string, nullable: true },
+              file_identifiers:  {
+                type:  :array,
+                items: { type: :object, additionalProperties: true,
                  description: 'Valkyrie::ID-shaped reference to the underlying bytes' }
-      },
-      tombstoned: { type: :boolean, description: 'Withdrawn-from-discovery flag' },
-      tombstoned_at: { type: :string, nullable: true, description: 'ISO-8601 timestamp set when tombstoned' },
-      tombstoned_by: { type: :string, nullable: true, description: 'NUID of the user who tombstoned the resource' }
-    })
+              },
+              tombstoned:        { type: :boolean, description: 'Withdrawn-from-discovery flag' },
+              tombstoned_at:     { type: :string, nullable: true, description: 'ISO-8601 timestamp set when tombstoned' },
+              tombstoned_by:     { type: :string, nullable: true, description: 'NUID of the user who tombstoned the resource' }
+            })
   end
 
   # A Delegate is a Blob-shaped resource with no held binary — points
@@ -84,17 +84,17 @@ module OpenapiSchemas
   # FileSet to represent sized image variants and similar derivatives.
   def delegate
     wrapped(:delegate, {
-      id: { type: :string, description: 'NOID' },
-      valkyrie_id: { type: :string, description: 'Valkyrie internal id' },
-      use: { type: :string, nullable: true },
-      uri: { type: :string, nullable: true, description: 'Where the asset can be fetched (IIIF URL for image roles)' },
-      mime_type: { type: :string, nullable: true },
-      original_filename: { type: :string, nullable: true },
-      label: { type: :string, nullable: true },
-      tombstoned: { type: :boolean, description: 'Withdrawn-from-discovery flag' },
-      tombstoned_at: { type: :string, nullable: true, description: 'ISO-8601 timestamp set when tombstoned' },
-      tombstoned_by: { type: :string, nullable: true, description: 'NUID of the user who tombstoned the resource' }
-    })
+              id:                { type: :string, description: 'NOID' },
+              valkyrie_id:       { type: :string, description: 'Valkyrie internal id' },
+              use:               { type: :string, nullable: true },
+              uri:               { type: :string, nullable: true, description: 'Where the asset can be fetched (IIIF URL for image roles)' },
+              mime_type:         { type: :string, nullable: true },
+              original_filename: { type: :string, nullable: true },
+              label:             { type: :string, nullable: true },
+              tombstoned:        { type: :boolean, description: 'Withdrawn-from-discovery flag' },
+              tombstoned_at:     { type: :string, nullable: true, description: 'ISO-8601 timestamp set when tombstoned' },
+              tombstoned_by:     { type: :string, nullable: true, description: 'NUID of the user who tombstoned the resource' }
+            })
   end
 
   # ---- summary shapes (used by index actions) ----
@@ -153,31 +153,31 @@ module OpenapiSchemas
   # are excluded by Role.downloadable?.
   def work_assets
     {
-      type: :array,
+      type:  :array,
       items: {
         oneOf: [
           {
-            type: :object,
-            properties: {
-              noid: { type: :string },
-              mime_type: { type: :string, nullable: true },
+            type:        :object,
+            properties:  {
+              noid:              { type: :string },
+              mime_type:         { type: :string, nullable: true },
               original_filename: { type: :string, nullable: true },
-              size: { type: :integer, nullable: true },
-              label: { type: :string, nullable: true }
+              size:              { type: :integer, nullable: true },
+              label:             { type: :string, nullable: true }
             },
-            required: %w[noid],
+            required:    %w[noid],
             description: 'Blob asset — held binary'
           },
           {
-            type: :object,
-            properties: {
-              noid: { type: :string },
+            type:        :object,
+            properties:  {
+              noid:      { type: :string },
               mime_type: { type: :string, nullable: true },
-              use: { type: :string, nullable: true },
-              uri: { type: :string, nullable: true },
-              label: { type: :string, nullable: true }
+              use:       { type: :string, nullable: true },
+              uri:       { type: :string, nullable: true },
+              label:     { type: :string, nullable: true }
             },
-            required: %w[noid],
+            required:    %w[noid],
             description: 'Delegate asset — external pointer (e.g. IIIF URL)'
           }
         ]
@@ -187,8 +187,8 @@ module OpenapiSchemas
 
   def pagination
     {
-      type: :object,
-      description: 'pagy pagination block',
+      type:                 :object,
+      description:          'pagy pagination block',
       additionalProperties: true
     }
   end
@@ -199,13 +199,13 @@ module OpenapiSchemas
   # without pinning every Devise/AR field.
   def user
     {
-      type: :object,
-      description: 'Devise/AR User record serialized via to_json. Fields vary; commonly includes id, email, name, role.',
-      properties: {
-        id: { type: :integer },
+      type:                 :object,
+      description:          'Devise/AR User record serialized via to_json. Fields vary; commonly includes id, email, name, role.',
+      properties:           {
+        id:    { type: :integer },
         email: { type: :string, nullable: true },
-        name: { type: :string, nullable: true },
-        role: { type: :string, nullable: true }
+        name:  { type: :string, nullable: true },
+        role:  { type: :string, nullable: true }
       },
       additionalProperties: true
     }
@@ -216,18 +216,18 @@ module OpenapiSchemas
   # `User` schema above, which documents the AR `to_json` output of GET /user.
   def provisioned_user
     wrapped(:user, {
-      id: { type: :integer },
-      nuid: { type: :string },
-      name: { type: :string, nullable: true },
-      email: { type: :string, nullable: true },
-      role: { type: :string },
-      groups: { type: :array, items: { type: :string } }
-    })
+              id:     { type: :integer },
+              nuid:   { type: :string },
+              name:   { type: :string, nullable: true },
+              email:  { type: :string, nullable: true },
+              role:   { type: :string },
+              groups: { type: :array, items: { type: :string } }
+            })
   end
 
   def permissions
-    wrapped(:resource, {}, additional: true,
-                          description: 'Permission flags merged from Resource#permissions')
+    wrapped(:resource, {}, additional:  true,
+                           description: 'Permission flags merged from Resource#permissions')
   end
 
   # GET /resources/:id can return any of these shapes — the controller
@@ -248,16 +248,16 @@ module OpenapiSchemas
 
   def base_resource_props
     {
-      id: { type: :string, description: 'NOID' },
-      valkyrie_id: { type: :string, description: 'Valkyrie internal id' },
-      ancestors: ancestor_pairs,
-      thumbnail: { type: :string, nullable: true, description: 'IIIF URL of the :thumbnail_image Delegate (~85px), or null' },
-      thumbnail_2x: { type: :string, nullable: true, description: 'IIIF URL of the :thumbnail_image_2x Delegate (~170px retina), or null' },
-      preview: { type: :string, nullable: true, description: 'IIIF URL of the :preview_image Delegate (~500px hero), or null' },
-      title: { type: :string, nullable: true },
-      description: { type: :string, nullable: true },
+      id:            { type: :string, description: 'NOID' },
+      valkyrie_id:   { type: :string, description: 'Valkyrie internal id' },
+      ancestors:     ancestor_pairs,
+      thumbnail:     { type: :string, nullable: true, description: 'IIIF URL of the :thumbnail_image Delegate (~85px), or null' },
+      thumbnail_2x:  { type: :string, nullable: true, description: 'IIIF URL of the :thumbnail_image_2x Delegate (~170px retina), or null' },
+      preview:       { type: :string, nullable: true, description: 'IIIF URL of the :preview_image Delegate (~500px hero), or null' },
+      title:         { type: :string, nullable: true },
+      description:   { type: :string, nullable: true },
       permanent_url: { type: :string, nullable: true },
-      tombstoned: { type: :boolean, description: 'Withdrawn-from-discovery flag' },
+      tombstoned:    { type: :boolean, description: 'Withdrawn-from-discovery flag' },
       tombstoned_at: { type: :string, nullable: true, description: 'ISO-8601 timestamp set when tombstoned' },
       tombstoned_by: { type: :string, nullable: true, description: 'NUID of the user who tombstoned the resource' }
     }
@@ -267,12 +267,12 @@ module OpenapiSchemas
   # e.g. [["c-123", "Community"], ["col-456", "Collection"]]
   def ancestor_pairs
     {
-      type: :array,
+      type:  :array,
       items: {
-        type: :array,
-        items: { type: :string },
-        minItems: 2,
-        maxItems: 2,
+        type:        :array,
+        items:       { type: :string },
+        minItems:    2,
+        maxItems:    2,
         description: '[noid, type-name] pair'
       }
     }
@@ -284,8 +284,8 @@ module OpenapiSchemas
 
   def summary_props
     {
-      id: { type: :string },
-      title: { type: :string, nullable: true },
+      id:          { type: :string },
+      title:       { type: :string, nullable: true },
       description: { type: :string, nullable: true }
     }
   end
@@ -293,7 +293,7 @@ module OpenapiSchemas
   # Fields that live on Work but not on Collection/Community.
   def work_only_props
     {
-      in_progress: { type: :boolean,
+      in_progress: { type:        :boolean,
                      description: 'Cerberus-driven workflow flag; true until the bulk-deposit job marks the Work complete.' }
     }
   end
@@ -304,21 +304,21 @@ module OpenapiSchemas
     inner[:additionalProperties] = true if additional
     inner[:description] = description if description
     {
-      type: :object,
+      type:       :object,
       properties: { key => inner },
-      required: [key.to_s]
+      required:   [key.to_s]
     }
   end
 
   # Paged collection: wrap an array under a key alongside the pagination block.
   def paged(key, item_schema)
     {
-      type: :object,
+      type:       :object,
       properties: {
         key => { type: :array, items: item_schema },
         pagination: { '$ref' => '#/components/schemas/Pagination' }
       },
-      required: [key.to_s, 'pagination']
+      required:   [key.to_s, 'pagination']
     }
   end
 end

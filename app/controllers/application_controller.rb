@@ -46,11 +46,11 @@ class ApplicationController < ActionController::API
     def parse_headers
       token_pattern = /^Bearer /
       token_header  = request.headers['Authorization']
-      @token = token_header.gsub(token_pattern, '') if token_header && token_header.match(token_pattern)
+      @token = token_header.gsub(token_pattern, '') if token_header&.match(token_pattern)
 
       nuid_pattern = /^NUID /
       nuid_header  = request.headers['User']
-      @nuid = nuid_header.gsub(nuid_pattern, '') if nuid_header && nuid_header.match(nuid_pattern)
+      @nuid = nuid_header.gsub(nuid_pattern, '') if nuid_header&.match(nuid_pattern)
     end
 
     # Resolve @current_user from the (Bearer token, User: NUID) pair.
@@ -72,7 +72,7 @@ class ApplicationController < ActionController::API
       return render_error(:unauthorized, 'invalid bearer token') unless valid_cerberus_token?
       return render_error(:bad_request, 'User: NUID header required') if @nuid.blank?
 
-      user = User.find_by_nuid(@nuid)
+      user = User.find_by(nuid: @nuid)
       return render_error(:bad_request, "unknown principal #{@nuid}") if user.nil?
       return render_error(:unauthorized, ':anonymous cannot authenticate') if user.anonymous?
 
@@ -84,7 +84,7 @@ class ApplicationController < ActionController::API
     end
 
     def guest_sign_in
-      @current_user = User.find_by_role(:guest) # only one should exist
+      @current_user = User.find_by(role: :guest) # only one should exist
     end
 
     def render_error(status, message)

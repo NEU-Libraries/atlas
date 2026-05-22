@@ -38,19 +38,19 @@ class User < ApplicationRecord
   end
 
   def add_group(group)
-    gl = self.groups.blank? ? [] : self.groups
+    gl = (groups.presence || [])
     gl << group
     self.groups = gl.uniq
-    self.save!
+    save!
   end
 
   def delete_group(group)
-    if !self.groups.blank?
-      gl = self.groups
-      gl.delete(group)
-      self.groups = gl
-      self.save!
-    end
+    return if groups.blank?
+
+    gl = groups
+    gl.delete(group)
+    self.groups = gl
+    save!
   end
 
   # Promote/demote a user with an auditable trail. Refuses to mutate the

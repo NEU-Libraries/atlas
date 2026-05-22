@@ -30,7 +30,7 @@ module Valkyrie
           layout = base_path.join('ocfl_layout.json')
           unless layout.exist?
             ::File.write(layout, JSON.pretty_generate(
-                                   'extension' => LAYOUT_EXTENSION,
+                                   'extension'   => LAYOUT_EXTENSION,
                                    'description' => 'Tuple-based layout, key used directly without rehashing.'
                                  ))
           end
@@ -41,8 +41,8 @@ module Valkyrie
 
           FileUtils.mkdir_p(ext_dir)
           ::File.write(ext_config, JSON.pretty_generate(
-                                     'extensionName' => LAYOUT_EXTENSION,
-                                     'tupleSize' => tuple_size,
+                                     'extensionName'  => LAYOUT_EXTENSION,
+                                     'tupleSize'      => tuple_size,
                                      'numberOfTuples' => number_of_tuples
                                    ))
         end

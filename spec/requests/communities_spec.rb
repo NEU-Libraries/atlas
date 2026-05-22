@@ -23,7 +23,7 @@ RSpec.describe 'Communities', type: :request do
       produces 'application/json'
       description 'Creates a Community. `parent_id` is optional — top-level communities have no parent.'
       parameter name: :body, in: :body, schema: {
-        type: :object,
+        type:       :object,
         properties: { parent_id: { type: :string, nullable: true } }
       }
 
@@ -77,9 +77,9 @@ RSpec.describe 'Communities', type: :request do
       parameter name: :binary,                   in: :formData, required: false
       multipart_request_body(
         {
-          'metadata[title]':         { type: :string },
-          'metadata[description]':   { type: :string },
-          binary: { type: :string, format: :binary, description: 'MODS XML to apply to the Community' }
+          'metadata[title]':       { type: :string },
+          'metadata[description]': { type: :string },
+          binary:                  { type: :string, format: :binary, description: 'MODS XML to apply to the Community' }
         }
       )
 
@@ -189,11 +189,11 @@ RSpec.describe 'Communities', type: :request do
         browse UI.
       DESC
       parameter name: :body, in: :body, schema: {
-        type: :object,
+        type:       :object,
         properties: {
-          thumbnail: { type: :string, description: 'IIIF URL for the 85px thumbnail tier' },
+          thumbnail:    { type: :string, description: 'IIIF URL for the 85px thumbnail tier' },
           thumbnail_2x: { type: :string, description: 'IIIF URL for the 170px retina thumbnail tier' },
-          preview: { type: :string, description: 'IIIF URL for the 500px hero preview tier' }
+          preview:      { type: :string, description: 'IIIF URL for the 500px hero preview tier' }
         }
       }
 
@@ -202,9 +202,9 @@ RSpec.describe 'Communities', type: :request do
         let(:id) { community.noid }
         let(:body) do
           {
-            thumbnail: 'https://iiif.example/iiif/3/m.jp2/full/!85,85/0/default.jpg',
+            thumbnail:    'https://iiif.example/iiif/3/m.jp2/full/!85,85/0/default.jpg',
             thumbnail_2x: 'https://iiif.example/iiif/3/m.jp2/full/!170,170/0/default.jpg',
-            preview: 'https://iiif.example/iiif/3/m.jp2/full/500,/0/default.jpg'
+            preview:      'https://iiif.example/iiif/3/m.jp2/full/500,/0/default.jpg'
           }
         end
         schema '$ref' => '#/components/schemas/Community'

@@ -26,7 +26,7 @@ module Valkyrie
                      tuple_sizes: [2, 2],
                      file_mover: FileUtils.method(:mv),
                      clock: Time.method(:now),
-                     user_agent: { name: 'Atlas',
+                     user_agent: { name:    'Atlas',
                                    address: 'mailto:library-systems@northeastern.edu' })
         @storage_root_path = Pathname.new(storage_root)
         @digest_algorithm = digest_algorithm
@@ -162,9 +162,9 @@ module Valkyrie
 
         def build_file(key:, version:, logical_path:, physical:)
           OCFL::File.new(
-            id: Valkyrie::ID.new(logical_id_for(key, logical_path)),
+            id:         Valkyrie::ID.new(logical_id_for(key, logical_path)),
             version_id: Valkyrie::ID.new(version_id_for(key, version, logical_path)),
-            io: LazyFile.open(physical.to_s, 'rb')
+            io:         LazyFile.open(physical.to_s, 'rb')
           )
         end
 
@@ -186,12 +186,12 @@ module Valkyrie
           content_path = "#{next_v}/content/#{logical_path}"
 
           new_inventory = base_inventory.bump(
-            digest: digest,
+            digest:       digest,
             logical_path: logical_path,
             content_path: content_path,
-            created: clock.call.utc.iso8601,
-            message: 'Atlas upload',
-            user: user_agent
+            created:      clock.call.utc.iso8601,
+            message:      'Atlas upload',
+            user:         user_agent
           )
 
           dedup = base_inventory.dedup?(digest)

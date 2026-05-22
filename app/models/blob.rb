@@ -49,14 +49,14 @@ class Blob < Resource
   # a reconstitution tool that descMetadata.xml is MODS, not a content blob.
   def graph_payload
     {
-      schema_version: Preservable::ENVELOPE_SCHEMA_VERSION,
-      noid: noid,
-      type: 'Blob',
-      use: use,
+      schema_version:    Preservable::ENVELOPE_SCHEMA_VERSION,
+      noid:              noid,
+      type:              'Blob',
+      use:               use,
       original_filename: original_filename,
-      mime_type: mime_type,
-      size: size,
-      label: label
+      mime_type:         mime_type,
+      size:              size,
+      label:             label
     }
   end
 

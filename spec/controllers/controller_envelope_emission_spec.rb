@@ -39,7 +39,7 @@ RSpec.describe 'Controller envelope emission' do
 
       patch :update,
             params: { id: work.noid, metadata: { title: 'Renamed' } },
-            as: :json
+            as:     :json
 
       expect(head_version_for(work.noid)).not_to eq(head_before)
     end
@@ -48,9 +48,9 @@ RSpec.describe 'Controller envelope emission' do
       head_before = head_version_for(work.noid)
 
       patch :update,
-            params: { id: work.noid,
+            params: { id:     work.noid,
                       binary: Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/work-mods.xml')) },
-            as: :json
+            as:     :json
 
       expect(head_version_for(work.noid)).to eq(head_before)
     end
@@ -67,7 +67,7 @@ RSpec.describe 'Controller envelope emission' do
 
       patch :update,
             params: { id: collection.noid, metadata: { title: 'Renamed' } },
-            as: :json
+            as:     :json
 
       expect(head_version_for(collection.noid)).not_to eq(head_before)
     end
@@ -83,7 +83,7 @@ RSpec.describe 'Controller envelope emission' do
 
       patch :update,
             params: { id: community.noid, metadata: { title: 'Renamed' } },
-            as: :json
+            as:     :json
 
       expect(head_version_for(community.noid)).not_to eq(head_before)
     end

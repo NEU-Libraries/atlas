@@ -34,12 +34,12 @@ module Valkyrie
 
         def self.from_h(hash)
           new(
-            id: hash.fetch('id'),
-            digest_algorithm: hash.fetch('digestAlgorithm', 'sha512'),
-            head: hash.fetch('head'),
+            id:                hash.fetch('id'),
+            digest_algorithm:  hash.fetch('digestAlgorithm', 'sha512'),
+            head:              hash.fetch('head'),
             content_directory: hash.fetch('contentDirectory', DEFAULT_CONTENT_DIRECTORY),
-            manifest: hash.fetch('manifest', {}),
-            versions: hash.fetch('versions', {})
+            manifest:          hash.fetch('manifest', {}),
+            versions:          hash.fetch('versions', {})
           )
         end
 
@@ -57,13 +57,13 @@ module Valkyrie
 
         def to_h
           {
-            'id' => id,
-            'type' => TYPE,
-            'digestAlgorithm' => digest_algorithm,
-            'head' => head,
+            'id'               => id,
+            'type'             => TYPE,
+            'digestAlgorithm'  => digest_algorithm,
+            'head'             => head,
             'contentDirectory' => content_directory,
-            'manifest' => manifest,
-            'versions' => versions
+            'manifest'         => manifest,
+            'versions'         => versions
           }
         end
 
@@ -121,18 +121,18 @@ module Valkyrie
             next_v => {
               'created' => created,
               'message' => message,
-              'user' => user,
-              'state' => new_state
+              'user'    => user,
+              'state'   => new_state
             }
           )
 
           self.class.new(
-            id: id,
-            digest_algorithm: digest_algorithm,
-            head: next_v,
+            id:                id,
+            digest_algorithm:  digest_algorithm,
+            head:              next_v,
             content_directory: content_directory,
-            manifest: new_manifest,
-            versions: new_versions
+            manifest:          new_manifest,
+            versions:          new_versions
           )
         end
 

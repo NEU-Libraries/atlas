@@ -8,7 +8,7 @@ RSpec.describe 'Files (Blobs)', type: :request do
   let(:work)       { WorkCreator.call(parent_id: collection.noid) }
   let(:fixture)    { Rails.root.join('spec/fixtures/files/example.bin') }
   let!(:guest) do
-    User.find_by_role(:guest) ||
+    User.find_by(role: :guest) ||
       User.create!(email: 'guest@example.com', password: SecureRandom.hex(16), role: :guest)
   end
 
@@ -68,7 +68,7 @@ RSpec.describe 'Files (Blobs)', type: :request do
         let(:'Idempotency-Key') { idempotency_key }
         let!(:existing) do
           b = BlobCreator.call(work_id: work.noid, original_filename: 'example.bin', path: fixture.to_s)
-          IdempotencyKey.create!(user: User.find_by_nuid('000000004'), key: idempotency_key,
+          IdempotencyKey.create!(user: User.find_by(nuid: '000000004'), key: idempotency_key,
                                  resource_type: 'Blob', resource_noid: b.noid)
           b
         end
@@ -88,7 +88,7 @@ RSpec.describe 'Files (Blobs)', type: :request do
           b = BlobCreator.call(work_id: work.noid, original_filename: 'example.bin', path: fixture.to_s)
           b.tombstoned = true
           b = Atlas.persister.save(resource: b)
-          IdempotencyKey.create!(user: User.find_by_nuid('000000004'), key: idempotency_key,
+          IdempotencyKey.create!(user: User.find_by(nuid: '000000004'), key: idempotency_key,
                                  resource_type: 'Blob', resource_noid: b.noid)
           b
         end

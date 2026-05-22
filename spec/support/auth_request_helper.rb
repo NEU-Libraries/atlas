@@ -34,7 +34,7 @@ def ensure_default_admin!
   allow(Rails.application.credentials)
     .to receive(:cerberus_token).and_return('test-cerberus-token')
 
-  User.find_by_nuid('000000004') ||
+  User.find_by(nuid: '000000004') ||
     User.create!(email: 'admin@example.invalid', password: SecureRandom.hex(16),
                  nuid: '000000004', name: 'User, Admin', role: :admin)
 end

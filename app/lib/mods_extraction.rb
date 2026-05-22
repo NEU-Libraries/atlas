@@ -2,10 +2,10 @@
 
 module MODSExtraction
   def extract_main_title(mods_obj)
-    { non_sort: mods_obj.title_info.nonSort.text.squish,
-      subtitle: mods_obj.title_info.subTitle.text.squish,
-      title: mods_obj.title_info.title.text.squish,
-      part_name: mods_obj.title_info.partName.text.squish,
+    { non_sort:    mods_obj.title_info.nonSort.text.squish,
+      subtitle:    mods_obj.title_info.subTitle.text.squish,
+      title:       mods_obj.title_info.title.text.squish,
+      part_name:   mods_obj.title_info.partName.text.squish,
       part_number: mods_obj.title_info.partNumber.text.squish }
   end
 

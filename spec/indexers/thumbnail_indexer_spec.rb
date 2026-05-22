@@ -65,5 +65,4 @@ RSpec.describe ThumbnailIndexer do
       expect(described_class.new(resource: delegate).to_solr).to eq({})
     end
   end
-
 end

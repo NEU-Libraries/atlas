@@ -6,6 +6,10 @@ class WorksController < ApplicationController
   include IdempotentCreate
   include DelegateUris
 
+  before_action :reject_system_principal,
+                only: %i[create update tombstone restore destroy
+                         update_thumbnails update_image_derivatives complete]
+
   THUMBNAIL_ROLES = {
     'thumbnail' => Role.thumbnail_image,
     'thumbnail_2x' => Role.thumbnail_image_2x,

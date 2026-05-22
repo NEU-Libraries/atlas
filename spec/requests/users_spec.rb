@@ -63,6 +63,8 @@ RSpec.describe 'User', type: :request do
       security [{ BearerAuth: [] }]
       parameter name: :nuid, in: :path, type: :string
       parameter name: :Authorization, in: :header, type: :string, required: false
+      parameter name: :User, in: :header, type: :string, required: false,
+                description: "Acting principal, e.g. \"NUID 000000000\" for the system user"
       parameter name: :body, in: :body, schema: {
         type: :object,
         properties: {
@@ -77,9 +79,10 @@ RSpec.describe 'User', type: :request do
 
         let!(:system_user) do
           User.create!(
-            email: 'system@example.com',
+            email:    'system@example.com',
             password: SecureRandom.hex(16),
-            role: :system
+            nuid:     '000000000',
+            role:     :system
           )
         end
         let(:system_token) { 'test-system-token' }
@@ -88,6 +91,7 @@ RSpec.describe 'User', type: :request do
             .to receive(:cerberus_token).and_return(system_token)
         end
         let(:Authorization) { "Bearer #{system_token}" }
+        let(:User) { "NUID #{system_user.nuid}" }
         let(:nuid) { '001234567' }
         let(:body) do
           {

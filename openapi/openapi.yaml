@@ -1628,6 +1628,12 @@ paths:
         required: false
         schema:
           type: string
+      - name: User
+        in: header
+        required: false
+        description: Acting principal, e.g. "NUID 000000000" for the system user
+        schema:
+          type: string
       responses:
         '200':
           description: user upserted

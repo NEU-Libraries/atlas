@@ -5,6 +5,13 @@ class CommunitiesController < ApplicationController
   include LazyPagination
   include DelegateUris
 
+  # Container creation is intentionally left off the reject list (Q7 lean):
+  # the seed/admin paths that bootstrap Communities + Collections currently
+  # run as :system. Once a dedicated container-creation role exists this
+  # gate should tighten to match WorksController.
+  before_action :reject_system_principal,
+                only: %i[update tombstone restore destroy update_thumbnails]
+
   THUMBNAIL_ROLES = {
     'thumbnail' => Role.thumbnail_image,
     'thumbnail_2x' => Role.thumbnail_image_2x,

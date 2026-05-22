@@ -7,10 +7,12 @@ class BlobsController < ApplicationController
   include IdempotentCreate
 
   def index
+    authorize! :read, Blob
     @pagination, @blobs = paginate_model(Blob)
   end
 
   def show
+    authorize! :read, Blob
     @blob = Blob.find(params[:id])
     return head(:not_found) if @blob.nil?
 
@@ -18,6 +20,8 @@ class BlobsController < ApplicationController
   end
 
   def create
+    authorize! :create, Blob
+
     if (record = find_idempotency_record(Blob))
       @blob = Blob.find(record.resource_noid)
       return render_idempotent_resource(@blob)
@@ -35,6 +39,7 @@ class BlobsController < ApplicationController
   end
 
   def update
+    authorize! :update, Blob
     # Uber basic versioning, by appending
     blob = Blob.find(params[:id])
     file = params[:binary]
@@ -45,7 +50,7 @@ class BlobsController < ApplicationController
   end
 
   def destroy
-    # TODO: restrict to admin user
+    authorize! :destroy, Blob
     blob = Blob.find(params[:id])
     return head(:not_found) if blob.nil?
 
@@ -67,6 +72,7 @@ class BlobsController < ApplicationController
   # the X-Accel-Redirect line in config/environments/production.rb so nginx
   # handles byte-serving natively.
   def content
+    authorize! :read, Blob
     blob = Blob.find(params[:id])
     return head(:not_found) if blob.nil?
 

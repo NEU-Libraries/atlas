@@ -3,6 +3,7 @@
 # Delegates
 class DelegatesController < ApplicationController
   def show
+    authorize! :read, Delegate
     @delegate = Delegate.find(params[:id])
     return head(:not_found) if @delegate.nil?
 

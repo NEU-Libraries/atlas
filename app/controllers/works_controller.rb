@@ -13,10 +13,6 @@ class WorksController < ApplicationController
   include IdempotentCreate
   include DelegateUris
 
-  before_action :reject_system_principal,
-                only: %i[create update tombstone restore destroy
-                         update_thumbnails update_image_derivatives complete]
-
   THUMBNAIL_ROLES = {
     'thumbnail' => Role.thumbnail_image,
     'thumbnail_2x' => Role.thumbnail_image_2x,
@@ -30,10 +26,12 @@ class WorksController < ApplicationController
   }.freeze
 
   def index
+    authorize! :read, Work
     @pagination, @works = paginate_model(Work, filters: index_filters)
   end
 
   def show
+    authorize! :read, Work
     @work = Work.find(params[:id])&.decorate
     return head(:not_found) if @work.nil?
 
@@ -41,6 +39,8 @@ class WorksController < ApplicationController
   end
 
   def create
+    authorize! :create, Work
+
     if (record = find_idempotency_record(Work))
       @work = Work.find(record.resource_noid)&.decorate
       return render_idempotent_resource(@work)
@@ -58,6 +58,7 @@ class WorksController < ApplicationController
   end
 
   def mods
+    authorize! :read, Work
     work = Work.find(params[:id])
     return head(:not_found) if work.nil? || work.mods.nil?
 
@@ -65,6 +66,7 @@ class WorksController < ApplicationController
   end
 
   def assets
+    authorize! :read, Work
     @work = Work.find(params[:id])
     @assets = @work.children
                    .reject { |fs| fs.type == Classification.descriptive_metadata.name }
@@ -74,6 +76,7 @@ class WorksController < ApplicationController
 
   def update
     @work = Work.find(params[:id])
+    authorize! :update, @work
 
     if params[:binary].present?
       binary_update
@@ -84,6 +87,7 @@ class WorksController < ApplicationController
 
   def update_thumbnails
     @work = Work.find(params[:id])
+    authorize! :update_thumbnails, @work
     return head(:not_found) if @work.nil?
 
     apply_delegate_uris(resource_id: @work.id, mapping: THUMBNAIL_ROLES, source: params)
@@ -93,6 +97,7 @@ class WorksController < ApplicationController
 
   def update_image_derivatives
     @work = Work.find(params[:id])
+    authorize! :update_image_derivatives, @work
     return head(:not_found) if @work.nil?
 
     apply_delegate_uris(resource_id: @work.id, mapping: IMAGE_DERIVATIVE_ROLES, source: params)
@@ -101,24 +106,28 @@ class WorksController < ApplicationController
   end
 
   def destroy
-    # TODO: restrict to admin user
-    Atlas.persister.delete(resource: Work.find(params[:id]))
+    @work = Work.find(params[:id])
+    authorize! :destroy, @work
+    Atlas.persister.delete(resource: @work)
   end
 
   def tombstone
     @work = Work.find(params[:id])
+    authorize! :tombstone, @work
     @work.tombstone(by: @nuid)
     @work = Atlas.persister.save(resource: @work).decorate
   end
 
   def restore
     @work = Work.find(params[:id])
+    authorize! :restore, @work
     @work.restore
     @work = Atlas.persister.save(resource: @work).decorate
   end
 
   def complete
     @work = Work.find(params[:id])
+    authorize! :complete, @work
     return head(:not_found) if @work.nil?
 
     @work.in_progress = false

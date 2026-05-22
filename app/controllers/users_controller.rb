@@ -2,7 +2,7 @@
 
 class UsersController < ApplicationController
   def update
-    return render(json: {}, status: :forbidden) unless current_user&.system?
+    authorize! :provision, User
 
     @user = UserProvisioner.call(
       nuid: params[:nuid],

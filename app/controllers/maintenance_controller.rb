@@ -2,7 +2,10 @@
 
 class MaintenanceController < ApplicationController
   def reset
-    # dev or test only
+    authorize! :reset, :maintenance
+    # dev or test only — belt-and-suspenders. Ability already gates this to
+    # admin; the env check is the second locked door in case Ability is ever
+    # weakened.
     raise "Wrong env - #{Rails.env} - must not be production" unless Rails.env.development? || Rails.env.staging? || Rails.env.test?
 
     DatabaseCleaner.strategy = :deletion

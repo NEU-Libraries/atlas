@@ -2,6 +2,7 @@
 
 class ResourcesController < ApplicationController
   def show
+    authorize! :read, Resource
     @resource = Resource.find(params[:id]).decorate
     redirect_to(@resource)
   end
@@ -9,6 +10,7 @@ class ResourcesController < ApplicationController
   def preview
     # An action to facilitate temporary resources - given raw xml give back html
     # Loader preview, XML editor, etc.
+    authorize! :preview, Resource
     @resource = Work.new(alternate_ids: [Time.now.to_f.to_s.gsub!('.', '').to_s])
     file = params[:binary]
     path = file.tempfile.path.presence || file.path
@@ -19,6 +21,7 @@ class ResourcesController < ApplicationController
   end
 
   def permissions
+    authorize! :read, Resource
     @resource = Resource.find(params[:id])
   end
 end

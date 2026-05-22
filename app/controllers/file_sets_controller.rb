@@ -6,10 +6,12 @@ class FileSetsController < ApplicationController
   include IdempotentCreate
 
   def index
+    authorize! :read, FileSet
     @pagination, @file_sets = paginate_model(FileSet)
   end
 
   def show
+    authorize! :read, FileSet
     @file_set = FileSet.find(params[:id])
     return head(:not_found) if @file_set.nil?
 
@@ -17,6 +19,7 @@ class FileSetsController < ApplicationController
   end
 
   def mets
+    authorize! :read, FileSet
     @file_set = FileSet.find(params[:id])
     return head(:not_found) if @file_set.nil?
     return head(:not_found) if Classification.metadata?(@file_set.type)
@@ -24,6 +27,8 @@ class FileSetsController < ApplicationController
   end
 
   def create
+    authorize! :create, FileSet
+
     if (record = find_idempotency_record(FileSet))
       @file_set = FileSet.find(record.resource_noid)
       return render_idempotent_resource(@file_set)
@@ -39,6 +44,7 @@ class FileSetsController < ApplicationController
   end
 
   def update
+    authorize! :update, FileSet
     # Naive first implementation - expect a binary POST
     # and just add it to the existing file set
     # TODO: pass through original filename and label enumeration
@@ -51,7 +57,7 @@ class FileSetsController < ApplicationController
   end
 
   def destroy
-    # TODO: restrict to admin user
+    authorize! :destroy, FileSet
     Atlas.persister.delete(resource: FileSet.find(params[:id]))
   end
 end

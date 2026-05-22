@@ -5,12 +5,10 @@ class CommunitiesController < ApplicationController
   include LazyPagination
   include DelegateUris
 
-  # Container creation is intentionally left off the reject list (Q7 lean):
-  # the seed/admin paths that bootstrap Communities + Collections currently
-  # run as :system. Once a dedicated container-creation role exists this
-  # gate should tighten to match WorksController.
-  before_action :reject_system_principal,
-                only: %i[update tombstone restore destroy update_thumbnails]
+  # Container creation is intentionally left open to :system (Q7 lean) so the
+  # seed task can bootstrap Communities + Collections. The :system carve-out
+  # for :create lives in Ability#apply_role_abilities; once a dedicated
+  # container-creation role exists, that carve-out goes away.
 
   THUMBNAIL_ROLES = {
     'thumbnail' => Role.thumbnail_image,
@@ -19,10 +17,12 @@ class CommunitiesController < ApplicationController
   }.freeze
 
   def index
+    authorize! :read, Community
     @pagination, @communities = paginate_model(Community)
   end
 
   def show
+    authorize! :read, Community
     @community = Community.find(params[:id])&.decorate
     return head(:not_found) if @community.nil?
 
@@ -30,11 +30,13 @@ class CommunitiesController < ApplicationController
   end
 
   def create
+    authorize! :create, Community
     # TODO: XML
     @community = CommunityCreator.call(parent_id: params[:parent_id])
   end
 
   def mods
+    authorize! :read, Community
     # TODO: support raw XML, in addition to JSON and HTML
     community = Community.find(params[:id])
     return head(:not_found) if community.nil? || community.mods.nil?
@@ -43,6 +45,7 @@ class CommunitiesController < ApplicationController
   end
 
   def children
+    authorize! :read, Community
     @community = Community.find(params[:id])&.decorate
     return head(:not_found) if @community.nil?
     return render(:show, status: :gone) if @community.tombstoned
@@ -51,6 +54,7 @@ class CommunitiesController < ApplicationController
   end
 
   def ancestors
+    authorize! :read, Community
     @community = Community.find(params[:id])&.decorate
     return head(:not_found) if @community.nil?
     return render(:show, status: :gone) if @community.tombstoned
@@ -60,6 +64,7 @@ class CommunitiesController < ApplicationController
 
   def update
     @community = Community.find(params[:id])
+    authorize! :update, @community
 
     if params[:binary].present?
       binary_update
@@ -70,6 +75,7 @@ class CommunitiesController < ApplicationController
 
   def update_thumbnails
     @community = Community.find(params[:id])
+    authorize! :update_thumbnails, @community
     return head(:not_found) if @community.nil?
 
     apply_delegate_uris(resource_id: @community.id, mapping: THUMBNAIL_ROLES, source: params)
@@ -78,12 +84,14 @@ class CommunitiesController < ApplicationController
   end
 
   def destroy
-    # TODO: restrict to admin user
-    Atlas.persister.delete(resource: Community.find(params[:id]))
+    @community = Community.find(params[:id])
+    authorize! :destroy, @community
+    Atlas.persister.delete(resource: @community)
   end
 
   def tombstone
     @community = Community.find(params[:id])
+    authorize! :tombstone, @community
 
     if @community.live_children?
       render json: { error: 'cannot tombstone a non-empty community',
@@ -97,6 +105,7 @@ class CommunitiesController < ApplicationController
 
   def restore
     @community = Community.find(params[:id])
+    authorize! :restore, @community
     @community.restore
     @community = Atlas.persister.save(resource: @community).decorate
   end

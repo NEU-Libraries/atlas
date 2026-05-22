@@ -5,12 +5,10 @@ class CollectionsController < ApplicationController
   include LazyPagination
   include DelegateUris
 
-  # Container creation is intentionally left off the reject list (Q7 lean):
-  # the seed/admin paths that bootstrap Communities + Collections currently
-  # run as :system. Once a dedicated container-creation role exists this
-  # gate should tighten to match WorksController.
-  before_action :reject_system_principal,
-                only: %i[update tombstone restore destroy update_thumbnails]
+  # Container creation is intentionally left open to :system (Q7 lean) so the
+  # seed task can bootstrap Communities + Collections. The :system carve-out
+  # for :create lives in Ability#apply_role_abilities; once a dedicated
+  # container-creation role exists, that carve-out goes away.
 
   THUMBNAIL_ROLES = {
     'thumbnail' => Role.thumbnail_image,
@@ -19,10 +17,12 @@ class CollectionsController < ApplicationController
   }.freeze
 
   def index
+    authorize! :read, Collection
     @pagination, @collections = paginate_model(Collection)
   end
 
   def show
+    authorize! :read, Collection
     @collection = Collection.find(params[:id])&.decorate
     return head(:not_found) if @collection.nil?
 
@@ -30,11 +30,13 @@ class CollectionsController < ApplicationController
   end
 
   def create
+    authorize! :create, Collection
     # TODO: XML
     @collection = CollectionCreator.call(parent_id: params[:parent_id])
   end
 
   def mods
+    authorize! :read, Collection
     collection = Collection.find(params[:id])
     return head(:not_found) if collection.nil? || collection.mods.nil?
 
@@ -42,6 +44,7 @@ class CollectionsController < ApplicationController
   end
 
   def children
+    authorize! :read, Collection
     @collection = Collection.find(params[:id])&.decorate
     return head(:not_found) if @collection.nil?
     return render(:show, status: :gone) if @collection.tombstoned
@@ -50,6 +53,7 @@ class CollectionsController < ApplicationController
   end
 
   def ancestors
+    authorize! :read, Collection
     @collection = Collection.find(params[:id])&.decorate
     return head(:not_found) if @collection.nil?
     return render(:show, status: :gone) if @collection.tombstoned
@@ -59,6 +63,7 @@ class CollectionsController < ApplicationController
 
   def update
     @collection = Collection.find(params[:id])
+    authorize! :update, @collection
 
     if params[:binary].present?
       binary_update
@@ -69,6 +74,7 @@ class CollectionsController < ApplicationController
 
   def update_thumbnails
     @collection = Collection.find(params[:id])
+    authorize! :update_thumbnails, @collection
     return head(:not_found) if @collection.nil?
 
     apply_delegate_uris(resource_id: @collection.id, mapping: THUMBNAIL_ROLES, source: params)
@@ -77,12 +83,14 @@ class CollectionsController < ApplicationController
   end
 
   def destroy
-    # TODO: restrict to admin user
-    Atlas.persister.delete(resource: Collection.find(params[:id]))
+    @collection = Collection.find(params[:id])
+    authorize! :destroy, @collection
+    Atlas.persister.delete(resource: @collection)
   end
 
   def tombstone
     @collection = Collection.find(params[:id])
+    authorize! :tombstone, @collection
 
     if @collection.live_children?
       render json: { error: 'cannot tombstone a non-empty collection',
@@ -96,6 +104,7 @@ class CollectionsController < ApplicationController
 
   def restore
     @collection = Collection.find(params[:id])
+    authorize! :restore, @collection
     @collection.restore
     @collection = Atlas.persister.save(resource: @collection).decorate
   end

@@ -5,17 +5,8 @@
 # resources too, and that's a load-bearing property: the audit trail must
 # survive deletion of what it audits.
 class AuditEventsController < ApplicationController
-  before_action :verify_admin
-
   def index
+    authorize! :read, AuditEvent
     @events = AuditEvent.for_resource(params[:id]).recent
   end
-
-  private
-
-    def verify_admin
-      return if @current_user&.admin?
-
-      render json: { error: 'admin only' }, status: :forbidden
-    end
 end

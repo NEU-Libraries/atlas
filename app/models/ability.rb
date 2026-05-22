@@ -35,14 +35,17 @@ class Ability
   def initialize(user)
     # @current_user is never nil under piece-2 require_auth — at worst it
     # falls through to the :guest fixture. Guard anyway so Ability can be
-    # constructed in isolation (specs, console).
+    # constructed in isolation (specs, console) and so a missing guest
+    # row in the test DB doesn't crash the controller.
     user ||= User.find_by_role(:guest)
 
     alias_action(*UPDATE_ALIASES, to: :update)
 
-    # Hard floor: :anonymous never authenticates and never carries ability.
-    # require_auth 401s before reaching here; this is belt-and-suspenders.
-    return if user.anonymous?
+    # Hard floor: :anonymous never authenticates and never carries ability,
+    # and a nil user (no guest fixture present) carries none either.
+    # require_auth 401s before reaching here in production; this is
+    # belt-and-suspenders.
+    return if user.nil? || user.anonymous?
 
     # Read floor: any authenticated principal (incl. :guest) can read every
     # repository resource. Visibility lives on the resource itself

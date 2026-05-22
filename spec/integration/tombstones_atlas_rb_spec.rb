@@ -7,13 +7,9 @@ require 'rails_helper'
 # the HTTP boundary and re-fetches via atlas_rb to confirm the persisted
 # state surfaced by the show endpoint matches expectations.
 RSpec.describe 'Tombstone bindings via atlas_rb', :atlas_rb_server do
-  # Pre-piece-7 this spec used a :privileged NUID (000000002) and relied on
-  # require_auth's guest fall-through (empty ATLAS_TOKEN) to bypass auth
-  # entirely while still stamping the User-header NUID into tombstoned_by.
-  # With piece 7's Ability layer the wire requires a principal that
-  # actually has :tombstone on the resource — admin (wildcard) is the
-  # simplest. The audit-stamp behavior under test is independent of who
-  # the actor is.
+  # Admin (wildcard) — required so the tombstone/restore call gets past
+  # Atlas's Ability layer. The audit-stamp behavior under test is
+  # independent of who the actor is.
   let(:nuid) { '000000004' }
 
   describe 'AtlasRb::Work' do
@@ -25,7 +21,7 @@ RSpec.describe 'Tombstone bindings via atlas_rb', :atlas_rb_server do
 
       AtlasRb::Work.tombstone(work.noid, nuid: nuid)
 
-      found = AtlasRb::Work.find(work.noid)
+      found = AtlasRb::Work.find(work.noid, nuid: nuid)
       expect(found['tombstoned']).to be true
       expect(found['tombstoned_at']).to be_present
       expect(found['tombstoned_by']).to eq(nuid)
@@ -37,7 +33,7 @@ RSpec.describe 'Tombstone bindings via atlas_rb', :atlas_rb_server do
 
       AtlasRb::Work.restore(work.noid, nuid: nuid)
 
-      found = AtlasRb::Work.find(work.noid)
+      found = AtlasRb::Work.find(work.noid, nuid: nuid)
       expect(found['tombstoned']).to be false
       expect(found['tombstoned_at']).to be_blank
       expect(found['tombstoned_by']).to be_blank
@@ -52,7 +48,7 @@ RSpec.describe 'Tombstone bindings via atlas_rb', :atlas_rb_server do
 
       AtlasRb::Collection.tombstone(collection.noid, nuid: nuid)
 
-      found = AtlasRb::Collection.find(collection.noid)
+      found = AtlasRb::Collection.find(collection.noid, nuid: nuid)
       expect(found['tombstoned']).to be true
       expect(found['tombstoned_at']).to be_present
       expect(found['tombstoned_by']).to eq(nuid)
@@ -64,7 +60,7 @@ RSpec.describe 'Tombstone bindings via atlas_rb', :atlas_rb_server do
 
       AtlasRb::Collection.restore(collection.noid, nuid: nuid)
 
-      found = AtlasRb::Collection.find(collection.noid)
+      found = AtlasRb::Collection.find(collection.noid, nuid: nuid)
       expect(found['tombstoned']).to be false
       expect(found['tombstoned_at']).to be_blank
       expect(found['tombstoned_by']).to be_blank
@@ -77,7 +73,7 @@ RSpec.describe 'Tombstone bindings via atlas_rb', :atlas_rb_server do
 
       AtlasRb::Community.tombstone(community.noid, nuid: nuid)
 
-      found = AtlasRb::Community.find(community.noid)
+      found = AtlasRb::Community.find(community.noid, nuid: nuid)
       expect(found['tombstoned']).to be true
       expect(found['tombstoned_at']).to be_present
       expect(found['tombstoned_by']).to eq(nuid)
@@ -89,7 +85,7 @@ RSpec.describe 'Tombstone bindings via atlas_rb', :atlas_rb_server do
 
       AtlasRb::Community.restore(community.noid, nuid: nuid)
 
-      found = AtlasRb::Community.find(community.noid)
+      found = AtlasRb::Community.find(community.noid, nuid: nuid)
       expect(found['tombstoned']).to be false
       expect(found['tombstoned_at']).to be_blank
       expect(found['tombstoned_by']).to be_blank

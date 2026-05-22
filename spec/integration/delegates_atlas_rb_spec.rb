@@ -3,6 +3,8 @@
 require 'rails_helper'
 
 RSpec.describe 'Delegates via atlas_rb', :atlas_rb_server do
+  let(:admin_nuid) { '000000004' }
+
   let(:community)  { CommunityCreator.call }
   let(:collection) { CollectionCreator.call(parent_id: community.noid) }
   let(:work)       { WorkCreator.call(parent_id: collection.noid) }
@@ -14,7 +16,7 @@ RSpec.describe 'Delegates via atlas_rb', :atlas_rb_server do
       uri:         'https://iiif.example/iiif/3/abc.jp2/full/!85,85/0/default.jpg'
     )
 
-    found = AtlasRb::Delegate.find(delegate.noid)
+    found = AtlasRb::Delegate.find(delegate.noid, nuid: admin_nuid)
     expect(found['id']).to        eq(delegate.noid)
     expect(found['use']).to       eq(Role.thumbnail_image.name)
     expect(found['uri']).to       eq('https://iiif.example/iiif/3/abc.jp2/full/!85,85/0/default.jpg')
@@ -33,7 +35,7 @@ RSpec.describe 'Delegates via atlas_rb', :atlas_rb_server do
     # follow_redirects middleware (already wired into atlas_rb) handles the
     # hop transparently. Resource.find wraps the result with `klass` + the
     # type-key payload.
-    found = AtlasRb::Resource.find(delegate.noid)
+    found = AtlasRb::Resource.find(delegate.noid, nuid: admin_nuid)
     expect(found['klass']).to                eq('Delegate')
     expect(found['resource']['id']).to       eq(delegate.noid)
     expect(found['resource']['uri']).to      eq('https://iiif.example/iiif/3/abc.jp2/full/500,/0/default.jpg')

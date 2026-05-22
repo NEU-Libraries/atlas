@@ -74,24 +74,28 @@ RSpec.describe PreservationEnvelopeWriter do
 
     it 'permissions.json round-trips through Permissions#permissions=' do
       work.permissions = {
-        embargo: '2026-12-31T00:00:00+00:00',
-        depositor: ['nu123'],
-        read: ['public'],
-        edit: [Permissions::STAFF_EDIT_GROUP, 'northeastern:editors']
+        embargo:        '2026-12-31T00:00:00+00:00',
+        depositor:      'nu123',
+        proxy_uploader: 'nu456',
+        edit_users:     %w[nu123 nu456],
+        read:           ['public'],
+        edit:           [Permissions::STAFF_EDIT_GROUP, 'northeastern:editors']
       }
       Atlas.persister.save(resource: work)
       described_class.call(resource: work)
 
       raw = latest_content(work.noid, 'permissions.json')
       # Strip envelope-only keys before feeding to the setter.
-      hsh = raw.slice(:embargo, :depositor, :read, :edit)
+      hsh = raw.slice(:embargo, :depositor, :proxy_uploader, :edit_users, :read, :edit)
 
       fresh_work = WorkCreator.call(parent_id: collection.noid)
       fresh_work.permissions = hsh
       Atlas.persister.save(resource: fresh_work)
       reloaded = Work.find(fresh_work.id)
 
-      expect(reloaded.edit_users).to eq(['nu123'])
+      expect(reloaded.depositor).to eq('nu123')
+      expect(reloaded.proxy_uploader).to eq('nu456')
+      expect(reloaded.edit_users.to_a).to eq(%w[nu123 nu456])
       expect(reloaded.read_groups).to eq(['public'])
       expect(reloaded.edit_groups).to eq([Permissions::STAFF_EDIT_GROUP, 'northeastern:editors'])
       expect(reloaded.embargo_release_date.to_s).to start_with('2026-12-31')
@@ -109,7 +113,8 @@ RSpec.describe PreservationEnvelopeWriter do
       head_v1 = JSON.parse(File.read(object_root_for(work.noid).join('inventory.json')))['head']
 
       work.permissions = {
-        embargo: nil, depositor: ['nu999'], read: ['public'], edit: []
+        embargo: nil, depositor: 'nu999', proxy_uploader: 'nu999',
+        edit_users: ['nu999'], read: ['public'], edit: []
       }
       Atlas.persister.save(resource: work)
       described_class.call(resource: work)

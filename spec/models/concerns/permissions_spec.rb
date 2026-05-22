@@ -46,7 +46,12 @@ RSpec.describe Permissions do
 
   describe '#permissions=' do
     let(:base_hsh) do
-      { embargo: nil, depositor: ['nu1'], read: ['public'], edit: ['northeastern:editors'] }
+      { embargo:        nil,
+        depositor:      'nu1',
+        proxy_uploader: 'nu1',
+        edit_users:     ['nu1'],
+        read:           ['public'],
+        edit:           ['northeastern:editors'] }
     end
 
     it 'silently prepends the staff group when input :edit omits it' do
@@ -64,12 +69,33 @@ RSpec.describe Permissions do
       expect(work.edit_groups.to_a).to eq([Permissions::STAFF_EDIT_GROUP])
     end
 
-    it 'preserves :embargo, :depositor, and :read assignment' do
+    it 'preserves :embargo, :depositor, :proxy_uploader, :edit_users, and :read assignment' do
       work.permissions = base_hsh.merge(embargo: '2026-12-31T00:00:00+00:00')
 
       expect(work.embargo_release_date.to_s).to start_with('2026-12-31')
+      expect(work.depositor).to eq('nu1')
+      expect(work.proxy_uploader).to eq('nu1')
       expect(work.edit_users.to_a).to eq(['nu1'])
       expect(work.read_groups.to_a).to eq(['public'])
+    end
+  end
+
+  describe 'depositor and proxy_uploader as independent attributes' do
+    # Pre-piece-3 the depositor= setter aliased edit_users, so writing
+    # depositor wiped the ACL. The v2 fields are standalone — this spec
+    # is the regression marker.
+    it 'does NOT mutate edit_users when depositor is assigned' do
+      work.permissions = { embargo: nil, depositor: nil, proxy_uploader: nil,
+                           edit_users: ['nu_existing'], read: [], edit: [] }
+      work.depositor = 'nu_new_owner'
+      expect(work.edit_users.to_a).to eq(['nu_existing'])
+    end
+
+    it 'stores proxy_uploader independently of depositor' do
+      work.depositor      = 'faculty_nuid'
+      work.proxy_uploader = 'librarian_nuid'
+      expect(work.depositor).to eq('faculty_nuid')
+      expect(work.proxy_uploader).to eq('librarian_nuid')
     end
   end
 end

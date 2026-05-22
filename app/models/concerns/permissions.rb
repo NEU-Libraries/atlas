@@ -7,6 +7,19 @@ module Permissions
 
   included do
     attribute :embargo_release_date, Valkyrie::Types::DateTime.optional
+
+    # Provenance fields — see gap_reports/proxy_uploader_and_system_auth.md.
+    # depositor       = intellectual owner (the named author/depositor; may
+    #                   point at the seeded :anonymous user for batch loads).
+    # proxy_uploader  = hands-on-keyboard actor for the most recent
+    #                   ownership-affecting write. Common case: equals
+    #                   depositor (self-deposit). Librarian-on-behalf case:
+    #                   depositor = faculty NUID, proxy_uploader = librarian NUID.
+    # Both are single NUID strings — denormalized projections of current
+    # state, queried as O(1) Solr field reads (depositor_ssi /
+    # proxy_uploader_ssi). The append-only history lives in AuditEvent.
+    attribute :depositor,      Valkyrie::Types::String.optional
+    attribute :proxy_uploader, Valkyrie::Types::String.optional
   end
 
   def embargoed?
@@ -15,10 +28,6 @@ module Permissions
 
     # if it's set, has it passed >, < etc.
     embargo_release_date > DateTime.now
-  end
-
-  def depositor=(nuid)
-    self.edit_users = [nuid]
   end
 
   # Need to clone and mutate due to valkyrie array freeze
@@ -44,15 +53,20 @@ module Permissions
     self.edit_groups = edit_groups.map(&:clone).reject! { |gn| gn == group_name }
   end
 
+  # Envelope shape — see Preservable / preservation_envelope_writer for
+  # the on-disk projection. v2 splits depositor from edit_users (v1
+  # aliased them); the schema bump is captured in
+  # Preservable::ENVELOPE_SCHEMA_VERSION.
   def permissions
-    result = {}
-    result[:embargo] = embargo_release_date&.to_s
-    result[:depositor] = edit_users
-    result[:read] = read_groups
-    result[:edit] = edit_groups
-    result[:type] = self.class.name
-
-    result
+    {
+      embargo:        embargo_release_date&.to_s,
+      depositor:      depositor,
+      proxy_uploader: proxy_uploader,
+      edit_users:     edit_users,
+      read:           read_groups,
+      edit:           edit_groups,
+      type:           self.class.name
+    }
   end
 
   def permissions=(hsh)
@@ -64,8 +78,10 @@ module Permissions
                                   ''
                                 end
 
-    self.edit_users = hsh[:depositor]
-    self.read_groups = hsh[:read]
+    self.depositor      = hsh[:depositor]
+    self.proxy_uploader = hsh[:proxy_uploader]
+    self.edit_users     = Array(hsh[:edit_users])
+    self.read_groups    = hsh[:read]
 
     incoming_edit = Array(hsh[:edit])
     self.edit_groups = if incoming_edit.include?(STAFF_EDIT_GROUP)

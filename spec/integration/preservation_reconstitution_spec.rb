@@ -138,23 +138,27 @@ RSpec.describe 'OCFL preservation reconstitution', type: :integration do
   it 'permissions from disk round-trip back into Permissions#permissions=' do
     community = CommunityCreator.call
     community.permissions = {
-      embargo: nil,
-      depositor: ['nu999'],
-      read: ['public'],
-      edit: [Permissions::STAFF_EDIT_GROUP, 'northeastern:editors']
+      embargo:        nil,
+      depositor:      'nu999',
+      proxy_uploader: 'nu999',
+      edit_users:     ['nu999'],
+      read:           ['public'],
+      edit:           [Permissions::STAFF_EDIT_GROUP, 'northeastern:editors']
     }
     Atlas.persister.save(resource: community)
     community.write_preservation_envelope!
 
     recovered = reconstitute_from_disk
     perms_raw = recovered[community.noid]['permissions.json']
-    perms = perms_raw.slice(:embargo, :depositor, :read, :edit)
+    perms = perms_raw.slice(:embargo, :depositor, :proxy_uploader, :edit_users, :read, :edit)
 
     fresh = Atlas.persister.save(resource: Community.new)
     fresh.permissions = perms
     fresh = Atlas.persister.save(resource: fresh)
 
-    expect(fresh.edit_users).to eq(['nu999'])
+    expect(fresh.depositor).to eq('nu999')
+    expect(fresh.proxy_uploader).to eq('nu999')
+    expect(fresh.edit_users.to_a).to eq(['nu999'])
     expect(fresh.read_groups).to eq(['public'])
     expect(fresh.edit_groups).to eq([Permissions::STAFF_EDIT_GROUP, 'northeastern:editors'])
   end

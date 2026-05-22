@@ -7,7 +7,11 @@
 module Preservable
   extend ActiveSupport::Concern
 
-  ENVELOPE_SCHEMA_VERSION = 1
+  # v1 → v2: :depositor changed from "array of edit_users" to a single
+  # NUID string (intellectual owner). Added :proxy_uploader (single NUID
+  # string) and :edit_users (the explicit ACL list previously aliased
+  # behind :depositor). See gap_reports/proxy_uploader_and_system_auth.md.
+  ENVELOPE_SCHEMA_VERSION = 2
 
   def graph_payload
     {

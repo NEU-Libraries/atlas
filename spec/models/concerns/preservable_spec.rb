@@ -15,7 +15,7 @@ RSpec.describe Preservable do
     context 'on a root Community' do
       it 'reports type, empty a_member_of, empty member_ids' do
         payload = community.graph_payload
-        expect(payload[:schema_version]).to eq(1)
+        expect(payload[:schema_version]).to eq(2)
         expect(payload[:noid]).to eq(community.noid)
         expect(payload[:type]).to eq('Community')
         expect(payload[:classification]).to eq('Community')
@@ -63,7 +63,7 @@ RSpec.describe Preservable do
       it 'reports the role-bearing fields needed for preservation' do
         payload = mods_blob.graph_payload
 
-        expect(payload[:schema_version]).to eq(1)
+        expect(payload[:schema_version]).to eq(2)
         expect(payload[:noid]).to eq(mods_blob.noid)
         expect(payload[:type]).to eq('Blob')
         expect(payload[:use]).to eq(Role.descriptive_metadata.name)
@@ -110,27 +110,33 @@ RSpec.describe Preservable do
     it 'mirrors the keys Permissions#permissions= consumes' do
       payload = work.permissions_payload
 
-      expect(payload[:schema_version]).to eq(1)
+      expect(payload[:schema_version]).to eq(2)
       expect(payload[:noid]).to eq(work.noid)
       expect(payload).to have_key(:embargo)
       expect(payload).to have_key(:depositor)
+      expect(payload).to have_key(:proxy_uploader)
+      expect(payload).to have_key(:edit_users)
       expect(payload).to have_key(:read)
       expect(payload).to have_key(:edit)
     end
 
     it 'reflects mutations to permissions (round-trip via setter)' do
       work.permissions = {
-        embargo: '2026-12-31T00:00:00+00:00',
-        depositor: ['nu123'],
-        read: ['public'],
-        edit: [Permissions::STAFF_EDIT_GROUP, 'northeastern:editors']
+        embargo:        '2026-12-31T00:00:00+00:00',
+        depositor:      'nu123',
+        proxy_uploader: 'nu456',
+        edit_users:     %w[nu123 nu456],
+        read:           ['public'],
+        edit:           [Permissions::STAFF_EDIT_GROUP, 'northeastern:editors']
       }
       Atlas.persister.save(resource: work)
 
       reloaded = Work.find(work.id)
       payload = reloaded.permissions_payload
 
-      expect(payload[:depositor]).to eq(['nu123'])
+      expect(payload[:depositor]).to eq('nu123')
+      expect(payload[:proxy_uploader]).to eq('nu456')
+      expect(payload[:edit_users].to_a).to eq(%w[nu123 nu456])
       expect(payload[:read]).to eq(['public'])
       expect(payload[:edit]).to eq([Permissions::STAFF_EDIT_GROUP, 'northeastern:editors'])
       expect(payload[:embargo]).to start_with('2026-12-31')

@@ -34,7 +34,8 @@ Rails.application.config.to_prepare do
           Valkyrie::Indexers::AccessControlsIndexer,
           MODSIndexer,
           TombstoneIndexer,
-          ThumbnailIndexer
+          ThumbnailIndexer,
+          ProvenanceIndexer
         )
       ),
       :index_solr
@@ -47,7 +48,8 @@ Rails.application.config.to_prepare do
           Valkyrie::Indexers::AccessControlsIndexer,
           MODSIndexer,
           TombstoneIndexer,
-          ThumbnailIndexer
+          ThumbnailIndexer,
+          ProvenanceIndexer
         )
       ),
       :test_solr

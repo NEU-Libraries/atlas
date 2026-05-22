@@ -52,4 +52,27 @@ class User < ApplicationRecord
       self.save!
     end
   end
+
+  # Promote/demote a user with an auditable trail. Refuses to mutate the
+  # role without an explicit actor_nuid — keeps the developer-executed
+  # grant flow honest until an admin UI ships.
+  #
+  # actor_nuid: NUID of the human running the command (developer at the
+  #             Rails console today; current_user once the admin UI exists).
+  # note:       optional free-text rationale carried into AuditEvent.note
+  #             (typically the Manager's stated reason for the grant).
+  def set_role(new_role, actor_nuid:, note: nil)
+    raise ArgumentError, 'actor_nuid required for role mutation' if actor_nuid.blank?
+
+    old_role = role
+    update!(role: new_role)
+    AuditEventWriter.record(
+      actor_nuid:   actor_nuid,
+      action:       'update',
+      change_type:  'permissions',
+      event_source: 'script',
+      note:         note,
+      payload:      { old_role: old_role, new_role: new_role.to_s, target_nuid: nuid }
+    )
+  end
 end

@@ -10,10 +10,30 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.0].define(version: 2026_05_22_120000) do
+ActiveRecord::Schema[7.0].define(version: 2026_05_22_140000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
   enable_extension "uuid-ossp"
+
+  create_table "audit_events", force: :cascade do |t|
+    t.string "actor_nuid", null: false
+    t.string "on_behalf_of_nuid"
+    t.string "action", null: false
+    t.string "change_type", null: false
+    t.datetime "occurred_at", null: false
+    t.string "event_source", null: false
+    t.jsonb "payload", default: {}, null: false
+    t.text "note"
+    t.string "resource_id"
+    t.string "resource_type"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["actor_nuid"], name: "index_audit_events_on_actor_nuid"
+    t.index ["occurred_at"], name: "index_audit_events_on_occurred_at"
+    t.index ["on_behalf_of_nuid"], name: "index_audit_events_on_on_behalf_of_nuid"
+    t.index ["resource_id", "occurred_at"], name: "index_audit_events_on_resource_id_and_occurred_at", order: { occurred_at: :desc }
+    t.index ["resource_id", "resource_type"], name: "index_audit_events_on_resource_id_and_resource_type"
+  end
 
   create_table "idempotency_keys", force: :cascade do |t|
     t.bigint "user_id", null: false

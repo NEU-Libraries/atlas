@@ -44,6 +44,7 @@ Rails.application.routes.draw do
     # Generics
     get '/resources/:id', to: 'resources#show'
     get '/resources/:id/permissions', to: 'resources#permissions'
+    get '/resources/:id/history', to: 'audit_events#index', as: 'resource_history'
     post '/resources/preview', to: 'resources#preview', defaults: { format: 'html' }
 
     # Metadata

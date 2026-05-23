@@ -55,32 +55,73 @@ class ApplicationController < ActionController::API
 
     # Resolve @current_user from the (Bearer token, User: NUID) pair.
     #
-    #   token == cerberus_token + User present + known        → that user
-    #   token == cerberus_token + User present + :anonymous   → 401 (Q2 hard guard)
-    #   token == cerberus_token + User present + unknown NUID → 400
-    #   token == cerberus_token + User missing                → 400
-    #   token blank                                           → guest (read-only)
-    #   token present but mismatched                          → 401
+    # Two bearer tokens are recognized, with strict pairing rules:
     #
-    # The pre-piece-2 behavior was looser in two places: a missing User
-    # header implicitly resolved to :system, and a mismatched token fell
-    # through to guest instead of 401-ing. Both were silent
-    # privilege-elevation footguns and are now hard rejections.
+    #   cerberus_token  — Cerberus's user-facing wire token. Pairs with
+    #                     any real-person principal (NOT :system).
+    #   system_token    — atlas_rb's System namespace token. Pairs only
+    #                     with the :system fixture.
+    #
+    # Matrix:
+    #
+    #   blank token                          → guest (read-only)
+    #   cerberus_token + User missing        → 400
+    #   cerberus_token + unknown NUID        → 400
+    #   cerberus_token + :anonymous          → 401 (Q2 hard guard)
+    #   cerberus_token + :system NUID        → 401 (pairing rule)
+    #   cerberus_token + real-person NUID    → that user
+    #   system_token + User missing          → 400
+    #   system_token + unknown NUID          → 400
+    #   system_token + non-:system NUID      → 401 (pairing rule)
+    #   system_token + :system NUID          → :system
+    #   any other token                      → 401
+    #
+    # Pre-piece-6 had a single token. The pairing split closes the
+    # leaked-token-cross-pairing footgun: a stolen user token can't
+    # impersonate :system, and a stolen system token can't impersonate
+    # any real person.
     def require_auth
       parse_headers
       return guest_sign_in if @token.blank?
-      return render_error(:unauthorized, 'invalid bearer token') unless valid_cerberus_token?
+
+      if valid_cerberus_token?
+        resolve_cerberus_user
+      elsif valid_system_token?
+        resolve_system_user
+      else
+        render_error(:unauthorized, 'invalid bearer token')
+      end
+    end
+
+    def resolve_cerberus_user
       return render_error(:bad_request, 'User: NUID header required') if @nuid.blank?
 
       user = User.find_by(nuid: @nuid)
       return render_error(:bad_request, "unknown principal #{@nuid}") if user.nil?
       return render_error(:unauthorized, ':anonymous cannot authenticate') if user.anonymous?
+      return render_error(:unauthorized, 'user token must not be paired with the :system fixture') if user.system?
+
+      @current_user = user
+    end
+
+    def resolve_system_user
+      return render_error(:bad_request, 'User: NUID header required') if @nuid.blank?
+
+      user = User.find_by(nuid: @nuid)
+      return render_error(:bad_request, "unknown principal #{@nuid}") if user.nil?
+      return render_error(:unauthorized, 'system token must only be paired with the :system fixture') unless user.system?
 
       @current_user = user
     end
 
     def valid_cerberus_token?
-      @token == Rails.application.credentials.cerberus_token
+      configured = Rails.application.credentials.cerberus_token
+      configured.present? && @token == configured
+    end
+
+    def valid_system_token?
+      configured = Rails.application.credentials.system_token
+      configured.present? && @token == configured
     end
 
     def guest_sign_in

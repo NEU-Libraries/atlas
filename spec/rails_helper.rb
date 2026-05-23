@@ -46,6 +46,14 @@ RSpec.configure do |config|
   config.before(:suite) do
     FileUtils.rm_rf(Rails.root.join('tmp', 'files'))
     Atlas.persister.wipe!
+    # AR-managed rows that integration specs commit outside the per-example
+    # transaction (the Capybara::Server Puma thread holds its own connection
+    # — most writes ARE rolled back via Rails 5+ connection sharing, but
+    # rows from prior non-rspec HTTP activity against the same test DB are
+    # not). Sweep at suite start so unit-level scopes (e.g. AuditEvent
+    # `by_actor` in audit_event_spec) see only what the suite itself
+    # creates.
+    AuditEvent.delete_all
   end
 
   # Remove this line if you're not using ActiveRecord or ActiveRecord fixtures

@@ -30,7 +30,7 @@ RSpec.describe 'Works via atlas_rb', :atlas_rb_server do
   it 'destroys a Work via HTTP' do
     work = WorkCreator.call(parent_id: collection.noid)
 
-    AtlasRb::Work.destroy(work.noid, nuid: admin_nuid)
+    AtlasRb::Admin::Work.destroy(work.noid, confirm: :i_understand, nuid: admin_nuid)
     expect(Work.find(work.noid)).to be_nil
   end
 

@@ -31,7 +31,7 @@ RSpec.describe 'Tombstone bindings via atlas_rb', :atlas_rb_server do
       work = WorkCreator.call(parent_id: collection.noid)
       AtlasRb::Work.tombstone(work.noid, nuid: nuid)
 
-      AtlasRb::Work.restore(work.noid, nuid: nuid)
+      AtlasRb::Admin::Work.restore(work.noid, nuid: nuid)
 
       found = AtlasRb::Work.find(work.noid, nuid: nuid)
       expect(found['tombstoned']).to be false
@@ -58,7 +58,7 @@ RSpec.describe 'Tombstone bindings via atlas_rb', :atlas_rb_server do
       collection = CollectionCreator.call(parent_id: community.noid)
       AtlasRb::Collection.tombstone(collection.noid, nuid: nuid)
 
-      AtlasRb::Collection.restore(collection.noid, nuid: nuid)
+      AtlasRb::Admin::Collection.restore(collection.noid, nuid: nuid)
 
       found = AtlasRb::Collection.find(collection.noid, nuid: nuid)
       expect(found['tombstoned']).to be false
@@ -83,7 +83,7 @@ RSpec.describe 'Tombstone bindings via atlas_rb', :atlas_rb_server do
       community = CommunityCreator.call
       AtlasRb::Community.tombstone(community.noid, nuid: nuid)
 
-      AtlasRb::Community.restore(community.noid, nuid: nuid)
+      AtlasRb::Admin::Community.restore(community.noid, nuid: nuid)
 
       found = AtlasRb::Community.find(community.noid, nuid: nuid)
       expect(found['tombstoned']).to be false

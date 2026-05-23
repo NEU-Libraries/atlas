@@ -40,7 +40,7 @@ RSpec.describe 'Collections via atlas_rb', :atlas_rb_server do
   it 'destroys a Collection via HTTP' do
     collection = CollectionCreator.call(parent_id: community.noid)
 
-    AtlasRb::Collection.destroy(collection.noid, nuid: admin_nuid)
+    AtlasRb::Admin::Collection.destroy(collection.noid, confirm: :i_understand, nuid: admin_nuid)
     expect(Collection.find(collection.noid)).to be_nil
   end
 

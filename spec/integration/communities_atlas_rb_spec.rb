@@ -29,7 +29,7 @@ RSpec.describe 'Communities via atlas_rb', :atlas_rb_server do
     parent = CommunityCreator.call
     created = AtlasRb::Community.create(parent.noid, nuid: admin_nuid)
 
-    AtlasRb::Community.destroy(created['id'], nuid: admin_nuid)
+    AtlasRb::Admin::Community.destroy(created['id'], confirm: :i_understand, nuid: admin_nuid)
     expect(Community.find(created['id'])).to be_nil
   end
 

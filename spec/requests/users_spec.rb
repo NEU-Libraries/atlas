@@ -88,7 +88,7 @@ RSpec.describe 'User', type: :request, default_auth: false do
         let(:system_token) { 'test-system-token' }
         before do
           allow(Rails.application.credentials)
-            .to receive(:cerberus_token).and_return(system_token)
+            .to receive(:system_token).and_return(system_token)
         end
         let(:Authorization) { "Bearer #{system_token}" }
         let(:User) { "NUID #{system_user.nuid}" }

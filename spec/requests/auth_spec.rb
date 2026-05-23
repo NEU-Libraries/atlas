@@ -2,23 +2,28 @@
 
 require 'rails_helper'
 
-# The piece-2 auth-matrix regression. Verifies the require_auth rewrite
-# (closes both pre-piece-2 footguns: missing User header silently elevating
-# to :system, and a mismatched token silently falling through to guest) and
-# — since piece 7 — the Ability-layer 403s on write actions for principals
-# that lack the required ability (notably :system on Work writes).
+# The piece-2 auth-matrix regression, extended in piece 6 with the
+# token-pairing rules.
 #
-# See gap_reports/proxy_uploader_and_system_auth.md and
-# gap_reports/plan_atlas.md piece 2 for the design rationale.
+# Closes the pre-piece-2 footguns (missing User header silently elevating
+# to :system, mismatched token silently falling through to guest); the
+# piece-7 Ability layer 403s; and the piece-6 cross-pairing footgun (user
+# token impersonating :system, system token impersonating a real person).
+#
+# See gap_reports/proxy_uploader_and_system_auth.md, gap_reports/
+# plan_atlas.md pieces 2 and 6, and the piece-6 prompt for design notes.
 #
 # default_auth: false — this spec drives the auth matrix by hand, so the
 # global admin-default in spec/support/auth_request_helper.rb does not apply.
 RSpec.describe 'Auth matrix', type: :request, default_auth: false do
   let(:cerberus_token) { 'test-cerberus-token' }
+  let(:system_token)   { 'test-system-token' }
 
   before do
     allow(Rails.application.credentials)
       .to receive(:cerberus_token).and_return(cerberus_token)
+    allow(Rails.application.credentials)
+      .to receive(:system_token).and_return(system_token)
   end
 
   let!(:system_user) do
@@ -84,19 +89,59 @@ RSpec.describe 'Auth matrix', type: :request, default_auth: false do
     end
   end
 
-  describe 'Ability-driven 403s on write actions' do
+  describe 'piece-6 token-pairing matrix' do
+    it 'rejects cerberus_token paired with the :system NUID (401)' do
+      get '/communities', headers: auth_headers(token: cerberus_token, nuid: system_user.nuid)
+      expect(response).to have_http_status(:unauthorized)
+      expect(response.parsed_body['error']).to match(/user token must not be paired with the :system fixture/)
+    end
+
+    it 'rejects system_token paired with a real-person NUID (401)' do
+      get '/communities', headers: auth_headers(token: system_token, nuid: privileged.nuid)
+      expect(response).to have_http_status(:unauthorized)
+      expect(response.parsed_body['error']).to match(/system token must only be paired with the :system fixture/)
+    end
+
+    it 'resolves :system when system_token is paired with the :system NUID' do
+      put '/users/by_nuid/001234567',
+          params:  { groups: [], email: 'x@y.z', name: 'X' }.to_json,
+          headers: auth_headers(token: system_token, nuid: system_user.nuid).merge('Content-Type' => 'application/json')
+      expect(response).to have_http_status(:ok)
+    end
+
+    it 'returns 400 when system_token is sent without a User header' do
+      get '/communities', headers: auth_headers(token: system_token)
+      expect(response).to have_http_status(:bad_request)
+      expect(response.parsed_body['error']).to match(/User: NUID header required/)
+    end
+
+    it 'returns 400 when system_token is paired with an unknown NUID' do
+      get '/communities', headers: auth_headers(token: system_token, nuid: '999999999')
+      expect(response).to have_http_status(:bad_request)
+      expect(response.parsed_body['error']).to match(/unknown principal/)
+    end
+  end
+
+  describe 'Ability-driven 403s on write actions (system_token-paired)' do
+    # Post-piece-6, the :system principal authenticates with system_token,
+    # not cerberus_token. The Ability layer still denies :system on Work
+    # creation / mutation; only the wire token used to reach the action
+    # changes.
+    def system_headers
+      auth_headers(token: system_token, nuid: system_user.nuid)
+    end
+
     it 'rejects the :system principal on POST /works' do
       post '/works',
            params:  { collection_id: collection.noid }.to_json,
-           headers: auth_headers(nuid: system_user.nuid).merge('Content-Type' => 'application/json')
+           headers: system_headers.merge('Content-Type' => 'application/json')
       expect(response).to have_http_status(:forbidden)
       expect(response.parsed_body).to include('action' => 'create', 'subject' => 'Work')
     end
 
     it 'rejects the :system principal on Work tombstone' do
       work = WorkCreator.call(parent_id: collection.noid)
-      post "/works/#{work.noid}/tombstone",
-           headers: auth_headers(nuid: system_user.nuid)
+      post "/works/#{work.noid}/tombstone", headers: system_headers
       expect(response).to have_http_status(:forbidden)
     end
 
@@ -108,34 +153,30 @@ RSpec.describe 'Auth matrix', type: :request, default_auth: false do
     end
 
     it 'rejects the :system principal on Collection tombstone but permits create (Q7 lean)' do
-      # tombstone — rejected
-      post "/collections/#{collection.noid}/tombstone",
-           headers: auth_headers(nuid: system_user.nuid)
+      post "/collections/#{collection.noid}/tombstone", headers: system_headers
       expect(response).to have_http_status(:forbidden)
 
-      # create — still permitted (the seed task currently depends on this)
       post '/collections',
            params:  { parent_id: community.noid }.to_json,
-           headers: auth_headers(nuid: system_user.nuid).merge('Content-Type' => 'application/json')
+           headers: system_headers.merge('Content-Type' => 'application/json')
       expect(response.status).to be_in([200, 201])
     end
 
     it 'rejects the :system principal on Community tombstone but permits create (Q7 lean)' do
       empty_community = CommunityCreator.call
-      post "/communities/#{empty_community.noid}/tombstone",
-           headers: auth_headers(nuid: system_user.nuid)
+      post "/communities/#{empty_community.noid}/tombstone", headers: system_headers
       expect(response).to have_http_status(:forbidden)
 
       post '/communities',
            params:  {}.to_json,
-           headers: auth_headers(nuid: system_user.nuid).merge('Content-Type' => 'application/json')
+           headers: system_headers.merge('Content-Type' => 'application/json')
       expect(response.status).to be_in([200, 201])
     end
 
     it 'permits the :system principal on PUT /users/by_nuid/:nuid (provisioning stays system-only)' do
       put '/users/by_nuid/001234567',
           params:  { groups: [], email: 'x@y.z', name: 'X' }.to_json,
-          headers: auth_headers(nuid: system_user.nuid).merge('Content-Type' => 'application/json')
+          headers: system_headers.merge('Content-Type' => 'application/json')
       expect(response).to have_http_status(:ok)
     end
   end

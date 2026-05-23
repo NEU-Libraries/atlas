@@ -1,11 +1,18 @@
 # frozen_string_literal: true
 
 class MaintenanceController < ApplicationController
+  # Reset is the test/dev bootstrap escape hatch. It deliberately runs
+  # unauthenticated — the Rails.env guard inside the action is the only
+  # gate. Wiring auth on it would break the bootstrap chicken-and-egg:
+  # the action wipes and re-seeds the fixture users, so the very first
+  # call against a fresh test container has nobody to authenticate as.
+  # The piece-7 `authorize! :reset, :maintenance` is replaced by
+  # `skip_authorization_check` so the ApplicationController-level
+  # `check_authorization` after_action doesn't trip.
+  skip_before_action :require_auth, only: :reset
+  skip_authorization_check only: :reset
+
   def reset
-    authorize! :reset, :maintenance
-    # dev or test only — belt-and-suspenders. Ability already gates this to
-    # admin; the env check is the second locked door in case Ability is ever
-    # weakened.
     unless Rails.env.development? || Rails.env.staging? || Rails.env.test?
       raise "Wrong env - #{Rails.env} - must not be production"
     end

@@ -71,6 +71,30 @@ RSpec.describe 'Audit history endpoint', type: :request do
       expect(response).to have_http_status(:forbidden)
     end
 
+    it 'resolves the URL NOID to the Valkyrie UUID the writer stored' do
+      # Regression coverage: the writer persists resource_id as the
+      # Valkyrie UUID (resource&.id&.to_s), but callers hit this
+      # endpoint with the NOID. Without NOID-to-UUID resolution in the
+      # controller, the lookup misses every event written via the real
+      # AuditEventWriter path.
+      community = CommunityCreator.call
+      collection = CollectionCreator.call(parent_id: community.noid)
+      work = WorkCreator.call(
+        parent_id:  collection.noid,
+        actor_nuid: '000000004'
+      )
+      # Sanity: writer stamped resource_id with the UUID, not the NOID.
+      stamped = AuditEvent.where(actor_nuid: '000000004', action: 'create').last
+      expect(stamped.resource_id).to eq(work.id.to_s)
+      expect(stamped.resource_id).not_to eq(work.noid)
+
+      # And the endpoint, called with the NOID, still finds the row.
+      get "/resources/#{work.noid}/history", headers: admin_headers
+      expect(response).to have_http_status(:ok)
+      actions = response.parsed_body['events'].map { |e| e['action'] } # rubocop:disable Rails/Pluck
+      expect(actions).to include('create')
+    end
+
     it 'returns rows for resources that no longer exist (lifecycle-decoupled)' do
       # Even though resource_id "missing999" has no corresponding Valkyrie row,
       # any AuditEvents stamped with it remain queryable.

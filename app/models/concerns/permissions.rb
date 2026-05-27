@@ -72,14 +72,17 @@ module Permissions
   def permissions=(hsh)
     # Need to allow for copying another Resource's permissions
     # Heritability, and sentinels down the line
-    self.embargo_release_date = if hsh[:embargo].present?
-                                  DateTime.parse(hsh[:embargo])
-                                else
-                                  ''
-                                end
+    self.embargo_release_date = hsh[:embargo].present? ? DateTime.parse(hsh[:embargo]) : ''
 
-    self.depositor      = hsh[:depositor]
-    self.proxy_uploader = hsh[:proxy_uploader]
+    # Provenance slots are write-once. The metadata PATCH path
+    # (CollectionsController#metadata_update et al.) passes only ACL keys
+    # through this setter, so a missing :depositor / :proxy_uploader key
+    # must NOT nil the existing stamp. Creators copying parent.permissions
+    # always include both keys (via the getter above) and so still write
+    # through — the parent.permissions-copy-then-stamp invariant is
+    # preserved.
+    self.depositor      = hsh[:depositor]      if envelope_carries?(hsh, :depositor)
+    self.proxy_uploader = hsh[:proxy_uploader] if envelope_carries?(hsh, :proxy_uploader)
     self.edit_users     = Array(hsh[:edit_users])
     self.read_groups    = hsh[:read]
 
@@ -89,6 +92,13 @@ module Permissions
                        else
                          incoming_edit.unshift(STAFF_EDIT_GROUP)
                        end
+  end
+
+  # Either symbol-keyed (creator-side, from the `permissions` getter) or
+  # string-keyed (controller-side, from ActionController::Parameters);
+  # the setter accepts both shapes.
+  def envelope_carries?(hsh, key)
+    hsh.key?(key) || hsh.key?(key.to_s)
   end
 
   def public?

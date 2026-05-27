@@ -78,6 +78,43 @@ RSpec.describe Permissions do
       expect(work.edit_users.to_a).to eq(['nu1'])
       expect(work.read_groups.to_a).to eq(['public'])
     end
+
+    # Gap C regression — metadata PATCH carries only ACL keys, and used
+    # to wipe depositor/proxy_uploader as a side effect.
+    describe 'provenance-preserve semantics' do
+      before do
+        work.depositor      = 'faculty_nuid'
+        work.proxy_uploader = 'librarian_nuid'
+      end
+
+      it 'preserves depositor/proxy_uploader when the incoming hash omits them (ACL-only PATCH)' do
+        work.permissions = { read: ['public'], edit: ['northeastern:editors'], edit_users: [] }
+
+        expect(work.depositor).to      eq('faculty_nuid')
+        expect(work.proxy_uploader).to eq('librarian_nuid')
+      end
+
+      it 'still nils when an explicit nil is sent (creator copy-from-parent retains semantics)' do
+        # Mirrors the shape returned by Permissions#permissions — both
+        # provenance keys are always present, with possibly-nil values.
+        work.permissions = { embargo:        nil,
+                             depositor:      nil,
+                             proxy_uploader: nil,
+                             edit_users:     [],
+                             read:           [],
+                             edit:           [] }
+
+        expect(work.depositor).to      be_nil
+        expect(work.proxy_uploader).to be_nil
+      end
+
+      it 'accepts a string-keyed hash (the controller params shape) and preserves on omit' do
+        work.permissions = { 'read' => ['public'], 'edit' => [], 'edit_users' => [] }
+
+        expect(work.depositor).to      eq('faculty_nuid')
+        expect(work.proxy_uploader).to eq('librarian_nuid')
+      end
+    end
   end
 
   describe 'depositor and proxy_uploader as independent attributes' do

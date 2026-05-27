@@ -497,4 +497,28 @@ RSpec.describe 'Works', type: :request do
       end
     end
   end
+
+  # Gap C regression — see collections_spec / permissions_spec for the
+  # full rationale.
+  describe 'PATCH /works/:id with ACL-only metadata preserves provenance' do
+    it 'leaves depositor/proxy_uploader intact when metadata[permissions] omits them' do
+      work = WorkCreator.call(
+        parent_id:      collection.noid,
+        proxy_uploader: '000000002',
+        depositor:      '900000001',
+        actor_nuid:     '000000002'
+      )
+      expect(work.depositor).to      eq('900000001')
+      expect(work.proxy_uploader).to eq('000000002')
+
+      patch "/works/#{work.noid}",
+            params: { metadata: { permissions: { read: ['public'], edit: [], edit_users: [] } } }
+
+      expect(response).to have_http_status(:ok)
+      reloaded = Work.find(work.noid)
+      expect(reloaded.depositor).to      eq('900000001')
+      expect(reloaded.proxy_uploader).to eq('000000002')
+      expect(reloaded.read_groups.to_a).to eq(['public'])
+    end
+  end
 end

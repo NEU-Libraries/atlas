@@ -279,4 +279,27 @@ RSpec.describe 'Communities', type: :request do
       end
     end
   end
+
+  # Gap C regression — see collections_spec / permissions_spec for the
+  # full rationale.
+  describe 'PATCH /communities/:id with ACL-only metadata preserves provenance' do
+    it 'leaves depositor/proxy_uploader intact when metadata[permissions] omits them' do
+      community = CommunityCreator.call(
+        proxy_uploader: '000000002',
+        depositor:      '900000001',
+        actor_nuid:     '000000002'
+      )
+      expect(community.depositor).to      eq('900000001')
+      expect(community.proxy_uploader).to eq('000000002')
+
+      patch "/communities/#{community.noid}",
+            params: { metadata: { permissions: { read: ['public'], edit: [], edit_users: [] } } }
+
+      expect(response).to have_http_status(:ok)
+      reloaded = Community.find(community.noid)
+      expect(reloaded.depositor).to      eq('900000001')
+      expect(reloaded.proxy_uploader).to eq('000000002')
+      expect(reloaded.read_groups.to_a).to eq(['public'])
+    end
+  end
 end

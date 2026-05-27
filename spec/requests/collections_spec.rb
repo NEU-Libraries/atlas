@@ -284,4 +284,30 @@ RSpec.describe 'Collections', type: :request do
       end
     end
   end
+
+  # Gap C regression — an ACL-only metadata PATCH used to wipe
+  # depositor / proxy_uploader because Permissions#permissions= unconditionally
+  # wrote those slots. Plain RSpec example (not rswag) since the multipart
+  # nested-params shape is awkward to document via parameter declarations.
+  describe 'PATCH /collections/:id with ACL-only metadata preserves provenance' do
+    it 'leaves depositor/proxy_uploader intact when metadata[permissions] omits them' do
+      collection = CollectionCreator.call(
+        parent_id:      community.noid,
+        proxy_uploader: '000000002',
+        depositor:      '900000001',
+        actor_nuid:     '000000002'
+      )
+      expect(collection.depositor).to      eq('900000001')
+      expect(collection.proxy_uploader).to eq('000000002')
+
+      patch "/collections/#{collection.noid}",
+            params: { metadata: { permissions: { read: ['public'], edit: [], edit_users: [] } } }
+
+      expect(response).to have_http_status(:ok)
+      reloaded = Collection.find(collection.noid)
+      expect(reloaded.depositor).to      eq('900000001')
+      expect(reloaded.proxy_uploader).to eq('000000002')
+      expect(reloaded.read_groups.to_a).to eq(['public'])
+    end
+  end
 end

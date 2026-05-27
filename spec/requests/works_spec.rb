@@ -159,6 +159,24 @@ RSpec.describe 'Works', type: :request do
         run_test!
       end
 
+      response '200', 'depositor and proxy_uploader project onto the Work JSON' do
+        let(:work) do
+          WorkCreator.call(
+            parent_id:      collection.noid,
+            proxy_uploader: '000000002', # librarian on the keyboard
+            depositor:      '900000001', # named faculty depositor
+            actor_nuid:     '000000002'
+          )
+        end
+        let(:id) { work.noid }
+        schema '$ref' => '#/components/schemas/Work'
+        run_test! do |response|
+          body = JSON.parse(response.body).fetch('work')
+          expect(body['depositor']).to      eq('900000001')
+          expect(body['proxy_uploader']).to eq('000000002')
+        end
+      end
+
       response '200', 'all three thumbnail tiers project onto the Work JSON when Delegates exist' do
         let(:work) { WorkCreator.call(parent_id: collection.noid) }
         let(:id)   { work.noid }

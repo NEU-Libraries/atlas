@@ -26,7 +26,13 @@ class CommunitiesController < ApplicationController
   def create
     authorize! :create, Community
     # TODO: XML
-    @community = CommunityCreator.call(parent_id: params[:parent_id])
+    @community = CommunityCreator.call(
+      parent_id:         params[:parent_id],
+      proxy_uploader:    proxy_uploader_nuid,
+      depositor:         depositor_nuid,
+      actor_nuid:        @current_user&.nuid,
+      on_behalf_of_nuid: @on_behalf_of
+    )
   end
 
   def mods
@@ -105,6 +111,20 @@ class CommunitiesController < ApplicationController
   end
 
   private
+
+    # Mirror of WorksController's provenance helpers — see that file for
+    # the full rationale. Communities are roots, so there's no parent
+    # depositor to inherit; depositor falls back directly to the
+    # proxy_uploader.
+    def proxy_uploader_nuid
+      @on_behalf_of.presence || @current_user&.nuid
+    end
+
+    def depositor_nuid
+      return params[:depositor] if params[:depositor].present?
+
+      proxy_uploader_nuid
+    end
 
     def binary_update
       file = params[:binary]

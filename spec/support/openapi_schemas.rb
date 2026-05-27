@@ -260,6 +260,17 @@ module OpenapiSchemas
       tombstoned:    { type: :boolean, description: 'Withdrawn-from-discovery flag' },
       tombstoned_at: { type: :string, nullable: true, description: 'ISO-8601 timestamp set when tombstoned' },
       tombstoned_by: { type: :string, nullable: true, description: 'NUID of the user who tombstoned the resource' }
+    }.merge(provenance_props)
+  end
+
+  # Resource-level provenance fields surfaced by Work / Collection /
+  # Community show responses. Pulled out so base_resource_props stays
+  # within the MethodLength budget; mirrors how `work_only_props` is
+  # split out for Work-specific keys.
+  def provenance_props
+    {
+      depositor:      { type: :string, nullable: true, description: 'NUID of the intellectual owner (the named depositor; may differ from the hands-on-keyboard actor)' },
+      proxy_uploader: { type: :string, nullable: true, description: 'NUID of the hands-on-keyboard actor for the most-recent create. Equals depositor for self-deposit; differs in the librarian-on-behalf case.' }
     }
   end
 

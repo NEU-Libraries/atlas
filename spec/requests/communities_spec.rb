@@ -21,16 +21,33 @@ RSpec.describe 'Communities', type: :request do
       tags 'Communities'
       consumes 'application/json'
       produces 'application/json'
-      description 'Creates a Community. `parent_id` is optional — top-level communities have no parent.'
+      description <<~DESC
+        Creates a Community. `parent_id` is optional — top-level
+        communities have no parent. Optional `depositor` is the NUID to
+        stamp as the intellectual owner (mirrors the same surface on
+        Collection/Work creates).
+      DESC
       parameter name: :body, in: :body, schema: {
         type:       :object,
-        properties: { parent_id: { type: :string, nullable: true } }
+        properties: {
+          parent_id: { type: :string, nullable: true },
+          depositor: { type: :string, description: 'NUID to stamp as the Community depositor (optional)' }
+        }
       }
 
       response '200', 'community created' do
         let(:body) { {} }
         schema '$ref' => '#/components/schemas/Community'
         run_test!
+      end
+
+      response '200', 'create with explicit depositor stamps the resource' do
+        let(:body) { { depositor: '900000001' } }
+        schema '$ref' => '#/components/schemas/Community'
+        run_test! do |response|
+          json = JSON.parse(response.body).fetch('community')
+          expect(json['depositor']).to eq('900000001')
+        end
       end
     end
   end

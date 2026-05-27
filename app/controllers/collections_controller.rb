@@ -26,7 +26,13 @@ class CollectionsController < ApplicationController
   def create
     authorize! :create, Collection
     # TODO: XML
-    @collection = CollectionCreator.call(parent_id: params[:parent_id])
+    @collection = CollectionCreator.call(
+      parent_id:         params[:parent_id],
+      proxy_uploader:    proxy_uploader_nuid,
+      depositor:         depositor_nuid,
+      actor_nuid:        @current_user&.nuid,
+      on_behalf_of_nuid: @on_behalf_of
+    )
   end
 
   def mods
@@ -104,6 +110,21 @@ class CollectionsController < ApplicationController
   end
 
   private
+
+    # Mirror of WorksController's provenance helpers — see that file for
+    # the full rationale. Collections don't have a parent-default
+    # inheritance path (Communities aren't normally configured as
+    # depositor-bearing batch sources), so depositor falls back directly
+    # to the proxy_uploader.
+    def proxy_uploader_nuid
+      @on_behalf_of.presence || @current_user&.nuid
+    end
+
+    def depositor_nuid
+      return params[:depositor] if params[:depositor].present?
+
+      proxy_uploader_nuid
+    end
 
     def binary_update
       file = params[:binary]

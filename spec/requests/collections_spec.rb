@@ -23,10 +23,20 @@ RSpec.describe 'Collections', type: :request do
       tags 'Collections'
       consumes 'application/json'
       produces 'application/json'
-      description 'Creates a Collection as a child of the given Community.'
+      description <<~DESC
+        Creates a Collection as a child of the given Community.
+
+        Optional `depositor` is the NUID to stamp as the intellectual
+        owner — the same anonymous-batch configuration shape that
+        `WorksController#create` supports for inheriting Work-level
+        depositors.
+      DESC
       parameter name: :body, in: :body, schema: {
         type:       :object,
-        properties: { parent_id: { type: :string, description: 'NOID of the parent Community' } },
+        properties: {
+          parent_id: { type: :string, description: 'NOID of the parent Community' },
+          depositor: { type: :string, description: 'NUID to stamp as the Collection depositor (optional)' }
+        },
         required:   %w[parent_id]
       }
 
@@ -34,6 +44,15 @@ RSpec.describe 'Collections', type: :request do
         let(:body) { { parent_id: community.noid } }
         schema '$ref' => '#/components/schemas/Collection'
         run_test!
+      end
+
+      response '200', 'create with explicit depositor stamps the resource' do
+        let(:body) { { parent_id: community.noid, depositor: '900000001' } }
+        schema '$ref' => '#/components/schemas/Collection'
+        run_test! do |response|
+          json = JSON.parse(response.body).fetch('collection')
+          expect(json['depositor']).to eq('900000001')
+        end
       end
     end
   end

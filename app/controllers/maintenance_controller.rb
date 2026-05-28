@@ -41,7 +41,7 @@ class MaintenanceController < ApplicationController
     User.create(password: Devise.friendly_token[0, 20], name: 'Doe, Jane', nuid: '000000002',
                 email: 'dps@northeastern.edu', role: :privileged, groups: ['northeastern:drs:repository:staff'])
     User.create(password: Devise.friendly_token[0, 20], name: 'Loader, Marcom', nuid: '000000003',
-                email: 'marcom-loader@northeastern.edu', role: :loader)
+                email: 'marcom-loader@northeastern.edu', role: :loader, groups: ['northeastern:drs:repository:loaders:marcom'])
     User.create(password: Devise.friendly_token[0, 20], name: 'User, Admin', nuid: '000000004',
                 email: 'drs-admin@northeastern.edu', role: :admin)
   end

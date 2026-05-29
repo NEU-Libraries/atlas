@@ -149,4 +149,126 @@ describe WorksController, type: :controller do
       expect(reloaded.tombstoned_by).to be_nil
     end
   end
+
+  # Optimistic-lock handling on the retry-safe Delegate-attach actions.
+  # See StaleObjectRetry + the 409 rescue_from in ApplicationController.
+  describe 'StaleObjectError handling on retry-safe actions' do
+    let(:community)  { CommunityCreator.call }
+    let(:collection) { CollectionCreator.call(parent_id: community.noid) }
+    let(:work)       { WorkCreator.call(parent_id: collection.noid) }
+    let(:uri)        { 'https://iiif.example/iiif/2/abc/full/!85,85/0/default.jpg' }
+
+    # Make backoff sleeps instantaneous so the retry path doesn't add wall time.
+    before { allow(controller).to receive(:sleep) }
+
+    describe 'PATCH #update_thumbnails' do
+      it 'retries a transient conflict and still lands the Delegate' do
+        calls = 0
+        allow(DelegateUpdater).to receive(:call).and_wrap_original do |original, **kwargs|
+          calls += 1
+          raise Valkyrie::Persistence::StaleObjectError if calls == 1
+
+          original.call(**kwargs)
+        end
+
+        patch :update_thumbnails, params: { id: work.noid, thumbnail: uri }, as: :json
+
+        expect(response).to have_http_status(:success)
+        expect(calls).to be >= 2
+        expect(response.parsed_body.dig('work', 'thumbnail')).to eq(uri)
+      end
+
+      it 'surfaces a 409 stale_resource envelope when retries exhaust' do
+        allow(DelegateUpdater).to receive(:call).and_raise(Valkyrie::Persistence::StaleObjectError)
+
+        patch :update_thumbnails, params: { id: work.noid, thumbnail: uri }, as: :json
+
+        expect(response).to have_http_status(:conflict)
+        json = response.parsed_body
+        expect(json['error']).to eq('stale_resource')
+        expect(json['resource_id']).to eq(work.noid)
+        expect(json['action']).to eq('update_thumbnails')
+        expect(json['message']).to be_present
+      end
+    end
+
+    describe 'PATCH #update_image_derivatives' do
+      it 'surfaces a 409 stale_resource envelope when retries exhaust' do
+        allow(DelegateUpdater).to receive(:call).and_raise(Valkyrie::Persistence::StaleObjectError)
+
+        patch :update_image_derivatives, params: { id: work.noid, small: uri }, as: :json
+
+        expect(response).to have_http_status(:conflict)
+        expect(response.parsed_body['error']).to eq('stale_resource')
+        expect(response.parsed_body['action']).to eq('update_image_derivatives')
+      end
+    end
+
+    describe 'POST #complete' do
+      it 'retries a transient conflict and still completes' do
+        work # persist the whole chain before stubbing save
+        calls = 0
+        allow(Atlas.persister).to receive(:save).and_wrap_original do |original, **kwargs|
+          calls += 1
+          raise Valkyrie::Persistence::StaleObjectError if calls == 1
+
+          original.call(**kwargs)
+        end
+
+        post :complete, params: { id: work.noid }, as: :json
+
+        expect(response).to have_http_status(:success)
+        expect(calls).to be >= 2
+        expect(response.parsed_body.dig('work', 'in_progress')).to be false
+      end
+
+      it 'surfaces a 409 stale_resource envelope when retries exhaust' do
+        work # persist before stubbing so creator saves don't hit the stub
+        allow(Atlas.persister).to receive(:save).and_raise(Valkyrie::Persistence::StaleObjectError)
+
+        post :complete, params: { id: work.noid }, as: :json
+
+        expect(response).to have_http_status(:conflict)
+        expect(response.parsed_body['error']).to eq('stale_resource')
+        expect(response.parsed_body['action']).to eq('complete')
+      end
+    end
+  end
+
+  # Retry-unsafe actions surface the conflict immediately (no retry) — a
+  # silent retry could clobber a concurrent caller's genuinely different
+  # intent. They still get the structured 409 envelope.
+  describe 'StaleObjectError handling on retry-unsafe actions' do
+    let(:community)  { CommunityCreator.call }
+    let(:collection) { CollectionCreator.call(parent_id: community.noid) }
+    let(:work)       { WorkCreator.call(parent_id: collection.noid) }
+
+    it 'PATCH #update surfaces 409 immediately without retrying' do
+      work # persist before stubbing save
+      calls = 0
+      allow(Atlas.persister).to receive(:save) do
+        calls += 1
+        raise Valkyrie::Persistence::StaleObjectError
+      end
+
+      patch :update, params: { id: work.noid, metadata: { title: 'Conflicting' } }, as: :json
+
+      expect(response).to have_http_status(:conflict)
+      expect(calls).to eq(1) # surfaced on the first conflict, no retry
+      json = response.parsed_body
+      expect(json['error']).to eq('stale_resource')
+      expect(json['action']).to eq('update')
+    end
+
+    it 'POST #tombstone surfaces 409 immediately' do
+      work # persist before stubbing save
+      allow(Atlas.persister).to receive(:save).and_raise(Valkyrie::Persistence::StaleObjectError)
+
+      post :tombstone, params: { id: work.noid }, as: :json
+
+      expect(response).to have_http_status(:conflict)
+      expect(response.parsed_body['error']).to eq('stale_resource')
+      expect(response.parsed_body['action']).to eq('tombstone')
+    end
+  end
 end

@@ -226,6 +226,19 @@ RSpec.describe 'Works', type: :request do
         schema '$ref' => '#/components/schemas/Work'
         run_test!
       end
+
+      response '409', 'optimistic-lock conflict on the generic metadata update (surfaced immediately, not retried)' do
+        let(:work)              { WorkCreator.call(parent_id: collection.noid) }
+        let(:id)                { work.noid }
+        let(:'metadata[title]') { 'Conflicting' }
+        before do
+          work # persist before stubbing so the creator's saves don't hit the stub
+          allow(Atlas.persister).to receive(:save).and_raise(Valkyrie::Persistence::StaleObjectError)
+        end
+        run_test! do |response|
+          expect(JSON.parse(response.body)['error']).to eq('stale_resource')
+        end
+      end
     end
 
     delete 'Destroy a work' do
@@ -380,6 +393,19 @@ RSpec.describe 'Works', type: :request do
           )
         end
       end
+
+      response '409', 'optimistic-lock conflict survived the internal retry budget' do
+        let(:work) { WorkCreator.call(parent_id: collection.noid) }
+        let(:id)   { work.noid }
+        let(:body) { { thumbnail: 'https://iiif.example/iiif/2/abc/full/!85,85/0/default.jpg' } }
+        before do
+          allow_any_instance_of(WorksController).to receive(:sleep)
+          allow(DelegateUpdater).to receive(:call).and_raise(Valkyrie::Persistence::StaleObjectError)
+        end
+        run_test! do |response|
+          expect(JSON.parse(response.body)['error']).to eq('stale_resource')
+        end
+      end
     end
   end
 
@@ -431,6 +457,19 @@ RSpec.describe 'Works', type: :request do
             Role.medium_image.name => 'https://iiif.example/iiif/3/abc.jp2/full/1600,/0/default.jpg',
             Role.large_image.name  => 'https://iiif.example/iiif/3/abc.jp2/full/full/0/default.jpg'
           )
+        end
+      end
+
+      response '409', 'optimistic-lock conflict survived the internal retry budget' do
+        let(:work) { WorkCreator.call(parent_id: collection.noid) }
+        let(:id)   { work.noid }
+        let(:body) { { small: 'https://iiif.example/iiif/3/abc.jp2/full/800,/0/default.jpg' } }
+        before do
+          allow_any_instance_of(WorksController).to receive(:sleep)
+          allow(DelegateUpdater).to receive(:call).and_raise(Valkyrie::Persistence::StaleObjectError)
+        end
+        run_test! do |response|
+          expect(JSON.parse(response.body)['error']).to eq('stale_resource')
         end
       end
     end
@@ -493,6 +532,19 @@ RSpec.describe 'Works', type: :request do
         schema '$ref' => '#/components/schemas/Work'
         run_test! do |response|
           expect(JSON.parse(response.body).dig('work', 'in_progress')).to be false
+        end
+      end
+
+      response '409', 'optimistic-lock conflict survived the internal retry budget' do
+        let(:work) { WorkCreator.call(parent_id: collection.noid) }
+        let(:id)   { work.noid }
+        before do
+          work # persist before stubbing so the creator's saves don't hit the stub
+          allow_any_instance_of(WorksController).to receive(:sleep)
+          allow(Atlas.persister).to receive(:save).and_raise(Valkyrie::Persistence::StaleObjectError)
+        end
+        run_test! do |response|
+          expect(JSON.parse(response.body)['error']).to eq('stale_resource')
         end
       end
     end

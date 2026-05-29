@@ -10,6 +10,7 @@ class WorksController < ApplicationController
   include LazyPagination
   include IdempotentCreate
   include DelegateUris
+  include StaleObjectRetry
 
   def index
     authorize! :read, Work
@@ -72,21 +73,27 @@ class WorksController < ApplicationController
   end
 
   def update_thumbnails
-    @work = Work.find(params[:id])
-    authorize! :update_thumbnails, @work
-    return head(:not_found) if @work.nil?
+    with_stale_object_retry do
+      @work = Work.find(params[:id])
+      authorize! :update_thumbnails, @work
+      return head(:not_found) if @work.nil?
 
-    apply_thumbnail_uris(resource_id: @work.id)
+      apply_thumbnail_uris(resource_id: @work.id)
+    end
+
     @work = Work.find(@work.id).decorate
     render :show
   end
 
   def update_image_derivatives
-    @work = Work.find(params[:id])
-    authorize! :update_image_derivatives, @work
-    return head(:not_found) if @work.nil?
+    with_stale_object_retry do
+      @work = Work.find(params[:id])
+      authorize! :update_image_derivatives, @work
+      return head(:not_found) if @work.nil?
 
-    apply_image_derivative_uris(resource_id: @work.id)
+      apply_image_derivative_uris(resource_id: @work.id)
+    end
+
     @work = Work.find(@work.id).decorate
     render :show
   end
@@ -112,12 +119,14 @@ class WorksController < ApplicationController
   end
 
   def complete
-    @work = Work.find(params[:id])
-    authorize! :complete, @work
-    return head(:not_found) if @work.nil?
+    with_stale_object_retry do
+      @work = Work.find(params[:id])
+      authorize! :complete, @work
+      return head(:not_found) if @work.nil?
 
-    @work.in_progress = false
-    @work = Atlas.persister.save(resource: @work).decorate
+      @work.in_progress = false
+      @work = Atlas.persister.save(resource: @work).decorate
+    end
   end
 
   private

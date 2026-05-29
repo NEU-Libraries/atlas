@@ -4,6 +4,7 @@
 class CommunitiesController < ApplicationController
   include LazyPagination
   include DelegateUris
+  include StaleObjectRetry
 
   # Container creation is intentionally left open to :system (Q7 lean) so the
   # seed task can bootstrap Communities + Collections. The :system carve-out
@@ -74,11 +75,14 @@ class CommunitiesController < ApplicationController
   end
 
   def update_thumbnails
-    @community = Community.find(params[:id])
-    authorize! :update_thumbnails, @community
-    return head(:not_found) if @community.nil?
+    with_stale_object_retry do
+      @community = Community.find(params[:id])
+      authorize! :update_thumbnails, @community
+      return head(:not_found) if @community.nil?
 
-    apply_thumbnail_uris(resource_id: @community.id)
+      apply_thumbnail_uris(resource_id: @community.id)
+    end
+
     @community = Community.find(@community.id).decorate
     render :show
   end

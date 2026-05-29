@@ -26,6 +26,27 @@ class ApplicationController < ActionController::API
     }, status: :forbidden
   end
 
+  # Structured 409 for optimistic-lock conflicts. Two populations reach
+  # here: retry-safe actions whose internal StaleObjectRetry budget
+  # exhausted, and retry-unsafe actions (generic update, tombstone,
+  # restore, permission removals) that surface the conflict immediately
+  # rather than risk clobbering a concurrent caller's intent. The
+  # `error: "stale_resource"` discriminator is the wire contract atlas_rb
+  # keys on to raise its typed AtlasRb::StaleResourceError — exact-match
+  # string, stable across versions, do not change without a contract bump.
+  rescue_from Valkyrie::Persistence::StaleObjectError do |exception|
+    Rails.logger.warn(
+      'StaleObjectError surfaced as 409 on ' \
+      "#{controller_name}##{action_name} id=#{params[:id]}: #{exception.message}"
+    )
+    render json: {
+      error:       'stale_resource',
+      resource_id: params[:id],
+      action:      action_name,
+      message:     exception.message
+    }, status: :conflict
+  end
+
   private
 
     # CanCan looks up `current_user` to construct the Ability. Atlas's

@@ -159,4 +159,51 @@ RSpec.describe 'Works via atlas_rb', :atlas_rb_server do
       expect(uses).to contain_exactly(Role.small_image.name, Role.large_image.name)
     end
   end
+
+  # atlas_rb 1.1.1 — `depositor:` kwarg on Work.create (proxy deposit).
+  describe '.create with depositor:' do
+    it 'stamps the named depositor and records the acting user as proxy_uploader' do
+      created = AtlasRb::Work.create(collection.noid, depositor: '900000001', nuid: admin_nuid)
+
+      found = AtlasRb::Work.find(created['id'], nuid: admin_nuid)
+      expect(found['depositor']).to      eq('900000001')
+      expect(found['proxy_uploader']).to eq(admin_nuid)
+    end
+
+    it 'defaults the depositor to the acting user when the kwarg is omitted' do
+      created = AtlasRb::Work.create(collection.noid, nuid: admin_nuid)
+
+      found = AtlasRb::Work.find(created['id'], nuid: admin_nuid)
+      expect(found['depositor']).to      eq(admin_nuid)
+      expect(found['proxy_uploader']).to eq(admin_nuid)
+    end
+  end
+
+  # atlas_rb 1.1.2 — RaiseOnStaleResource middleware translates Atlas's
+  # 409 `stale_resource` envelope into a typed exception. Pairs with the
+  # Atlas-side StaleObjectRetry + 409 rescue_from. This is the end-to-end
+  # wire path the optimistic-locking gap report called for.
+  describe 'stale-resource conflict surfaces as AtlasRb::StaleResourceError' do
+    it 'raises the typed exception (carrying resource_id + action) when Atlas exhausts its retry budget' do
+      work = WorkCreator.call(parent_id: collection.noid)
+
+      # Force every Delegate write to conflict so the controller's retry
+      # budget exhausts and Atlas returns the 409 envelope. Stub the
+      # backoff sleep so the retry loop doesn't add wall time (same
+      # process — the Capybara server thread sees these partial doubles).
+      allow_any_instance_of(WorksController).to receive(:sleep)
+      allow(DelegateUpdater).to receive(:call).and_raise(Valkyrie::Persistence::StaleObjectError)
+
+      error = nil
+      begin
+        AtlasRb::Work.set_thumbnails(work.noid, thumbnail: 'https://iiif.example/85.jpg', nuid: admin_nuid)
+      rescue AtlasRb::StaleResourceError => e
+        error = e
+      end
+
+      expect(error).to be_a(AtlasRb::StaleResourceError)
+      expect(error.resource_id).to eq(work.noid)
+      expect(error.action).to      eq('update_thumbnails')
+    end
+  end
 end

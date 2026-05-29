@@ -105,6 +105,17 @@ components:
               type: string
               nullable: true
               description: NUID of the user who tombstoned the resource
+            depositor:
+              type: string
+              nullable: true
+              description: NUID of the intellectual owner (the named depositor; may
+                differ from the hands-on-keyboard actor)
+            proxy_uploader:
+              type: string
+              nullable: true
+              description: NUID of the hands-on-keyboard actor for the most-recent
+                create. Equals depositor for self-deposit; differs in the librarian-on-behalf
+                case.
             in_progress:
               type: boolean
               description: Cerberus-driven workflow flag; true until the bulk-deposit
@@ -122,6 +133,8 @@ components:
           - tombstoned
           - tombstoned_at
           - tombstoned_by
+          - depositor
+          - proxy_uploader
           - in_progress
       required:
       - work
@@ -180,6 +193,17 @@ components:
               type: string
               nullable: true
               description: NUID of the user who tombstoned the resource
+            depositor:
+              type: string
+              nullable: true
+              description: NUID of the intellectual owner (the named depositor; may
+                differ from the hands-on-keyboard actor)
+            proxy_uploader:
+              type: string
+              nullable: true
+              description: NUID of the hands-on-keyboard actor for the most-recent
+                create. Equals depositor for self-deposit; differs in the librarian-on-behalf
+                case.
           required:
           - id
           - valkyrie_id
@@ -193,6 +217,8 @@ components:
           - tombstoned
           - tombstoned_at
           - tombstoned_by
+          - depositor
+          - proxy_uploader
       required:
       - collection
     Community:
@@ -250,6 +276,17 @@ components:
               type: string
               nullable: true
               description: NUID of the user who tombstoned the resource
+            depositor:
+              type: string
+              nullable: true
+              description: NUID of the intellectual owner (the named depositor; may
+                differ from the hands-on-keyboard actor)
+            proxy_uploader:
+              type: string
+              nullable: true
+              description: NUID of the hands-on-keyboard actor for the most-recent
+                create. Equals depositor for self-deposit; differs in the librarian-on-behalf
+                case.
           required:
           - id
           - valkyrie_id
@@ -263,6 +300,8 @@ components:
           - tombstoned
           - tombstoned_at
           - tombstoned_by
+          - depositor
+          - proxy_uploader
       required:
       - community
     FileSet:
@@ -851,11 +890,17 @@ paths:
       summary: Create a collection
       tags:
       - Collections
-      description: Creates a Collection as a child of the given Community.
+      description: |
+        Creates a Collection as a child of the given Community.
+
+        Optional `depositor` is the NUID to stamp as the intellectual
+        owner — the same anonymous-batch configuration shape that
+        `WorksController#create` supports for inheriting Work-level
+        depositors.
       parameters: []
       responses:
         '200':
-          description: collection created
+          description: create with explicit depositor stamps the resource
           content:
             application/json:
               schema:
@@ -869,6 +914,9 @@ paths:
                 parent_id:
                   type: string
                   description: NOID of the parent Community
+                depositor:
+                  type: string
+                  description: NUID to stamp as the Collection depositor (optional)
               required:
               - parent_id
   "/collections/{id}":
@@ -1100,12 +1148,15 @@ paths:
       summary: Create a community
       tags:
       - Communities
-      description: Creates a Community. `parent_id` is optional — top-level communities
-        have no parent.
+      description: |
+        Creates a Community. `parent_id` is optional — top-level
+        communities have no parent. Optional `depositor` is the NUID to
+        stamp as the intellectual owner (mirrors the same surface on
+        Collection/Work creates).
       parameters: []
       responses:
         '200':
-          description: community created
+          description: create with explicit depositor stamps the resource
           content:
             application/json:
               schema:
@@ -1119,6 +1170,9 @@ paths:
                 parent_id:
                   type: string
                   nullable: true
+                depositor:
+                  type: string
+                  description: NUID to stamp as the Community depositor (optional)
   "/communities/{id}":
     parameters:
     - name: id
@@ -1786,6 +1840,9 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Work"
+        '409':
+          description: optimistic-lock conflict on the generic metadata update (surfaced
+            immediately, not retried)
     delete:
       summary: Destroy a work
       tags:
@@ -1865,6 +1922,8 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Work"
+        '409':
+          description: optimistic-lock conflict survived the internal retry budget
       requestBody:
         content:
           application/json:
@@ -1910,6 +1969,8 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Work"
+        '409':
+          description: optimistic-lock conflict survived the internal retry budget
       requestBody:
         content:
           application/json:
@@ -1988,3 +2049,5 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Work"
+        '409':
+          description: optimistic-lock conflict survived the internal retry budget

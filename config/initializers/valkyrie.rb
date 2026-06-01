@@ -35,7 +35,8 @@ Rails.application.config.to_prepare do
           MODSIndexer,
           TombstoneIndexer,
           ThumbnailIndexer,
-          ProvenanceIndexer
+          ProvenanceIndexer,
+          AncestryIndexer
         )
       ),
       :index_solr
@@ -49,7 +50,8 @@ Rails.application.config.to_prepare do
           MODSIndexer,
           TombstoneIndexer,
           ThumbnailIndexer,
-          ProvenanceIndexer
+          ProvenanceIndexer,
+          AncestryIndexer
         )
       ),
       :test_solr
@@ -84,6 +86,16 @@ Rails.application.config.to_prepare do
 
     def self.query
       Valkyrie.config.metadata_adapter.query_service
+    end
+
+    # Solr-only adapter, for re-projecting a resource's Solr doc without
+    # rewriting Postgres or bumping its optimistic-lock token. Used by the
+    # ancestry backfill and the re-parent cascade, where we re-run the
+    # composite indexer over many collections and don't want to churn the
+    # source of truth. The matching Solr core follows the env-specific
+    # composite persister (:index_solr in dev/prod, :test_solr in test).
+    def self.index_adapter
+      Valkyrie::MetadataAdapter.find(Rails.env.test? ? :test_solr : :index_solr)
     end
   end
 end

@@ -4,7 +4,8 @@
 # than Valkyrie because audit events must outlive their correlated resources;
 # they live in Postgres alongside (not inside) the metadata adapter.
 class AuditEvent < ApplicationRecord
-  ACTIONS        = %w[create update tombstone restore reparent impersonation_started impersonation_ended].freeze
+  ACTIONS        = %w[create update tombstone restore reparent link_member unlink_member
+                      impersonation_started impersonation_ended].freeze
   CHANGE_TYPES   = %w[metadata structural permissions lifecycle session].freeze
   EVENT_SOURCES  = %w[job controller script ingest migration].freeze
   RESOURCE_TYPES = %w[Community Collection Work].freeze

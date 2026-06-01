@@ -59,6 +59,18 @@ class ApplicationController < ActionController::API
     }, status: :unprocessable_entity
   end
 
+  # Structured 422 for linked-membership validation failures (target not
+  # found / not a Collection / tombstoned, work tombstoned, already a
+  # structural member). Same code-as-discriminator contract as the re-parent
+  # path above.
+  rescue_from Exceptions::LinkedMemberError do |exception|
+    render json: {
+      error:       exception.code,
+      resource_id: params[:id],
+      message:     exception.message
+    }, status: :unprocessable_entity
+  end
+
   private
 
     # CanCan looks up `current_user` to construct the Ability. Atlas's

@@ -2102,6 +2102,97 @@ paths:
                 parent_id:
                   type: string
                   description: NOID of the destination Collection
+  "/works/{id}/linked_members":
+    parameters:
+    - name: id
+      in: path
+      description: NOID of the Work
+      required: true
+      schema:
+        type: string
+    get:
+      summary: List the collections a work is linked into
+      tags:
+      - Works
+      description: |
+        Returns the NOIDs of the Collections this Work is a *linked* member of
+        (the DAG overlay — additional placements beyond its one structural
+        home). Powers Cerberus's provenance panel. Does not include the
+        structural parent (that's `a_member_of`, surfaced via ancestors).
+      responses:
+        '200':
+          description: linked collections listed
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+    post:
+      summary: Link a work into an additional collection
+      tags:
+      - Works
+      description: |
+        Adds the Work as a linked member of the target Collection — placement
+        only, never a permission change. Two-sided authorization: the caller
+        needs edit rights on the Work AND on the target Collection. Rejects a
+        non-Collection target, a tombstoned work/target, and a target that is
+        already the Work's structural home, with a 422. Returns the updated
+        list of linked collection NOIDs.
+      parameters: []
+      responses:
+        '200':
+          description: work linked into the collection
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+        '422':
+          description: rejects a non-Collection target
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - collection_id
+              properties:
+                collection_id:
+                  type: string
+                  description: NOID of the Collection to link into
+  "/works/{id}/linked_members/{collection_id}":
+    parameters:
+    - name: id
+      in: path
+      description: NOID of the Work
+      required: true
+      schema:
+        type: string
+    - name: collection_id
+      in: path
+      description: NOID of the linked Collection to remove
+      required: true
+      schema:
+        type: string
+    delete:
+      summary: Unlink a work from a collection
+      tags:
+      - Works
+      description: |
+        Removes a linked membership (idempotent — removing an absent link is a
+        no-op). Same two-sided authorization as the add. Returns the updated
+        list of linked collection NOIDs. Permissions are never changed.
+      responses:
+        '200':
+          description: work unlinked from the collection
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
   "/works/{id}/tombstone":
     parameters:
     - name: id

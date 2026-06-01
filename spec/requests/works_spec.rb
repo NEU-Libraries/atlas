@@ -515,6 +515,105 @@ RSpec.describe 'Works', type: :request do
     end
   end
 
+  path '/works/{id}/linked_members' do
+    parameter name: :id, in: :path, type: :string, description: 'NOID of the Work'
+
+    get 'List the collections a work is linked into' do
+      tags 'Works'
+      produces 'application/json'
+      description <<~DESC
+        Returns the NOIDs of the Collections this Work is a *linked* member of
+        (the DAG overlay — additional placements beyond its one structural
+        home). Powers Cerberus's provenance panel. Does not include the
+        structural parent (that's `a_member_of`, surfaced via ancestors).
+      DESC
+
+      response '200', 'linked collections listed' do
+        let(:destination) { CollectionCreator.call(parent_id: community.noid) }
+        let(:work) do
+          w = WorkCreator.call(parent_id: collection.noid)
+          LinkedMemberCreator.call(work: w, collection: destination)
+          w
+        end
+        let(:id) { work.noid }
+        schema type: :array, items: { type: :string }
+        run_test! do |response|
+          expect(JSON.parse(response.body)).to include(destination.noid)
+        end
+      end
+    end
+
+    post 'Link a work into an additional collection' do
+      tags 'Works'
+      consumes 'application/json'
+      produces 'application/json'
+      description <<~DESC
+        Adds the Work as a linked member of the target Collection — placement
+        only, never a permission change. Two-sided authorization: the caller
+        needs edit rights on the Work AND on the target Collection. Rejects a
+        non-Collection target, a tombstoned work/target, and a target that is
+        already the Work's structural home, with a 422. Returns the updated
+        list of linked collection NOIDs.
+      DESC
+      parameter name: :body, in: :body, schema: {
+        type:       :object,
+        required:   %w[collection_id],
+        properties: { collection_id: { type: :string, description: 'NOID of the Collection to link into' } }
+      }
+
+      response '200', 'work linked into the collection' do
+        let(:destination) { CollectionCreator.call(parent_id: community.noid) }
+        let(:work)        { WorkCreator.call(parent_id: collection.noid) }
+        let(:id)          { work.noid }
+        let(:body)        { { collection_id: destination.noid } }
+        schema type: :array, items: { type: :string }
+        run_test! do |response|
+          expect(JSON.parse(response.body)).to include(destination.noid)
+        end
+      end
+
+      response '422', 'rejects a non-Collection target' do
+        let(:other_community) { CommunityCreator.call }
+        let(:work)            { WorkCreator.call(parent_id: collection.noid) }
+        let(:id)              { work.noid }
+        let(:body)            { { collection_id: other_community.noid } }
+        run_test! do |response|
+          expect(JSON.parse(response.body)['error']).to eq('invalid_target_type')
+        end
+      end
+    end
+  end
+
+  path '/works/{id}/linked_members/{collection_id}' do
+    parameter name: :id, in: :path, type: :string, description: 'NOID of the Work'
+    parameter name: :collection_id, in: :path, type: :string, description: 'NOID of the linked Collection to remove'
+
+    delete 'Unlink a work from a collection' do
+      tags 'Works'
+      produces 'application/json'
+      description <<~DESC
+        Removes a linked membership (idempotent — removing an absent link is a
+        no-op). Same two-sided authorization as the add. Returns the updated
+        list of linked collection NOIDs. Permissions are never changed.
+      DESC
+
+      response '200', 'work unlinked from the collection' do
+        let(:destination) { CollectionCreator.call(parent_id: community.noid) }
+        let(:work) do
+          w = WorkCreator.call(parent_id: collection.noid)
+          LinkedMemberCreator.call(work: w, collection: destination)
+          w
+        end
+        let(:id)            { work.noid }
+        let(:collection_id) { destination.noid }
+        schema type: :array, items: { type: :string }
+        run_test! do |response|
+          expect(JSON.parse(response.body)).not_to include(destination.noid)
+        end
+      end
+    end
+  end
+
   path '/works/{id}/tombstone' do
     parameter name: :id, in: :path, type: :string
 

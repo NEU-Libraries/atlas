@@ -12,6 +12,7 @@ class WorksController < ApplicationController
   include DelegateUris
   include StaleObjectRetry
   include Reparentable
+  include LinkedMembers
 
   def index
     authorize! :read, Work

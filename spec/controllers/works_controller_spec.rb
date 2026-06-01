@@ -271,4 +271,52 @@ describe WorksController, type: :controller do
       expect(response.parsed_body['action']).to eq('tombstone')
     end
   end
+
+  describe 'POST #add_linked_member (two-sided authz gate)' do
+    let(:edit_group) { 'northeastern:drs:special-linkers' }
+    let!(:linker) do
+      User.create!(email: "linker-#{SecureRandom.hex(4)}@example.invalid",
+                   password: SecureRandom.hex(16), nuid: '000000778',
+                   name: 'User, Linker', role: :privileged, groups: [edit_group])
+    end
+
+    let(:community)  { CommunityCreator.call }
+    let(:home)       { CollectionCreator.call(parent_id: community.noid) }
+    let(:target)     { CollectionCreator.call(parent_id: community.noid) }
+    let(:work)       { WorkCreator.call(parent_id: home.noid) }
+
+    def grant!(resource)
+      resource.add_edit_group(edit_group)
+      Atlas.persister.save(resource: resource)
+    end
+
+    before { request.headers['User'] = "NUID #{linker.nuid}" }
+
+    it 'forbids linking when the actor lacks edit rights on the target collection' do
+      grant!(work) # edit on the Work only — the info-disclosure guard
+
+      post :add_linked_member, params: { id: work.noid, collection_id: target.noid }, as: :json
+
+      expect(response).to have_http_status(:forbidden)
+      expect(Array(Work.find(work.noid).a_linked_member_of)).to be_empty
+    end
+
+    it 'forbids linking when the actor lacks edit rights on the work' do
+      grant!(target) # edit on the target only — the littering guard
+
+      post :add_linked_member, params: { id: work.noid, collection_id: target.noid }, as: :json
+
+      expect(response).to have_http_status(:forbidden)
+    end
+
+    it 'allows linking when the actor has edit rights on BOTH work and target' do
+      grant!(work)
+      grant!(target)
+
+      post :add_linked_member, params: { id: work.noid, collection_id: target.noid }, as: :json
+
+      expect(response).to have_http_status(:success)
+      expect(Array(Work.find(work.noid).a_linked_member_of).map(&:to_s)).to include(target.id.to_s)
+    end
+  end
 end

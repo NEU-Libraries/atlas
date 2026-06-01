@@ -61,6 +61,11 @@ Rails.application.routes.draw do
 
     get '/works/:id/mods', to: 'works#mods', as: 'work_mods'
 
+    # Linked membership (DAG overlay): a Work in additional Collections.
+    get    '/works/:id/linked_members', to: 'works#linked_members', as: 'work_linked_members'
+    post   '/works/:id/linked_members', to: 'works#add_linked_member'
+    delete '/works/:id/linked_members/:collection_id', to: 'works#remove_linked_member'
+
     get '/file_sets/:id/mets', to: 'file_sets#mets', as: 'file_set_mets'
 
     # Downloads

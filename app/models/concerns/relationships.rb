@@ -34,7 +34,6 @@ module Relationships
   end
 
   def ancestors(resource = nil, pids = [])
-    # TODO: code loop for parent to populate breadcrumbs
     p = if resource.nil?
           parent
         else
@@ -42,8 +41,24 @@ module Relationships
         end
     return pids.reverse if p.nil?
 
+    # Cycle guard: the backbone is a strict tree, so a NOID reappearing in
+    # the chain means the data is corrupt. Fail loudly instead of recursing
+    # forever — this also protects the AncestryIndexer and the re-parent walk.
+    if pids.any? { |noid, _klass| noid == p.noid } || p.noid == noid
+      raise Exceptions::AncestorError, "ancestry cycle detected at #{p.noid} while walking #{noid}"
+    end
+
     pids << [p.noid, p.class.to_s]
     ancestors(p, pids)
+  end
+
+  # Collections/communities whose ancestor chain includes this resource —
+  # the reverse of `ancestors`, answered by a single Solr lookup against
+  # ancestor_ids_ssim rather than a subtree walk. Returns sub-communities as
+  # well as collections (both carry the field); the name follows the plan.
+  # Used by the re-parent cycle guard and the maintenance cascade.
+  def descendant_collections
+    DescendantCollectionsQuery.call(self)
   end
 
   def children

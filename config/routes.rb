@@ -16,6 +16,7 @@ Rails.application.routes.draw do
         post :tombstone
         post :restore
         patch :thumbnails, action: :update_thumbnails
+        patch :parent, action: :update_parent
       end
     end
     resources :collections do
@@ -23,6 +24,7 @@ Rails.application.routes.draw do
         post :tombstone
         post :restore
         patch :thumbnails, action: :update_thumbnails
+        patch :parent, action: :update_parent
       end
     end
     resources :works do
@@ -32,6 +34,7 @@ Rails.application.routes.draw do
         post :complete
         patch :thumbnails, action: :update_thumbnails
         patch :image_derivatives, action: :update_image_derivatives
+        patch :parent, action: :update_parent
       end
     end
     # resources :users

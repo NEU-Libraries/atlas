@@ -11,6 +11,7 @@ class WorksController < ApplicationController
   include IdempotentCreate
   include DelegateUris
   include StaleObjectRetry
+  include Reparentable
 
   def index
     authorize! :read, Work
@@ -127,6 +128,13 @@ class WorksController < ApplicationController
       @work.in_progress = false
       @work = Atlas.persister.save(resource: @work).decorate
     end
+  end
+
+  # Move a Work to a different Collection. Trivial sibling of the collection/
+  # community re-parent: a Work has no descendants and carries no ancestry
+  # field, so there is no cascade — only its own a_member_of changes.
+  def update_parent
+    reparent(Work)
   end
 
   private

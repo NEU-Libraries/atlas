@@ -47,6 +47,18 @@ class ApplicationController < ActionController::API
     }, status: :conflict
   end
 
+  # Structured 422 for re-parent validation failures (bad parent type, cycle,
+  # tombstoned node/parent, missing required parent, unresolvable parent). The
+  # `error` carries Reparenter's machine-readable code so atlas_rb can raise a
+  # typed error; `message` is the human-readable detail.
+  rescue_from Exceptions::ReparentError do |exception|
+    render json: {
+      error:       exception.code,
+      resource_id: params[:id],
+      message:     exception.message
+    }, status: :unprocessable_entity
+  end
+
   private
 
     # CanCan looks up `current_user` to construct the Ability. Atlas's

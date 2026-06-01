@@ -26,11 +26,13 @@
 class Ability
   include CanCan::Ability
 
-  # update_thumbnails / update_image_derivatives / complete travel with :update
-  # for the purposes of ACL gating — they all mutate the resource's state and
-  # callers who can :update can do these too. Keeps the group-ACL block-form
-  # rules to a single :update declaration per resource class.
-  UPDATE_ALIASES = %i[update_thumbnails update_image_derivatives complete].freeze
+  # update_thumbnails / update_image_derivatives / complete / reparent travel
+  # with :update for the purposes of ACL gating — they all mutate the
+  # resource's state and callers who can :update can do these too. Keeps the
+  # group-ACL block-form rules to a single :update declaration per resource
+  # class. (reparent is checked on BOTH the moved node and the destination by
+  # Reparentable, so the same edit-rights rule gates each side of a move.)
+  UPDATE_ALIASES = %i[update_thumbnails update_image_derivatives complete reparent].freeze
 
   def initialize(user)
     # @current_user is never nil under piece-2 require_auth — at worst it

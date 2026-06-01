@@ -475,6 +475,46 @@ RSpec.describe 'Works', type: :request do
     end
   end
 
+  path '/works/{id}/parent' do
+    parameter name: :id, in: :path, type: :string, description: 'NOID of the Work to move'
+
+    patch 'Re-parent a work' do
+      tags 'Works'
+      consumes 'application/json'
+      produces 'application/json'
+      description <<~DESC
+        Moves a Work to a different Collection. Trivial sibling of the
+        collection/community re-parent: a Work has no descendants and carries
+        no ancestry field, so there is NO cascade — only its own a_member_of
+        changes. Permissions are untouched. Rejects a non-Collection parent
+        and tombstoned node/parent with a 422.
+      DESC
+      parameter name: :body, in: :body, schema: {
+        type:       :object,
+        required:   %w[parent_id],
+        properties: { parent_id: { type: :string, description: 'NOID of the destination Collection' } }
+      }
+
+      response '200', 'work moved to another collection' do
+        let(:destination) { CollectionCreator.call(parent_id: community.noid) }
+        let(:work)        { WorkCreator.call(parent_id: collection.noid) }
+        let(:id)          { work.noid }
+        let(:body)        { { parent_id: destination.noid } }
+        schema '$ref' => '#/components/schemas/Work'
+        run_test! do |response|
+          ancestors = JSON.parse(response.body).dig('work', 'ancestors')
+          expect(ancestors.map(&:first)).to include(destination.noid)
+        end
+      end
+
+      response '404', 'unknown work' do
+        let(:id)   { 'doesnotexist' }
+        let(:body) { { parent_id: collection.noid } }
+        run_test!
+      end
+    end
+  end
+
   path '/works/{id}/tombstone' do
     parameter name: :id, in: :path, type: :string
 

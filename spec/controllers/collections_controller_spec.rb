@@ -149,4 +149,54 @@ describe CollectionsController, type: :controller do
       expect(reloaded.tombstoned_by).to be_nil
     end
   end
+
+  describe 'PATCH #update_parent (two-sided authz gate)' do
+    # A privileged principal carrying a custom edit group that is NOT the
+    # default staff group every container is seeded with — so it only has
+    # edit rights where we explicitly grant that group.
+    let(:edit_group) { 'northeastern:drs:special-movers' }
+    let!(:mover) do
+      User.create!(email: "mover-#{SecureRandom.hex(4)}@example.invalid",
+                   password: SecureRandom.hex(16), nuid: '000000777',
+                   name: 'User, Mover', role: :privileged, groups: [edit_group])
+    end
+
+    let(:community)   { CommunityCreator.call }
+    let(:destination) { CollectionCreator.call(parent_id: community.noid) }
+    let(:collection)  { CollectionCreator.call(parent_id: community.noid) }
+
+    def grant!(resource)
+      resource.add_edit_group(edit_group)
+      Atlas.persister.save(resource: resource)
+    end
+
+    before { request.headers['User'] = "NUID #{mover.nuid}" }
+
+    it 'forbids the move when the actor lacks edit rights on the destination' do
+      grant!(collection) # edit on the moved node only
+
+      patch :update_parent, params: { id: collection.noid, parent_id: destination.noid }, as: :json
+
+      expect(response).to have_http_status(:forbidden)
+      expect(Collection.find(collection.noid).parent.noid).to eq(community.noid) # unmoved
+    end
+
+    it 'forbids the move when the actor lacks edit rights on the moved node' do
+      grant!(destination) # edit on the destination only
+
+      patch :update_parent, params: { id: collection.noid, parent_id: destination.noid }, as: :json
+
+      expect(response).to have_http_status(:forbidden)
+    end
+
+    it 'allows the move when the actor has edit rights on BOTH node and destination' do
+      grant!(collection)
+      grant!(destination)
+
+      patch :update_parent, params: { id: collection.noid, parent_id: destination.noid }, as: :json
+
+      expect(response).to have_http_status(:success)
+      expect(Collection.find(collection.noid).parent.noid).to eq(destination.noid)
+    end
+  end
 end

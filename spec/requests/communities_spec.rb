@@ -235,6 +235,62 @@ RSpec.describe 'Communities', type: :request do
     end
   end
 
+  path '/communities/{id}/parent' do
+    parameter name: :id, in: :path, type: :string, description: 'NOID of the Community to move'
+
+    patch 'Re-parent a community' do
+      tags 'Communities'
+      consumes 'application/json'
+      produces 'application/json'
+      description <<~DESC
+        Moves a Community under a different parent Community, or to the top of
+        the tree (omit `parent_id` or pass null). Re-projects the moved
+        subtree's descendant collections and sub-communities so their cached
+        ancestry stays correct; Works are never touched. Rejects cycles, bad
+        parent types, and tombstoned node/parent with a 422.
+      DESC
+      parameter name: :body, in: :body, schema: {
+        type:       :object,
+        properties: { parent_id: { type: :string, nullable: true, description: 'NOID of the new parent Community, or null for top-level' } }
+      }
+
+      response '200', 'community moved under another community' do
+        let(:root)      { CommunityCreator.call }
+        let(:new_root)  { CommunityCreator.call }
+        let(:community) { CommunityCreator.call(parent_id: root.noid) }
+        let(:id)        { community.noid }
+        let(:body)      { { parent_id: new_root.noid } }
+        schema '$ref' => '#/components/schemas/Community'
+        run_test! do |response|
+          ancestors = JSON.parse(response.body).dig('community', 'ancestors')
+          expect(ancestors.map(&:first)).to include(new_root.noid)
+        end
+      end
+
+      response '200', 'community moved to the top of the tree (null parent)' do
+        let(:root)      { CommunityCreator.call }
+        let(:community) { CommunityCreator.call(parent_id: root.noid) }
+        let(:id)        { community.noid }
+        let(:body)      { { parent_id: nil } }
+        schema '$ref' => '#/components/schemas/Community'
+        run_test! do |response|
+          expect(JSON.parse(response.body).dig('community', 'ancestors')).to eq([])
+        end
+      end
+
+      response '422', 'rejects an invalid parent type' do
+        let(:root)       { CommunityCreator.call }
+        let(:collection) { CollectionCreator.call(parent_id: root.noid) }
+        let(:community)  { CommunityCreator.call(parent_id: root.noid) }
+        let(:id)         { community.noid }
+        let(:body)       { { parent_id: collection.noid } }
+        run_test! do |response|
+          expect(JSON.parse(response.body)['error']).to eq('invalid_parent_type')
+        end
+      end
+    end
+  end
+
   path '/communities/{id}/tombstone' do
     parameter name: :id, in: :path, type: :string
 

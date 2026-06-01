@@ -5,6 +5,7 @@ class CollectionsController < ApplicationController
   include LazyPagination
   include DelegateUris
   include StaleObjectRetry
+  include Reparentable
 
   # Container creation is intentionally left open to :system (Q7 lean) so the
   # seed task can bootstrap Communities + Collections. The :system carve-out
@@ -111,6 +112,12 @@ class CollectionsController < ApplicationController
     authorize! :restore, @collection
     @collection.restore
     @collection = Atlas.persister.save(resource: @collection).decorate
+  end
+
+  # Move a Collection under a different Community or Collection. Validates +
+  # re-projects the moved subtree's descendant collections (Reparentable).
+  def update_parent
+    reparent(Collection)
   end
 
   private

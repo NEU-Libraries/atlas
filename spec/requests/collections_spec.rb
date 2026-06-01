@@ -240,6 +240,52 @@ RSpec.describe 'Collections', type: :request do
     end
   end
 
+  path '/collections/{id}/parent' do
+    parameter name: :id, in: :path, type: :string, description: 'NOID of the Collection to move'
+
+    patch 'Re-parent a collection' do
+      tags 'Collections'
+      consumes 'application/json'
+      produces 'application/json'
+      description <<~DESC
+        Moves a Collection under a different parent Community or Collection.
+        Re-projects the moved subtree's descendant collections so their cached
+        ancestry stays correct; Works are never touched. Rejects cycles (the
+        new parent being the collection itself or one of its descendants), bad
+        parent types, and tombstoned node/parent with a 422.
+      DESC
+      parameter name: :body, in: :body, schema: {
+        type:       :object,
+        required:   %w[parent_id],
+        properties: { parent_id: { type: :string, description: 'NOID of the new parent Community or Collection' } }
+      }
+
+      response '200', 'collection moved under another collection' do
+        let(:community)    { CommunityCreator.call }
+        let(:destination)  { CollectionCreator.call(parent_id: community.noid) }
+        let(:collection)   { CollectionCreator.call(parent_id: community.noid) }
+        let(:id)           { collection.noid }
+        let(:body)         { { parent_id: destination.noid } }
+        schema '$ref' => '#/components/schemas/Collection'
+        run_test! do |response|
+          ancestors = JSON.parse(response.body).dig('collection', 'ancestors')
+          expect(ancestors.map(&:first)).to include(destination.noid)
+        end
+      end
+
+      response '422', 'rejects a move into the collection\'s own descendant (cycle)' do
+        let(:community)  { CommunityCreator.call }
+        let(:collection) { CollectionCreator.call(parent_id: community.noid) }
+        let(:child)      { CollectionCreator.call(parent_id: collection.noid) }
+        let(:id)         { collection.noid }
+        let(:body)       { { parent_id: child.noid } }
+        run_test! do |response|
+          expect(JSON.parse(response.body)['error']).to eq('cycle')
+        end
+      end
+    end
+  end
+
   path '/collections/{id}/tombstone' do
     parameter name: :id, in: :path, type: :string
 

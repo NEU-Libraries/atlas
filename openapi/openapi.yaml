@@ -1090,6 +1090,45 @@ paths:
                 preview:
                   type: string
                   description: IIIF URL for the 500px hero preview tier
+  "/collections/{id}/parent":
+    parameters:
+    - name: id
+      in: path
+      description: NOID of the Collection to move
+      required: true
+      schema:
+        type: string
+    patch:
+      summary: Re-parent a collection
+      tags:
+      - Collections
+      description: |
+        Moves a Collection under a different parent Community or Collection.
+        Re-projects the moved subtree's descendant collections so their cached
+        ancestry stays correct; Works are never touched. Rejects cycles (the
+        new parent being the collection itself or one of its descendants), bad
+        parent types, and tombstoned node/parent with a 422.
+      parameters: []
+      responses:
+        '200':
+          description: collection moved under another collection
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Collection"
+        '422':
+          description: rejects a move into the collection's own descendant (cycle)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - parent_id
+              properties:
+                parent_id:
+                  type: string
+                  description: NOID of the new parent Community or Collection
   "/collections/{id}/tombstone":
     parameters:
     - name: id
@@ -1344,6 +1383,44 @@ paths:
                 preview:
                   type: string
                   description: IIIF URL for the 500px hero preview tier
+  "/communities/{id}/parent":
+    parameters:
+    - name: id
+      in: path
+      description: NOID of the Community to move
+      required: true
+      schema:
+        type: string
+    patch:
+      summary: Re-parent a community
+      tags:
+      - Communities
+      description: |
+        Moves a Community under a different parent Community, or to the top of
+        the tree (omit `parent_id` or pass null). Re-projects the moved
+        subtree's descendant collections and sub-communities so their cached
+        ancestry stays correct; Works are never touched. Rejects cycles, bad
+        parent types, and tombstoned node/parent with a 422.
+      parameters: []
+      responses:
+        '200':
+          description: community moved to the top of the tree (null parent)
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Community"
+        '422':
+          description: rejects an invalid parent type
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                parent_id:
+                  type: string
+                  nullable: true
+                  description: NOID of the new parent Community, or null for top-level
   "/communities/{id}/tombstone":
     parameters:
     - name: id
@@ -1986,6 +2063,45 @@ paths:
                 large:
                   type: string
                   description: IIIF URL for the large image tier
+  "/works/{id}/parent":
+    parameters:
+    - name: id
+      in: path
+      description: NOID of the Work to move
+      required: true
+      schema:
+        type: string
+    patch:
+      summary: Re-parent a work
+      tags:
+      - Works
+      description: |
+        Moves a Work to a different Collection. Trivial sibling of the
+        collection/community re-parent: a Work has no descendants and carries
+        no ancestry field, so there is NO cascade — only its own a_member_of
+        changes. Permissions are untouched. Rejects a non-Collection parent
+        and tombstoned node/parent with a 422.
+      parameters: []
+      responses:
+        '200':
+          description: work moved to another collection
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Work"
+        '404':
+          description: unknown work
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - parent_id
+              properties:
+                parent_id:
+                  type: string
+                  description: NOID of the destination Collection
   "/works/{id}/tombstone":
     parameters:
     - name: id

@@ -22,7 +22,7 @@ RSpec.describe 'atlas:preservation rake tasks' do
     it 'emits envelopes for resources that don\'t have them yet' do
       # Bypass Creators (which emit envelopes) to simulate pre-Phase-2 state.
       community = Atlas.persister.save(resource: Community.new)
-      collection = Atlas.persister.save(resource: Collection.new(a_member_of: [community.id]))
+      collection = Atlas.persister.save(resource: Collection.new(a_member_of: community.id))
 
       expect(envelope_files_for(community.noid)).to be_empty
       expect(envelope_files_for(collection.noid)).to be_empty

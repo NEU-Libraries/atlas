@@ -27,7 +27,9 @@ module Relationships
       result = Atlas.query.find_inverse_references_by(resource: self,
                                                       property: :member_ids)
     end
-    # Running with solo parent presumption - may need to revisit this for DRS V1 Smart Collections adaptation
+    # a_member_of is a scalar single parent (and member_ids resolves one
+    # parent per child), so there is at most one reference. find_references_by
+    # is inherently plural, so .first unwraps the single result.
     result.first
   end
 

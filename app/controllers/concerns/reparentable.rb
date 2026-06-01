@@ -42,8 +42,8 @@ module Reparentable
       return nil if params[:parent_id].blank?
 
       destination = Resource.find(params[:parent_id])
-      raise Exceptions::ReparentError.new('parent_not_found', "parent #{params[:parent_id]} not found") if destination.nil?
+      return destination unless destination.nil?
 
-      destination
+      raise Exceptions::ReparentError.new('parent_not_found', "parent #{params[:parent_id]} not found")
     end
 end

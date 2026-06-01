@@ -38,8 +38,10 @@ class Reparenter < ApplicationService
     # needs recomputing.
     subtree = descendants
 
-    assign_parent!                 # composite save → node's own Solr doc refreshed
-    SubtreeReindexer.call(resources: subtree)  # Solr-only re-index of descendants
+    # assign_parent! does a composite save, refreshing the node's own Solr
+    # doc; SubtreeReindexer then re-projects the descendants (Solr-only).
+    assign_parent!
+    SubtreeReindexer.call(resources: subtree)
     emit_audit_event!(old_parent_noid, subtree.size)
 
     @node
@@ -76,8 +78,9 @@ class Reparenter < ApplicationService
 
       # New parent must not live within the moved node's own subtree.
       # descendant_collections excludes Works, so this is a no-op for Works.
-      descendant_ids = descendants.map(&:id)
-      raise_reparent('cycle', 'cannot move a resource into its own descendant') if descendant_ids.include?(@destination.id)
+      return unless descendants.map(&:id).include?(@destination.id)
+
+      raise_reparent('cycle', 'cannot move a resource into its own descendant')
     end
 
     # Memoized — both the cycle check and the cascade read this, and both run

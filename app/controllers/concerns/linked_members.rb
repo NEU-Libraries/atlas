@@ -63,9 +63,9 @@ module LinkedMembers
     # unresolvable target is a 422, not a 404 (the 404 is the Work itself).
     def linked_member_target
       target = Resource.find(params[:collection_id])
-      raise Exceptions::LinkedMemberError.new('target_not_found', "collection #{params[:collection_id]} not found") if target.nil?
+      return target unless target.nil?
 
-      target
+      raise Exceptions::LinkedMemberError.new('target_not_found', "collection #{params[:collection_id]} not found")
     end
 
     def render_linked_members(work)

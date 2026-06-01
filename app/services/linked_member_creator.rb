@@ -29,10 +29,10 @@ class LinkedMemberCreator < ApplicationService
   private
 
     def validate!
-      raise_error('invalid_target_type', 'linked member target must be a Collection') unless @collection.is_a?(Collection)
+      raise_error('invalid_target_type', 'target must be a Collection') unless @collection.is_a?(Collection)
       raise_error('tombstoned_work', 'cannot link a tombstoned work') if @work.tombstoned
       raise_error('tombstoned_target', 'cannot link into a tombstoned collection') if @collection.tombstoned
-      raise_error('already_structural_member', 'work is already a structural member of this collection') if structural_member?
+      raise_error('already_structural_member', 'already a structural member') if structural_member?
     end
 
     # A redundant link to the Work's one structural home adds nothing.

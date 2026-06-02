@@ -272,7 +272,12 @@ describe WorksController, type: :controller do
     end
   end
 
-  describe 'POST #add_linked_member (two-sided authz gate)' do
+  describe 'POST #add_linked_member (admin-only authz gate)' do
+    # Linking a Work into additional Collections is an admin-only structural
+    # mutation: edit rights are not sufficient, even on BOTH the Work and the
+    # target Collection. The linker carries a custom edit group (not the
+    # default staff group) so we can grant explicit edit rights and prove they
+    # still don't unlock the link.
     let(:edit_group) { 'northeastern:drs:special-linkers' }
     let!(:linker) do
       User.create!(email: "linker-#{SecureRandom.hex(4)}@example.invalid",
@@ -290,10 +295,10 @@ describe WorksController, type: :controller do
       Atlas.persister.save(resource: resource)
     end
 
-    before { request.headers['User'] = "NUID #{linker.nuid}" }
-
-    it 'forbids linking when the actor lacks edit rights on the target collection' do
-      grant!(work) # edit on the Work only — the info-disclosure guard
+    it 'forbids an edit-rights principal even with edit rights on BOTH work and target' do
+      grant!(work)
+      grant!(target)
+      request.headers['User'] = "NUID #{linker.nuid}"
 
       post :add_linked_member, params: { id: work.noid, collection_id: target.noid }, as: :json
 
@@ -301,18 +306,8 @@ describe WorksController, type: :controller do
       expect(Array(Work.find(work.noid).a_linked_member_of)).to be_empty
     end
 
-    it 'forbids linking when the actor lacks edit rights on the work' do
-      grant!(target) # edit on the target only — the littering guard
-
-      post :add_linked_member, params: { id: work.noid, collection_id: target.noid }, as: :json
-
-      expect(response).to have_http_status(:forbidden)
-    end
-
-    it 'allows linking when the actor has edit rights on BOTH work and target' do
-      grant!(work)
-      grant!(target)
-
+    it 'allows linking for an admin' do
+      # Default controller principal is the admin fixture (NUID 000000004).
       post :add_linked_member, params: { id: work.noid, collection_id: target.noid }, as: :json
 
       expect(response).to have_http_status(:success)

@@ -150,10 +150,12 @@ describe CollectionsController, type: :controller do
     end
   end
 
-  describe 'PATCH #update_parent (two-sided authz gate)' do
-    # A privileged principal carrying a custom edit group that is NOT the
-    # default staff group every container is seeded with — so it only has
-    # edit rights where we explicitly grant that group.
+  describe 'PATCH #update_parent (admin-only authz gate)' do
+    # Re-parenting is an admin-only structural mutation: edit rights are not
+    # sufficient, even on BOTH the moved node and the destination. The mover
+    # is a privileged principal carrying a custom edit group (not the default
+    # staff group every container is seeded with) so we can grant explicit
+    # edit rights and prove they still don't unlock the move.
     let(:edit_group) { 'northeastern:drs:special-movers' }
     let!(:mover) do
       User.create!(email: "mover-#{SecureRandom.hex(4)}@example.invalid",
@@ -170,10 +172,10 @@ describe CollectionsController, type: :controller do
       Atlas.persister.save(resource: resource)
     end
 
-    before { request.headers['User'] = "NUID #{mover.nuid}" }
-
-    it 'forbids the move when the actor lacks edit rights on the destination' do
-      grant!(collection) # edit on the moved node only
+    it 'forbids an edit-rights principal even with edit rights on BOTH node and destination' do
+      grant!(collection)
+      grant!(destination)
+      request.headers['User'] = "NUID #{mover.nuid}"
 
       patch :update_parent, params: { id: collection.noid, parent_id: destination.noid }, as: :json
 
@@ -181,18 +183,8 @@ describe CollectionsController, type: :controller do
       expect(Collection.find(collection.noid).parent.noid).to eq(community.noid) # unmoved
     end
 
-    it 'forbids the move when the actor lacks edit rights on the moved node' do
-      grant!(destination) # edit on the destination only
-
-      patch :update_parent, params: { id: collection.noid, parent_id: destination.noid }, as: :json
-
-      expect(response).to have_http_status(:forbidden)
-    end
-
-    it 'allows the move when the actor has edit rights on BOTH node and destination' do
-      grant!(collection)
-      grant!(destination)
-
+    it 'allows the move for an admin' do
+      # Default controller principal is the admin fixture (NUID 000000004).
       patch :update_parent, params: { id: collection.noid, parent_id: destination.noid }, as: :json
 
       expect(response).to have_http_status(:success)

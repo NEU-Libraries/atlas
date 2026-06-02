@@ -160,6 +160,16 @@ RSpec.describe Ability do
       expect(subject).not_to be_able_to(:update_thumbnails,         other_users_work)
     end
 
+    it 'does NOT grant :reparent or :link_member — structural mutations are admin-only' do
+      # Edit-rights is deliberately insufficient for re-parenting a node or
+      # linking a Work into additional Collections; both are admin-only and
+      # ride solely on the admin wildcard.
+      expect(subject).not_to be_able_to(:reparent,    work_via_edit_user)
+      expect(subject).not_to be_able_to(:reparent,    work_via_edit_group)
+      expect(subject).not_to be_able_to(:link_member, work_via_edit_user)
+      expect(subject).not_to be_able_to(:link_member, work_via_edit_group)
+    end
+
     it 'applies the same shape to Collection and Community' do
       collection = Collection.new(edit_users: [user.nuid], edit_groups: [])
       community  = Community.new(edit_users: [], edit_groups: user.groups)
@@ -188,6 +198,12 @@ RSpec.describe Ability do
       stranger_work = Work.new(edit_users: ['000000999'], edit_groups: ['somebody:else'])
       expect(subject).to be_able_to(:update, stranger_work)
       expect(subject).to be_able_to(:tombstone, stranger_work)
+    end
+
+    it 'grants the admin-only structural mutations :reparent and :link_member' do
+      stranger_work = Work.new(edit_users: ['000000999'], edit_groups: ['somebody:else'])
+      expect(subject).to be_able_to(:reparent,    stranger_work)
+      expect(subject).to be_able_to(:link_member, stranger_work)
     end
   end
 end

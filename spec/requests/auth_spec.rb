@@ -180,4 +180,74 @@ RSpec.describe 'Auth matrix', type: :request, default_auth: false do
       expect(response).to have_http_status(:ok)
     end
   end
+
+  describe 'admin-only structural mutations (re-parent + linked members)' do
+    # An edit-rights staff principal: in the default STAFF_EDIT_GROUP that
+    # every Creator stamps onto new resources, so this user holds edit rights
+    # on the Work, the source collection, and the destination. Under the old
+    # rule (:reparent / linked-members aliased to :update) that was enough to
+    # move structure and link members. The tightening makes both admin-only,
+    # so even this edit-rights holder now 403s.
+    let!(:staff) do
+      User.create!(email: 'staff@example.invalid', password: SecureRandom.hex(16),
+                   nuid: '000000003', name: 'Roe, Sam', role: :privileged,
+                   groups: [Permissions::STAFF_EDIT_GROUP])
+    end
+    let!(:admin) do
+      User.create!(email: 'admin-auth@example.invalid', password: SecureRandom.hex(16),
+                   nuid: '000000004', name: 'User, Admin', role: :admin)
+    end
+
+    let(:destination) { CollectionCreator.call(parent_id: community.noid) }
+    let(:work)        { WorkCreator.call(parent_id: collection.noid) }
+
+    def json_headers(nuid)
+      auth_headers(nuid: nuid).merge('Content-Type' => 'application/json')
+    end
+
+    describe 'PATCH /works/:id/parent' do
+      it 'denies an edit-rights staff principal with 403' do
+        patch "/works/#{work.noid}/parent",
+              params: { parent_id: destination.noid }.to_json, headers: json_headers(staff.nuid)
+        expect(response).to have_http_status(:forbidden)
+        expect(response.parsed_body).to include('action' => 'reparent')
+      end
+
+      it 'permits the :admin principal' do
+        patch "/works/#{work.noid}/parent",
+              params: { parent_id: destination.noid }.to_json, headers: json_headers(admin.nuid)
+        expect(response).to have_http_status(:ok)
+      end
+    end
+
+    describe 'POST /works/:id/linked_members' do
+      it 'denies an edit-rights staff principal with 403' do
+        post "/works/#{work.noid}/linked_members",
+             params: { collection_id: destination.noid }.to_json, headers: json_headers(staff.nuid)
+        expect(response).to have_http_status(:forbidden)
+        expect(response.parsed_body).to include('action' => 'link_member')
+      end
+
+      it 'permits the :admin principal' do
+        post "/works/#{work.noid}/linked_members",
+             params: { collection_id: destination.noid }.to_json, headers: json_headers(admin.nuid)
+        expect(response).to have_http_status(:ok)
+      end
+    end
+
+    describe 'DELETE /works/:id/linked_members/:collection_id' do
+      before { LinkedMemberCreator.call(work: work, collection: destination) }
+
+      it 'denies an edit-rights staff principal with 403' do
+        delete "/works/#{work.noid}/linked_members/#{destination.noid}", headers: json_headers(staff.nuid)
+        expect(response).to have_http_status(:forbidden)
+        expect(response.parsed_body).to include('action' => 'link_member')
+      end
+
+      it 'permits the :admin principal' do
+        delete "/works/#{work.noid}/linked_members/#{destination.noid}", headers: json_headers(admin.nuid)
+        expect(response).to have_http_status(:ok)
+      end
+    end
+  end
 end

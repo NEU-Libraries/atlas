@@ -549,10 +549,11 @@ RSpec.describe 'Works', type: :request do
       produces 'application/json'
       description <<~DESC
         Adds the Work as a linked member of the target Collection — placement
-        only, never a permission change. Two-sided authorization: the caller
-        needs edit rights on the Work AND on the target Collection. Rejects a
-        non-Collection target, a tombstoned work/target, and a target that is
-        already the Work's structural home, with a 422. Returns the updated
+        only, never a permission change. Admin-only: linking a Work into
+        additional Collections is a structural mutation of the content graph,
+        so edit rights are not sufficient. Rejects a non-Collection target, a
+        tombstoned work/target, and a target that is already the Work's
+        structural home, with a 422. Returns the updated
         list of linked collection NOIDs.
       DESC
       parameter name: :body, in: :body, schema: {
@@ -593,8 +594,8 @@ RSpec.describe 'Works', type: :request do
       produces 'application/json'
       description <<~DESC
         Removes a linked membership (idempotent — removing an absent link is a
-        no-op). Same two-sided authorization as the add. Returns the updated
-        list of linked collection NOIDs. Permissions are never changed.
+        no-op). Admin-only, same as the add. Returns the updated list of
+        linked collection NOIDs. Permissions are never changed.
       DESC
 
       response '200', 'work unlinked from the collection' do

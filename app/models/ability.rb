@@ -26,13 +26,18 @@
 class Ability
   include CanCan::Ability
 
-  # update_thumbnails / update_image_derivatives / complete / reparent travel
-  # with :update for the purposes of ACL gating — they all mutate the
-  # resource's state and callers who can :update can do these too. Keeps the
-  # group-ACL block-form rules to a single :update declaration per resource
-  # class. (reparent is checked on BOTH the moved node and the destination by
-  # Reparentable, so the same edit-rights rule gates each side of a move.)
-  UPDATE_ALIASES = %i[update_thumbnails update_image_derivatives complete reparent].freeze
+  # update_thumbnails / update_image_derivatives / complete travel with
+  # :update for the purposes of ACL gating — they all mutate the resource's
+  # state and callers who can :update can do these too. Keeps the group-ACL
+  # block-form rules to a single :update declaration per resource class.
+  #
+  # :reparent and :link_member are intentionally NOT aliased here and are NOT
+  # granted to any role except :admin (which carries them via `manage :all`).
+  # Re-parenting a node and linking a Work into additional Collections are
+  # structural mutations of the content graph; the matching Cerberus UI is
+  # admin-only, and Atlas is the real boundary, so edit-rights no longer
+  # implies either. Non-admins get a clean 403.
+  UPDATE_ALIASES = %i[update_thumbnails update_image_derivatives complete].freeze
 
   def initialize(user)
     # @current_user is never nil under piece-2 require_auth — at worst it

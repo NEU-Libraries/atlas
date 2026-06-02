@@ -7,11 +7,19 @@
 #   POST   /works/:id/linked_members { collection_id } — add a link
 #   DELETE /works/:id/linked_members/:collection_id     — remove a link
 #
-# Two-sided authorization on the mutations: the actor needs edit rights on the
-# Work (so you can't litter someone else's Work) AND edit/manage rights on the
-# target Collection (so you can't surface a Work you can't see into a
-# collection — an info-disclosure path). Both resolve to the same group-ACL
-# check (:update); listing only needs the read floor.
+# Authorization on the mutations is admin-only: linking a Work into additional
+# Collections is a structural mutation of the content graph, and the matching
+# Cerberus surface (the /admin actions hub) is admin-gated, so Atlas agrees.
+# The check is two-sided (Work AND target Collection) so intent stays
+# documented, but :link_member is granted to no role except :admin (via
+# `manage :all`) — edit-rights no longer implies it. Listing only needs the
+# read floor.
+#
+# NOTE: this tightens a deliberate prior design. The original linked-members
+# plan gated on two-sided edit-rights so a collection manager could self-serve
+# linking a permitted Work into their own collection; admin-only removes that
+# self-service path (a conscious product reversal, 2026-06-02). See
+# gap_reports/atlas_tighten_reparent_linked_member_to_admin.md.
 #
 # All three return the updated list of linked collection noids (the affected
 # sub-resource), so atlas_rb and the Cerberus provenance panel see the result
@@ -29,11 +37,11 @@ module LinkedMembers
 
   def add_linked_member
     work = Work.find(params[:id])
-    authorize! :update, work
+    authorize! :link_member, work
     return head(:not_found) if work.nil?
 
     collection = linked_member_target
-    authorize! :update, collection
+    authorize! :link_member, collection
 
     work = LinkedMemberCreator.call(
       work: work, collection: collection,
@@ -44,11 +52,11 @@ module LinkedMembers
 
   def remove_linked_member
     work = Work.find(params[:id])
-    authorize! :update, work
+    authorize! :link_member, work
     return head(:not_found) if work.nil?
 
     collection = linked_member_target
-    authorize! :update, collection
+    authorize! :link_member, collection
 
     work = LinkedMemberRemover.call(
       work: work, collection: collection,

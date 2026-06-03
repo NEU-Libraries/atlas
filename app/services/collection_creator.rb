@@ -44,11 +44,21 @@ class CollectionCreator < ApplicationService
     end
 
     def apply_provenance!(collection)
+      return apply_impersonation_provenance!(collection) if @on_behalf_of_nuid.present?
       return if @proxy_uploader.nil? && @depositor.nil?
 
       collection.proxy_uploader = @proxy_uploader if @proxy_uploader
       collection.depositor      = @depositor      if @depositor
       collection.depositor    ||= @proxy_uploader
+    end
+
+    # Acting-as: pure impersonation — depositor = target, proxy_uploader
+    # explicitly NULL. See WorkCreator#apply_impersonation_provenance! for
+    # the full rationale (incl. why it's cleared, not skipped).
+    def apply_impersonation_provenance!(collection)
+      collection.proxy_uploader = nil
+      collection.depositor      = @depositor if @depositor
+      collection.depositor    ||= @on_behalf_of_nuid
     end
 
     def emit_audit_event!(collection)

@@ -96,6 +96,12 @@ class ApplicationController < ActionController::API
       nuid_pattern = /^NUID /
       nuid_header  = request.headers['User']
       @nuid = nuid_header.gsub(nuid_pattern, '') if nuid_header&.match(nuid_pattern)
+
+      # Acting-as (piece 5): the operator authorizes with the `User` header;
+      # `On-Behalf-Of` carries the attribution target, same `NUID <nuid>`
+      # shape. Admin-gated below — see enforce_on_behalf_of_gate.
+      obo_header = request.headers['On-Behalf-Of']
+      @on_behalf_of = obo_header.gsub(nuid_pattern, '') if obo_header&.match(nuid_pattern)
     end
 
     # Resolve @current_user from the (Bearer token, User: NUID) pair.
@@ -127,15 +133,33 @@ class ApplicationController < ActionController::API
     # any real person.
     def require_auth
       parse_headers
-      return guest_sign_in if @token.blank?
 
-      if valid_cerberus_token?
+      if @token.blank?
+        guest_sign_in
+      elsif valid_cerberus_token?
         resolve_cerberus_user
       elsif valid_system_token?
         resolve_system_user
       else
-        render_error(:unauthorized, 'invalid bearer token')
+        return render_error(:unauthorized, 'invalid bearer token')
       end
+
+      # Runs only if a principal was resolved (the branches above bail with a
+      # rendered error otherwise; `performed?` guards against a double render).
+      enforce_on_behalf_of_gate unless performed?
+    end
+
+    # Acting-as authorization (piece 5 / Q16): the operator authorizes the
+    # request, the target is only an attribution stamp and needs no rights —
+    # so `On-Behalf-Of` is restricted to admin operators. A non-admin (incl.
+    # guest and the :system principal) presenting it is rejected. This is the
+    # wire boundary; the proxy_uploader-null-under-impersonation rule and the
+    # two-principal AuditEvent both hang off @on_behalf_of downstream.
+    def enforce_on_behalf_of_gate
+      return if @on_behalf_of.blank?
+      return if @current_user&.admin?
+
+      render_error(:forbidden, 'On-Behalf-Of requires an admin operator')
     end
 
     def resolve_cerberus_user

@@ -146,24 +146,29 @@ class WorksController < ApplicationController
       { in_progress: ActiveModel::Type::Boolean.new.cast(params[:in_progress]) }
     end
 
-    # The hands-on-keyboard actor for this create. During acting-as
-    # (piece 5) the On-Behalf-Of header populates @on_behalf_of and the
-    # target NUID becomes the proxy_uploader; otherwise the authenticated
-    # caller is the proxy_uploader.
+    # The hands-on-keyboard actor for this create. Under acting-as (piece 5)
+    # the On-Behalf-Of header is present and there is NO hands-on-keyboard
+    # stamp — the deposit reads as pure impersonation (proxy_uploader left
+    # null, admin recorded only in the AuditEvent). Otherwise the
+    # authenticated caller is the proxy_uploader. (The creator also nulls it
+    # defensively to defeat parent-permission inheritance.)
     def proxy_uploader_nuid
-      @on_behalf_of.presence || @current_user&.nuid
+      return nil if @on_behalf_of.present?
+
+      @current_user&.nuid
     end
 
     # The intellectual owner. Resolution order:
     #   1. explicit form param (the in-band proxy radio supplies the
-    #      parent collection's depositor; piece 5 acting-as does not use
-    #      this path).
-    #   2. parent collection's default depositor (the anonymous-batch
+    #      parent collection's depositor; acting-as sends depositor = target).
+    #   2. acting-as target (On-Behalf-Of) — the deposit is attributed to T.
+    #   3. parent collection's default depositor (the anonymous-batch
     #      shape — points the collection at the :anonymous user and
     #      every Work inherits).
-    #   3. proxy_uploader (self-deposit fallback).
+    #   4. proxy_uploader (self-deposit fallback).
     def depositor_nuid
       return params[:depositor] if params[:depositor].present?
+      return @on_behalf_of      if @on_behalf_of.present?
 
       collection = parent_collection_for_depositor
       return collection.depositor if collection&.depositor.present?

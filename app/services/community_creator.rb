@@ -44,11 +44,21 @@ class CommunityCreator < ApplicationService
     end
 
     def apply_provenance!(community)
+      return apply_impersonation_provenance!(community) if @on_behalf_of_nuid.present?
       return if @proxy_uploader.nil? && @depositor.nil?
 
       community.proxy_uploader = @proxy_uploader if @proxy_uploader
       community.depositor      = @depositor      if @depositor
       community.depositor    ||= @proxy_uploader
+    end
+
+    # Acting-as: pure impersonation — depositor = target, proxy_uploader
+    # explicitly NULL. See WorkCreator#apply_impersonation_provenance! for
+    # the full rationale (incl. why it's cleared, not skipped).
+    def apply_impersonation_provenance!(community)
+      community.proxy_uploader = nil
+      community.depositor      = @depositor if @depositor
+      community.depositor    ||= @on_behalf_of_nuid
     end
 
     def emit_audit_event!(community)

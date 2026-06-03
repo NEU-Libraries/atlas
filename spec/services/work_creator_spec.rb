@@ -103,4 +103,50 @@ RSpec.describe WorkCreator do
       expect(@work.proxy_uploader).to eq('librarian_stamping_here')
     end
   end
+
+  # Acting-as (Q16, 2026-06-03): pure impersonation. The Work must read
+  # exactly as if the target deposited it — depositor = target,
+  # proxy_uploader null — with the admin captured only in the AuditEvent.
+  describe 'acting-as impersonation (On-Behalf-Of present)' do
+    it 'stamps depositor = target, leaves proxy_uploader null, and records both principals' do
+      expect do
+        @work = described_class.call(
+          parent_id:         collection.noid,
+          depositor:         '900000001',   # target (Cerberus sends this explicitly)
+          proxy_uploader:    nil,           # controller sends nil under impersonation
+          actor_nuid:        '000000004',   # admin operator
+          on_behalf_of_nuid: '900000001'    # target
+        )
+      end.to change(AuditEvent, :count).by(1)
+
+      expect(@work.depositor).to      eq('900000001')
+      expect(@work.proxy_uploader).to be_nil
+
+      ev = AuditEvent.last
+      expect(ev).to have_attributes(
+        actor_nuid:        '000000004', # admin — the hand on the keyboard, in the trail only
+        on_behalf_of_nuid: '900000001', # target — the attribution stamp
+        action:            'create'
+      )
+    end
+
+    it 'nulls an inherited proxy_uploader rather than merely skipping the stamp' do
+      # Defeat the parent.permissions copy: a collection carrying a
+      # proxy_uploader must not bleed onto an impersonation deposit.
+      c = CollectionCreator.call(parent_id: community.noid)
+      c.proxy_uploader = 'inherited_proxy'
+      c.depositor      = 'inherited_depositor'
+      Atlas.persister.save(resource: c)
+
+      @work = described_class.call(
+        parent_id:         c.noid,
+        depositor:         '900000001',
+        actor_nuid:        '000000004',
+        on_behalf_of_nuid: '900000001'
+      )
+
+      expect(@work.proxy_uploader).to be_nil
+      expect(@work.depositor).to      eq('900000001')
+    end
+  end
 end

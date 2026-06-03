@@ -122,6 +122,51 @@ RSpec.describe 'Auth matrix', type: :request, default_auth: false do
     end
   end
 
+  describe 'On-Behalf-Of admin gate (acting-as, piece 5)' do
+    # Q16: the operator (User header) authorizes; the target (On-Behalf-Of)
+    # is only an attribution stamp. So On-Behalf-Of is restricted to admin
+    # operators — everyone else presenting it is rejected before the action
+    # runs.
+    let!(:admin) do
+      User.create!(email: 'admin-obo@example.invalid', password: SecureRandom.hex(16),
+                   nuid: '000000004', name: 'User, Admin', role: :admin)
+    end
+    let(:target_nuid) { '900000001' }
+
+    def obo_headers(nuid:, token: cerberus_token, on_behalf_of: target_nuid)
+      h = auth_headers(token: token, nuid: nuid).merge('Content-Type' => 'application/json')
+      h['On-Behalf-Of'] = "NUID #{on_behalf_of}" if on_behalf_of
+      h
+    end
+
+    it 'rejects a non-admin operator presenting On-Behalf-Of (403)' do
+      get '/communities', headers: obo_headers(nuid: privileged.nuid)
+      expect(response).to have_http_status(:forbidden)
+      expect(response.parsed_body['error']).to match(/On-Behalf-Of requires an admin operator/)
+    end
+
+    it 'rejects a guest (no token) presenting On-Behalf-Of (403)' do
+      get '/communities', headers: { 'On-Behalf-Of' => "NUID #{target_nuid}" }
+      expect(response).to have_http_status(:forbidden)
+    end
+
+    it 'rejects the :system principal presenting On-Behalf-Of (403)' do
+      get '/communities', headers: obo_headers(token: system_token, nuid: system_user.nuid)
+      expect(response).to have_http_status(:forbidden)
+    end
+
+    it 'permits an admin operator and attributes the deposit to the target (proxy_uploader null)' do
+      post '/works',
+           params:  { collection_id: collection.noid, depositor: target_nuid }.to_json,
+           headers: obo_headers(nuid: admin.nuid)
+      expect(response.status).to be_in([200, 201])
+
+      work = response.parsed_body['work']
+      expect(work['depositor']).to      eq(target_nuid)
+      expect(work['proxy_uploader']).to be_nil
+    end
+  end
+
   describe 'Ability-driven 403s on write actions (system_token-paired)' do
     # Post-piece-6, the :system principal authenticates with system_token,
     # not cerberus_token. The Ability layer still denies :system on Work

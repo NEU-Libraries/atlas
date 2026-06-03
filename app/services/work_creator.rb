@@ -48,6 +48,7 @@ class WorkCreator < ApplicationService
     end
 
     def apply_provenance!(work)
+      return apply_impersonation_provenance!(work) if @on_behalf_of_nuid.present?
       return if @proxy_uploader.nil? && @depositor.nil?
 
       work.proxy_uploader = @proxy_uploader if @proxy_uploader
@@ -56,6 +57,19 @@ class WorkCreator < ApplicationService
       # the parent didn't carry a depositor — stamp the actor as
       # depositor too. The common case for non-proxy deposits.
       work.depositor ||= @proxy_uploader
+    end
+
+    # Acting-as (Q16 settled 2026-06-03): a pure impersonation deposit reads
+    # exactly as if the target deposited it — depositor = target,
+    # proxy_uploader explicitly NULL (the admin lives only in the AuditEvent,
+    # not on the resource). proxy_uploader is cleared rather than skipped
+    # because the parent.permissions copy upstream may have seeded an
+    # inherited value. Contrast the proxy-deposit path (no On-Behalf-Of),
+    # where proxy_uploader = the operator and must be preserved.
+    def apply_impersonation_provenance!(work)
+      work.proxy_uploader = nil
+      work.depositor      = @depositor if @depositor
+      work.depositor    ||= @on_behalf_of_nuid
     end
 
     def emit_audit_event!(work)

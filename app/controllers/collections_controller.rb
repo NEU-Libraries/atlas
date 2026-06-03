@@ -128,11 +128,14 @@ class CollectionsController < ApplicationController
     # depositor-bearing batch sources), so depositor falls back directly
     # to the proxy_uploader.
     def proxy_uploader_nuid
-      @on_behalf_of.presence || @current_user&.nuid
+      return nil if @on_behalf_of.present?
+
+      @current_user&.nuid
     end
 
     def depositor_nuid
       return params[:depositor] if params[:depositor].present?
+      return @on_behalf_of      if @on_behalf_of.present?
 
       proxy_uploader_nuid
     end

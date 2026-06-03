@@ -118,4 +118,59 @@ RSpec.describe 'Audit history endpoint', type: :request do
       expect(response.parsed_body['events']).to eq([])
     end
   end
+
+  # Session-scoped emit (Gap B): impersonation start/end events that hang on
+  # no resource. atlas_rb's AtlasRb::AuditEvent.emit drives this endpoint.
+  describe 'POST /audit_events' do
+    let(:json_headers) { admin_headers.merge('Content-Type' => 'application/json') }
+
+    let(:emit_body) do
+      { action:            'impersonation_started',
+        actor_nuid:        admin.nuid,
+        on_behalf_of_nuid: '900000001',
+        mode:              'acting_as' }
+    end
+
+    it 'records a session-scoped event (null resource) and returns it for an admin' do
+      expect do
+        post '/audit_events', params: emit_body.to_json, headers: json_headers
+      end.to change(AuditEvent, :count).by(1)
+
+      expect(response).to have_http_status(:created)
+      body = response.parsed_body
+      expect(body).to include(
+        'action'            => 'impersonation_started',
+        'actor_nuid'        => admin.nuid,
+        'on_behalf_of_nuid' => '900000001',
+        'change_type'       => 'session',
+        'event_source'      => 'controller',
+        'resource_id'       => nil,
+        'resource_type'     => nil
+      )
+      # mode has no column — it rides in the jsonb payload.
+      expect(body['payload']).to include('mode' => 'acting_as')
+
+      event = AuditEvent.last
+      expect(event.resource_id).to be_nil
+      expect(event.session_event?).to be(true)
+    end
+
+    it 'records an impersonation_ended event' do
+      post '/audit_events',
+           params:  emit_body.merge(action: 'impersonation_ended', mode: 'view_as').to_json,
+           headers: json_headers
+      expect(response).to have_http_status(:created)
+      expect(response.parsed_body['action']).to eq('impersonation_ended')
+      expect(response.parsed_body['payload']).to include('mode' => 'view_as')
+    end
+
+    it 'rejects a non-admin caller with 403' do
+      expect do
+        post '/audit_events',
+             params:  emit_body.to_json,
+             headers: guest_headers.merge('Content-Type' => 'application/json')
+      end.not_to change(AuditEvent, :count)
+      expect(response).to have_http_status(:forbidden)
+    end
+  end
 end

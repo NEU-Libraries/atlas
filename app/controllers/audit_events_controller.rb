@@ -19,7 +19,45 @@ class AuditEventsController < ApplicationController
     @events = AuditEvent.for_resource(resolved_resource_id).recent
   end
 
+  # Session-scoped emit: an AuditEvent with no resource to hang on —
+  # impersonation start/end (piece 5). The session lifecycle lives in the
+  # calling app (Cerberus, a cookie); view-as performs no resource writes
+  # at all, so there is no mutation to attach the event to. Principals
+  # travel in the body (self-describing) rather than inferred from headers,
+  # because an `impersonation_ended` emit fires as the session is torn down.
+  #
+  # Admin-gated: only :admin carries `:create AuditEvent` (via `manage :all`);
+  # every other principal — :system, :guest, standard humans — is denied 403.
+  # The endpoint authenticates as the admin (cerberus token + `User:` header),
+  # which is also what `enforce_on_behalf_of_gate` would require.
+  def create
+    authorize! :create, AuditEvent
+
+    # NB: read the body's `action` from request_parameters, not params —
+    # `params[:action]` is reserved by the router and resolves to the
+    # controller action name ("create"), shadowing the emit's action field.
+    body = request.request_parameters
+    @event = AuditEventWriter.record(
+      actor_nuid:        body['actor_nuid'],
+      on_behalf_of_nuid: body['on_behalf_of_nuid'],
+      action:            body['action'],
+      change_type:       'session',
+      event_source:      'controller',
+      payload:           session_payload(body)
+    )
+    render :show, status: :created
+  end
+
   private
+
+    # `mode` (acting_as / view_as) has no dedicated column — it's a property
+    # of the session, not the content graph — so it rides in the jsonb
+    # payload alongside any caller-supplied metadata.
+    def session_payload(body)
+      base = body['payload'].is_a?(Hash) ? body['payload'].dup : {}
+      base['mode'] = body['mode'] if body['mode'].present?
+      base
+    end
 
     # Resolve incoming NOID → canonical resource_id (Valkyrie UUID) the
     # writer stores. If the resource is missing — destroyed, never

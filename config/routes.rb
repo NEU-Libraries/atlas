@@ -50,6 +50,10 @@ Rails.application.routes.draw do
     get '/resources/:id/history', to: 'audit_events#index', as: 'resource_history'
     post '/resources/preview', to: 'resources#preview', defaults: { format: 'html' }
 
+    # Session-scoped audit emit (no resource to hang on): impersonation
+    # start/end. Admin-gated. See AtlasRb::AuditEvent.emit.
+    post '/audit_events', to: 'audit_events#create', as: 'audit_events'
+
     # Metadata
     get '/communities/:id/mods', to: 'communities#mods', as: 'community_mods'
     get '/communities/:id/children', to: 'communities#children', as: 'community_children'

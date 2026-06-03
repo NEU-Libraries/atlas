@@ -49,6 +49,17 @@ components:
       name: User
       description: NUID identity asserted by Cerberus, in the form `NUID <nuid>`.
         Required when calling with the system token to act as a user.
+    OnBehalfOfHeader:
+      type: apiKey
+      in: header
+      name: On-Behalf-Of
+      description: 'Acting-as attribution target, in the form `NUID <nuid>`. Sent
+        on writes during an acting-as session: the `User` header (the operator) authorizes
+        the request and must be an admin; this header names the user the write is
+        attributed to. On a create, the resulting resource reads as a pure deposit
+        by the target — `depositor` = target, `proxy_uploader` left null — with the
+        operator recorded only in the AuditEvent. A non-admin operator presenting
+        this header is rejected (403).'
   schemas:
     Work:
       type: object
@@ -115,7 +126,9 @@ components:
               nullable: true
               description: NUID of the hands-on-keyboard actor for the most-recent
                 create. Equals depositor for self-deposit; differs in the librarian-on-behalf
-                case.
+                (proxy-deposit) case. Left null under acting-as impersonation (On-Behalf-Of
+                header present) — the operator is recorded only in the AuditEvent,
+                not on the resource.
             in_progress:
               type: boolean
               description: Cerberus-driven workflow flag; true until the bulk-deposit
@@ -203,7 +216,9 @@ components:
               nullable: true
               description: NUID of the hands-on-keyboard actor for the most-recent
                 create. Equals depositor for self-deposit; differs in the librarian-on-behalf
-                case.
+                (proxy-deposit) case. Left null under acting-as impersonation (On-Behalf-Of
+                header present) — the operator is recorded only in the AuditEvent,
+                not on the resource.
           required:
           - id
           - valkyrie_id
@@ -286,7 +301,9 @@ components:
               nullable: true
               description: NUID of the hands-on-keyboard actor for the most-recent
                 create. Equals depositor for self-deposit; differs in the librarian-on-behalf
-                case.
+                (proxy-deposit) case. Left null under acting-as impersonation (On-Behalf-Of
+                header present) — the operator is recorded only in the AuditEvent,
+                not on the resource.
           required:
           - id
           - valkyrie_id

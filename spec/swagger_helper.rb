@@ -69,6 +69,16 @@ RSpec.configure do |config|
             in:          :header,
             name:        'User',
             description: 'NUID identity asserted by Cerberus, in the form `NUID <nuid>`. Required when calling with the system token to act as a user.'
+          },
+          OnBehalfOfHeader: {
+            type:        :apiKey,
+            in:          :header,
+            name:        'On-Behalf-Of',
+            description: 'Acting-as attribution target, in the form `NUID <nuid>`. ' \
+                         'Sent on writes during an acting-as session: the `User` header (the operator) authorizes the request and must be an admin; ' \
+                         'this header names the user the write is attributed to. On a create, the resulting resource reads as a pure deposit by the ' \
+                         'target — `depositor` = target, `proxy_uploader` left null — with the operator recorded only in the AuditEvent. ' \
+                         'A non-admin operator presenting this header is rejected (403).'
           }
         },
         schemas:         OpenapiSchemas.all

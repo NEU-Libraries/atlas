@@ -270,7 +270,7 @@ module OpenapiSchemas
   def provenance_props
     {
       depositor:      { type: :string, nullable: true, description: 'NUID of the intellectual owner (the named depositor; may differ from the hands-on-keyboard actor)' },
-      proxy_uploader: { type: :string, nullable: true, description: 'NUID of the hands-on-keyboard actor for the most-recent create. Equals depositor for self-deposit; differs in the librarian-on-behalf case.' }
+      proxy_uploader: { type: :string, nullable: true, description: 'NUID of the hands-on-keyboard actor for the most-recent create. Equals depositor for self-deposit; differs in the librarian-on-behalf (proxy-deposit) case. Left null under acting-as impersonation (On-Behalf-Of header present) — the operator is recorded only in the AuditEvent, not on the resource.' }
     }
   end
 

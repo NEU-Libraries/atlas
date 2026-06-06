@@ -4,6 +4,7 @@ json.collection do
   json.id @collection.noid
   json.valkyrie_id @collection.id.to_s
   json.ancestors @collection.ancestors
+  json.ancestor_chain @collection.ancestor_chain
   json.thumbnail @collection.thumbnail_uri
   json.thumbnail_2x @collection.thumbnail_uri_for(Role.thumbnail_image_2x.name)
   json.preview @collection.thumbnail_uri_for(Role.preview_image.name)

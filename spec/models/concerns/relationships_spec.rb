@@ -38,6 +38,38 @@ RSpec.describe Relationships do
     end
   end
 
+  describe '#ancestor_chain' do
+    # Use the Creator services so each resource gets its descriptive-metadata
+    # FileSet — `plain_title=` writes through MODS, which needs that FileSet.
+    let!(:community)  { CommunityCreator.call }
+    let!(:collection) { CollectionCreator.call(parent_id: community.noid) }
+    let!(:work)       { WorkCreator.call(parent_id: collection.noid) }
+
+    before do
+      community.plain_title  = 'Root Community'
+      collection.plain_title = 'Parent Collection'
+    end
+
+    it 'returns root-first {noid, klass, title} nodes carrying each ancestor title' do
+      expect(work.ancestor_chain).to eq([
+                                          { noid: community.noid,  klass: 'Community',  title: 'Root Community' },
+                                          { noid: collection.noid, klass: 'Collection', title: 'Parent Collection' }
+                                        ])
+    end
+
+    it 'returns [] for a top-level resource' do
+      expect(community.ancestor_chain).to eq([])
+    end
+
+    it 'raises AncestorError on a cycle (same guard as #ancestors)' do
+      pg = Valkyrie::MetadataAdapter.find(:postgres).persister
+      community.a_member_of = collection.id
+      pg.save(resource: community)
+
+      expect { collection.ancestor_chain }.to raise_error(Exceptions::AncestorError)
+    end
+  end
+
   describe '#descendant_collections' do
     let!(:community)  { Atlas.persister.save(resource: Community.new) }
     let!(:collection) { Atlas.persister.save(resource: Collection.new(a_member_of: community.id)) }

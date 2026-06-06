@@ -193,6 +193,23 @@ RSpec.describe 'Works', type: :request do
           expect(body['preview']).to      eq('https://iiif.example/500.jpg')
         end
       end
+
+      response '200', 'ancestor_chain carries each ancestor noid, klass and title (root-first)' do
+        let(:work) { WorkCreator.call(parent_id: collection.noid) }
+        let(:id)   { work.noid }
+        before do
+          community.plain_title  = 'Root Community'
+          collection.plain_title = 'Parent Collection'
+        end
+        schema '$ref' => '#/components/schemas/Work'
+        run_test! do |response|
+          chain = JSON.parse(response.body).fetch('work').fetch('ancestor_chain')
+          expect(chain).to eq([
+                                { 'noid' => community.noid,  'klass' => 'Community',  'title' => 'Root Community' },
+                                { 'noid' => collection.noid, 'klass' => 'Collection', 'title' => 'Parent Collection' }
+                              ])
+        end
+      end
     end
 
     patch 'Update a work' do

@@ -33,23 +33,23 @@ module Relationships
     result.first
   end
 
-  def ancestors(resource = nil, pids = [])
-    p = if resource.nil?
-          parent
-        else
-          resource.parent
-        end
-    return pids.reverse if p.nil?
+  # Lightweight [noid, class-name] pairs, root-first. The historical contract
+  # the AncestryIndexer (ancestor_ids_ssim) and any positional-tuple consumer
+  # depend on. Derived from the single walk in `ancestor_resources` — the
+  # parents are already materialized there, so this costs nothing extra.
+  def ancestors
+    ancestor_resources.map { |r| [r.noid.to_s, r.class.to_s] }
+  end
 
-    # Cycle guard: the backbone is a strict tree, so a NOID reappearing in
-    # the chain means the data is corrupt. Fail loudly instead of recursing
-    # forever — this also protects the AncestryIndexer and the re-parent walk.
-    if pids.any? { |noid, _klass| noid == p.noid } || p.noid == noid
-      raise Exceptions::AncestorError, "ancestry cycle detected at #{p.noid} while walking #{noid}"
+  # The same chain as `ancestors`, but carrying each ancestor's title under
+  # named keys — so a consumer building breadcrumbs (Cerberus) gets the title
+  # that was already loaded here, instead of issuing one HTTP round-trip per
+  # ancestor to re-fetch it. plain_title mirrors the resource's own title
+  # field in the jbuilder partials; it lives on the decorator.
+  def ancestor_chain
+    ancestor_resources.map do |r|
+      { noid: r.noid.to_s, klass: r.class.to_s, title: r.decorate.plain_title }
     end
-
-    pids << [p.noid, p.class.to_s]
-    ancestors(p, pids)
   end
 
   # Collections/communities whose ancestor chain includes this resource —
@@ -77,4 +77,25 @@ module Relationships
   def live_children?
     children.any? { |c| (c.is_a?(Community) || c.is_a?(Collection) || c.is_a?(Work)) && !c.tombstoned }
   end
+
+  private
+
+    # Walk parent links to the root, collecting the fully materialized resource
+    # objects once. Returned root-first (matching the historical `pids.reverse`
+    # order: [root, …, grandparent, parent]) so both `ancestors` and
+    # `ancestor_chain` derive their shapes from a single walk, never twice.
+    def ancestor_resources(resource = nil, resources = [])
+      p = (resource || self).parent
+      return resources.reverse if p.nil?
+
+      # Cycle guard: the backbone is a strict tree, so a NOID reappearing in
+      # the chain means the data is corrupt. Fail loudly instead of recursing
+      # forever — this also protects the AncestryIndexer and the re-parent walk.
+      if resources.any? { |r| r.noid == p.noid } || p.noid == noid
+        raise Exceptions::AncestorError, "ancestry cycle detected at #{p.noid} while walking #{noid}"
+      end
+
+      resources << p
+      ancestor_resources(p, resources)
+    end
 end

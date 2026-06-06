@@ -82,6 +82,26 @@ components:
                 minItems: 2
                 maxItems: 2
                 description: "[noid, type-name] pair"
+            ancestor_chain:
+              type: array
+              description: Ancestor chain, root-first, with titles — array of {noid,
+                klass, title} objects
+              items:
+                type: object
+                properties:
+                  noid:
+                    type: string
+                    description: Ancestor NOID
+                  klass:
+                    type: string
+                    description: Ancestor resource class name
+                  title:
+                    type: string
+                    description: Ancestor plain-text title (may be empty)
+                required:
+                - noid
+                - klass
+                - title
             thumbnail:
               type: string
               nullable: true
@@ -137,6 +157,7 @@ components:
           - id
           - valkyrie_id
           - ancestors
+          - ancestor_chain
           - thumbnail
           - thumbnail_2x
           - preview
@@ -172,6 +193,26 @@ components:
                 minItems: 2
                 maxItems: 2
                 description: "[noid, type-name] pair"
+            ancestor_chain:
+              type: array
+              description: Ancestor chain, root-first, with titles — array of {noid,
+                klass, title} objects
+              items:
+                type: object
+                properties:
+                  noid:
+                    type: string
+                    description: Ancestor NOID
+                  klass:
+                    type: string
+                    description: Ancestor resource class name
+                  title:
+                    type: string
+                    description: Ancestor plain-text title (may be empty)
+                required:
+                - noid
+                - klass
+                - title
             thumbnail:
               type: string
               nullable: true
@@ -223,6 +264,7 @@ components:
           - id
           - valkyrie_id
           - ancestors
+          - ancestor_chain
           - thumbnail
           - thumbnail_2x
           - preview
@@ -257,6 +299,26 @@ components:
                 minItems: 2
                 maxItems: 2
                 description: "[noid, type-name] pair"
+            ancestor_chain:
+              type: array
+              description: Ancestor chain, root-first, with titles — array of {noid,
+                klass, title} objects
+              items:
+                type: object
+                properties:
+                  noid:
+                    type: string
+                    description: Ancestor NOID
+                  klass:
+                    type: string
+                    description: Ancestor resource class name
+                  title:
+                    type: string
+                    description: Ancestor plain-text title (may be empty)
+                required:
+                - noid
+                - klass
+                - title
             thumbnail:
               type: string
               nullable: true
@@ -308,6 +370,7 @@ components:
           - id
           - valkyrie_id
           - ancestors
+          - ancestor_chain
           - thumbnail
           - thumbnail_2x
           - preview
@@ -1887,8 +1950,8 @@ paths:
       - Works
       responses:
         '200':
-          description: all three thumbnail tiers project onto the Work JSON when Delegates
-            exist
+          description: ancestor_chain carries each ancestor noid, klass and title
+            (root-first)
           content:
             application/json:
               schema:

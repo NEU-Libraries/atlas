@@ -31,6 +31,7 @@ module OpenapiSchemas
       ProvisionedUser:   provisioned_user,
       Permissions:       permissions,
       ResourceRef:       resource_ref,
+      ResourceDigests:   resource_digests,
       Lineage:           lineage
     }
   end
@@ -241,6 +242,28 @@ module OpenapiSchemas
         { '$ref' => '#/components/schemas/FileSet' },
         { '$ref' => '#/components/schemas/Delegate' }
       ]
+    }
+  end
+
+  # POST /resources/find_many returns one lightweight digest per resolved
+  # resource. Unordered, and may be shorter than the requested id list
+  # (unresolvable ids are dropped). title/thumbnail are null for resources
+  # off the Modsable backbone (FileSet/Blob).
+  def resource_digests
+    {
+      type:  :array,
+      items: {
+        type:       :object,
+        properties: {
+          id:         { type: :string, description: 'NOID' },
+          noid:       { type: :string, description: 'NOID (same value as id; explicit for batch callers indexing by noid)' },
+          klass:      { type: :string, description: 'Resolved resource class name' },
+          title:      { type: :string, nullable: true, description: 'Plain-text title; null off the Modsable backbone' },
+          thumbnail:  { type: :string, nullable: true, description: 'IIIF URL of the thumbnail tier, or null' },
+          tombstoned: { type: :boolean, description: 'Withdrawn-from-discovery flag — kept in the result but flagged' }
+        },
+        required:   %w[id noid klass title thumbnail tombstoned]
+      }
     }
   end
 

@@ -49,6 +49,12 @@ Rails.application.routes.draw do
     get '/resources/:id/permissions', to: 'resources#permissions'
     get '/resources/:id/history', to: 'audit_events#index', as: 'resource_history'
     post '/resources/preview', to: 'resources#preview', defaults: { format: 'html' }
+    # Batch resolver: many noids/ids -> lightweight digests in one round-trip.
+    # Collapses the per-id find fan-out on the Cerberus side (breadcrumbs,
+    # linked members, load destinations). Tolerant: unresolvable ids are
+    # dropped, so the result may be shorter than the input and is not
+    # order-guaranteed — callers index by noid.
+    post '/resources/find_many', to: 'resources#find_many'
 
     # Session-scoped audit emit (no resource to hang on): impersonation
     # start/end. Admin-gated. See AtlasRb::AuditEvent.emit.

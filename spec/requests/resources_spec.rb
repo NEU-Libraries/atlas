@@ -57,4 +57,69 @@ RSpec.describe 'Resources', type: :request do
       end
     end
   end
+
+  path '/resources/find_many' do
+    post 'Resolve many resources by id in one round-trip' do
+      tags 'Resources'
+      consumes 'application/json'
+      produces 'application/json'
+      description <<~DESC
+        Batch resolver. Takes a list of noids (or Valkyrie ids) and returns a
+        lightweight digest per resolvable resource, collapsing a per-id find
+        fan-out into a single request.
+
+        The result is **unordered** and **may be shorter than the input**:
+        unresolvable ids are dropped silently. Tombstoned resources are kept
+        but flagged (`tombstoned: true`) so callers can render a placeholder.
+        Callers should index the result by `noid`.
+      DESC
+      parameter name: :body, in: :body, schema: {
+        type:       :object,
+        properties: {
+          ids: { type: :array, items: { type: :string }, description: 'NOIDs (or Valkyrie ids) to resolve' }
+        },
+        required:   %w[ids]
+      }
+
+      response '200', 'digests for the resolvable subset' do
+        let(:body) { { ids: [community.noid, collection.noid, 'does-not-exist'] } }
+        before do
+          community.plain_title  = 'Root Community'
+          collection.plain_title = 'Child Collection'
+        end
+        schema '$ref' => '#/components/schemas/ResourceDigests'
+        run_test! do |response|
+          digests = JSON.parse(response.body)
+          by_noid = digests.index_by { |d| d['noid'] }
+          expect(by_noid.keys).to contain_exactly(community.noid, collection.noid)
+          expect(by_noid[community.noid]).to include(
+            'id' => community.noid, 'klass' => 'Community', 'title' => 'Root Community', 'tombstoned' => false
+          )
+          expect(by_noid[collection.noid]).to include('klass' => 'Collection', 'title' => 'Child Collection')
+        end
+      end
+
+      response '200', 'tombstoned resources are kept but flagged' do
+        let(:body) { { ids: [work.noid] } }
+        before do
+          work.tombstoned = true
+          Atlas.persister.save(resource: work)
+        end
+        schema '$ref' => '#/components/schemas/ResourceDigests'
+        run_test! do |response|
+          digests = JSON.parse(response.body)
+          expect(digests.size).to eq(1)
+          expect(digests.first).to include('noid' => work.noid, 'tombstoned' => true)
+        end
+      end
+
+      response '200', 'empty id list returns an empty array' do
+        let(:body) { { ids: [] } }
+        schema '$ref' => '#/components/schemas/ResourceDigests'
+        run_test! do |response|
+          expect(JSON.parse(response.body)).to eq([])
+        end
+      end
+    end
+  end
 end

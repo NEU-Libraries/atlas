@@ -24,4 +24,19 @@ class ResourcesController < ApplicationController
     authorize! :read, Resource
     @resource = Resource.find(params[:id])
   end
+
+  # Batch resolver. Given a list of noids (or Valkyrie ids), return a
+  # lightweight digest per resolvable resource in a single request, so a
+  # caller resolving a set of ids no longer fans out to one find per id.
+  # Mirrors #show's class-level read floor (Atlas grants :read on every
+  # resource to any authenticated principal). Unknown/unresolvable ids are
+  # dropped silently; tombstoned resources are kept but flagged, so callers
+  # can render a placeholder rather than blow up. Resolution is NOID-first
+  # via Resource.find; the win is collapsing N HTTP round-trips into one, not
+  # the (cheap, co-located) per-id lookups.
+  def find_many
+    authorize! :read, Resource
+    ids = Array(params[:ids]).map(&:to_s).uniq
+    @resources = ids.filter_map { |id| Resource.find(id)&.decorate }
+  end
 end

@@ -805,6 +805,39 @@ components:
       - "$ref": "#/components/schemas/Community"
       - "$ref": "#/components/schemas/FileSet"
       - "$ref": "#/components/schemas/Delegate"
+    ResourceDigests:
+      type: array
+      items:
+        type: object
+        properties:
+          id:
+            type: string
+            description: NOID
+          noid:
+            type: string
+            description: NOID (same value as id; explicit for batch callers indexing
+              by noid)
+          klass:
+            type: string
+            description: Resolved resource class name
+          title:
+            type: string
+            nullable: true
+            description: Plain-text title; null off the Modsable backbone
+          thumbnail:
+            type: string
+            nullable: true
+            description: IIIF URL of the thumbnail tier, or null
+          tombstoned:
+            type: boolean
+            description: Withdrawn-from-discovery flag — kept in the result but flagged
+        required:
+        - id
+        - noid
+        - klass
+        - title
+        - thumbnail
+        - tombstoned
     Lineage:
       type: array
       items:
@@ -1779,6 +1812,41 @@ paths:
       responses:
         '200':
           description: preview rendered
+  "/resources/find_many":
+    post:
+      summary: Resolve many resources by id in one round-trip
+      tags:
+      - Resources
+      description: |
+        Batch resolver. Takes a list of NOIDs and returns a lightweight digest
+        per resolvable resource in a single index-backed query, collapsing a
+        per-id find fan-out into one request.
+
+        The result is **unordered** and **may be shorter than the input**:
+        unresolvable ids are dropped silently. Tombstoned resources are kept
+        but flagged (`tombstoned: true`) so callers can render a placeholder.
+        Callers should index the result by `noid`.
+      parameters: []
+      responses:
+        '200':
+          description: empty id list returns an empty array
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ResourceDigests"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ids:
+                  type: array
+                  items:
+                    type: string
+                  description: NOIDs to resolve
+              required:
+              - ids
   "/user":
     get:
       summary: Current user details

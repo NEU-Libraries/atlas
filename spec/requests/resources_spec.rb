@@ -64,9 +64,9 @@ RSpec.describe 'Resources', type: :request do
       consumes 'application/json'
       produces 'application/json'
       description <<~DESC
-        Batch resolver. Takes a list of noids (or Valkyrie ids) and returns a
-        lightweight digest per resolvable resource, collapsing a per-id find
-        fan-out into a single request.
+        Batch resolver. Takes a list of NOIDs and returns a lightweight digest
+        per resolvable resource in a single index-backed query, collapsing a
+        per-id find fan-out into one request.
 
         The result is **unordered** and **may be shorter than the input**:
         unresolvable ids are dropped silently. Tombstoned resources are kept
@@ -76,7 +76,7 @@ RSpec.describe 'Resources', type: :request do
       parameter name: :body, in: :body, schema: {
         type:       :object,
         properties: {
-          ids: { type: :array, items: { type: :string }, description: 'NOIDs (or Valkyrie ids) to resolve' }
+          ids: { type: :array, items: { type: :string }, description: 'NOIDs to resolve' }
         },
         required:   %w[ids]
       }

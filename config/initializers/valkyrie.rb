@@ -79,6 +79,16 @@ Rails.application.config.to_prepare do
       :test_composite_persister
     )
 
+    # Batch NOID resolver (app/queries/find_many_by_alternate_identifiers.rb):
+    # one index-backed query for many alternate ids in place of N
+    # find_by_alternate_identifier round-trips. Registered on the shared,
+    # memoized postgres query service that both composite adapters (and
+    # Atlas.query) delegate reads to, so a single registration covers all of
+    # them. Idempotent across to_prepare reloads — register_query_handler just
+    # redefines the singleton method.
+    Valkyrie::MetadataAdapter.find(:postgres).query_service
+                             .custom_queries.register_query_handler(FindManyByAlternateIdentifiers)
+
   module Atlas
     def self.persister
       Valkyrie.config.metadata_adapter.persister

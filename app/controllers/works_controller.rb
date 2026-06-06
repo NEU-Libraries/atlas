@@ -13,6 +13,7 @@ class WorksController < ApplicationController
   include StaleObjectRetry
   include Reparentable
   include LinkedMembers
+  include Auditable
 
   def index
     authorize! :read, Work
@@ -111,6 +112,7 @@ class WorksController < ApplicationController
     authorize! :tombstone, @work
     @work.tombstone(by: @nuid)
     @work = Atlas.persister.save(resource: @work).decorate
+    audit!(resource: @work, action: 'tombstone', change_type: 'lifecycle')
   end
 
   def restore
@@ -118,6 +120,7 @@ class WorksController < ApplicationController
     authorize! :restore, @work
     @work.restore
     @work = Atlas.persister.save(resource: @work).decorate
+    audit!(resource: @work, action: 'restore', change_type: 'lifecycle')
   end
 
   def complete
@@ -129,6 +132,7 @@ class WorksController < ApplicationController
       @work.in_progress = false
       @work = Atlas.persister.save(resource: @work).decorate
     end
+    audit!(resource: @work, action: 'complete', change_type: 'lifecycle')
   end
 
   # Move a Work to a different Collection. Trivial sibling of the collection/
@@ -188,17 +192,11 @@ class WorksController < ApplicationController
       path = file.tempfile.path.presence || file.path
       @work.mods_xml = File.read(path)
       @work = Atlas.persister.save(resource: @work)
+      audit!(resource: @work, action: 'update', change_type: 'metadata', payload: { source: 'mods' })
     end
 
     def metadata_update
-      # allow for custom noid for testing purposes
-      @work.alternate_ids = params[:metadata]['noid'] if Rails.env.test? && params[:metadata]['noid'].present?
-      @work.plain_title = params[:metadata]['title'] if params[:metadata]['title'].present?
-      @work.plain_description = params[:metadata]['description'] if params[:metadata]['description'].present?
-      # permissions
-      @work.permissions = params[:metadata]['permissions'] if params[:metadata]['permissions'].present?
-      @work = Atlas.persister.save(resource: @work)
-      @work.write_preservation_envelope!
+      @work = audited_metadata_update(@work)
     end
 end
 # rubocop:enable Metrics/ClassLength

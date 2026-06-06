@@ -5,6 +5,7 @@ class BlobsController < ApplicationController
   include LazyPagination
   include FileHelper
   include IdempotentCreate
+  include Auditable
 
   def index
     authorize! :read, Blob
@@ -36,6 +37,7 @@ class BlobsController < ApplicationController
              file.path)
     )
     record_idempotency_key!(@blob.noid, Blob)
+    audit_add_file(@blob)
   end
 
   def update
@@ -47,6 +49,8 @@ class BlobsController < ApplicationController
     file_id = create_file(path, blob).version_id
     blob.file_identifiers += [file_id]
     @blob = Atlas.persister.save(resource: blob)
+    audit_file!(action: 'replace_file', resource: parent_work_of(@blob),
+                payload: { blob_noid: @blob.noid, version_id: file_id })
   end
 
   def destroy
@@ -64,6 +68,11 @@ class BlobsController < ApplicationController
     parent_fs = Atlas.persister.save(resource: parent_fs)
     parent_fs.write_preservation_envelope!
     METSRebuilder.call(file_set: parent_fs)
+
+    # The Blob is gone, so hang the event off the parent Work (file events use
+    # RESOURCE_TYPES = Work); the removed blob is recorded in the payload.
+    audit_file!(action: 'remove_file', resource: parent_fs.parent,
+                payload: { blob_noid: blob.noid })
   end
 
   # GET /files/:id/content
@@ -86,4 +95,28 @@ class BlobsController < ApplicationController
   rescue Valkyrie::StorageAdapter::FileNotFound
     head :not_found
   end
+
+  private
+
+    # File events carry change_type 'file', which is resource-scoped — but
+    # RESOURCE_TYPES only admits Community/Collection/Work, and there is no
+    # per-Blob/FileSet audit row. So a file event hangs off the parent Work;
+    # if one can't be resolved (orphan blob), skip rather than write a row
+    # with no resource. `note`/`payload` carry the blob identity.
+    def audit_file!(action:, resource:, payload:)
+      return unless resource.is_a?(Work)
+
+      audit!(resource: resource, action: action, change_type: 'file', payload: payload)
+    end
+
+    def audit_add_file(blob)
+      audit_file!(action: 'add_file', resource: parent_work_of(blob),
+                  payload: { blob_noid: blob.noid, filename: blob.original_filename, use: blob.use })
+    end
+
+    # Walk Blob → FileSet → Work. Accepts a Blob or a FileSet.
+    def parent_work_of(resource)
+      file_set = resource.is_a?(FileSet) ? resource : resource&.parent
+      file_set&.parent
+    end
 end

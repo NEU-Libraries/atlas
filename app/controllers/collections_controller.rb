@@ -6,6 +6,7 @@ class CollectionsController < ApplicationController
   include DelegateUris
   include StaleObjectRetry
   include Reparentable
+  include Auditable
 
   # Container creation is intentionally left open to :system (Q7 lean) so the
   # seed task can bootstrap Communities + Collections. The :system carve-out
@@ -105,6 +106,7 @@ class CollectionsController < ApplicationController
 
     @collection.tombstone(by: @nuid)
     @collection = Atlas.persister.save(resource: @collection).decorate
+    audit!(resource: @collection, action: 'tombstone', change_type: 'lifecycle')
   end
 
   def restore
@@ -112,6 +114,7 @@ class CollectionsController < ApplicationController
     authorize! :restore, @collection
     @collection.restore
     @collection = Atlas.persister.save(resource: @collection).decorate
+    audit!(resource: @collection, action: 'restore', change_type: 'lifecycle')
   end
 
   # Move a Collection under a different Community or Collection. Validates +
@@ -145,15 +148,10 @@ class CollectionsController < ApplicationController
       path = file.tempfile.path.presence || file.path
       @collection.mods_xml = File.read(path)
       @collection = Atlas.persister.save(resource: @collection)
+      audit!(resource: @collection, action: 'update', change_type: 'metadata', payload: { source: 'mods' })
     end
 
     def metadata_update
-      # allow for custom noid for testing purposes
-      @collection.alternate_ids = params[:metadata]['noid'] if Rails.env.test? && params[:metadata]['noid'].present?
-      @collection.plain_title = params[:metadata]['title'] if params[:metadata]['title'].present?
-      @collection.plain_description = params[:metadata]['description'] if params[:metadata]['description'].present?
-      @collection.permissions = params[:metadata]['permissions'] if params[:metadata]['permissions'].present?
-      @collection = Atlas.persister.save(resource: @collection)
-      @collection.write_preservation_envelope!
+      @collection = audited_metadata_update(@collection)
     end
 end

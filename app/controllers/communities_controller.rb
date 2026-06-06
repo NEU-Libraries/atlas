@@ -6,6 +6,7 @@ class CommunitiesController < ApplicationController
   include DelegateUris
   include StaleObjectRetry
   include Reparentable
+  include Auditable
 
   # Container creation is intentionally left open to :system (Q7 lean) so the
   # seed task can bootstrap Communities + Collections. The :system carve-out
@@ -106,6 +107,7 @@ class CommunitiesController < ApplicationController
 
     @community.tombstone(by: @nuid)
     @community = Atlas.persister.save(resource: @community).decorate
+    audit!(resource: @community, action: 'tombstone', change_type: 'lifecycle')
   end
 
   def restore
@@ -113,6 +115,7 @@ class CommunitiesController < ApplicationController
     authorize! :restore, @community
     @community.restore
     @community = Atlas.persister.save(resource: @community).decorate
+    audit!(resource: @community, action: 'restore', change_type: 'lifecycle')
   end
 
   # Move a Community under a different Community, or to the top of the tree
@@ -146,15 +149,10 @@ class CommunitiesController < ApplicationController
       path = file.tempfile.path.presence || file.path
       @community.mods_xml = File.read(path)
       @community = Atlas.persister.save(resource: @community)
+      audit!(resource: @community, action: 'update', change_type: 'metadata', payload: { source: 'mods' })
     end
 
     def metadata_update
-      # allow for custom noid for testing purposes
-      @community.alternate_ids = params[:metadata]['noid'] if Rails.env.test? && params[:metadata]['noid'].present?
-      @community.plain_title = params[:metadata]['title'] if params[:metadata]['title'].present?
-      @community.plain_description = params[:metadata]['description'] if params[:metadata]['description'].present?
-      @community.permissions = params[:metadata]['permissions'] if params[:metadata]['permissions'].present?
-      @community = Atlas.persister.save(resource: @community)
-      @community.write_preservation_envelope!
+      @community = audited_metadata_update(@community)
     end
 end

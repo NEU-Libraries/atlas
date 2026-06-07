@@ -71,8 +71,21 @@ RSpec.describe 'MODS version history endpoints', type: :request do
 
       body = response.parsed_body
       expect(body['resource_id']).to eq(work.noid)
-      # The newest version is the edit just made; it carries the actor.
+      # The newest version is the full-document replace just made; source 'mods'.
       expect(body['versions'].first).to include('actor_nuid' => editor_nuid, 'source' => 'mods')
+    end
+
+    it 'attributes a field-patch version and tags its source as "fields"' do
+      # A title/description PATCH rewrites the MODS doc (MODSAssignment), so it
+      # appends a real version — and emits a metadata event with payload
+      # { fields: [...] } rather than { source: 'mods' }. Both flavors are now
+      # correlated, and the descriptor distinguishes form-edit from full replace.
+      work = WorkCreator.call(parent_id: collection.noid)
+      patch "/works/#{work.noid}", params: { metadata: { title: 'Hand check needed' } }, as: :json
+      expect(response).to have_http_status(:ok)
+
+      newest = versions_for(work.noid).first
+      expect(newest).to include('actor_nuid' => editor_nuid, 'source' => 'fields')
     end
 
     it 'leaves a never-edited resource’s seed version unattributed' do

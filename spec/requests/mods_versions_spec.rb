@@ -61,6 +61,27 @@ RSpec.describe 'MODS version history endpoints', type: :request do
     response.parsed_body['versions']
   end
 
+  # Count the OCFL file-level revisions of a resource's descMetadata.xml — one
+  # per `self.mods_xml=` write. The seed template is the first revision; each
+  # descriptive setter that *actually* writes adds one. This counts raw OCFL
+  # revisions (pre-coalescing), which is what the double-write produced.
+  def mods_revision_count(noid)
+    blob = Work.find(noid).mods_blob
+    Valkyrie.config.storage_adapter.find_versions(id: blob.latest_revision).length
+  end
+
+  # Mimic Cerberus's simple form, which re-submits *both* descriptive fields on
+  # every save regardless of which one the user touched — the exact shape that
+  # made one user edit mint two MODS versions.
+  def patch_metadata(noid, title:, description:, route: 'works')
+    patch "/#{route}/#{noid}", params: { metadata: { title: title, description: description } }, as: :json
+    expect(response).to have_http_status(:ok)
+  end
+
+  def stored_abstract(noid)
+    Mods::Record.new.from_str(Work.find(noid).mods_xml).abstract.first.content
+  end
+
   describe 'GET /resources/:id/mods/versions' do
     it 'correlates the editing actor to the version it produced' do
       work = WorkCreator.call(parent_id: collection.noid)
@@ -185,6 +206,64 @@ RSpec.describe 'MODS version history endpoints', type: :request do
       work = WorkCreator.call(parent_id: collection.noid)
       get "/resources/#{work.noid}/mods/versions/v9999"
       expect(response).to have_http_status(:not_found)
+    end
+  end
+
+  # The double-write root cause: a descriptive PATCH runs every present setter,
+  # and each setter that writes appends an OCFL version. Cerberus's form
+  # resubmits both title and description on every save, so a one-field edit used
+  # to mint two versions — one of them a content-mutating no-op (NBSP -> space on
+  # an untouched abstract). The no-op guard in MODSAssignment collapses a save to
+  # only the fields whose value actually changed. See gap report
+  # atlas_metadata_double_write_nbsp.md.
+  describe 'descriptive PATCH version minting (no-op guard)' do
+    # U+00A0 is long-standing original data in the stored abstract; the form
+    # round-trips it back as a plain space. nbsp_abstract is what is stored,
+    # space_abstract is what the form resubmits — identical to the eye, a 6-byte
+    # delta that byte-identical coalescing cannot catch.
+    let(:nbsp_abstract)  { "Resilience\u00A0in the worst of times." }
+    let(:space_abstract) { 'Resilience in the worst of times.' }
+
+    it 'mints one version for a title-only edit despite the form resubmitting an unchanged abstract' do
+      work = WorkCreator.call(parent_id: collection.noid)
+      # Seed the fields the form will later resubmit: a title and the NBSP abstract.
+      patch_metadata(work.noid, title: "What's New", description: nbsp_abstract)
+      baseline = mods_revision_count(work.noid)
+
+      # The reported save: the user changes only the title; the form resubmits
+      # the abstract with NBSP normalized to a plain space (not a user edit).
+      patch_metadata(work.noid, title: "What's New - Episode 123", description: space_abstract)
+
+      # Exactly one new revision (the title). Pre-fix this minted two.
+      expect(mods_revision_count(work.noid)).to eq(baseline + 1)
+    end
+
+    it 'preserves the stored NBSP when the form resubmits a whitespace-normalized abstract' do
+      work = WorkCreator.call(parent_id: collection.noid)
+      patch_metadata(work.noid, title: "What's New", description: nbsp_abstract)
+      patch_metadata(work.noid, title: "What's New - Episode 123", description: space_abstract)
+
+      # The abstract was never rewritten, so the original NBSP survives verbatim.
+      expect(stored_abstract(work.noid)).to include("\u00A0")
+    end
+
+    it 'mints zero versions when a save changes nothing' do
+      work = WorkCreator.call(parent_id: collection.noid)
+      patch_metadata(work.noid, title: 'Stable Title', description: 'Stable abstract.')
+      baseline = mods_revision_count(work.noid)
+
+      patch_metadata(work.noid, title: 'Stable Title', description: 'Stable abstract.')
+      expect(mods_revision_count(work.noid)).to eq(baseline)
+    end
+
+    it 'mints exactly one version for a genuine abstract edit' do
+      work = WorkCreator.call(parent_id: collection.noid)
+      patch_metadata(work.noid, title: 'Stable Title', description: 'First abstract.')
+      baseline = mods_revision_count(work.noid)
+
+      # Title unchanged; only the abstract genuinely changes.
+      patch_metadata(work.noid, title: 'Stable Title', description: 'A substantively different abstract.')
+      expect(mods_revision_count(work.noid)).to eq(baseline + 1)
     end
   end
 end

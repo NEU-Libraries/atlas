@@ -31,6 +31,10 @@
 # Simplecov
 /coverage/
 
+# Developer-local compose overrides (e.g. mounting ../worktrees into the web
+# container so worktree specs run via `docker exec -w <worktree>`).
+/docker-compose.override.yml
+
 /config/credentials/development.key
 
 CLAUDE.md

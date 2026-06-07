@@ -39,6 +39,62 @@ RSpec.describe 'Resources', type: :request do
     end
   end
 
+  path '/resources/{id}/mods/versions' do
+    parameter name: :id, in: :path, type: :string
+
+    get 'List MODS version history for a resource' do
+      tags 'Resources'
+      produces 'application/json'
+      description <<~DESC
+        Reverse-chronological list of retained MODS versions for any Modsable
+        resource (Work / Collection / Community). Each descriptor carries the
+        OCFL version label and creation time, plus actor attribution correlated
+        from the audit log (`actor_nuid` etc. are null when no edit event
+        matches — e.g. the seed version a resource is born with).
+
+        Admin-gated, like `/history`, because the descriptors expose the same
+        edit attribution. A resource with no MODS yields `{ "versions": [] }`.
+      DESC
+
+      response '200', 'versions listed (newest first)' do
+        let(:id) { work.noid }
+        schema '$ref' => '#/components/schemas/ModsVersions'
+        run_test! do |response|
+          body = JSON.parse(response.body)
+          expect(body['resource_id']).to eq(work.noid)
+          expect(body['versions'].first).to include('version_id' => 'v1')
+        end
+      end
+    end
+  end
+
+  path '/resources/{id}/mods/versions/{version_id}' do
+    parameter name: :id, in: :path, type: :string
+    parameter name: :version_id, in: :path, type: :string, description: 'OCFL version label, e.g. v1'
+
+    get 'Fetch MODS XML as of a specific version' do
+      tags 'Resources'
+      produces 'application/xml'
+      description <<~DESC
+        Returns the raw historical descMetadata.xml as of the given OCFL
+        version. XML only — the JSON access copy is overwritten in place and
+        is not version-recoverable. Unknown version or absent MODS → 404.
+      DESC
+
+      response '200', 'historical MODS XML returned' do
+        let(:id)         { work.noid }
+        let(:version_id) { 'v1' }
+        run_test!
+      end
+
+      response '404', 'unknown version' do
+        let(:id)         { work.noid }
+        let(:version_id) { 'v99' }
+        run_test!
+      end
+    end
+  end
+
   path '/resources/preview' do
     post 'Render a temporary resource preview' do
       tags 'Resources'

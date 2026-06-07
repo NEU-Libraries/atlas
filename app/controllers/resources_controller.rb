@@ -25,6 +25,30 @@ class ResourcesController < ApplicationController
     @resource = Resource.find(params[:id])
   end
 
+  # MODS version history for any Modsable resource. The descriptor list
+  # carries audit-derived actor attribution (who edited, when), the same
+  # provenance /history exposes — so it is admin-gated identically
+  # (:read, AuditEvent), not on the public resource read floor. Empty/absent
+  # MODS (or a non-Modsable / unresolvable id) yields an empty array, never a
+  # 404 — mirrors /history's "no events" shape.
+  def mods_versions
+    authorize! :read, AuditEvent
+    @resource_id = params[:id]
+    @versions = MODSVersionHistory.descriptors(resource: Resource.find(@resource_id))
+  end
+
+  # Raw historical descMetadata.xml as of a given OCFL version. Same content
+  # sensitivity as the public head /mods (it's the descriptive metadata
+  # itself, not the attribution), so it rides the resource read floor.
+  # Unknown version / absent MODS → 404.
+  def mods_version
+    authorize! :read, Resource
+    xml = MODSVersionHistory.fetch_xml(resource: Resource.find(params[:id]), version_id: params[:version_id])
+    return head(:not_found) if xml.nil?
+
+    render xml: xml
+  end
+
   # Batch resolver. Given a list of NOIDs, return a lightweight digest per
   # resolvable resource in a single request, so a caller resolving a set of
   # ids no longer fans out to one find per id. Mirrors #show's class-level

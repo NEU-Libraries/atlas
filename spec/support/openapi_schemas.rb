@@ -32,7 +32,8 @@ module OpenapiSchemas
       Permissions:       permissions,
       ResourceRef:       resource_ref,
       ResourceDigests:   resource_digests,
-      Lineage:           lineage
+      Lineage:           lineage,
+      ModsVersions:      mods_versions
     }
   end
 
@@ -334,6 +335,36 @@ module OpenapiSchemas
 
   def lineage
     ancestor_pairs.merge(description: 'Ancestor or descendant chain — array of [noid, type-name] pairs')
+  end
+
+  # GET /resources/:id/mods/versions — MODS version-history envelope. Field
+  # names mirror the AuditEvent descriptor so a consumer can render this
+  # stream with the same helpers it uses for /history. Reverse-chronological.
+  # Actor fields are correlated from the audit log and are null when no edit
+  # event matches the version (e.g. the seed version a resource is born with).
+  def mods_versions
+    {
+      type:       :object,
+      properties: {
+        resource_id: { type: :string, description: 'NOID of the resource' },
+        versions:    {
+          type:  :array,
+          items: {
+            type:       :object,
+            properties: {
+              version_id:        { type: :string, description: 'OCFL version label (vN); stable and sortable' },
+              created:           { type: :string, format: 'date-time', description: 'OCFL version creation timestamp (ISO-8601)' },
+              actor_nuid:        { type: :string, nullable: true, description: 'Editing NUID, correlated from the audit log; null when uncorrelatable' },
+              on_behalf_of_nuid: { type: :string, nullable: true, description: 'Impersonation target NUID from the correlated event; usually null' },
+              source:            { type: :string, nullable: true, description: "Edit source from the correlated event: 'mods' (full doc) or 'fields' (field patch)" },
+              note:              { type: :string, nullable: true, description: 'Optional rationale from the correlated event' }
+            },
+            required:   %w[version_id created actor_nuid on_behalf_of_nuid source note]
+          }
+        }
+      },
+      required:   %w[resource_id versions]
+    }
   end
 
   def summary_props

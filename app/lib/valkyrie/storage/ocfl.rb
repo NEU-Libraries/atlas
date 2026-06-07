@@ -105,6 +105,27 @@ module Valkyrie
         end
       end
 
+      # Like find_versions, but returns the inventory's per-version metadata
+      # (created / message / user) instead of File handles — the bits needed
+      # to describe a version's provenance without reading its bytes. Newest
+      # first, same ordering as find_versions. Each element is a hash:
+      #   { version: 'v3', created: <iso8601>, message:, user: }
+      def find_version_metadata(id:)
+        parsed = parse_id(id)
+        return [] unless parsed
+
+        object_root = storage_root.object_root_for(parsed[:key])
+        return [] unless object_root.exist?
+
+        inventory = load_inventory(object_root: object_root)
+        return [] unless inventory
+
+        inventory.versions_containing(parsed[:logical_path]).map do |v|
+          meta = inventory.versions[v] || {}
+          { version: v, created: meta['created'], message: meta['message'], user: meta['user'] }
+        end
+      end
+
       def delete(id:)
         parsed = parse_id(id)
         return unless parsed

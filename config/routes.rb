@@ -48,6 +48,16 @@ Rails.application.routes.draw do
     get '/resources/:id', to: 'resources#show'
     get '/resources/:id/permissions', to: 'resources#permissions'
     get '/resources/:id/history', to: 'audit_events#index', as: 'resource_history'
+    # MODS version history (type-agnostic, like /history and /permissions —
+    # the descriptive-metadata Blob lookup is identical across Work/Collection/
+    # Community). List carries audit-derived actor attribution (admin-gated);
+    # fetch serves a version's raw historical XML. JSON is not version-
+    # recoverable, so the fetch is XML-only — default the format to xml and
+    # constrain :version_id to the OCFL vN grammar so a trailing `.xml` parses
+    # as the format, not part of the id.
+    get '/resources/:id/mods/versions', to: 'resources#mods_versions', as: 'resource_mods_versions'
+    get '/resources/:id/mods/versions/:version_id', to: 'resources#mods_version',
+        as: 'resource_mods_version', defaults: { format: 'xml' }, constraints: { version_id: /v\d+/ }
     post '/resources/preview', to: 'resources#preview', defaults: { format: 'html' }
     # Batch resolver: many noids/ids -> lightweight digests in one round-trip.
     # Collapses the per-id find fan-out on the Cerberus side (breadcrumbs,

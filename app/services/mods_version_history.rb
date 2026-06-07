@@ -1,0 +1,108 @@
+# frozen_string_literal: true
+
+# Assembles a resource's MODS version history from the OCFL storage layer.
+#
+# Read-only and entirely derived — it mints no storage and mutates nothing.
+# OCFL is the source of truth for the version labels and timestamps
+# (find_version_metadata); the AuditEvent ledger supplies actor attribution,
+# correlated to each version by timestamp proximity. Either side may be
+# absent (no MODS blob yet, or no correlatable event), in which case the
+# history is empty or actor_nuid is null respectively.
+#
+# Only XML is version-recoverable: every descriptive-metadata edit appends a
+# new OCFL version of descMetadata.xml, whereas the JSON access copy
+# (Metadata::MODS) is overwritten in place (see Modsable#mods_json=). So this
+# object lists every version and fetches any version's raw XML, but never
+# JSON — a per-version JSON would have to be re-derived from the historical
+# XML, which is intentionally out of scope here.
+class MODSVersionHistory
+  # The metadata-edit AuditEvent fires immediately after the OCFL upload,
+  # within the same request (WorksController#binary_update: mods_xml= then
+  # audit!), so occurred_at trails the version `created` by well under a
+  # second. Allow a generous window to absorb clock granularity / skew, and
+  # pick the closest event inside it.
+  CORRELATION_WINDOW = 5.seconds
+
+  def self.descriptors(resource:)
+    new(resource).descriptors
+  end
+
+  def self.fetch_xml(resource:, version_id:)
+    new(resource).fetch_xml(version_id)
+  end
+
+  def initialize(resource)
+    @resource = resource
+  end
+
+  # Reverse-chronological descriptors (newest first), mirroring the
+  # AuditEvent field names so a consumer can render the version list with the
+  # same helpers it uses for /history.
+  def descriptors
+    return [] if blob.nil?
+
+    storage_adapter.find_version_metadata(id: blob.latest_revision).map do |version|
+      event = correlated_event(version[:created])
+      {
+        version_id:        version[:version],
+        created:           version[:created],
+        actor_nuid:        event&.actor_nuid,
+        on_behalf_of_nuid: event&.on_behalf_of_nuid,
+        source:            event&.payload&.dig('source'),
+        note:              event&.note
+      }
+    end
+  end
+
+  # Raw historical descMetadata.xml for a given OCFL version label (e.g.
+  # 'v2'), or nil if the resource has no MODS or the version is unknown. We
+  # locate the version through find_versions rather than reconstructing the
+  # per-version id by hand, so id construction stays the adapter's concern.
+  def fetch_xml(version_id)
+    return nil if blob.nil?
+
+    file = storage_adapter.find_versions(id: blob.latest_revision).find do |f|
+      f.version_id.to_s.split('/')[-2] == version_id
+    end
+    file&.read
+  end
+
+  private
+
+    attr_reader :resource
+
+    def blob
+      return nil unless resource.respond_to?(:mods_blob)
+
+      @blob ||= resource.mods_blob
+    end
+
+    def storage_adapter
+      Valkyrie.config.storage_adapter
+    end
+
+    # Closest metadata/mods AuditEvent to a version's creation time, within
+    # the correlation window; nil if none is close enough. Matching is
+    # timestamp-proximity (the OCFL `user` field is the app user_agent, not
+    # the editing NUID), so attribution is best-effort: the seed version a
+    # Work is born with has no edit event and resolves to null.
+    def correlated_event(created_iso)
+      return nil if created_iso.blank?
+
+      created   = Time.iso8601(created_iso)
+      candidate = mods_events.min_by { |e| (e.occurred_at - created).abs }
+      return nil if candidate.nil?
+
+      (candidate.occurred_at - created).abs <= CORRELATION_WINDOW ? candidate : nil
+    end
+
+    # The writer stamps resource_id with the Valkyrie UUID (resource.id), not
+    # the NOID; we have the live resource here, so match on the UUID directly.
+    def mods_events
+      @mods_events ||=
+        AuditEvent.for_resource(resource.id.to_s)
+                  .where(change_type: 'metadata')
+                  .where("payload ->> 'source' = ?", 'mods')
+                  .to_a
+    end
+end

@@ -38,10 +38,22 @@ class MODSVersionHistory
   # Reverse-chronological descriptors (newest first), mirroring the
   # AuditEvent field names so a consumer can render the version list with the
   # same helpers it uses for /history.
+  #
+  # We report *content-distinct* MODS states, not raw OCFL revisions. The
+  # descriptive-metadata Blob shares its NOID-keyed OCFL object with its own
+  # preservation envelope (properties.json / permissions.json), and OCFL state
+  # is cumulative — so an envelope re-write (e.g. the backfill rake task) cuts
+  # a new version that still carries descMetadata.xml at its prior, unchanged
+  # digest. Surfacing those byte-identical revisions as separate "versions"
+  # gives the diff UI empty no-ops. We coalesce consecutive identical digests,
+  # keeping the *earliest* of each run — the moment the content became that
+  # state, which is also when its correlated edit event fired. Only
+  # consecutive runs collapse, so a genuine A→B→A still yields three versions.
   def descriptors
     return [] if blob.nil?
 
-    storage_adapter.find_version_metadata(id: blob.latest_revision).map do |version|
+    metadata = storage_adapter.find_version_metadata(id: blob.latest_revision)
+    collapse_consecutive_identical(metadata).map do |version|
       event = correlated_event(version[:created])
       {
         version_id:        version[:version],
@@ -70,6 +82,23 @@ class MODSVersionHistory
   private
 
     attr_reader :resource
+
+    # Collapse runs of consecutive byte-identical revisions (same content
+    # digest) into one, keeping the earliest of each run. Input is newest-first
+    # (as find_version_metadata returns); we walk oldest→newest so "earliest of
+    # run" is the first seen, then restore newest-first ordering. Entries
+    # without a digest (defensive) are never coalesced. Pure metadata — no
+    # content fetch.
+    def collapse_consecutive_identical(versions)
+      kept = []
+      versions.reverse_each do |version|
+        prev = kept.last
+        next if prev && version[:digest] && prev[:digest] == version[:digest]
+
+        kept << version
+      end
+      kept.reverse
+    end
 
     def blob
       return nil unless resource.respond_to?(:mods_blob)

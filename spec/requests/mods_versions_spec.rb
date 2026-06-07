@@ -43,11 +43,15 @@ RSpec.describe 'MODS version history endpoints', type: :request do
   before { FileUtils.rm_rf(Rails.root.join('tmp/files')) }
   after { Atlas.persister.wipe! }
 
+  # A second MODS fixture with content distinct from work-mods.xml, so two
+  # edits produce two distinct digests (not a coalesced no-op).
+  let(:other_fixture) { Rails.root.join('spec/fixtures/files/collection-mods.xml').to_s }
+
   # Drive the real HTTP write path so the OCFL version + correlated
   # AuditEvent are both produced exactly as production does it.
-  def edit_mods(noid, route: 'works')
+  def edit_mods(noid, route: 'works', fixture: mods_fixture)
     patch "/#{route}/#{noid}",
-          params: { binary: Rack::Test::UploadedFile.new(mods_fixture) }
+          params: { binary: Rack::Test::UploadedFile.new(fixture) }
     expect(response).to have_http_status(:ok)
   end
 
@@ -82,14 +86,14 @@ RSpec.describe 'MODS version history endpoints', type: :request do
       expect(versions.first['source']).to be_nil
     end
 
-    it 'lists versions newest-first' do
+    it 'lists content-distinct versions newest-first' do
       work = WorkCreator.call(parent_id: collection.noid)
-      edit_mods(work.noid)
-      edit_mods(work.noid)
+      edit_mods(work.noid)                          # work-mods.xml
+      edit_mods(work.noid, fixture: other_fixture)  # distinct content -> distinct digest
 
       # parsed_body is a plain Array, not an AR relation; Rails/Pluck doesn't apply.
       labels = versions_for(work.noid).map { |v| v['version_id'] } # rubocop:disable Rails/Pluck
-      # One seed + two edits, descending by numeric vN.
+      # One seed + two content-distinct edits, descending by numeric vN.
       expect(labels.length).to eq(3)
       ordinals = labels.map { |l| l.delete_prefix('v').to_i }
       expect(ordinals).to eq(ordinals.sort.reverse)
@@ -117,17 +121,24 @@ RSpec.describe 'MODS version history endpoints', type: :request do
       end
     end
 
-    it 'reports exactly the versions the OCFL adapter retains' do
+    it 'coalesces byte-identical consecutive revisions into one user-facing version' do
       work = WorkCreator.call(parent_id: collection.noid)
-      edit_mods(work.noid)
-      edit_mods(work.noid)
+      edit_mods(work.noid) # work-mods.xml
+      edit_mods(work.noid) # same bytes again -> a no-op OCFL revision
 
       reloaded = Work.find(work.noid)
-      stored   = Valkyrie.config.storage_adapter.find_versions(id: reloaded.mods_blob.latest_revision)
+      retained = Valkyrie.config.storage_adapter.find_versions(id: reloaded.mods_blob.latest_revision)
 
-      expect(versions_for(work.noid).length)
-        .to eq(stored.length)
-        .and eq(reloaded.mods_blob.file_identifiers.count)
+      listed = versions_for(work.noid)
+      # OCFL faithfully keeps every revision; the listing collapses the
+      # identical pair into one content state (seed + one edit).
+      expect(retained.length).to eq(3)
+      expect(listed.length).to eq(2)
+      # Every listed version_id still resolves through the fetch endpoint.
+      listed.each do |version|
+        get "/resources/#{work.noid}/mods/versions/#{version['version_id']}"
+        expect(response).to have_http_status(:ok)
+      end
     end
   end
 

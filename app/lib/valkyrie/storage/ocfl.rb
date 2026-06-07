@@ -109,7 +109,14 @@ module Valkyrie
       # (created / message / user) instead of File handles — the bits needed
       # to describe a version's provenance without reading its bytes. Newest
       # first, same ordering as find_versions. Each element is a hash:
-      #   { version: 'v3', created: <iso8601>, message:, user: }
+      #   { version: 'v3', created: <iso8601>, message:, user:, digest: }
+      #
+      # `digest` is the content digest of the logical path *in that version*.
+      # Note OCFL state is cumulative: a write to any OTHER logical path in the
+      # same object cuts a new version that still lists this path (carried
+      # forward, unchanged digest). So consecutive entries can share a digest
+      # even though this path was not re-written — callers wanting "distinct
+      # content states" coalesce on `digest` rather than trusting the count.
       def find_version_metadata(id:)
         parsed = parse_id(id)
         return [] unless parsed
@@ -122,7 +129,8 @@ module Valkyrie
 
         inventory.versions_containing(parsed[:logical_path]).map do |v|
           meta = inventory.versions[v] || {}
-          { version: v, created: meta['created'], message: meta['message'], user: meta['user'] }
+          { version: v, created: meta['created'], message: meta['message'], user: meta['user'],
+            digest: inventory.digest_for(version: v, logical_path: parsed[:logical_path]) }
         end
       end
 

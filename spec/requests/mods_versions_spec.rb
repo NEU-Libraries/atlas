@@ -7,6 +7,13 @@ require 'rails_helper'
 # exercises the moving parts the docs can't: actor correlation, version
 # ordering, the seed-unattributed case, cross-type parity, auth gating, and
 # the OCFL-count invariant.
+#
+# Note on version labels: they are opaque, sortable OCFL `vN` labels, NOT a
+# 1-based MODS counter. A Blob's preservation envelope (properties.json,
+# permissions.json) is written into the same OCFL object before the seed
+# descMetadata.xml, so the first MODS version is typically v3, and each edit
+# bumps to the next global vN. So these specs assert on ordering, counts, and
+# labels read back from the response — never on hard-coded vN values.
 RSpec.describe 'MODS version history endpoints', type: :request do
   let(:community)  { CommunityCreator.call }
   let(:collection) { CollectionCreator.call(parent_id: community.noid) }
@@ -27,6 +34,13 @@ RSpec.describe 'MODS version history endpoints', type: :request do
     { 'Authorization' => 'Bearer test-cerberus-token', 'User' => "NUID #{guest.nuid}" }
   end
 
+  # The NOID minter (Noid::Rails::Minter::Db) reads a counter row that the
+  # per-example transaction rolls back, so every example re-mints the same
+  # NOID sequence. OCFL storage (tmp/files) is only wiped before(:suite), so
+  # without a per-example sweep a reused NOID's object accumulates versions
+  # across examples and the per-example counts drift. Wipe up front to mirror
+  # the suite-start cleanup at example scope.
+  before { FileUtils.rm_rf(Rails.root.join('tmp/files')) }
   after { Atlas.persister.wipe! }
 
   # Drive the real HTTP write path so the OCFL version + correlated
@@ -35,6 +49,12 @@ RSpec.describe 'MODS version history endpoints', type: :request do
     patch "/#{route}/#{noid}",
           params: { binary: Rack::Test::UploadedFile.new(mods_fixture) }
     expect(response).to have_http_status(:ok)
+  end
+
+  def versions_for(noid)
+    get "/resources/#{noid}/mods/versions"
+    expect(response).to have_http_status(:ok)
+    response.parsed_body['versions']
   end
 
   describe 'GET /resources/:id/mods/versions' do
@@ -47,33 +67,32 @@ RSpec.describe 'MODS version history endpoints', type: :request do
 
       body = response.parsed_body
       expect(body['resource_id']).to eq(work.noid)
-
-      edited = body['versions'].find { |v| v['version_id'] == 'v2' }
-      expect(edited).to include(
-        'actor_nuid' => editor_nuid,
-        'source'     => 'mods'
-      )
+      # The newest version is the edit just made; it carries the actor.
+      expect(body['versions'].first).to include('actor_nuid' => editor_nuid, 'source' => 'mods')
     end
 
     it 'leaves a never-edited resource’s seed version unattributed' do
-      # A Work fresh from WorkCreator has only the template seed (v1) and no
-      # `mods` edit event, so attribution is null — not a phantom match.
+      # A Work fresh from WorkCreator has only the template seed and no `mods`
+      # edit event, so attribution is null — not a phantom timestamp match.
       work = WorkCreator.call(parent_id: collection.noid)
 
-      get "/resources/#{work.noid}/mods/versions"
-      versions = response.parsed_body['versions']
-      expect(versions.map { |v| v['version_id'] }).to eq(%w[v1])
+      versions = versions_for(work.noid)
+      expect(versions.length).to eq(1)
       expect(versions.first['actor_nuid']).to be_nil
       expect(versions.first['source']).to be_nil
     end
 
     it 'lists versions newest-first' do
       work = WorkCreator.call(parent_id: collection.noid)
-      edit_mods(work.noid) # v2
-      edit_mods(work.noid) # v3
+      edit_mods(work.noid)
+      edit_mods(work.noid)
 
-      get "/resources/#{work.noid}/mods/versions"
-      expect(response.parsed_body['versions'].map { |v| v['version_id'] }).to eq(%w[v3 v2 v1])
+      # parsed_body is a plain Array, not an AR relation; Rails/Pluck doesn't apply.
+      labels = versions_for(work.noid).map { |v| v['version_id'] } # rubocop:disable Rails/Pluck
+      # One seed + two edits, descending by numeric vN.
+      expect(labels.length).to eq(3)
+      ordinals = labels.map { |l| l.delete_prefix('v').to_i }
+      expect(ordinals).to eq(ordinals.sort.reverse)
     end
 
     it 'returns an empty array for a resource with no MODS (or an unknown id)' do
@@ -93,9 +112,8 @@ RSpec.describe 'MODS version history endpoints', type: :request do
       edit_mods(community.noid,  route: 'communities')
 
       [collection, community].each do |resource|
-        get "/resources/#{resource.noid}/mods/versions"
-        edited = response.parsed_body['versions'].find { |v| v['version_id'] == 'v2' }
-        expect(edited).to include('actor_nuid' => editor_nuid, 'source' => 'mods')
+        expect(versions_for(resource.noid).first)
+          .to include('actor_nuid' => editor_nuid, 'source' => 'mods')
       end
     end
 
@@ -107,8 +125,7 @@ RSpec.describe 'MODS version history endpoints', type: :request do
       reloaded = Work.find(work.noid)
       stored   = Valkyrie.config.storage_adapter.find_versions(id: reloaded.mods_blob.latest_revision)
 
-      get "/resources/#{work.noid}/mods/versions"
-      expect(response.parsed_body['versions'].length)
+      expect(versions_for(work.noid).length)
         .to eq(stored.length)
         .and eq(reloaded.mods_blob.file_identifiers.count)
     end
@@ -117,27 +134,32 @@ RSpec.describe 'MODS version history endpoints', type: :request do
   describe 'GET /resources/:id/mods/versions/:version_id' do
     it 'serves the raw historical XML for the requested version' do
       work = WorkCreator.call(parent_id: collection.noid)
-      edit_mods(work.noid) # v2 = work-mods.xml fixture ("What's New")
+      edit_mods(work.noid) # newest version = work-mods.xml fixture ("What's New")
 
-      # v2 is the edited fixture; v1 is the seed template — they differ.
-      get "/resources/#{work.noid}/mods/versions/v2"
+      versions = versions_for(work.noid)
+      newest   = versions.first['version_id'] # the edit
+      seed     = versions.last['version_id']  # the template the Work was born with
+
+      get "/resources/#{work.noid}/mods/versions/#{newest}"
       expect(response).to have_http_status(:ok)
       expect(response.body).to include("What's New")
 
-      get "/resources/#{work.noid}/mods/versions/v1"
+      get "/resources/#{work.noid}/mods/versions/#{seed}"
       expect(response).to have_http_status(:ok)
       expect(response.body).not_to include("What's New")
     end
 
     it 'is readable on the resource read floor (guest allowed)' do
       work = WorkCreator.call(parent_id: collection.noid)
-      get "/resources/#{work.noid}/mods/versions/v1", headers: guest_headers
+      seed = versions_for(work.noid).first['version_id']
+
+      get "/resources/#{work.noid}/mods/versions/#{seed}", headers: guest_headers
       expect(response).to have_http_status(:ok)
     end
 
     it '404s for an unknown version' do
       work = WorkCreator.call(parent_id: collection.noid)
-      get "/resources/#{work.noid}/mods/versions/v99"
+      get "/resources/#{work.noid}/mods/versions/v9999"
       expect(response).to have_http_status(:not_found)
     end
   end

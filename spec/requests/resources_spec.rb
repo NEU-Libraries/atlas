@@ -62,7 +62,10 @@ RSpec.describe 'Resources', type: :request do
         run_test! do |response|
           body = JSON.parse(response.body)
           expect(body['resource_id']).to eq(work.noid)
-          expect(body['versions'].first).to include('version_id' => 'v1')
+          # A freshly created Work carries its seed MODS version. Labels are
+          # opaque OCFL vN (the Blob's envelope occupies earlier versions),
+          # so assert presence, not a literal label.
+          expect(body['versions'].first['version_id']).to match(/\Av\d+\z/)
         end
       end
     end
@@ -82,14 +85,15 @@ RSpec.describe 'Resources', type: :request do
       DESC
 
       response '200', 'historical MODS XML returned' do
-        let(:id)         { work.noid }
-        let(:version_id) { 'v1' }
+        let(:id) { work.noid }
+        # The Work's current (head) MODS version — opaque OCFL label.
+        let(:version_id) { Work.find(work.noid).mods_blob.latest_revision.to_s.split('/')[-2] }
         run_test!
       end
 
       response '404', 'unknown version' do
         let(:id)         { work.noid }
-        let(:version_id) { 'v99' }
+        let(:version_id) { 'v9999' }
         run_test!
       end
     end

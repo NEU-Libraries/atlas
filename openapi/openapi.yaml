@@ -848,6 +848,53 @@ components:
         maxItems: 2
         description: "[noid, type-name] pair"
       description: Ancestor or descendant chain — array of [noid, type-name] pairs
+    ModsVersions:
+      type: object
+      properties:
+        resource_id:
+          type: string
+          description: NOID of the resource
+        versions:
+          type: array
+          items:
+            type: object
+            properties:
+              version_id:
+                type: string
+                description: OCFL version label (vN); stable and sortable
+              created:
+                type: string
+                format: date-time
+                description: OCFL version creation timestamp (ISO-8601)
+              actor_nuid:
+                type: string
+                nullable: true
+                description: Editing NUID, correlated from the audit log; null when
+                  uncorrelatable
+              on_behalf_of_nuid:
+                type: string
+                nullable: true
+                description: Impersonation target NUID from the correlated event;
+                  usually null
+              source:
+                type: string
+                nullable: true
+                description: 'Edit source from the correlated event: ''mods'' (full
+                  doc) or ''fields'' (field patch)'
+              note:
+                type: string
+                nullable: true
+                description: Optional rationale from the correlated event
+            required:
+            - version_id
+            - created
+            - actor_nuid
+            - on_behalf_of_nuid
+            - source
+            - note
+      required:
+      - resource_id
+      - versions
 paths:
   "/files":
     get:
@@ -1788,6 +1835,59 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Permissions"
+  "/resources/{id}/mods/versions":
+    parameters:
+    - name: id
+      in: path
+      required: true
+      schema:
+        type: string
+    get:
+      summary: List MODS version history for a resource
+      tags:
+      - Resources
+      description: |
+        Reverse-chronological list of retained MODS versions for any Modsable
+        resource (Work / Collection / Community). Each descriptor carries the
+        OCFL version label and creation time, plus actor attribution correlated
+        from the audit log (`actor_nuid` etc. are null when no edit event
+        matches — e.g. the seed version a resource is born with).
+
+        Admin-gated, like `/history`, because the descriptors expose the same
+        edit attribution. A resource with no MODS yields `{ "versions": [] }`.
+      responses:
+        '200':
+          description: versions listed (newest first)
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ModsVersions"
+  "/resources/{id}/mods/versions/{version_id}":
+    parameters:
+    - name: id
+      in: path
+      required: true
+      schema:
+        type: string
+    - name: version_id
+      in: path
+      description: OCFL version label, e.g. v1
+      required: true
+      schema:
+        type: string
+    get:
+      summary: Fetch MODS XML as of a specific version
+      tags:
+      - Resources
+      description: |
+        Returns the raw historical descMetadata.xml as of the given OCFL
+        version. XML only — the JSON access copy is overwritten in place and
+        is not version-recoverable. Unknown version or absent MODS → 404.
+      responses:
+        '200':
+          description: historical MODS XML returned
+        '404':
+          description: unknown version
   "/resources/preview":
     post:
       summary: Render a temporary resource preview

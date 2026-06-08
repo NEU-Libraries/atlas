@@ -51,6 +51,24 @@ RSpec.describe MaintenanceController do
       expect { controller.send(:purge_storage!) }.to raise_error(/resettable env/)
       expect(@root.children).not_to be_empty
     end
+
+    # Regression (gap_reports/atlas_purge_storage_missing_root_regression.md):
+    # test's tmp/files is ephemeral and absent on a fresh container; the OCFL
+    # adapter would lazily create it on first write, but the purge runs before
+    # any write. An absent root must mean "nothing to purge", not a fatal error
+    # that aborts /reset and breaks the suite.
+    it 'tolerates an absent root, creating an empty one for the re-seed' do
+      absent       = @root.join('not-yet-created')
+      fake_root    = instance_double(Valkyrie::Storage::OCFL::StorageRoot, base_path: absent)
+      fake_adapter = instance_double(Valkyrie::Storage::OCFL, storage_root: fake_root)
+      allow(Valkyrie.config).to receive(:storage_adapter).and_return(fake_adapter)
+      expect(absent).not_to exist
+
+      expect { controller.send(:purge_storage!) }.not_to raise_error
+
+      expect(absent).to be_directory
+      expect(absent.children).to be_empty
+    end
   end
 
   describe '#guard_storage_root! (refuses a dangerous target)' do

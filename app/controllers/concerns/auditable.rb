@@ -10,11 +10,6 @@
 module Auditable
   extend ActiveSupport::Concern
 
-  # The security-relevant grants worth recording on a permissions change.
-  # Provenance slots (depositor / proxy_uploader) are excluded — they carry
-  # their own ledger via the creator / reparent paths.
-  AUDITED_ACL_KEYS = %i[read edit edit_users].freeze
-
   # Emit a controller-sourced audit row for `resource`. actor / on-behalf-of
   # and event_source are filled from request context so call sites stay to one
   # line. No-ops when there is no authenticated actor: a row with no
@@ -40,27 +35,28 @@ module Auditable
   # provenance row(s). Extracted here because Works / Collections / Communities
   # drive this identically; returns the saved resource for the caller to assign.
   def audited_metadata_update(resource)
-    metadata           = params[:metadata]
-    before_permissions = apply_metadata_params(resource, metadata)
-    saved              = Atlas.persister.save(resource: resource)
+    metadata   = params[:metadata]
+    before_acl = apply_metadata_params(resource, metadata)
+    saved      = Atlas.persister.save(resource: resource)
     saved.write_preservation_envelope!
-    audit_metadata_update!(resource: saved, metadata: metadata, before_permissions: before_permissions)
+    audit_metadata_update!(resource: saved, metadata: metadata, before_acl: before_acl)
     saved
   end
 
   private
 
-    # Map the metadata params onto the resource. Returns the pre-edit ACL when
-    # the request carried a permissions key (captured BEFORE reassignment so
-    # the permissions audit row can record before/after), otherwise nil.
+    # Map the metadata params onto the resource. Returns the pre-edit audited
+    # ACL when the request carried a permissions key (captured BEFORE
+    # reassignment so the permissions audit row can record before/after and so
+    # a no-op write can be detected), otherwise nil.
     def apply_metadata_params(resource, metadata)
       # custom noid is a test-only affordance
       resource.alternate_ids = metadata['noid'] if Rails.env.test? && metadata['noid'].present?
-      before_permissions = resource.permissions if metadata['permissions'].present?
+      before_acl = resource.audited_acl if metadata['permissions'].present?
       resource.plain_title = metadata['title'] if metadata['title'].present?
       resource.plain_description = metadata['description'] if metadata['description'].present?
       resource.permissions = metadata['permissions'] if metadata['permissions'].present?
-      before_permissions
+      before_acl
     end
 
     # A metadata PATCH can change descriptive fields AND permissions in one
@@ -68,17 +64,29 @@ module Auditable
     # provenance value — so emit up to two semantically-pure rows: a `metadata`
     # row listing the changed descriptive fields, and a `permissions` row
     # carrying the before/after ACL.
-    def audit_metadata_update!(resource:, metadata:, before_permissions:)
+    #
+    # A permissions write whose effective ACL is unchanged (e.g. re-saving the
+    # Permissions tab without edits, or re-applying an inherited ACL) is a
+    # non-event — comparing the post-setter normalized ACLs (incl. the staff
+    # auto-prepend) suppresses the spurious "Updated · Permissions" row.
+    def audit_metadata_update!(resource:, metadata:, before_acl:)
       fields = %w[title description].select { |f| metadata[f].present? }
       audit!(resource: resource, action: 'update', change_type: 'metadata', payload: { fields: fields }) if fields.any?
 
-      return if before_permissions.nil?
+      return if before_acl.nil?
+
+      after_acl = resource.audited_acl
+      return if acl_equivalent?(before_acl, after_acl)
 
       audit!(resource: resource, action: 'update', change_type: 'permissions',
-             payload: { before: acl_snapshot(before_permissions), after: acl_snapshot(resource.permissions) })
+             payload: { before: before_acl, after: after_acl })
     end
 
-    def acl_snapshot(permissions)
-      permissions.slice(*AUDITED_ACL_KEYS)
+    # Order-insensitive ACL comparison for no-op detection: a group list that
+    # differs only in order is the same grant, so sort array values before
+    # comparing. The payload still records the ACLs in their stored order.
+    def acl_equivalent?(before, after)
+      normalize = ->(acl) { acl.transform_values { |v| v.is_a?(Array) ? v.sort : v } }
+      normalize.call(before) == normalize.call(after)
     end
 end

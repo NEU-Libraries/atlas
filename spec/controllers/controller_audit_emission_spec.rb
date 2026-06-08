@@ -38,7 +38,7 @@ RSpec.describe 'Controller audit emission' do
             params: { id: work.noid, metadata: { permissions: { read: ['public'], edit: [], edit_users: ['000000009'] } } },
             as:     :json
 
-      row = AuditEvent.for_resource(work.id).find_by(change_type: 'permissions')
+      row = AuditEvent.for_resource(work.id).find_by(action: 'update', change_type: 'permissions')
       expect(row).not_to be_nil
       expect(row.action).to eq('update')
       expect(row.payload.dig('after', 'read')).to include('public')
@@ -54,6 +54,20 @@ RSpec.describe 'Controller audit emission' do
 
       types = AuditEvent.for_resource(work.id).where(action: 'update').pluck(:change_type)
       expect(types).to contain_exactly('metadata', 'permissions')
+    end
+
+    it 'suppresses a no-op permissions write whose effective ACL is unchanged (Fix B)' do
+      work # force creation up front (no actor on the WorkCreator let -> no events)
+      # The Work inherits { read: [], edit: [staff] }; re-submitting the same
+      # effective ACL (the setter re-prepends staff) changes nothing.
+      expect do
+        patch :update,
+              params: { id: work.noid, metadata: { permissions: { read: [], edit: [], edit_users: [] } } },
+              as:     :json
+      end.not_to change { AuditEvent.for_resource(work.id).count }
+
+      expect(response).to have_http_status(:ok)
+      expect(AuditEvent.for_resource(work.id).where(change_type: 'permissions')).to be_empty
     end
 
     it 'binary_update writes a metadata row sourced from MODS' do

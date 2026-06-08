@@ -9,19 +9,19 @@ RSpec.describe WorkCreator do
   let(:collection) { CollectionCreator.call(parent_id: community.noid) }
 
   describe 'self-deposit' do
-    it 'stamps depositor == proxy_uploader == actor and emits one AuditEvent' do
+    it 'stamps depositor == proxy_uploader == actor and emits structural + permissions-grant rows' do
       expect do
         @work = described_class.call(
           parent_id:      collection.noid,
           proxy_uploader: '000000002',
           actor_nuid:     '000000002'
         )
-      end.to change(AuditEvent, :count).by(1)
+      end.to change(AuditEvent, :count).by(2)
 
       expect(@work.depositor).to      eq('000000002')
       expect(@work.proxy_uploader).to eq('000000002')
 
-      ev = AuditEvent.last
+      ev = AuditEvent.find_by(change_type: 'structural')
       expect(ev).to have_attributes(
         actor_nuid:        '000000002',
         on_behalf_of_nuid: nil, # actor == depositor → no proxy attribution
@@ -46,7 +46,7 @@ RSpec.describe WorkCreator do
       expect(@work.depositor).to      eq('900000001')
       expect(@work.proxy_uploader).to eq('000000002')
 
-      ev = AuditEvent.last
+      ev = AuditEvent.find_by(change_type: 'structural')
       expect(ev.actor_nuid).to        eq('000000002')
       expect(ev.on_behalf_of_nuid).to eq('900000001') # depositor differs → implicit on_behalf_of
     end
@@ -69,7 +69,7 @@ RSpec.describe WorkCreator do
       expect(@work.depositor).to      eq('000000099') # inherited from collection
       expect(@work.proxy_uploader).to eq('000000003')
 
-      ev = AuditEvent.last
+      ev = AuditEvent.find_by(change_type: 'structural')
       expect(ev.actor_nuid).to        eq('000000003')
       expect(ev.on_behalf_of_nuid).to eq('000000099') # depositor != actor
     end
@@ -117,12 +117,12 @@ RSpec.describe WorkCreator do
           actor_nuid:        '000000004',   # admin operator
           on_behalf_of_nuid: '900000001'    # target
         )
-      end.to change(AuditEvent, :count).by(1)
+      end.to change(AuditEvent, :count).by(2)
 
       expect(@work.depositor).to      eq('900000001')
       expect(@work.proxy_uploader).to be_nil
 
-      ev = AuditEvent.last
+      ev = AuditEvent.find_by(change_type: 'structural')
       expect(ev).to have_attributes(
         actor_nuid:        '000000004', # admin — the hand on the keyboard, in the trail only
         on_behalf_of_nuid: '900000001', # target — the attribution stamp
@@ -147,6 +147,35 @@ RSpec.describe WorkCreator do
 
       expect(@work.proxy_uploader).to be_nil
       expect(@work.depositor).to      eq('900000001')
+    end
+  end
+
+  # Fix A (gap_reports/atlas_permissions_grant_audit_event.md): the ACL a Work
+  # is born with — copied from its parent at create — must surface as a
+  # permissions audit event, or the meaningful "granted at creation" transition
+  # is invisible in Rights history.
+  describe 'permissions grant at create' do
+    it 'emits an inherited permissions grant naming the parent' do
+      # Make the parent public so the inherited grant carries a real read ACL.
+      public_collection = CollectionCreator.call(parent_id: community.noid)
+      public_collection.publicize
+      Atlas.persister.save(resource: public_collection)
+
+      @work = described_class.call(parent_id: public_collection.noid, actor_nuid: '000000004')
+
+      grant = AuditEvent.find_by(action: 'create', change_type: 'permissions')
+      expect(grant).not_to be_nil
+      expect(grant.resource_id).to                  eq(@work.id.to_s)
+      expect(grant.payload['before']).to            eq({})
+      expect(grant.payload.dig('after', 'read')).to include('public')
+      expect(grant.payload.dig('after', 'edit')).to include(Permissions::STAFF_EDIT_GROUP)
+      expect(grant.payload['source']).to            eq('inherited')
+      expect(grant.note).to                         eq("inherited from #{public_collection.noid}")
+    end
+
+    it 'skips the grant event when no actor is present (internal callers)' do
+      expect { described_class.call(parent_id: collection.noid) }
+        .not_to change(AuditEvent, :count)
     end
   end
 end

@@ -5,6 +5,13 @@ module Permissions
 
   STAFF_EDIT_GROUP = 'northeastern:drs:repository:staff'
 
+  # The ACL keys an audit `permissions` event records (before/after). The
+  # canonical home for the snapshot shape, shared by the controller edit path
+  # (Auditable) and the create-time grant emission (the creators). Embargo and
+  # the provenance slots (depositor / proxy_uploader) are intentionally
+  # excluded — they carry their own ledger / are not part of the rights diff.
+  AUDITED_ACL_KEYS = %i[read edit edit_users].freeze
+
   included do
     attribute :embargo_release_date, Valkyrie::Types::DateTime.optional
 
@@ -67,6 +74,13 @@ module Permissions
       edit:           edit_groups,
       type:           self.class.name
     }
+  end
+
+  # The audited slice of the current ACL — the `before`/`after` payload shape
+  # for `permissions` audit events. Normalized by the `permissions=` setter
+  # (incl. the staff auto-prepend), so two callers comparing it agree on no-ops.
+  def audited_acl
+    permissions.slice(*AUDITED_ACL_KEYS)
   end
 
   def permissions=(hsh)

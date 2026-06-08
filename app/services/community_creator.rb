@@ -64,14 +64,21 @@ class CommunityCreator < ApplicationService
     def emit_audit_event!(community)
       return if @actor_nuid.blank?
 
+      on_behalf = @on_behalf_of_nuid || attribution_target(community)
       AuditEventWriter.record(
         resource:          community,
         actor_nuid:        @actor_nuid,
-        on_behalf_of_nuid: @on_behalf_of_nuid || attribution_target(community),
+        on_behalf_of_nuid: on_behalf,
         action:            'create',
         change_type:       'structural',
         event_source:      'controller'
       )
+      # A nested Community inherits its parent's ACL; a root Community is born
+      # with the ACL it was created with (no parent to inherit from).
+      parent = community.parent
+      emit_permissions_grant!(community, actor_nuid: @actor_nuid, on_behalf_of_nuid: on_behalf,
+                                         source:      parent.present? ? 'inherited' : 'initial',
+                                         parent_noid: parent&.noid)
     end
 
     def attribution_target(community)

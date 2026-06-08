@@ -10,19 +10,19 @@ RSpec.describe CollectionCreator do
   let(:community) { CommunityCreator.call }
 
   describe 'self-deposit' do
-    it 'stamps depositor == proxy_uploader == actor and emits one AuditEvent' do
+    it 'stamps depositor == proxy_uploader == actor and emits structural + permissions-grant rows' do
       expect do
         @collection = described_class.call(
           parent_id:      community.noid,
           proxy_uploader: '000000002',
           actor_nuid:     '000000002'
         )
-      end.to change(AuditEvent, :count).by(1)
+      end.to change(AuditEvent, :count).by(2)
 
       expect(@collection.depositor).to      eq('000000002')
       expect(@collection.proxy_uploader).to eq('000000002')
 
-      ev = AuditEvent.last
+      ev = AuditEvent.find_by(change_type: 'structural')
       expect(ev).to have_attributes(
         actor_nuid:        '000000002',
         on_behalf_of_nuid: nil, # actor == depositor → no proxy attribution
@@ -47,7 +47,7 @@ RSpec.describe CollectionCreator do
       expect(@collection.depositor).to      eq('900000001')
       expect(@collection.proxy_uploader).to eq('000000002')
 
-      ev = AuditEvent.last
+      ev = AuditEvent.find_by(change_type: 'structural')
       expect(ev.actor_nuid).to        eq('000000002')
       expect(ev.on_behalf_of_nuid).to eq('900000001') # depositor differs → implicit on_behalf_of
     end
@@ -78,6 +78,21 @@ RSpec.describe CollectionCreator do
       # If the ordering ever inverts, the librarian's stamp would be
       # clobbered by the inherited nil/parent value.
       expect(@collection.proxy_uploader).to eq('librarian_stamping_here')
+    end
+  end
+
+  # Fix A: a Collection's starting ACL is inherited from its parent Community.
+  describe 'permissions grant at create' do
+    it 'emits an inherited permissions grant naming the parent community' do
+      @collection = described_class.call(parent_id: community.noid, actor_nuid: '000000004')
+
+      grant = AuditEvent.find_by(action: 'create', change_type: 'permissions')
+      expect(grant).not_to be_nil
+      expect(grant.resource_id).to                  eq(@collection.id.to_s)
+      expect(grant.payload['before']).to            eq({})
+      expect(grant.payload.dig('after', 'edit')).to include(Permissions::STAFF_EDIT_GROUP)
+      expect(grant.payload['source']).to            eq('inherited')
+      expect(grant.note).to                         eq("inherited from #{community.noid}")
     end
   end
 end

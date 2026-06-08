@@ -64,14 +64,18 @@ class CollectionCreator < ApplicationService
     def emit_audit_event!(collection)
       return if @actor_nuid.blank?
 
+      on_behalf = @on_behalf_of_nuid || attribution_target(collection)
       AuditEventWriter.record(
         resource:          collection,
         actor_nuid:        @actor_nuid,
-        on_behalf_of_nuid: @on_behalf_of_nuid || attribution_target(collection),
+        on_behalf_of_nuid: on_behalf,
         action:            'create',
         change_type:       'structural',
         event_source:      'controller'
       )
+      # A Collection always has a parent, so its starting ACL is always inherited.
+      emit_permissions_grant!(collection, actor_nuid: @actor_nuid, on_behalf_of_nuid: on_behalf,
+                                          source: 'inherited', parent_noid: collection.parent&.noid)
     end
 
     def attribution_target(collection)

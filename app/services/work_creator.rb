@@ -75,14 +75,18 @@ class WorkCreator < ApplicationService
     def emit_audit_event!(work)
       return if @actor_nuid.blank?
 
+      on_behalf = @on_behalf_of_nuid || attribution_target(work)
       AuditEventWriter.record(
         resource:          work,
         actor_nuid:        @actor_nuid,
-        on_behalf_of_nuid: @on_behalf_of_nuid || attribution_target(work),
+        on_behalf_of_nuid: on_behalf,
         action:            'create',
         change_type:       'structural',
         event_source:      'controller'
       )
+      # A Work always has a parent, so its starting ACL is always inherited.
+      emit_permissions_grant!(work, actor_nuid: @actor_nuid, on_behalf_of_nuid: on_behalf,
+                                    source: 'inherited', parent_noid: work.parent&.noid)
     end
 
     # When on_behalf_of wasn't supplied explicitly but the depositor

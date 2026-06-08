@@ -12,10 +12,11 @@ class MaintenanceController < ApplicationController
   skip_before_action :require_auth, only: :reset
   skip_authorization_check only: :reset
 
+  # Reset is restricted to ephemeral environments; production is never wiped.
+  RESETTABLE_ENVS = %w[development staging test].freeze
+
   def reset
-    unless Rails.env.development? || Rails.env.staging? || Rails.env.test?
-      raise "Wrong env - #{Rails.env} - must not be production"
-    end
+    raise "Wrong env - #{Rails.env} - must not be production" unless resettable_env?
 
     DatabaseCleaner.strategy = :deletion
     DatabaseCleaner.clean
@@ -28,6 +29,15 @@ class MaintenanceController < ApplicationController
 
     c.delete_by_query '*:*'
     c.commit
+
+    # The DB wipe above resets the NOID minter, so the next seed re-mints the
+    # same NOID sequence — and without this purge those reminted ids resolve to
+    # the SAME on-disk OCFL objects as prior runs. OCFL state is cumulative, so
+    # each run's descMetadata.xml / binaries would stack onto the prior run's
+    # object, polluting a resource's MODS history with other resources' content
+    # across runs. Emptying the storage root makes every reseeded object start
+    # at v1 with only its own content.
+    purge_storage!
 
     # non-human bookends — single-row each by design
     User.create(password: Devise.friendly_token[0, 20], name: 'User, System', nuid: '000000000',
@@ -45,4 +55,33 @@ class MaintenanceController < ApplicationController
     User.create(password: Devise.friendly_token[0, 20], name: 'User, Admin', nuid: '000000004',
                 email: 'drs-admin@northeastern.edu', role: :admin)
   end
+
+  private
+
+    def resettable_env?
+      RESETTABLE_ENVS.include?(Rails.env.to_s)
+    end
+
+    # Empty the on-disk Valkyrie (OCFL) storage root, leaving the root directory
+    # itself in place (it is a container mount point). Children are removed
+    # rather than the root so the adapter's path stays valid for the re-seed.
+    def purge_storage!
+      # Independent of the caller's guard, because this rm_rf targets the
+      # preservation root — never let it be reachable outside a resettable env.
+      raise "refusing to purge OCFL storage outside a resettable env (#{Rails.env})" unless resettable_env?
+
+      root = Valkyrie.config.storage_adapter.storage_root.base_path
+      guard_storage_root!(root)
+      FileUtils.rm_rf(root.children)
+    end
+
+    # Refuse to operate on a missing, non-directory, or dangerously shallow root
+    # (e.g. `/` or a single-segment path). The real roots — /home/atlas/storage
+    # and <app>/tmp/files — are absolute and several segments deep, so a root
+    # with fewer than two path segments signals a misconfiguration we must not
+    # rm_rf against.
+    def guard_storage_root!(root)
+      raise "storage root missing or not a directory: #{root.inspect}" unless root && File.directory?(root)
+      raise "refusing to purge unsafe storage root: #{root.inspect}" if root.cleanpath.each_filename.to_a.length < 2
+    end
 end

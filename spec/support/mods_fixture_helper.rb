@@ -10,14 +10,14 @@
 # an application API.
 module MODSFixtureHelper
   def set_mods_primary_title!(resource, title)
-    doc = Mods::Record.new.from_str(resource.mods_xml)
-    doc.title_info.find { |n| n.attribute('usage')&.value == 'primary' }.title.content = title
+    doc = NEU::MODS::Document.parse(resource.mods_xml)
+    doc.primary_title_info.at_xpath('mods:title', NEU::MODS::NAMESPACE).content = title
     resource.mods_xml = doc.to_xml
   end
 
   def set_mods_abstract!(resource, abstract)
-    doc = Mods::Record.new.from_str(resource.mods_xml)
-    doc.abstract.first.content = abstract
+    doc = NEU::MODS::Document.parse(resource.mods_xml)
+    doc.abstract_nodes.first.content = abstract
     resource.mods_xml = doc.to_xml
   end
 end

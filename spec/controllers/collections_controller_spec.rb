@@ -15,7 +15,7 @@ describe CollectionsController, type: :controller do
 
     it 'returns the collection details' do
       title = 'Test Title'
-      collection.plain_title = title
+      set_mods_primary_title!(collection, title)
       get :show, params: { id: collection.noid }, as: :json
       expect(response).to have_http_status(:success)
 
@@ -31,7 +31,7 @@ describe CollectionsController, type: :controller do
 
     it 'displays MODS metadata in JSON for the collection' do
       title = 'Mods Test'
-      collection.plain_title = title
+      set_mods_primary_title!(collection, title)
       get :mods, params: { id: collection.noid }, as: :json
       expect(response).to have_http_status(:success)
       json_response = response.parsed_body

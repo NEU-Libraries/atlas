@@ -144,8 +144,8 @@ RSpec.describe 'Resources', type: :request do
       response '200', 'digests for the resolvable subset' do
         let(:body) { { ids: [community.noid, collection.noid, 'does-not-exist'] } }
         before do
-          community.plain_title  = 'Root Community'
-          collection.plain_title = 'Child Collection'
+          set_mods_primary_title!(community,  'Root Community')
+          set_mods_primary_title!(collection, 'Child Collection')
         end
         schema '$ref' => '#/components/schemas/ResourceDigests'
         run_test! do |response|

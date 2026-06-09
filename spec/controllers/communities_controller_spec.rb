@@ -45,8 +45,8 @@ describe CommunitiesController, type: :controller do
     it 'displays MODS metadata in JSON for the community' do
       title = 'Mods Test'
       description = 'Mods Description'
-      community.plain_title = title
-      community.plain_description = description
+      set_mods_primary_title!(community, title)
+      set_mods_abstract!(community, description)
       get :mods, params: { id: community.noid }, as: :json
       expect(response).to have_http_status(:success)
       json_response = response.parsed_body

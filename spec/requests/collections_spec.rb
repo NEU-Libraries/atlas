@@ -88,27 +88,26 @@ RSpec.describe 'Collections', type: :request do
       consumes 'multipart/form-data'
       produces 'application/json'
       description <<~DESC
-        Update descriptive metadata on a Collection. Either supply a
-        `binary` MODS XML upload or `metadata[*]` form fields.
+        Update a Collection's descriptive metadata by supplying a `binary`
+        MODS XML upload — the caller assembles the full document (descriptive
+        merge logic lives in the client, not Atlas). `metadata[permissions]`
+        adjusts the ACL. Any `metadata[title]` / `metadata[description]` keys
+        are ignored.
 
         Thumbnail-family URI writes have their own purpose-specific
         endpoint — see `PATCH /collections/{id}/thumbnails`.
       DESC
-      parameter name: 'metadata[title]',         in: :formData, required: false
-      parameter name: 'metadata[description]',   in: :formData, required: false
-      parameter name: :binary,                   in: :formData, required: false
+      parameter name: :binary, in: :formData, required: false
       multipart_request_body(
         {
-          'metadata[title]':       { type: :string },
-          'metadata[description]': { type: :string },
-          binary:                  { type: :string, format: :binary, description: 'MODS XML to apply to the Collection' }
+          binary: { type: :string, format: :binary, description: 'MODS XML to apply to the Collection' }
         }
       )
 
       response '200', 'collection updated' do
-        let(:collection)         { CollectionCreator.call(parent_id: community.noid) }
-        let(:id)                 { collection.noid }
-        let(:'metadata[title]')  { 'Updated' }
+        let(:collection) { CollectionCreator.call(parent_id: community.noid) }
+        let(:id)         { collection.noid }
+        let(:binary)     { Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/work-mods.xml')) }
         schema '$ref' => '#/components/schemas/Collection'
         run_test!
       end

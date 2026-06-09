@@ -3,10 +3,10 @@
 require 'rails_helper'
 
 # Section 4 of the OCFL Phase 2 plan: controllers wire the writer into
-# state-changing update paths. metadata_update fires (permissions/title
-# may have changed), binary_update does NOT (only MODS XML moved, the
-# resource's envelope is untouched), and blob#destroy re-emits the
-# parent FileSet's relationships.json now that member_ids shrunk.
+# state-changing update paths. metadata_update fires (permissions may have
+# changed), binary_update does NOT (only MODS XML moved, the resource's
+# envelope is untouched), and blob#destroy re-emits the parent FileSet's
+# relationships.json now that member_ids shrunk.
 RSpec.describe 'Controller envelope emission' do
   after { Atlas.persister.wipe! }
 
@@ -38,7 +38,7 @@ RSpec.describe 'Controller envelope emission' do
       head_before = head_version_for(work.noid)
 
       patch :update,
-            params: { id: work.noid, metadata: { title: 'Renamed' } },
+            params: { id: work.noid, metadata: { permissions: { read: ['public'], edit: [], edit_users: [] } } },
             as:     :json
 
       expect(head_version_for(work.noid)).not_to eq(head_before)
@@ -66,7 +66,7 @@ RSpec.describe 'Controller envelope emission' do
       head_before = head_version_for(collection.noid)
 
       patch :update,
-            params: { id: collection.noid, metadata: { title: 'Renamed' } },
+            params: { id: collection.noid, metadata: { permissions: { read: ['public'], edit: [], edit_users: [] } } },
             as:     :json
 
       expect(head_version_for(collection.noid)).not_to eq(head_before)
@@ -82,7 +82,7 @@ RSpec.describe 'Controller envelope emission' do
       head_before = head_version_for(community.noid)
 
       patch :update,
-            params: { id: community.noid, metadata: { title: 'Renamed' } },
+            params: { id: community.noid, metadata: { permissions: { read: ['public'], edit: [], edit_users: [] } } },
             as:     :json
 
       expect(head_version_for(community.noid)).not_to eq(head_before)

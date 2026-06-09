@@ -198,8 +198,8 @@ RSpec.describe 'Works', type: :request do
         let(:work) { WorkCreator.call(parent_id: collection.noid) }
         let(:id)   { work.noid }
         before do
-          community.plain_title  = 'Root Community'
-          collection.plain_title = 'Parent Collection'
+          set_mods_primary_title!(community,  'Root Community')
+          set_mods_primary_title!(collection, 'Parent Collection')
         end
         schema '$ref' => '#/components/schemas/Work'
         run_test! do |response|
@@ -217,37 +217,36 @@ RSpec.describe 'Works', type: :request do
       consumes 'multipart/form-data'
       produces 'application/json'
       description <<~DESC
-        Update descriptive metadata on a Work. Either supply a `binary`
-        MODS XML upload or `metadata[*]` form fields to merge in.
+        Update a Work's descriptive metadata by supplying a `binary` MODS XML
+        upload — the caller assembles the full document (descriptive merge logic
+        lives in the client, e.g. Cerberus, not Atlas). `metadata[permissions]`
+        adjusts the ACL. Any `metadata[title]` / `metadata[description]` keys are
+        ignored.
 
         Programmatic Delegate writes (thumbnail-family URIs, sized image
         derivatives) no longer ride this endpoint — see the dedicated
         `PATCH /works/{id}/thumbnails` and `PATCH /works/{id}/image_derivatives`
         routes.
       DESC
-      parameter name: 'metadata[title]',         in: :formData, required: false
-      parameter name: 'metadata[description]',   in: :formData, required: false
-      parameter name: :binary,                   in: :formData, required: false
+      parameter name: :binary, in: :formData, required: false
       multipart_request_body(
         {
-          'metadata[title]':       { type: :string },
-          'metadata[description]': { type: :string },
-          binary:                  { type: :string, format: :binary, description: 'MODS XML to apply to the Work' }
+          binary: { type: :string, format: :binary, description: 'MODS XML to apply to the Work' }
         }
       )
 
       response '200', 'work updated' do
-        let(:work)              { WorkCreator.call(parent_id: collection.noid) }
-        let(:id)                { work.noid }
-        let(:'metadata[title]') { 'Updated' }
+        let(:work)   { WorkCreator.call(parent_id: collection.noid) }
+        let(:id)     { work.noid }
+        let(:binary) { Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/work-mods.xml')) }
         schema '$ref' => '#/components/schemas/Work'
         run_test!
       end
 
-      response '409', 'optimistic-lock conflict on the generic metadata update (surfaced immediately, not retried)' do
-        let(:work)              { WorkCreator.call(parent_id: collection.noid) }
-        let(:id)                { work.noid }
-        let(:'metadata[title]') { 'Conflicting' }
+      response '409', 'optimistic-lock conflict on the update (surfaced immediately, not retried)' do
+        let(:work)   { WorkCreator.call(parent_id: collection.noid) }
+        let(:id)     { work.noid }
+        let(:binary) { Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/work-mods.xml')) }
         before do
           work # persist before stubbing so the creator's saves don't hit the stub
           allow(Atlas.persister).to receive(:save).and_raise(Valkyrie::Persistence::StaleObjectError)

@@ -15,7 +15,7 @@ describe WorksController, type: :controller do
     let(:work) { WorkCreator.call(parent_id: collection.noid) }
     it 'returns the work details' do
       title = 'Test Title'
-      work.plain_title = title
+      set_mods_primary_title!(work, title)
       get :show, params: { id: work.noid }, as: :json
       expect(response).to have_http_status(:success)
 
@@ -33,7 +33,7 @@ describe WorksController, type: :controller do
 
     it 'displays MODS metadata in JSON for the work' do
       title = 'Mods Test'
-      work.plain_title = title
+      set_mods_primary_title!(work, title)
       get :mods, params: { id: work.noid }, as: :json
       expect(response).to have_http_status(:success)
       json_response = response.parsed_body
@@ -44,7 +44,7 @@ describe WorksController, type: :controller do
 
     it 'displays MODS metadata in HTML for the work' do
       title = 'HTML Test'
-      work.plain_title = title
+      set_mods_primary_title!(work, title)
       get :mods, params: { id: work.noid }, as: :html
       expect(response).to have_http_status(:success)
       expect(response.body).to include(title)
@@ -251,7 +251,7 @@ describe WorksController, type: :controller do
         raise Valkyrie::Persistence::StaleObjectError
       end
 
-      patch :update, params: { id: work.noid, metadata: { title: 'Conflicting' } }, as: :json
+      patch :update, params: { id: work.noid, metadata: { permissions: { read: ['public'], edit: [], edit_users: [] } } }, as: :json
 
       expect(response).to have_http_status(:conflict)
       expect(calls).to eq(1) # surfaced on the first conflict, no retry

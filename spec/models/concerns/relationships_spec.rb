@@ -40,14 +40,14 @@ RSpec.describe Relationships do
 
   describe '#ancestor_chain' do
     # Use the Creator services so each resource gets its descriptive-metadata
-    # FileSet — `plain_title=` writes through MODS, which needs that FileSet.
+    # FileSet — seeding a title writes through MODS, which needs that FileSet.
     let!(:community)  { CommunityCreator.call }
     let!(:collection) { CollectionCreator.call(parent_id: community.noid) }
     let!(:work)       { WorkCreator.call(parent_id: collection.noid) }
 
     before do
-      community.plain_title  = 'Root Community'
-      collection.plain_title = 'Parent Collection'
+      set_mods_primary_title!(community,  'Root Community')
+      set_mods_primary_title!(collection, 'Parent Collection')
     end
 
     it 'returns root-first {noid, klass, title} nodes carrying each ancestor title' do

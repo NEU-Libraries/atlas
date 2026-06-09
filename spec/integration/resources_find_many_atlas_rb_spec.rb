@@ -16,8 +16,8 @@ RSpec.describe 'Batch resource resolution via atlas_rb', :atlas_rb_server do
   let(:collection) { CollectionCreator.call(parent_id: community.noid) }
 
   before do
-    community.plain_title  = 'Root Community'
-    collection.plain_title = 'Child Collection'
+    set_mods_primary_title!(community,  'Root Community')
+    set_mods_primary_title!(collection, 'Child Collection')
   end
 
   it 'resolves many NOIDs to digests in one call, dropping unresolvable ids' do

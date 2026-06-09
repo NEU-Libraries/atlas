@@ -21,18 +21,6 @@ RSpec.describe 'Controller audit emission' do
     let(:collection) { CollectionCreator.call(parent_id: community.noid) }
     let(:work)       { WorkCreator.call(parent_id: collection.noid) }
 
-    it 'metadata_update (title) writes one metadata row naming the changed field' do
-      patch :update, params: { id: work.noid, metadata: { title: 'Renamed' } }, as: :json
-
-      events = AuditEvent.for_resource(work.id).where(action: 'update')
-      expect(events.count).to eq(1)
-      row = events.first
-      expect(row.change_type).to eq('metadata')
-      expect(row.payload['fields']).to eq(['title'])
-      expect(row.actor_nuid).to eq(actor)
-      expect(row.event_source).to eq('controller')
-    end
-
     it 'metadata_update (permissions) writes a permissions row with before/after ACL' do
       patch :update,
             params: { id: work.noid, metadata: { permissions: { read: ['public'], edit: [], edit_users: ['000000009'] } } },
@@ -45,15 +33,6 @@ RSpec.describe 'Controller audit emission' do
       expect(row.payload.dig('after', 'edit_users')).to include('000000009')
       # before is the pre-edit ACL — different from after (no public read yet).
       expect(row.payload['before']).not_to eq(row.payload['after'])
-    end
-
-    it 'a mixed title+permissions PATCH writes two pure rows (one each)' do
-      patch :update,
-            params: { id: work.noid, metadata: { title: 'Renamed', permissions: { read: ['public'], edit: [] } } },
-            as:     :json
-
-      types = AuditEvent.for_resource(work.id).where(action: 'update').pluck(:change_type)
-      expect(types).to contain_exactly('metadata', 'permissions')
     end
 
     it 'suppresses a no-op permissions write whose effective ACL is unchanged (Fix B)' do
@@ -98,7 +77,10 @@ RSpec.describe 'Controller audit emission' do
 
     it 'records the On-Behalf-Of operator as on_behalf_of_nuid under acting-as' do
       request.headers['On-Behalf-Of'] = 'NUID 000000123'
-      patch :update, params: { id: work.noid, metadata: { title: 'Renamed' } }, as: :json
+      patch :update,
+            params: { id:     work.noid,
+                      binary: Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/work-mods.xml')) },
+            as:     :json
 
       row = AuditEvent.for_resource(work.id).find_by(action: 'update', change_type: 'metadata')
       expect(row.actor_nuid).to eq(actor)
@@ -112,8 +94,11 @@ RSpec.describe 'Controller audit emission' do
     let(:community)  { CommunityCreator.call }
     let(:collection) { CollectionCreator.call(parent_id: community.noid) }
 
-    it 'metadata_update and tombstone/restore emit for Collections too' do
-      patch :update, params: { id: collection.noid, metadata: { title: 'Renamed' } }, as: :json
+    it 'binary_update and tombstone/restore emit for Collections too' do
+      patch :update,
+            params: { id:     collection.noid,
+                      binary: Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/work-mods.xml')) },
+            as:     :json
       post  :tombstone, params: { id: collection.noid }, as: :json
       post  :restore,   params: { id: collection.noid }, as: :json
 
@@ -129,8 +114,11 @@ RSpec.describe 'Controller audit emission' do
 
     let(:community) { CommunityCreator.call }
 
-    it 'metadata_update and tombstone/restore emit for Communities too' do
-      patch :update, params: { id: community.noid, metadata: { title: 'Renamed' } }, as: :json
+    it 'binary_update and tombstone/restore emit for Communities too' do
+      patch :update,
+            params: { id:     community.noid,
+                      binary: Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/work-mods.xml')) },
+            as:     :json
       post  :tombstone, params: { id: community.noid }, as: :json
       post  :restore,   params: { id: community.noid }, as: :json
 

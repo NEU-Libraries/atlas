@@ -1109,8 +1109,11 @@ paths:
       tags:
       - Collections
       description: |
-        Update descriptive metadata on a Collection. Either supply a
-        `binary` MODS XML upload or `metadata[*]` form fields.
+        Update a Collection's descriptive metadata by supplying a `binary`
+        MODS XML upload — the caller assembles the full document (descriptive
+        merge logic lives in the client, not Atlas). `metadata[permissions]`
+        adjusts the ACL. Any `metadata[title]` / `metadata[description]` keys
+        are ignored.
 
         Thumbnail-family URI writes have their own purpose-specific
         endpoint — see `PATCH /collections/{id}/thumbnails`.
@@ -1122,10 +1125,6 @@ paths:
             schema:
               type: object
               properties:
-                metadata[title]:
-                  type: string
-                metadata[description]:
-                  type: string
                 binary:
                   type: string
                   format: binary
@@ -1402,8 +1401,11 @@ paths:
       tags:
       - Communities
       description: |
-        Update descriptive metadata on a Community. Either supply a
-        `binary` MODS XML upload or `metadata[*]` form fields.
+        Update a Community's descriptive metadata by supplying a `binary`
+        MODS XML upload — the caller assembles the full document (descriptive
+        merge logic lives in the client, not Atlas). `metadata[permissions]`
+        adjusts the ACL. Any `metadata[title]` / `metadata[description]` keys
+        are ignored.
 
         Thumbnail-family URI writes have their own purpose-specific
         endpoint — see `PATCH /communities/{id}/thumbnails`.
@@ -1415,10 +1417,6 @@ paths:
             schema:
               type: object
               properties:
-                metadata[title]:
-                  type: string
-                metadata[description]:
-                  type: string
                 binary:
                   type: string
                   format: binary
@@ -2135,8 +2133,11 @@ paths:
       tags:
       - Works
       description: |
-        Update descriptive metadata on a Work. Either supply a `binary`
-        MODS XML upload or `metadata[*]` form fields to merge in.
+        Update a Work's descriptive metadata by supplying a `binary` MODS XML
+        upload — the caller assembles the full document (descriptive merge logic
+        lives in the client, e.g. Cerberus, not Atlas). `metadata[permissions]`
+        adjusts the ACL. Any `metadata[title]` / `metadata[description]` keys are
+        ignored.
 
         Programmatic Delegate writes (thumbnail-family URIs, sized image
         derivatives) no longer ride this endpoint — see the dedicated
@@ -2150,10 +2151,6 @@ paths:
             schema:
               type: object
               properties:
-                metadata[title]:
-                  type: string
-                metadata[description]:
-                  type: string
                 binary:
                   type: string
                   format: binary
@@ -2166,8 +2163,8 @@ paths:
               schema:
                 "$ref": "#/components/schemas/Work"
         '409':
-          description: optimistic-lock conflict on the generic metadata update (surfaced
-            immediately, not retried)
+          description: optimistic-lock conflict on the update (surfaced immediately,
+            not retried)
     delete:
       summary: Destroy a work
       tags:

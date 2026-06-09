@@ -128,13 +128,11 @@ class MODSVersionHistory
     # The writer stamps resource_id with the Valkyrie UUID (resource.id), not
     # the NOID; we have the live resource here, so match on the UUID directly.
     #
-    # Every change_type:'metadata' event is a MODS-touching edit, and there are
-    # exactly two flavors, each of which appends a real descMetadata version:
-    #   - a full-document replace (binary_update)  -> payload { source: 'mods' }
-    #   - a title/description field patch (MODSAssignment via the metadata PATCH)
-    #                                              -> payload { fields: [...] }
-    # We correlate against BOTH so a field-patch version is attributed to its
-    # editor (it previously fell through, since only source:'mods' was matched).
+    # Every change_type:'metadata' event is a MODS-touching edit: a
+    # full-document replace via the binary `mods_xml=` path (binary_update),
+    # tagged payload { source: 'mods' }. (The metadata PATCH no longer writes
+    # descriptive fields — the flat title/description setters were removed; the
+    # caller assembles the MODS it uploads.)
     def mods_events
       @mods_events ||=
         AuditEvent.for_resource(resource.id.to_s)
@@ -142,17 +140,14 @@ class MODSVersionHistory
                   .to_a
     end
 
-    # The kind of edit that produced a version, surfaced so a consumer can tell
-    # a hand-edited full-document MODS replace ('mods') from a web-form field
-    # patch ('fields') — the barrier where simplistic forms can clobber curated
-    # XML. Derived from the correlated event's payload shape; nil when there's
-    # no correlated event (e.g. the template seed).
+    # The kind of edit that produced a version — currently always a
+    # full-document MODS replace ('mods'). Derived from the correlated event's
+    # payload shape; nil when there's no correlated event (e.g. the template
+    # seed).
     def source_for(event)
       payload = event&.payload
       return nil if payload.nil?
-      return payload['source'] if payload.key?('source')
-      return 'fields' if payload.key?('fields')
 
-      nil
+      payload['source']
     end
 end

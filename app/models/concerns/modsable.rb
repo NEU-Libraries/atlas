@@ -2,7 +2,6 @@
 
 module Modsable
   extend ActiveSupport::Concern
-  include MODSAssignment
   include MODSBuilder
   include MODSToJson
   include FileHelper

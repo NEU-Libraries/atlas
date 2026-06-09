@@ -30,49 +30,49 @@ module Auditable
     )
   end
 
-  # Apply a metadata PATCH (title / description / permissions, + the test-only
-  # noid override), persist, re-emit the preservation envelope, and write the
-  # provenance row(s). Extracted here because Works / Collections / Communities
-  # drive this identically; returns the saved resource for the caller to assign.
+  # Apply a metadata PATCH (permissions, + the test-only noid override),
+  # persist, re-emit the preservation envelope, and write the provenance
+  # row(s). Descriptive fields (title / description) are NOT writable here —
+  # the only MODS write path is the caller-assembled raw `mods_xml=` (binary
+  # upload); descriptive merges belong to the client (Cerberus / MODSMerge),
+  # not Atlas. Extracted here because Works / Collections / Communities drive
+  # this identically; returns the saved resource for the caller to assign.
   def audited_metadata_update(resource)
     metadata   = params[:metadata]
     before_acl = apply_metadata_params(resource, metadata)
     saved      = Atlas.persister.save(resource: resource)
     saved.write_preservation_envelope!
-    audit_metadata_update!(resource: saved, metadata: metadata, before_acl: before_acl)
+    audit_metadata_update!(resource: saved, before_acl: before_acl)
     saved
   end
 
   private
 
-    # Map the metadata params onto the resource. Returns the pre-edit audited
-    # ACL when the request carried a permissions key (captured BEFORE
-    # reassignment so the permissions audit row can record before/after and so
-    # a no-op write can be detected), otherwise nil.
+    # Map the metadata params onto the resource. Only permissions (and the
+    # test-only noid override) are writable here; title / description keys are
+    # silently ignored — the descriptive write path is the raw `mods_xml=`
+    # binary upload, not this PATCH. Returns the pre-edit audited ACL when the
+    # request carried a permissions key (captured BEFORE reassignment so the
+    # permissions audit row can record before/after and so a no-op write can be
+    # detected), otherwise nil.
     def apply_metadata_params(resource, metadata)
       # custom noid is a test-only affordance
       resource.alternate_ids = metadata['noid'] if Rails.env.test? && metadata['noid'].present?
       before_acl = resource.audited_acl if metadata['permissions'].present?
-      resource.plain_title = metadata['title'] if metadata['title'].present?
-      resource.plain_description = metadata['description'] if metadata['description'].present?
       resource.permissions = metadata['permissions'] if metadata['permissions'].present?
       before_acl
     end
 
-    # A metadata PATCH can change descriptive fields AND permissions in one
-    # request, but change_type is one column per row and each carries different
-    # provenance value — so emit up to two semantically-pure rows: a `metadata`
-    # row listing the changed descriptive fields, and a `permissions` row
-    # carrying the before/after ACL.
+    # The metadata PATCH only mutates permissions, so it emits at most one
+    # `permissions` row carrying the before/after ACL. (Descriptive `metadata`
+    # rows now come solely from the binary `mods_xml=` path, tagged
+    # `{ source: 'mods' }` by the controller's binary_update.)
     #
     # A permissions write whose effective ACL is unchanged (e.g. re-saving the
     # Permissions tab without edits, or re-applying an inherited ACL) is a
     # non-event — comparing the post-setter normalized ACLs (incl. the staff
     # auto-prepend) suppresses the spurious "Updated · Permissions" row.
-    def audit_metadata_update!(resource:, metadata:, before_acl:)
-      fields = %w[title description].select { |f| metadata[f].present? }
-      audit!(resource: resource, action: 'update', change_type: 'metadata', payload: { fields: fields }) if fields.any?
-
+    def audit_metadata_update!(resource:, before_acl:)
       return if before_acl.nil?
 
       after_acl = resource.audited_acl

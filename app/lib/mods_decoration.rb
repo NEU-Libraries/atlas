@@ -2,13 +2,11 @@
 
 module MODSDecoration
   def plain_title
-    return '' if mods.nil? || mods.main_title.blank?
+    return '' if mods&.main_title.nil?
 
-    mods.main_title.non_sort +
-      mods.main_title.title +
-      prefix_field(': ', mods.main_title.subtitle) +
-      prefix_field(' - ', mods.main_title.part_name) +
-      prefix_field(', ', mods.main_title.part_number)
+    # Compose from the in-memory access-copy parts via the shared gem helper --
+    # no XML re-parse on the read path. Same algorithm Document#plain_title runs.
+    NEU::MODS.compose_title(mods.main_title.attributes.symbolize_keys)
   end
 
   def plain_description

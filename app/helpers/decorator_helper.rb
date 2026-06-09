@@ -41,12 +41,6 @@ module DecoratorHelper
   # text. Only sentence terminators belong here.
   URL_TRAILING_PUNCT_RE = /[.,;:!?'"]+\z/
 
-  def prefix_field(prefix, field)
-    return prefix + field if field.present?
-
-    ''
-  end
-
   def loop_field(title, fields)
     return '' if fields.blank?
 

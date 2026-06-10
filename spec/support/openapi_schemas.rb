@@ -26,6 +26,7 @@ module OpenapiSchemas
       FileSetsIndex:      file_sets_index,
       BlobsIndex:         blobs_index,
       WorkAssets:         work_assets,
+      WorkFileSets:       work_file_sets,
       Pagination:         pagination,
       User:               user,
       ProvisionedUser:    provisioned_user,
@@ -160,33 +161,63 @@ module OpenapiSchemas
   def work_assets
     {
       type:  :array,
-      items: {
-        oneOf: [
-          {
-            type:        :object,
-            properties:  {
-              noid:              { type: :string },
-              mime_type:         { type: :string, nullable: true },
-              original_filename: { type: :string, nullable: true },
-              size:              { type: :integer, nullable: true },
-              label:             { type: :string, nullable: true }
-            },
-            required:    %w[noid],
-            description: 'Blob asset — held binary'
+      items: asset_item
+    }
+  end
+
+  # Polymorphic per-asset item shared by WorkAssets (flattened) and
+  # WorkFileSets (grouped per page) — mirrors the shared
+  # works/_asset.json.jbuilder partial.
+  def asset_item
+    {
+      oneOf: [
+        {
+          type:        :object,
+          properties:  {
+            noid:              { type: :string },
+            mime_type:         { type: :string, nullable: true },
+            original_filename: { type: :string, nullable: true },
+            size:              { type: :integer, nullable: true },
+            label:             { type: :string, nullable: true }
           },
-          {
-            type:        :object,
-            properties:  {
-              noid:      { type: :string },
-              mime_type: { type: :string, nullable: true },
-              use:       { type: :string, nullable: true },
-              uri:       { type: :string, nullable: true },
-              label:     { type: :string, nullable: true }
-            },
-            required:    %w[noid],
-            description: 'Delegate asset — external pointer (e.g. IIIF URL)'
-          }
-        ]
+          required:    %w[noid],
+          description: 'Blob asset — held binary'
+        },
+        {
+          type:        :object,
+          properties:  {
+            noid:      { type: :string },
+            mime_type: { type: :string, nullable: true },
+            use:       { type: :string, nullable: true },
+            uri:       { type: :string, nullable: true },
+            label:     { type: :string, nullable: true }
+          },
+          required:    %w[noid],
+          description: 'Delegate asset — external pointer (e.g. IIIF URL)'
+        }
+      ]
+    }
+  end
+
+  # GET /works/:id/file_sets — ordered page listing for multipage Works.
+  # One entry per page-bearing FileSet (metadata and :derivative FileSets
+  # excluded), position ASC with nulls last, each carrying its downloadable
+  # assets. Unpaginated by design: manifest assembly needs the whole
+  # sequence in one read.
+  def work_file_sets
+    {
+      type:  :array,
+      items: {
+        type:       :object,
+        properties: {
+          noid:       { type: :string, description: 'NOID of the FileSet' },
+          type:       { type: :string, nullable: true, description: 'Classification name' },
+          position:   { type: :integer, nullable: true,
+                        description: '1-based page order; null = unordered (sorted last)' },
+          tombstoned: { type: :boolean, description: 'Withdrawn-from-discovery flag' },
+          assets:     { type: :array, items: asset_item }
+        },
+        required:   %w[noid type position tombstoned assets]
       }
     }
   end

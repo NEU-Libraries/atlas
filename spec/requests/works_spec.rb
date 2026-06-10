@@ -336,6 +336,73 @@ RSpec.describe 'Works', type: :request do
     end
   end
 
+  path '/works/{id}/file_sets' do
+    parameter name: :id, in: :path, type: :string, description: 'NOID of the Work'
+
+    get "List a work's page FileSets in order" do
+      tags 'Works'
+      produces 'application/json'
+      description <<~DESC
+        Ordered page listing for multipage Works: one entry per page-bearing
+        FileSet (descriptive/structural-metadata and derivative FileSets are
+        excluded), sorted position ASC with unordered (null) FileSets last,
+        creation-order tie-break. Each entry nests its downloadable assets —
+        the page's content Blobs plus any per-page IIIF Delegates living in
+        a derivative FileSet under the page. Unpaginated by design: manifest
+        assembly needs the whole sequence in one read.
+      DESC
+
+      response '200', 'page file sets listed in order' do
+        let(:work) { WorkCreator.call(parent_id: collection.noid) }
+        let(:id)   { work.noid }
+        before do
+          # created out of order on purpose — position drives the sort
+          FileSetCreator.call(work_id: work.noid, classification: Classification.image, position: 2)
+          FileSetCreator.call(work_id: work.noid, classification: Classification.image, position: 1)
+          FileSetCreator.call(work_id: work.noid, classification: Classification.image) # legacy/unordered
+        end
+        schema '$ref' => '#/components/schemas/WorkFileSets'
+        run_test! do |response|
+          pages = JSON.parse(response.body)
+          expect(pages.length).to eq(3)
+          expect(pages.map { |p| p['position'] }).to eq([1, 2, nil])
+          expect(pages.map { |p| p['type'] }).not_to include(Classification.descriptive_metadata.name)
+        end
+      end
+
+      response '200', 'assets stay grouped under their page' do
+        let(:work)     { WorkCreator.call(parent_id: collection.noid) }
+        let(:id)       { work.noid }
+        let(:page_one) { FileSetCreator.call(work_id: work.noid, classification: Classification.image, position: 1) }
+        let(:page_two) { FileSetCreator.call(work_id: work.noid, classification: Classification.image, position: 2) }
+        before do
+          BlobCreator.call(path:              Rails.root.join('spec/fixtures/files/example.png').to_s,
+                           file_set_id:       page_one.noid,
+                           original_filename: 'page1.png')
+          # Per-page IIIF Delegate — lands in a derivative FileSet nested
+          # under the page, and must surface as that page's asset.
+          DelegateCreator.call(resource_id: page_two.noid, use: Role.service_file.name,
+                               uri: 'https://iiif.example/page2.jpg')
+          # Work-level derivative container must not surface as a page entry.
+          DelegateCreator.call(resource_id: work.id, use: Role.service_file.name,
+                               uri: 'https://iiif.example/work.jpg')
+        end
+        schema '$ref' => '#/components/schemas/WorkFileSets'
+        run_test! do |response|
+          pages = JSON.parse(response.body)
+          expect(pages.length).to eq(2)
+          expect(pages[0]['assets'].pluck('original_filename')).to include('page1.png')
+          expect(pages[1]['assets'].pluck('uri')).to include('https://iiif.example/page2.jpg')
+        end
+      end
+
+      response '404', 'work not found' do
+        let(:id) { 'nonexistent' }
+        run_test!
+      end
+    end
+  end
+
   path '/works/{id}/thumbnails' do
     parameter name: :id, in: :path, type: :string, description: 'NOID of the Work'
 

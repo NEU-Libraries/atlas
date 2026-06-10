@@ -90,6 +90,12 @@ Rails.application.routes.draw do
     # Downloads
     get '/works/:id/assets', to: 'works#assets', as: 'work_assets'
 
+    # Ordered page listing (multipage Works): one entry per page-bearing
+    # FileSet, position ASC, with each page's downloadable assets nested.
+    # Unpaginated by design — manifest assembly needs the whole sequence
+    # in one read (books run to hundreds of pages, not thousands).
+    get '/works/:id/file_sets', to: 'works#file_sets', as: 'work_file_sets'
+
     # Housekeeping
     get '/reset', to: 'maintenance#reset', as: 'reset'
 

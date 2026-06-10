@@ -64,6 +64,17 @@ class WorksController < ApplicationController
                    .select   { |m| Role.downloadable?(m.use) }
   end
 
+  # Sibling of #assets that preserves FileSet grouping and order — the read
+  # a IIIF manifest assembler needs. #assets flattens; this returns one
+  # entry per page-bearing FileSet, position ASC.
+  def file_sets
+    authorize! :read, Work
+    @work = Work.find(params[:id])
+    return head(:not_found) if @work.nil?
+
+    @pages = page_file_sets(@work).map { |fs| [fs, page_assets(fs)] }
+  end
+
   def update
     @work = Work.find(params[:id])
     authorize! :update, @work
@@ -143,6 +154,27 @@ class WorksController < ApplicationController
   end
 
   private
+
+    # Page-bearing FileSets only: metadata FileSets (descriptive MODS,
+    # structural METS) and :derivative containers are infrastructure, not
+    # pages. Total order even over legacy/unordered data: position ASC,
+    # nulls last, creation-order tie-break.
+    def page_file_sets(work)
+      work.children
+          .select { |c| c.is_a?(FileSet) }
+          .reject { |fs| Classification.metadata?(fs.type) || fs.type == Classification.derivative.name }
+          .sort_by { |fs| [fs.position.nil? ? 1 : 0, fs.position || 0, fs.created_at] }
+    end
+
+    # A page's downloadable assets: its own member Blobs plus the members of
+    # any nested :derivative FileSet (per-page IIIF Delegates land there via
+    # DelegateCreator(resource_id: <page FileSet>)). The page's METS Blob is
+    # excluded by Role.downloadable?.
+    def page_assets(file_set)
+      file_set.children
+              .flat_map { |c| c.is_a?(FileSet) ? Atlas.query.find_members(resource: c).to_a : [c] }
+              .select { |m| Role.downloadable?(m.use) }
+    end
 
     def index_filters
       return {} unless params.key?(:in_progress)

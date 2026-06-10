@@ -745,6 +745,73 @@ components:
           required:
           - noid
           description: Delegate asset — external pointer (e.g. IIIF URL)
+    WorkFileSets:
+      type: array
+      items:
+        type: object
+        properties:
+          noid:
+            type: string
+            description: NOID of the FileSet
+          type:
+            type: string
+            nullable: true
+            description: Classification name
+          position:
+            type: integer
+            nullable: true
+            description: 1-based page order; null = unordered (sorted last)
+          tombstoned:
+            type: boolean
+            description: Withdrawn-from-discovery flag
+          assets:
+            type: array
+            items:
+              oneOf:
+              - type: object
+                properties:
+                  noid:
+                    type: string
+                  mime_type:
+                    type: string
+                    nullable: true
+                  original_filename:
+                    type: string
+                    nullable: true
+                  size:
+                    type: integer
+                    nullable: true
+                  label:
+                    type: string
+                    nullable: true
+                required:
+                - noid
+                description: Blob asset — held binary
+              - type: object
+                properties:
+                  noid:
+                    type: string
+                  mime_type:
+                    type: string
+                    nullable: true
+                  use:
+                    type: string
+                    nullable: true
+                  uri:
+                    type: string
+                    nullable: true
+                  label:
+                    type: string
+                    nullable: true
+                required:
+                - noid
+                description: Delegate asset — external pointer (e.g. IIIF URL)
+        required:
+        - noid
+        - type
+        - position
+        - tombstoned
+        - assets
     Pagination:
       type: object
       description: pagy pagination block
@@ -2302,6 +2369,35 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/WorkAssets"
+  "/works/{id}/file_sets":
+    parameters:
+    - name: id
+      in: path
+      description: NOID of the Work
+      required: true
+      schema:
+        type: string
+    get:
+      summary: List a work's page FileSets in order
+      tags:
+      - Works
+      description: |
+        Ordered page listing for multipage Works: one entry per page-bearing
+        FileSet (descriptive/structural-metadata and derivative FileSets are
+        excluded), sorted position ASC with unordered (null) FileSets last,
+        creation-order tie-break. Each entry nests its downloadable assets —
+        the page's content Blobs plus any per-page IIIF Delegates living in
+        a derivative FileSet under the page. Unpaginated by design: manifest
+        assembly needs the whole sequence in one read.
+      responses:
+        '200':
+          description: assets stay grouped under their page
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/WorkFileSets"
+        '404':
+          description: work not found
   "/works/{id}/thumbnails":
     parameters:
     - name: id

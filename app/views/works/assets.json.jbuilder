@@ -1,16 +1,8 @@
 # frozen_string_literal: true
 
-# Polymorphic: each element is shaped after its underlying model.
-# Blob entries describe a held binary (size + filename); Delegate
-# entries describe a pointer-only asset (URI + use). Clients
-# pattern-match per element.
+# Flattened downloadable-assets array; per-element shape lives in the
+# shared _asset partial (see works/file_sets.json.jbuilder for the
+# grouped sibling).
 json.array! @assets do |asset|
-  case asset
-  when Blob
-    json.extract! asset, :noid, :mime_type, :original_filename, :size
-    json.label Label.find(asset.label)&.name
-  when Delegate
-    json.extract! asset, :noid, :mime_type, :use, :uri
-    json.label Label.find(asset.label)&.name
-  end
+  json.partial! 'works/asset', asset: asset
 end

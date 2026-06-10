@@ -2343,6 +2343,29 @@ paths:
       responses:
         '200':
           description: mods returned
+  "/works/{id}/mets":
+    parameters:
+    - name: id
+      in: path
+      description: NOID of the Work
+      required: true
+      schema:
+        type: string
+    get:
+      summary: Retrieve METS structural metadata for a work
+      tags:
+      - Works
+      description: |
+        JSON projection of the Work-level structural (METS) metadata. The
+        physical structMap records page order (surfaced under mets.pages);
+        it is built when the Work is completed (POST /works/:id/complete)
+        and rebuilt eagerly on page changes thereafter. 404 for Works that
+        have never been completed.
+      responses:
+        '200':
+          description: work mets returned
+        '404':
+          description: work never completed — no METS yet
   "/works/{id}/assets":
     parameters:
     - name: id
@@ -2680,7 +2703,7 @@ paths:
         already-complete Work simply re-saves with in_progress: false.
       responses:
         '200':
-          description: work marked complete
+          description: completing builds the Work-level METS structMap
           content:
             application/json:
               schema:

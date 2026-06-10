@@ -85,5 +85,22 @@ describe FileSetsController, type: :controller do
         expect(FileSet.find(file_set.noid)).to be_nil
       end
     end
+
+    context 'when destroying a page of a completed work (eager-after-finalize)' do
+      it 'rebuilds the Work-level METS without the removed page' do
+        FileSetCreator.call(work_id: work.noid, classification: Classification.image, position: 1)
+        removed = FileSetCreator.call(work_id: work.noid, classification: Classification.image, position: 2)
+        completed = Work.find(work.noid)
+        completed.in_progress = false
+        Atlas.persister.save(resource: completed)
+        WorkMETSRebuilder.call(work: completed)
+
+        delete :destroy, params: { id: removed.noid }, as: :json
+        expect(response).to have_http_status(:success)
+
+        pages = Metadata::METS.find_by(valkyrie_id: work.noid).pages
+        expect(pages.map(&:order)).to eq([1])
+      end
+    end
   end
 end

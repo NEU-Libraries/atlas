@@ -42,7 +42,7 @@ RSpec.describe 'FileSets', type: :request do
         properties: {
           work_id:        { type: :string, description: 'NOID of the parent Work' },
           classification: { type: :string, description: 'Classification name, e.g. generic' },
-          position:       { type: :integer,
+          position:       { type:        :integer,
                             description: 'Optional 1-based page order within the parent Work (multipage Works). Omit for unordered FileSets.' }
         },
         required:   %w[work_id classification]

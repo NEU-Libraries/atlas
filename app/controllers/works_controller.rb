@@ -55,11 +55,21 @@ class WorksController < ApplicationController
     @work = work.decorate
   end
 
+  # Work-level METS (physical structMap — the preservation record of page
+  # order). Built at /complete; 404 until then.
+  def mets
+    authorize! :read, Work
+    work = Work.find(params[:id])
+    return head(:not_found) if work.nil? || work.mets.nil?
+
+    @work = work
+  end
+
   def assets
     authorize! :read, Work
     @work = Work.find(params[:id])
     @assets = @work.children
-                   .reject { |fs| fs.type == Classification.descriptive_metadata.name }
+                   .reject { |fs| Classification.metadata?(fs.type) }
                    .flat_map { |fs| Atlas.query.find_members(resource: fs).to_a }
                    .select   { |m| Role.downloadable?(m.use) }
   end
@@ -72,7 +82,7 @@ class WorksController < ApplicationController
     @work = Work.find(params[:id])
     return head(:not_found) if @work.nil?
 
-    @pages = page_file_sets(@work).map { |fs| [fs, page_assets(fs)] }
+    @pages = @work.page_file_sets.map { |fs| [fs, page_assets(fs)] }
   end
 
   def update
@@ -143,6 +153,10 @@ class WorksController < ApplicationController
       @work.in_progress = false
       @work = Atlas.persister.save(resource: @work).decorate
     end
+    # Finalize-time build of the Work-level METS structMap (the
+    # preservation record of page order). Unreached on a stale-object
+    # 409 — retry exhaustion re-raises out of the block above.
+    WorkMETSRebuilder.call(work: @work)
     audit!(resource: @work, action: 'complete', change_type: 'lifecycle')
   end
 
@@ -154,17 +168,6 @@ class WorksController < ApplicationController
   end
 
   private
-
-    # Page-bearing FileSets only: metadata FileSets (descriptive MODS,
-    # structural METS) and :derivative containers are infrastructure, not
-    # pages. Total order even over legacy/unordered data: position ASC,
-    # nulls last, creation-order tie-break.
-    def page_file_sets(work)
-      work.children
-          .select { |c| c.is_a?(FileSet) }
-          .reject { |fs| Classification.metadata?(fs.type) || fs.type == Classification.derivative.name }
-          .sort_by { |fs| [fs.position.nil? ? 1 : 0, fs.position || 0, fs.created_at] }
-    end
 
     # A page's downloadable assets: its own member Blobs plus the members of
     # any nested :derivative FileSet (per-page IIIF Delegates land there via

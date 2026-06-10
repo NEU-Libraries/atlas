@@ -285,6 +285,41 @@ RSpec.describe 'Works', type: :request do
     end
   end
 
+  path '/works/{id}/mets' do
+    parameter name: :id, in: :path, type: :string, description: 'NOID of the Work'
+
+    get 'Retrieve METS structural metadata for a work' do
+      tags 'Works'
+      produces 'application/json'
+      description <<~DESC
+        JSON projection of the Work-level structural (METS) metadata. The
+        physical structMap records page order (surfaced under mets.pages);
+        it is built when the Work is completed (POST /works/:id/complete)
+        and rebuilt eagerly on page changes thereafter. 404 for Works that
+        have never been completed.
+      DESC
+
+      response '200', 'work mets returned' do
+        let(:work) { WorkCreator.call(parent_id: collection.noid) }
+        let(:id)   { work.noid }
+        before do
+          FileSetCreator.call(work_id: work.noid, classification: Classification.image, position: 1)
+          WorkMETSRebuilder.call(work: work)
+        end
+        run_test! do |response|
+          pages = JSON.parse(response.body).dig('work', 'mets', 'pages')
+          expect(pages.pluck('order')).to eq([1])
+        end
+      end
+
+      response '404', 'work never completed — no METS yet' do
+        let(:work) { WorkCreator.call(parent_id: collection.noid) }
+        let(:id)   { work.noid }
+        run_test!
+      end
+    end
+  end
+
   path '/works/{id}/assets' do
     parameter name: :id, in: :path, type: :string, description: 'NOID of the Work'
 
@@ -365,8 +400,8 @@ RSpec.describe 'Works', type: :request do
         run_test! do |response|
           pages = JSON.parse(response.body)
           expect(pages.length).to eq(3)
-          expect(pages.map { |p| p['position'] }).to eq([1, 2, nil])
-          expect(pages.map { |p| p['type'] }).not_to include(Classification.descriptive_metadata.name)
+          expect(pages.pluck('position')).to eq([1, 2, nil])
+          expect(pages.pluck('type')).not_to include(Classification.descriptive_metadata.name)
         end
       end
 
@@ -755,6 +790,22 @@ RSpec.describe 'Works', type: :request do
         schema '$ref' => '#/components/schemas/Work'
         run_test! do |response|
           expect(JSON.parse(response.body).dig('work', 'in_progress')).to be false
+        end
+      end
+
+      response '200', 'completing builds the Work-level METS structMap' do
+        let(:work) { WorkCreator.call(parent_id: collection.noid) }
+        let(:id)   { work.noid }
+        before do
+          # created out of order — the structMap sorts by position
+          FileSetCreator.call(work_id: work.noid, classification: Classification.image, position: 2)
+          FileSetCreator.call(work_id: work.noid, classification: Classification.image, position: 1)
+        end
+        schema '$ref' => '#/components/schemas/Work'
+        run_test! do
+          record = Metadata::METS.find_by(valkyrie_id: work.noid)
+          expect(record).not_to be_nil
+          expect(record.pages.map(&:order)).to eq([1, 2])
         end
       end
 

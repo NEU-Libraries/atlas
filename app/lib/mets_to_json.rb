@@ -11,6 +11,7 @@ module METSToJson
     record.agent           = extract_mets_agent(doc)
     record.files           = extract_mets_files(doc)
     record.structure_label = extract_mets_structure_label(doc)
+    record.pages           = extract_mets_pages(doc)
 
     record.json_attributes
   end

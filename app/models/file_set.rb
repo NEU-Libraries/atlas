@@ -21,6 +21,13 @@ class FileSet < Resource
     @files ||= member_ids.map { |id| Blob.find(id) }
   end
 
+  # Page-bearing = content-carrying: not a metadata container (descriptive
+  # MODS / structural METS) and not a :derivative container. Drives the
+  # ordered listing (works#file_sets) and the Work-level METS structMap.
+  def page?
+    !Classification.metadata?(type) && type != Classification.derivative.name
+  end
+
   # User-facing content blobs only — excludes metadata-marked Blobs (METS,
   # future flat-MODS) so callers iterating over a FileSet's payload don't
   # accidentally treat the manifest as content.

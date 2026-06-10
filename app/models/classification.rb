@@ -16,14 +16,18 @@ class Classification < Enumerations::Base
   value :archive,               name: 'Archive'
   value :musical_notation,      name: 'Musical Notation'
   value :descriptive_metadata,  name: 'Descriptive Metadata' # fs only
+  value :structural_metadata,   name: 'Structural Metadata' # fs only — hosts a Work-level METS Blob
   value :person,                name: 'Faculty and Staff' # model only
   value :community,             name: 'Community' # model only
   value :collection,            name: 'Collection' # model only
   value :work,                  name: 'Work' # model only
   value :generic,               name: 'File' # blob/fs fallback
 
+  # Metadata-container FileSets: descriptive (MODS) and structural (METS).
+  # Excluded from asset/page listings, never seed their own FileSet-level
+  # METS, and 404 on /file_sets/:id/mets.
   def self.metadata?(name)
-    name == descriptive_metadata.name
+    [descriptive_metadata.name, structural_metadata.name].include?(name)
   end
 
   # A FileSet of this classification gets a preservation envelope written

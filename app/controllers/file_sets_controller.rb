@@ -61,6 +61,21 @@ class FileSetsController < ApplicationController
 
   def destroy
     authorize! :destroy, FileSet
-    Atlas.persister.delete(resource: FileSet.find(params[:id]))
+    file_set = FileSet.find(params[:id])
+    parent = file_set.parent
+    Atlas.persister.delete(resource: file_set)
+    rebuild_parent_mets(parent, file_set)
   end
+
+  private
+
+    # Eager-after-finalize (mirrors FileSetCreator): removing a page from a
+    # completed Work re-cuts the preserved structMap so it never goes stale;
+    # in-progress Works wait for POST /works/:id/complete.
+    def rebuild_parent_mets(parent, file_set)
+      return unless file_set.page?
+      return unless parent.is_a?(Work) && parent.in_progress == false
+
+      WorkMETSRebuilder.call(work: parent)
+    end
 end

@@ -79,6 +79,9 @@ Rails.application.routes.draw do
     get '/collections/:id/ancestors', to: 'collections#ancestors', as: 'collection_ancestors'
 
     get '/works/:id/mods', to: 'works#mods', as: 'work_mods'
+    # Work-level METS (physical structMap = page order); 404 until the
+    # Work has been completed.
+    get '/works/:id/mets', to: 'works#mets', as: 'work_mets'
 
     # Linked membership (DAG overlay): a Work in additional Collections.
     get    '/works/:id/linked_members', to: 'works#linked_members', as: 'work_linked_members'

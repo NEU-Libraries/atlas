@@ -30,4 +30,36 @@ RSpec.describe FileSetCreator do
       expect(fs.mets_blob).to be_nil
     end
   end
+
+  describe 'Work-level METS trigger (eager-after-finalize)' do
+    def complete!(work)
+      work.in_progress = false
+      Atlas.persister.save(resource: work)
+      WorkMETSRebuilder.call(work: work)
+    end
+
+    it 'does not rebuild the Work METS while the work is in progress' do
+      described_class.call(work_id: work.noid, classification: Classification.image, position: 1)
+      expect(Metadata::METS.find_by(valkyrie_id: work.noid)).to be_nil
+    end
+
+    it 'rebuilds the Work METS when a page is added to a completed work' do
+      described_class.call(work_id: work.noid, classification: Classification.image, position: 1)
+      complete!(work)
+
+      described_class.call(work_id: work.noid, classification: Classification.image, position: 2)
+
+      pages = Metadata::METS.find_by(valkyrie_id: work.noid).pages
+      expect(pages.map(&:order)).to eq([1, 2])
+    end
+
+    it 'does not rebuild for non-page FileSets added post-completion' do
+      complete!(work)
+      created = Metadata::METS.find_by(valkyrie_id: work.noid).updated_at
+
+      described_class.call(work_id: work.noid, classification: Classification.derivative)
+
+      expect(Metadata::METS.find_by(valkyrie_id: work.noid).updated_at).to eq(created)
+    end
+  end
 end

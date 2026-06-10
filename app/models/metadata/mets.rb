@@ -8,5 +8,7 @@ module Metadata
     attr_json :agent, :string
     attr_json :files, Metadata::Fields::FileEntry.to_type, array: true
     attr_json :structure_label, :string
+    # Work-level docs only (physical structMap); [] for FileSet-level METS.
+    attr_json :pages, Metadata::Fields::PageEntry.to_type, array: true
   end
 end

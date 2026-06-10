@@ -9,31 +9,33 @@ module OpenapiSchemas
 
   def all
     {
-      Work:              work,
-      Collection:        collection,
-      Community:         community,
-      FileSet:           file_set,
-      Blob:              blob,
-      Delegate:          delegate,
-      WorkSummary:       work_summary,
-      CollectionSummary: collection_summary,
-      CommunitySummary:  community_summary,
-      FileSetSummary:    file_set_summary,
-      BlobSummary:       blob_summary,
-      WorksIndex:        works_index,
-      CollectionsIndex:  collections_index,
-      CommunitiesIndex:  communities_index,
-      FileSetsIndex:     file_sets_index,
-      BlobsIndex:        blobs_index,
-      WorkAssets:        work_assets,
-      Pagination:        pagination,
-      User:              user,
-      ProvisionedUser:   provisioned_user,
-      Permissions:       permissions,
-      ResourceRef:       resource_ref,
-      ResourceDigests:   resource_digests,
-      Lineage:           lineage,
-      ModsVersions:      mods_versions
+      Work:               work,
+      Collection:         collection,
+      Community:          community,
+      FileSet:            file_set,
+      Blob:               blob,
+      Delegate:           delegate,
+      WorkSummary:        work_summary,
+      CollectionSummary:  collection_summary,
+      CommunitySummary:   community_summary,
+      FileSetSummary:     file_set_summary,
+      BlobSummary:        blob_summary,
+      WorksIndex:         works_index,
+      CollectionsIndex:   collections_index,
+      CommunitiesIndex:   communities_index,
+      FileSetsIndex:      file_sets_index,
+      BlobsIndex:         blobs_index,
+      WorkAssets:         work_assets,
+      Pagination:         pagination,
+      User:               user,
+      ProvisionedUser:    provisioned_user,
+      UserDirectoryEntry: user_directory_entry,
+      UserDirectory:      user_directory,
+      Permissions:        permissions,
+      ResourceRef:        resource_ref,
+      ResourceDigests:    resource_digests,
+      Lineage:            lineage,
+      ModsVersions:       mods_versions
     }
   end
 
@@ -225,6 +227,29 @@ module OpenapiSchemas
               role:   { type: :string },
               groups: { type: :array, items: { type: :string } }
             })
+  end
+
+  # GET /users/by_nuid/{nuid} (and each GET /users item) — minimal-
+  # disclosure directory entry pinned to users/_directory_entry.json.jbuilder:
+  # nuid + name only, never email/role/groups.
+  def user_directory_entry
+    {
+      type:       :object,
+      properties: {
+        nuid: { type: :string },
+        name: { type: :string, nullable: true }
+      },
+      required:   %w[nuid name]
+    }
+  end
+
+  # GET /users — flat capped array (typeahead search or batch resolve),
+  # no pagination envelope.
+  def user_directory
+    {
+      type:  :array,
+      items: { '$ref' => '#/components/schemas/UserDirectoryEntry' }
+    }
   end
 
   def permissions

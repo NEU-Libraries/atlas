@@ -1,8 +1,3 @@
 # frozen_string_literal: true
 
-json.user do
-  json.id @user.id
-  json.email_address @user.email
-  json.first_name @user.first_name
-  json.last_name @user.last_name
-end
+json.partial! 'users/directory_entry', user: @user

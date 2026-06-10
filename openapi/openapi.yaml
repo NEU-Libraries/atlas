@@ -787,6 +787,21 @@ components:
           - groups
       required:
       - user
+    UserDirectoryEntry:
+      type: object
+      properties:
+        nuid:
+          type: string
+        name:
+          type: string
+          nullable: true
+      required:
+      - nuid
+      - name
+    UserDirectory:
+      type: array
+      items:
+        "$ref": "#/components/schemas/UserDirectoryEntry"
     Permissions:
       type: object
       properties:
@@ -1945,44 +1960,65 @@ paths:
                   description: NOIDs to resolve
               required:
               - ids
-  "/user":
+  "/users":
     get:
-      summary: Current user details
+      summary: Search the user directory
       tags:
       - User
       description: |
-        Returns the user resolved from the request auth context. With no
-        valid Bearer/NUID, falls through to the guest user record.
+        Read-only user directory. Two modes, same response shape:
+
+        - `?q=<fragment>` — typeahead search: case-insensitive match on
+          name, prefix match on NUID. Capped at 10, ordered by name.
+        - `?nuids=a,b,c` — batch resolve (up to 100): exact NUIDs to
+          entries; unknown NUIDs are dropped.
+
+        Rows with role `anonymous`, `guest`, or `system` are never
+        returned. With neither parameter the list is empty. Entries carry
+        `nuid` + `name` only — a directory, not a profile endpoint.
+      parameters:
+      - name: q
+        in: query
+        required: false
+        description: Name fragment (case-insensitive) or NUID prefix
+        schema:
+          type: string
+      - name: nuids
+        in: query
+        required: false
+        description: Comma-separated NUIDs to resolve in one call
+        schema:
+          type: string
       responses:
         '200':
-          description: user returned
+          description: resolved directory entries (batch)
           content:
             application/json:
               schema:
-                "$ref": "#/components/schemas/User"
-  "/nuid":
-    post:
-      summary: Mint a JWT for a NUID (system-only)
+                "$ref": "#/components/schemas/UserDirectory"
+  "/users/by_nuid/{nuid}":
+    get:
+      summary: Resolve a NUID to a directory entry
       tags:
       - User
       description: |
-        System-only endpoint used by Cerberus to mint a per-user JWT.
-        Requires the system Bearer token; non-system callers receive 403.
-      parameters: []
+        Single NUID to `{ nuid, name }`. Unknown NUIDs and rows with role
+        `anonymous`, `guest`, or `system` both read as absent (404).
+      parameters:
+      - name: nuid
+        in: path
+        required: true
+        schema:
+          type: string
       responses:
-        '403':
-          description: caller is not the system user
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                nuid:
-                  type: string
-              required:
-              - nuid
-  "/users/by_nuid/{nuid}":
+        '200':
+          description: directory entry found
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/UserDirectoryEntry"
+        '404':
+          description: unknown or excluded NUID
     put:
       summary: Find-or-create a user and replace their groups (system-only)
       tags:
@@ -2034,6 +2070,43 @@ paths:
                   type: string
                 name:
                   type: string
+  "/user":
+    get:
+      summary: Current user details
+      tags:
+      - User
+      description: |
+        Returns the user resolved from the request auth context. With no
+        valid Bearer/NUID, falls through to the guest user record.
+      responses:
+        '200':
+          description: user returned
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/User"
+  "/nuid":
+    post:
+      summary: Mint a JWT for a NUID (system-only)
+      tags:
+      - User
+      description: |
+        System-only endpoint used by Cerberus to mint a per-user JWT.
+        Requires the system Bearer token; non-system callers receive 403.
+      parameters: []
+      responses:
+        '403':
+          description: caller is not the system user
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nuid:
+                  type: string
+              required:
+              - nuid
   "/works":
     get:
       summary: List works

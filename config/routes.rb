@@ -37,7 +37,6 @@ Rails.application.routes.draw do
         patch :parent, action: :update_parent
       end
     end
-    # resources :users
     resources :file_sets
     resources :files, :controller => :blobs do
       get :content, :on => :member
@@ -99,6 +98,11 @@ Rails.application.routes.draw do
 
     # User details
     get '/user', to: 'users/tokens#show', as: 'user_show'
+
+    # User directory (read-only): typeahead search / batch resolve + single
+    # NUID resolve. Minimal disclosure (nuid + name only).
+    get '/users', to: 'users#index', as: 'users_directory'
+    get '/users/by_nuid/:nuid', to: 'users#show', as: 'user_directory_entry'
 
     # SSO user provisioning (system-only)
     put '/users/by_nuid/:nuid', to: 'users#update', as: 'user_provision'

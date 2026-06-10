@@ -25,6 +25,22 @@ class User < ApplicationRecord
     system:     6
   }
 
+  # The user directory (GET /users, /users/by_nuid/:nuid) never exposes the
+  # non-human bookends or the guest tier — guests are excluded from
+  # person-facing features (e.g. the Cerberus inbox) at the source.
+  DIRECTORY_EXCLUDED_ROLES = %i[anonymous guest system].freeze
+
+  scope :directory, -> { where.not(role: DIRECTORY_EXCLUDED_ROLES) }
+
+  # Typeahead match: case-insensitive infix on name, prefix on nuid (so
+  # typing a known NUID works too). Unordered/uncapped — callers order
+  # and limit.
+  def self.directory_search(fragment)
+    pattern = sanitize_sql_like(fragment)
+    directory.where('name ILIKE :infix OR nuid LIKE :prefix',
+                    infix: "%#{pattern}%", prefix: "#{pattern}%")
+  end
+
   def first_name
     parsed_name.given
   end

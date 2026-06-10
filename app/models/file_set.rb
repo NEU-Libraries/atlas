@@ -10,6 +10,13 @@ class FileSet < Resource
   # idempotency
   attribute :derivative_for, Valkyrie::Types::ID.optional
 
+  # 1-based page order within the parent Work (multipage Works). nil =
+  # unordered — every non-multipage FileSet stays nil forever. Atlas stores
+  # what it is given; contiguity/uniqueness validation is the loader's job
+  # upstream. The canonical preservation record of order is the Work-level
+  # METS structMap; this attribute is its denormalized runtime projection.
+  attribute :position, Valkyrie::Types::Integer.optional
+
   def files
     @files ||= member_ids.map { |id| Blob.find(id) }
   end

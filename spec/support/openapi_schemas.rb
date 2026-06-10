@@ -57,6 +57,8 @@ module OpenapiSchemas
     wrapped(:file_set, {
               id:            { type: :string, description: 'NOID' },
               type:          { type: :string, nullable: true },
+              position:      { type: :integer, nullable: true,
+                               description: '1-based page order within the parent Work; null = unordered' },
               tombstoned:    { type: :boolean, description: 'Withdrawn-from-discovery flag' },
               tombstoned_at: { type: :string, nullable: true, description: 'ISO-8601 timestamp set when tombstoned' },
               tombstoned_by: { type: :string, nullable: true, description: 'NUID of the user who tombstoned the resource' }

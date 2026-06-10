@@ -38,7 +38,10 @@ class FileSetsController < ApplicationController
       work_id:        params[:work_id],
       classification: Classification.find(
         params[:classification]
-      )
+      ),
+      # Explicit cast: Valkyrie::Types::Integer is strict, and a form-encoded
+      # "3" would raise where a JSON-body 3 passes.
+      position:       params[:position].presence&.to_i
     )
     record_idempotency_key!(@file_set.noid, FileSet)
   end

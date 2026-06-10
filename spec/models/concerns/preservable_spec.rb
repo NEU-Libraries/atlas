@@ -15,7 +15,7 @@ RSpec.describe Preservable do
     context 'on a root Community' do
       it 'reports type, empty a_member_of, empty member_ids' do
         payload = community.graph_payload
-        expect(payload[:schema_version]).to eq(2)
+        expect(payload[:schema_version]).to eq(3)
         expect(payload[:noid]).to eq(community.noid)
         expect(payload[:type]).to eq('Community')
         expect(payload[:classification]).to eq('Community')
@@ -53,6 +53,15 @@ RSpec.describe Preservable do
         # NOIDs only — never Valkyrie ID UUIDs
         payload[:member_ids].each { |id| expect(id).not_to include('/') }
       end
+
+      it 'reports nil position for an unordered FileSet' do
+        expect(descriptive_fs.graph_payload[:position]).to be_nil
+      end
+
+      it 'reports position for an ordered (multipage) FileSet' do
+        fs = FileSetCreator.call(work_id: work.noid, classification: Classification.image, position: 2)
+        expect(fs.graph_payload[:position]).to eq(2)
+      end
     end
 
     context 'on a Blob (overrides graph_payload to emit properties shape)' do
@@ -63,7 +72,7 @@ RSpec.describe Preservable do
       it 'reports the role-bearing fields needed for preservation' do
         payload = mods_blob.graph_payload
 
-        expect(payload[:schema_version]).to eq(2)
+        expect(payload[:schema_version]).to eq(3)
         expect(payload[:noid]).to eq(mods_blob.noid)
         expect(payload[:type]).to eq('Blob')
         expect(payload[:use]).to eq(Role.descriptive_metadata.name)
@@ -110,7 +119,7 @@ RSpec.describe Preservable do
     it 'mirrors the keys Permissions#permissions= consumes' do
       payload = work.permissions_payload
 
-      expect(payload[:schema_version]).to eq(2)
+      expect(payload[:schema_version]).to eq(3)
       expect(payload[:noid]).to eq(work.noid)
       expect(payload).to have_key(:embargo)
       expect(payload).to have_key(:depositor)

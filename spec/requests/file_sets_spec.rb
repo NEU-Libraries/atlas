@@ -41,7 +41,9 @@ RSpec.describe 'FileSets', type: :request do
         type:       :object,
         properties: {
           work_id:        { type: :string, description: 'NOID of the parent Work' },
-          classification: { type: :string, description: 'Classification name, e.g. generic' }
+          classification: { type: :string, description: 'Classification name, e.g. generic' },
+          position:       { type: :integer,
+                            description: 'Optional 1-based page order within the parent Work (multipage Works). Omit for unordered FileSets.' }
         },
         required:   %w[work_id classification]
       }
@@ -52,7 +54,18 @@ RSpec.describe 'FileSets', type: :request do
         let(:body) { { work_id: work.noid, classification: 'generic' } }
         let(:'Idempotency-Key') { nil }
         schema '$ref' => '#/components/schemas/FileSet'
-        run_test!
+        run_test! do |response|
+          expect(JSON.parse(response.body).dig('file_set', 'position')).to be_nil
+        end
+      end
+
+      response '200', 'file set created with a page position' do
+        let(:body) { { work_id: work.noid, classification: 'image', position: 2 } }
+        let(:'Idempotency-Key') { nil }
+        schema '$ref' => '#/components/schemas/FileSet'
+        run_test! do |response|
+          expect(JSON.parse(response.body).dig('file_set', 'position')).to eq(2)
+        end
       end
 
       response '200', 'idempotent replay returns existing file set' do

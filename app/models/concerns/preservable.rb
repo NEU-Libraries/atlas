@@ -11,7 +11,11 @@ module Preservable
   # NUID string (intellectual owner). Added :proxy_uploader (single NUID
   # string) and :edit_users (the explicit ACL list previously aliased
   # behind :depositor). See gap_reports/proxy_uploader_and_system_auth.md.
-  ENVELOPE_SCHEMA_VERSION = 2
+  # v2 → v3: additive :position — FileSet page order within a multipage
+  # Work; null elsewhere. The Work-level METS structMap is the canonical
+  # preservation record of order; this keeps each FileSet's own OCFL
+  # object self-describing in isolation.
+  ENVELOPE_SCHEMA_VERSION = 3
 
   def graph_payload
     {
@@ -19,6 +23,7 @@ module Preservable
       noid:           noid,
       type:           self.class.name,
       classification: respond_to?(:type) ? type : nil,
+      position:       respond_to?(:position) ? position : nil,
       a_member_of:    parent_noids,
       member_ids:     member_noids
     }

@@ -396,6 +396,10 @@ components:
             type:
               type: string
               nullable: true
+            position:
+              type: integer
+              nullable: true
+              description: 1-based page order within the parent Work; null = unordered
             tombstoned:
               type: boolean
               description: Withdrawn-from-discovery flag
@@ -410,6 +414,7 @@ components:
           required:
           - id
           - type
+          - position
           - tombstoned
           - tombstoned_at
           - tombstoned_by
@@ -602,6 +607,10 @@ components:
             type:
               type: string
               nullable: true
+            position:
+              type: integer
+              nullable: true
+              description: 1-based page order within the parent Work; null = unordered
             tombstoned:
               type: boolean
               description: Withdrawn-from-discovery flag
@@ -616,6 +625,7 @@ components:
           required:
           - id
           - type
+          - position
           - tombstoned
           - tombstoned_at
           - tombstoned_by
@@ -1721,6 +1731,10 @@ paths:
                 classification:
                   type: string
                   description: Classification name, e.g. generic
+                position:
+                  type: integer
+                  description: Optional 1-based page order within the parent Work
+                    (multipage Works). Omit for unordered FileSets.
               required:
               - work_id
               - classification

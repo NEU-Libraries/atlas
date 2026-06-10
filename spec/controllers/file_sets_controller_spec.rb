@@ -43,6 +43,26 @@ describe FileSetsController, type: :controller do
       expect(response).to have_http_status(:success)
       # TODO: Test id is returned and resolves to resource
     end
+
+    it 'creates a FileSet with a position when given one' do
+      post :create, params: { work_id: work.noid, classification: Classification.image.to_s, position: 3 }, as: :json
+      expect(response).to have_http_status(:success)
+
+      json_response = response.parsed_body
+      expect(json_response['file_set']['position']).to eq(3)
+      expect(FileSet.find(json_response['file_set']['id']).position).to eq(3)
+    end
+
+    it 'casts a string position param to integer (form-encoded callers)' do
+      post :create, params: { work_id: work.noid, classification: Classification.image.to_s, position: '4' }, as: :json
+      expect(response).to have_http_status(:success)
+      expect(response.parsed_body['file_set']['position']).to eq(4)
+    end
+
+    it 'leaves position nil when the param is absent' do
+      post :create, params: { work_id: work.noid, classification: Classification.generic.to_s }, as: :json
+      expect(response.parsed_body['file_set']['position']).to be_nil
+    end
   end
 
   describe 'PATCH #update' do

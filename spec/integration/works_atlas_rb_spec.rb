@@ -57,6 +57,42 @@ RSpec.describe 'Works via atlas_rb', :atlas_rb_server do
     end
   end
 
+  describe '.file_sets' do
+    it 'returns page FileSets in position order, each with its assets grouped' do
+      work = WorkCreator.call(parent_id: collection.noid)
+      # created out of order on purpose — position drives the sort
+      FileSetCreator.call(work_id: work.noid, classification: Classification.image, position: 2)
+      page_one = FileSetCreator.call(work_id: work.noid, classification: Classification.image, position: 1)
+      BlobCreator.call(path:              Rails.root.join('spec/fixtures/files/example.bin').to_s,
+                       file_set_id:       page_one.noid,
+                       original_filename: 'page1.bin')
+
+      pages = AtlasRb::Work.file_sets(work.noid, nuid: admin_nuid)
+
+      expect(pages.pluck('position')).to eq([1, 2])
+      expect(pages.first['assets'].pluck('original_filename')).to include('page1.bin')
+      expect(pages.pluck('type')).not_to include(Classification.descriptive_metadata.name)
+    end
+  end
+
+  describe '.mets' do
+    it 'serves the page-order projection once the Work is completed' do
+      work = WorkCreator.call(parent_id: collection.noid)
+      FileSetCreator.call(work_id: work.noid, classification: Classification.image, position: 1)
+
+      AtlasRb::Work.complete(work.noid, nuid: admin_nuid)
+      result = AtlasRb::Work.mets(work.noid, nuid: admin_nuid)
+
+      expect(result['id']).to eq(work.noid)
+      expect(result['mets']['pages'].pluck('order')).to eq([1])
+    end
+
+    it 'returns nil for a Work that has never been completed' do
+      work = WorkCreator.call(parent_id: collection.noid)
+      expect(AtlasRb::Work.mets(work.noid, nuid: admin_nuid)).to be_nil
+    end
+  end
+
   describe '.find — thumbnail-family projections' do
     it 'surfaces thumbnail, thumbnail_2x, and preview on the Work JSON when the Delegates exist' do
       work = WorkCreator.call(parent_id: collection.noid)

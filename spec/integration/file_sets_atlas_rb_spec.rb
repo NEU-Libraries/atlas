@@ -17,6 +17,18 @@ RSpec.describe 'FileSets via atlas_rb', :atlas_rb_server do
     expect(found['id']).to eq(created['id'])
   end
 
+  it 'creates an ordered (multipage) FileSet with a position' do
+    created = AtlasRb::FileSet.create(work.noid, 'image', position: 2, nuid: admin_nuid)
+
+    expect(created['position']).to eq(2)
+    expect(FileSet.find(created['id']).position).to eq(2)
+  end
+
+  it 'leaves position nil when the kwarg is omitted' do
+    created = AtlasRb::FileSet.create(work.noid, 'generic', nuid: admin_nuid)
+    expect(created['position']).to be_nil
+  end
+
   it 'attaches binary content to a FileSet via multipart update' do
     file_set = FileSetCreator.call(work_id: work.noid, classification: Classification.generic)
 

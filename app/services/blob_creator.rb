@@ -29,18 +29,18 @@ class BlobCreator < ApplicationService
 
     def resolve_file_set
       if @work_id
-        FileSetCreator.call(work_id: @work_id, classification: assign_classification(@path))
+        FileSetCreator.call(work_id: @work_id, classification: assign_classification(@path, name: @original_filename))
       else
         FileSet.find(@file_set_id)
       end
     end
 
     def save_initial_blob
-      label = default_label(@path)
+      label = default_label(@path, name: @original_filename)
       Atlas.persister.save(
         resource: Blob.new(
           original_filename: @original_filename,
-          mime_type:         mime_type(@path),
+          mime_type:         mime_type(@path, name: @original_filename),
           size:              File.size(@path),
           label:             label&.symbol || '', # TODO: temporary nil fix until we zip unknowns
           use:               @use

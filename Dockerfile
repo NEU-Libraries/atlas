@@ -2,7 +2,7 @@ FROM ruby:3.0-slim
 # update the repository sources list
 # and install dependencies
 RUN apt-get update \
-    && apt-get install -y nodejs curl git build-essential libpq-dev libmagic-dev \
+    && apt-get install -y nodejs curl git build-essential libpq-dev \
     && apt-get -y autoremove \
     && apt-get -y clean
 

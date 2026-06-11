@@ -136,7 +136,8 @@ There are three concentric test layers:
 
 - Ruby 3.0, Rails 7, Postgres 14, Solr (Blacklight image)
 - [Valkyrie](https://github.com/samvera/valkyrie) for the metadata persistence
-  abstraction; [Shrine](https://github.com/shrinerb/shrine) for binary storage
+  abstraction; a custom Valkyrie [OCFL](https://ocfl.io) storage adapter
+  (`app/lib/valkyrie/storage/ocfl.rb`) for binary storage
 - [jbuilder](https://github.com/rails/jbuilder) partials per resource
   (`app/views/{resource}/_{resource}.json.jbuilder`) — single source of
   truth for response shapes

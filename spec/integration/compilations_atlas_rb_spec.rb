@@ -66,6 +66,13 @@ RSpec.describe 'Compilations via atlas_rb', :atlas_rb_server do
       .to include(set['id'])
     expect(listing['pagination']).to be_present
 
+    filtered = AtlasRb::Compilation.list(q: 'renam', nuid: curator.nuid)
+    expect(filtered['compilations'].map { |entry| entry.dig('compilation', 'id') })
+      .to eq([set['id']])
+    expect(filtered.dig('pagination', 'count')).to eq(1)
+    expect(AtlasRb::Compilation.list(q: 'no-such-set', nuid: curator.nuid)['compilations'])
+      .to eq([])
+
     response = AtlasRb::Compilation.destroy(set['id'], nuid: curator.nuid)
     expect(response.status).to eq(204)
     expect(Compilation.find_by(noid: set['id'])).to be_nil

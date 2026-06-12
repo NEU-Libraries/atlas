@@ -54,6 +54,7 @@ RSpec.configure do |config|
         { name: 'FileSets' },
         { name: 'Files' },
         { name: 'Resources' },
+        { name: 'Compilations' },
         { name: 'User' },
         { name: 'Maintenance' }
       ],

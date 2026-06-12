@@ -26,6 +26,20 @@ class ApplicationController < ActionController::API
     }, status: :forbidden
   end
 
+  # AR-tier records (Compilation et al.): validation failures surface as a
+  # uniform 422; find_by!-style lookups as a bare 404, matching the
+  # head(:not_found) the Valkyrie controllers render for unknown noids.
+  rescue_from ActiveRecord::RecordInvalid do |exception|
+    render json: {
+      error:   'invalid_record',
+      message: exception.message
+    }, status: :unprocessable_entity
+  end
+
+  rescue_from ActiveRecord::RecordNotFound do
+    head :not_found
+  end
+
   # Structured 409 for optimistic-lock conflicts. Two populations reach
   # here: retry-safe actions whose internal StaleObjectRetry budget
   # exhausted, and retry-unsafe actions (generic update, tombstone,

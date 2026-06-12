@@ -43,6 +43,21 @@ Rails.application.routes.draw do
     end
     resources :delegates, only: :show
 
+    # Compilations (DRS "Sets") — AR-tier personal curation, recipe-based.
+    # Membership routes mutate one recipe line each and re-render the
+    # compilation; /contents resolves the recipe against Solr for consumers.
+    resources :compilations do
+      member do
+        get    :contents
+        post   'included_collections',                to: 'compilations#add_included_collection'
+        delete 'included_collections/:collection_id', to: 'compilations#remove_included_collection'
+        post   'included_works',                      to: 'compilations#add_included_work'
+        delete 'included_works/:work_id',             to: 'compilations#remove_included_work'
+        post   'exclusions',                          to: 'compilations#add_exclusion'
+        delete 'exclusions/:work_id',                 to: 'compilations#remove_exclusion'
+      end
+    end
+
     # Generics
     get '/resources/:id', to: 'resources#show'
     get '/resources/:id/permissions', to: 'resources#permissions'

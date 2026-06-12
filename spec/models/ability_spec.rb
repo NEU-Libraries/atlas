@@ -61,6 +61,13 @@ RSpec.describe Ability do
     it { is_expected.not_to be_able_to(:mint_token, User) }
     it { is_expected.not_to be_able_to(:read,    AuditEvent) }
     it { is_expected.not_to be_able_to(:reset,   :maintenance) }
+
+    # Sets: guests ride the per-row :read rule (public only — the CERES
+    # case) and never create or mutate.
+    it { is_expected.to     be_able_to(:read,   Compilation.new(read_groups: ['public'])) }
+    it { is_expected.not_to be_able_to(:read,   Compilation.new) }
+    it { is_expected.not_to be_able_to(:create, Compilation) }
+    it { is_expected.not_to be_able_to(:update, Compilation.new(read_groups: ['public'])) }
   end
 
   describe 'the :system principal' do
@@ -79,6 +86,8 @@ RSpec.describe Ability do
     # The rule the piece-2 reject_system_principal sprinkle encoded by hand:
     # :system cannot author Works or mutate any container resource.
     it { is_expected.not_to be_able_to(:create,     Work) }
+    it { is_expected.not_to be_able_to(:create,     Compilation) }
+    it { is_expected.not_to be_able_to(:read,       Compilation.new(read_groups: ['public'])) }
     it { is_expected.not_to be_able_to(:update,     Community.new) }
     it { is_expected.not_to be_able_to(:update,     Collection.new) }
     it { is_expected.not_to be_able_to(:tombstone,  Community.new) }
@@ -102,6 +111,7 @@ RSpec.describe Ability do
       it { is_expected.to     be_able_to(:create,  Work) }
       it { is_expected.to     be_able_to(:create,  Community) }
       it { is_expected.to     be_able_to(:create,  Collection) }
+      it { is_expected.to     be_able_to(:create,  Compilation) }
       it { is_expected.to     be_able_to(:create,  FileSet) }
       it { is_expected.to     be_able_to(:create,  Blob) }
       it { is_expected.to     be_able_to(:update,  FileSet) }
@@ -176,6 +186,59 @@ RSpec.describe Ability do
 
       expect(subject).to be_able_to(:update,    collection)
       expect(subject).to be_able_to(:tombstone, community)
+    end
+  end
+
+  # Compilations diverge from the `can :read, Resource` floor — visibility
+  # is per-row (owner / ACL / public). Write side is owner + explicit grants
+  # only; there is deliberately NO staff default (F2).
+  describe 'Compilation per-row rules' do
+    let(:user) do
+      build_user(role: :standard, nuid: '000000778',
+                 groups: ['northeastern:drs:dataset-editors'])
+    end
+    subject { described_class.new(user) }
+
+    let(:own_set)      { Compilation.new(depositor: user.nuid) }
+    let(:stranger_set) { Compilation.new(depositor: '000000999') }
+    let(:public_set)   { Compilation.new(depositor: '000000999', read_groups: ['public']) }
+
+    it 'grants the owner read / update / destroy' do
+      expect(subject).to be_able_to(:read,    own_set)
+      expect(subject).to be_able_to(:update,  own_set)
+      expect(subject).to be_able_to(:destroy, own_set)
+    end
+
+    it 'denies a stranger everything on a private set' do
+      expect(subject).not_to be_able_to(:read,    stranger_set)
+      expect(subject).not_to be_able_to(:update,  stranger_set)
+      expect(subject).not_to be_able_to(:destroy, stranger_set)
+    end
+
+    it 'grants :read (only) on a public set' do
+      expect(subject).to     be_able_to(:read,   public_set)
+      expect(subject).not_to be_able_to(:update, public_set)
+    end
+
+    it 'grants :read via read_groups membership' do
+      set = Compilation.new(depositor: '000000999', read_groups: user.groups)
+      expect(subject).to be_able_to(:read, set)
+    end
+
+    it 'grants write via edit_users / edit_groups (duck-typed group_acl_grants?)' do
+      via_user  = Compilation.new(depositor: '000000999', edit_users: [user.nuid])
+      via_group = Compilation.new(depositor: '000000999', edit_groups: user.groups)
+
+      expect(subject).to be_able_to(:update,  via_user)
+      expect(subject).to be_able_to(:destroy, via_group)
+      expect(subject).to be_able_to(:read,    via_user)
+    end
+
+    it 'admin wildcard covers a stranger private set' do
+      admin = described_class.new(build_user(role: :admin, nuid: '000000005'))
+      expect(admin).to be_able_to(:read,    stranger_set)
+      expect(admin).to be_able_to(:update,  stranger_set)
+      expect(admin).to be_able_to(:destroy, stranger_set)
     end
   end
 

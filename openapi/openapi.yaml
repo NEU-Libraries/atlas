@@ -35,6 +35,7 @@ tags:
 - name: FileSets
 - name: Files
 - name: Resources
+- name: Compilations
 - name: User
 - name: Maintenance
 components:
@@ -812,6 +813,83 @@ components:
         - position
         - tombstoned
         - assets
+    Compilation:
+      type: object
+      properties:
+        compilation:
+          type: object
+          properties:
+            id:
+              type: string
+              description: NOID (minted; the API-addressable id)
+            title:
+              type: string
+            description:
+              type: string
+              nullable: true
+            depositor:
+              type: string
+              description: Curator NUID (owner)
+            included_collections:
+              type: array
+              items:
+                type: string
+              description: Collection noids included transitively (self + descendants)
+            included_works:
+              type: array
+              items:
+                type: string
+              description: Work noids included individually
+            excluded_works:
+              type: array
+              items:
+                type: string
+              description: Work noids set aside (subtracted from the resolved union)
+            edit_users:
+              type: array
+              items:
+                type: string
+            read_groups:
+              type: array
+              items:
+                type: string
+            edit_groups:
+              type: array
+              items:
+                type: string
+            created_at:
+              type: string
+              format: date-time
+            updated_at:
+              type: string
+              format: date-time
+          required:
+          - id
+          - title
+          - description
+          - depositor
+          - included_collections
+          - included_works
+          - excluded_works
+          - edit_users
+          - read_groups
+          - edit_groups
+          - created_at
+          - updated_at
+      required:
+      - compilation
+    CompilationsIndex:
+      type: object
+      properties:
+        compilations:
+          type: array
+          items:
+            "$ref": "#/components/schemas/Compilation"
+        pagination:
+          "$ref": "#/components/schemas/Pagination"
+      required:
+      - compilations
+      - pagination
     Pagination:
       type: object
       description: pagy pagination block
@@ -1713,6 +1791,209 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Community"
+  "/compilations":
+    get:
+      summary: List compilations (owner-scoped)
+      tags:
+      - Compilations
+      description: |
+        Paginated, newest-first listing of the caller's own Compilations.
+        Pass `?owner=<nuid>` to list another user's Sets — admin-only.
+        There is no public browse endpoint.
+      security:
+      - BearerAuth: []
+        NuidHeader: []
+      parameters:
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          type: string
+      - name: User
+        in: header
+        required: false
+        schema:
+          type: string
+      - name: owner
+        in: query
+        required: false
+        description: NUID whose Sets to list (admin-only); defaults to the caller
+        schema:
+          type: string
+      responses:
+        '200':
+          description: own compilations listed
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/CompilationsIndex"
+        '403':
+          description: cross-owner listing as a non-admin
+    post:
+      summary: Create a compilation
+      tags:
+      - Compilations
+      description: 'Creates a personal Set owned by the acting user (depositor is
+        stamped from the authenticated NUID). Born private: empty ACLs, no staff default.'
+      security:
+      - BearerAuth: []
+        NuidHeader: []
+      parameters:
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          type: string
+      - name: User
+        in: header
+        required: false
+        schema:
+          type: string
+      responses:
+        '201':
+          description: compilation created
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Compilation"
+        '403':
+          description: guest cannot create
+        '422':
+          description: missing title
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+              required:
+              - title
+  "/compilations/{id}":
+    parameters:
+    - name: id
+      in: path
+      description: Compilation NOID
+      required: true
+      schema:
+        type: string
+    get:
+      summary: Fetch a compilation
+      tags:
+      - Compilations
+      description: 'Per-row visibility: owner, explicit read/edit grants, or public.
+        Public Sets are readable by unauthenticated (guest) callers — the CERES case.'
+      security:
+      - BearerAuth: []
+        NuidHeader: []
+      parameters:
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          type: string
+      - name: User
+        in: header
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: guest reads a public set
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Compilation"
+        '403':
+          description: guest cannot read a private set
+        '404':
+          description: unknown noid
+    patch:
+      summary: Update a compilation
+      tags:
+      - Compilations
+      description: |
+        Title/description edits plus an optional `permissions` ACL hash
+        (read/edit groups + edit_users — replaces all three lists; the
+        depositor is never writable). ACL changes emit a `permissions`
+        audit event with before/after; no-op ACL writes are suppressed.
+      security:
+      - BearerAuth: []
+        NuidHeader: []
+      parameters:
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          type: string
+      - name: User
+        in: header
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: edit_users grant lets a non-owner update
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Compilation"
+        '403':
+          description: non-owner without a grant
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+                permissions:
+                  type: object
+                  properties:
+                    read:
+                      type: array
+                      items:
+                        type: string
+                    edit:
+                      type: array
+                      items:
+                        type: string
+                    edit_users:
+                      type: array
+                      items:
+                        type: string
+    delete:
+      summary: Destroy a compilation
+      tags:
+      - Compilations
+      description: Owner (or edit-grantee / admin) only. Join rows cascade.
+      security:
+      - BearerAuth: []
+        NuidHeader: []
+      parameters:
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          type: string
+      - name: User
+        in: header
+        required: false
+        schema:
+          type: string
+      responses:
+        '204':
+          description: compilation destroyed
+        '403':
+          description: non-owner cannot destroy
+        '404':
+          description: unknown noid
   "/delegates/{id}":
     parameters:
     - name: id

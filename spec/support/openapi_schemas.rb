@@ -27,6 +27,8 @@ module OpenapiSchemas
       BlobsIndex:         blobs_index,
       WorkAssets:         work_assets,
       WorkFileSets:       work_file_sets,
+      Compilation:        compilation,
+      CompilationsIndex:  compilations_index,
       Pagination:         pagination,
       User:               user,
       ProvisionedUser:    provisioned_user,
@@ -220,6 +222,45 @@ module OpenapiSchemas
         required:   %w[noid type position tombstoned assets]
       }
     }
+  end
+
+  # Compilation (DRS "Set") — AR-tier personal curation record, mirrors
+  # compilations/_compilation.json.jbuilder. `id` is the minted NOID; the
+  # AR pk is never exposed.
+  def compilation
+    wrapped(:compilation, {
+      id:          { type: :string, description: 'NOID (minted; the API-addressable id)' },
+      title:       { type: :string },
+      description: { type: :string, nullable: true },
+      depositor:   { type: :string, description: 'Curator NUID (owner)' }
+    }.merge(compilation_recipe_props, compilation_acl_props))
+  end
+
+  # The three noid arrays are the raw recipe — resolved by GET
+  # /compilations/{id}/contents, not materialized on the record.
+  def compilation_recipe_props
+    {
+      included_collections: { type:        :array, items: { type: :string },
+                              description: 'Collection noids included transitively (self + descendants)' },
+      included_works:       { type:        :array, items: { type: :string },
+                              description: 'Work noids included individually' },
+      excluded_works:       { type:        :array, items: { type: :string },
+                              description: 'Work noids set aside (subtracted from the resolved union)' }
+    }
+  end
+
+  def compilation_acl_props
+    {
+      edit_users:  { type: :array, items: { type: :string } },
+      read_groups: { type: :array, items: { type: :string } },
+      edit_groups: { type: :array, items: { type: :string } },
+      created_at:  { type: :string, format: 'date-time' },
+      updated_at:  { type: :string, format: 'date-time' }
+    }
+  end
+
+  def compilations_index
+    paged(:compilations, { '$ref' => '#/components/schemas/Compilation' })
   end
 
   def pagination

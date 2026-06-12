@@ -61,6 +61,7 @@ class Ability
 
     apply_role_abilities(user)
     apply_group_abilities(user)
+    apply_compilation_abilities(user)
   end
 
   private
@@ -100,6 +101,10 @@ class Ability
         can :create, Community
         can :create, Collection
 
+        # Personal Sets — any signed-in human can curate their own (matches
+        # v1's "any signed-in user"; flagged decision F3). Guests cannot.
+        can :create, Compilation
+
         # FileSet / Blob writes are not group-ACL-gated at the wire — they
         # hang off Works and Atlas doesn't cheaply trace FS→Work ownership.
         # The role gate at Work creation is the entry barrier; once you
@@ -125,6 +130,36 @@ class Ability
           group_acl_grants?(resource, user)
         end
       end
+    end
+
+    # Compilations (personal Sets) diverge from the `can :read, Resource`
+    # floor: visibility is per-row (owner / ACL / public), because public? is
+    # what anonymous (guest) CERES traffic rides on — so the :read rule is
+    # granted to :guest too. Unlike the resource read floor it leaks nothing
+    # non-public. Owner + explicit grants only on the write side; there is
+    # deliberately NO staff default (F2) — :admin covers via the wildcard.
+    def apply_compilation_abilities(user)
+      return if user.admin?      # wildcard already granted
+      return if user.system?     # non-human; Sets are personal curation
+      return if user.anonymous?  # never authenticates
+
+      can :read, Compilation do |comp|
+        compilation_readable?(comp, user)
+      end
+      return if user.guest?
+
+      can %i[update destroy], Compilation do |comp|
+        comp.depositor == user.nuid || group_acl_grants?(comp, user)
+      end
+    end
+
+    # Per-row Set visibility: public, owned, read-group match, or any edit
+    # grant (edit implies read).
+    def compilation_readable?(comp, user)
+      comp.public? ||
+        comp.depositor == user.nuid ||
+        (Array(comp.read_groups) & Array(user.groups)).any? ||
+        group_acl_grants?(comp, user)
     end
 
     # Group ACL match: caller's NUID is in the resource's edit_users list, OR

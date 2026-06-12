@@ -58,6 +58,21 @@ class CompilationsController < ApplicationController
     head :no_content
   end
 
+  # GET /compilations/:id/contents — resolve the recipe into Work digests
+  # (the CERES-facing read). Solr-side pagination; visibility is gated per
+  # caller inside the query (Cerberus gated-discovery parity).
+  def contents
+    @compilation = find_compilation
+    authorize! :read, @compilation
+
+    result = CompilationContentsQuery.call(
+      compilation: @compilation, user: @current_user,
+      page: params[:page], per_page: params[:per_page]
+    )
+    @contents   = result.digests
+    @pagination = result.pagination
+  end
+
   private
 
     def find_compilation

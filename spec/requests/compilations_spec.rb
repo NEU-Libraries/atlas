@@ -12,7 +12,8 @@ RSpec.describe 'Compilations', type: :request, default_auth: false do
   end
   let!(:curator) do
     User.create!(email: 'curator@example.com', password: SecureRandom.hex(16),
-                 nuid: '000000002', role: :standard)
+                 nuid: '000000002', role: :standard,
+                 groups: ['northeastern:drs:test-readers'])
   end
   let!(:rando) do
     User.create!(email: 'rando@example.com', password: SecureRandom.hex(16),
@@ -503,6 +504,164 @@ RSpec.describe 'Compilations', type: :request, default_auth: false do
           run_test! do |response|
             expect(JSON.parse(response.body).dig('compilation', 'excluded_works')).to eq([])
           end
+        end
+      end
+    end
+  end
+
+  # ---- recipe resolution ----
+  # Seed tree (all works public unless noted):
+  #
+  #   community
+  #   ├─ collection (included in the recipe)
+  #   │   ├─ nested ──── nested_work          (transitive descendant)
+  #   │   ├─ work_in_collection
+  #   │   ├─ private_work                     (read_groups: curator's group)
+  #   │   ├─ tombstoned_work
+  #   │   └─ excluded_work                    (set aside in the recipe)
+  #   └─ other_collection (NOT included)
+  #       ├─ stray_work                       (included individually)
+  #       └─ linked_work                      (linked member of `collection`)
+
+  describe 'contents resolution' do
+    let(:reader_group) { 'northeastern:drs:test-readers' }
+
+    let!(:community)        { Atlas.persister.save(resource: Community.new) }
+    let!(:collection)       { Atlas.persister.save(resource: Collection.new(a_member_of: community.id)) }
+    let!(:nested)           { Atlas.persister.save(resource: Collection.new(a_member_of: collection.id)) }
+    let!(:other_collection) { Atlas.persister.save(resource: Collection.new(a_member_of: community.id)) }
+
+    let!(:nested_work) do
+      Atlas.persister.save(resource: Work.new(a_member_of: nested.id, read_groups: ['public']))
+    end
+    let!(:work_in_collection) do
+      Atlas.persister.save(resource: Work.new(a_member_of: collection.id, read_groups: ['public']))
+    end
+    let!(:private_work) do
+      Atlas.persister.save(resource: Work.new(a_member_of: collection.id, read_groups: [reader_group]))
+    end
+    let!(:tombstoned_work) do
+      Atlas.persister.save(resource: Work.new(a_member_of: collection.id, read_groups: ['public'],
+                                              tombstoned: true))
+    end
+    let!(:excluded_work) do
+      Atlas.persister.save(resource: Work.new(a_member_of: collection.id, read_groups: ['public']))
+    end
+    let!(:stray_work) do
+      Atlas.persister.save(resource: Work.new(a_member_of: other_collection.id, read_groups: ['public']))
+    end
+    let!(:linked_work) do
+      Atlas.persister.save(resource: Work.new(a_member_of:        other_collection.id,
+                                              a_linked_member_of: [collection.id],
+                                              read_groups:        ['public']))
+    end
+
+    let(:compilation) do
+      create_compilation(curator).tap do |c|
+        c.collection_inclusions.create!(resource_noid: collection.noid)
+        c.work_inclusions.create!(resource_noid: stray_work.noid)
+        c.exclusions.create!(resource_noid: excluded_work.noid)
+      end
+    end
+    let(:id) { compilation.noid }
+
+    path '/compilations/{id}/contents' do
+      parameter name: :id, in: :path, type: :string, description: 'Compilation NOID'
+
+      get 'Resolve a compilation into its current contents' do
+        tags 'Compilations'
+        produces 'application/json'
+        description <<~D
+          Resolves the recipe against the live index: works beneath any
+          included Collection (transitively, linked members included), plus
+          individually included works, minus set-asides, minus tombstoned
+          works — gated to what the caller may discover (public + the
+          caller's groups; admins see everything; same semantics as
+          Cerberus gated discovery). Solr-side pagination via `page` /
+          `per_page` (default 25, capped at 100).
+        D
+        security [{ BearerAuth: [], NuidHeader: [] }]
+        parameter name: :Authorization, in: :header, type: :string, required: false
+        parameter name: :User, in: :header, type: :string, required: false
+        parameter name: :page, in: :query, type: :integer, required: false
+        parameter name: :per_page, in: :query, type: :integer, required: false
+
+        response '200', 'union minus exclusions, ACL-gated (owner with read group)' do
+          schema '$ref' => '#/components/schemas/CompilationContents'
+          let(:Authorization) { auth_header }
+          let(:User) { "NUID #{curator.nuid}" }
+          let(:page) { nil }
+          let(:per_page) { nil }
+          run_test! do |response|
+            payload = JSON.parse(response.body)
+            noids = payload['contents'].pluck('noid')
+
+            expect(noids).to contain_exactly(
+              nested_work.noid,        # transitive: under a nested sub-collection
+              work_in_collection.noid, # direct member of the included collection
+              private_work.noid,       # visible via the curator's read group
+              stray_work.noid,         # individually added
+              linked_work.noid         # linked member of the included collection
+            )
+            expect(noids).not_to include(excluded_work.noid, tombstoned_work.noid)
+            expect(payload.dig('pagination', 'total')).to eq(5)
+
+            digest = payload['contents'].first
+            expect(digest['klass']).to eq('Work')
+            expect(digest).to have_key('title')
+            expect(digest).to have_key('thumbnail')
+          end
+        end
+
+        response '200', 'guest reads a public set (the CERES case) — private works hidden' do
+          schema '$ref' => '#/components/schemas/CompilationContents'
+          let(:Authorization) { nil }
+          let(:User) { nil }
+          let(:page) { nil }
+          let(:per_page) { nil }
+          before { compilation.tap { |c| c.publicize && c.save! } }
+          run_test! do |response|
+            payload = JSON.parse(response.body)
+            noids = payload['contents'].pluck('noid')
+
+            expect(noids).to contain_exactly(
+              nested_work.noid, work_in_collection.noid,
+              stray_work.noid, linked_work.noid
+            )
+            expect(noids).not_to include(private_work.noid)
+            expect(payload.dig('pagination', 'total')).to eq(4)
+          end
+        end
+
+        response '200', 'pagination envelope (Solr-side start/rows)' do
+          schema '$ref' => '#/components/schemas/CompilationContents'
+          let(:Authorization) { auth_header }
+          let(:User) { "NUID #{curator.nuid}" }
+          let(:page) { 2 }
+          let(:per_page) { 2 }
+          run_test! do |response|
+            payload = JSON.parse(response.body)
+            expect(payload['contents'].length).to eq(2)
+            expect(payload['pagination'])
+              .to eq('total' => 5, 'page' => 2, 'per_page' => 2, 'pages' => 3)
+          end
+        end
+
+        response '403', 'guest cannot resolve a private set' do
+          let(:Authorization) { nil }
+          let(:User) { nil }
+          let(:page) { nil }
+          let(:per_page) { nil }
+          run_test!
+        end
+
+        response '404', 'unknown noid' do
+          let(:id) { 'nope404' }
+          let(:Authorization) { auth_header }
+          let(:User) { "NUID #{curator.nuid}" }
+          let(:page) { nil }
+          let(:per_page) { nil }
+          run_test!
         end
       end
     end

@@ -813,83 +813,6 @@ components:
         - position
         - tombstoned
         - assets
-    Compilation:
-      type: object
-      properties:
-        compilation:
-          type: object
-          properties:
-            id:
-              type: string
-              description: NOID (minted; the API-addressable id)
-            title:
-              type: string
-            description:
-              type: string
-              nullable: true
-            depositor:
-              type: string
-              description: Curator NUID (owner)
-            included_collections:
-              type: array
-              items:
-                type: string
-              description: Collection noids included transitively (self + descendants)
-            included_works:
-              type: array
-              items:
-                type: string
-              description: Work noids included individually
-            excluded_works:
-              type: array
-              items:
-                type: string
-              description: Work noids set aside (subtracted from the resolved union)
-            edit_users:
-              type: array
-              items:
-                type: string
-            read_groups:
-              type: array
-              items:
-                type: string
-            edit_groups:
-              type: array
-              items:
-                type: string
-            created_at:
-              type: string
-              format: date-time
-            updated_at:
-              type: string
-              format: date-time
-          required:
-          - id
-          - title
-          - description
-          - depositor
-          - included_collections
-          - included_works
-          - excluded_works
-          - edit_users
-          - read_groups
-          - edit_groups
-          - created_at
-          - updated_at
-      required:
-      - compilation
-    CompilationsIndex:
-      type: object
-      properties:
-        compilations:
-          type: array
-          items:
-            "$ref": "#/components/schemas/Compilation"
-        pagination:
-          "$ref": "#/components/schemas/Pagination"
-      required:
-      - compilations
-      - pagination
     Pagination:
       type: object
       description: pagy pagination block
@@ -1065,6 +988,119 @@ components:
       required:
       - resource_id
       - versions
+    Compilation:
+      type: object
+      properties:
+        compilation:
+          type: object
+          properties:
+            id:
+              type: string
+              description: NOID (minted; the API-addressable id)
+            title:
+              type: string
+            description:
+              type: string
+              nullable: true
+            depositor:
+              type: string
+              description: Curator NUID (owner)
+            included_collections:
+              type: array
+              items:
+                type: string
+              description: Collection noids included transitively (self + descendants)
+            included_works:
+              type: array
+              items:
+                type: string
+              description: Work noids included individually
+            excluded_works:
+              type: array
+              items:
+                type: string
+              description: Work noids set aside (subtracted from the resolved union)
+            edit_users:
+              type: array
+              items:
+                type: string
+            read_groups:
+              type: array
+              items:
+                type: string
+            edit_groups:
+              type: array
+              items:
+                type: string
+            created_at:
+              type: string
+              format: date-time
+            updated_at:
+              type: string
+              format: date-time
+          required:
+          - id
+          - title
+          - description
+          - depositor
+          - included_collections
+          - included_works
+          - excluded_works
+          - edit_users
+          - read_groups
+          - edit_groups
+          - created_at
+          - updated_at
+      required:
+      - compilation
+    CompilationsIndex:
+      type: object
+      properties:
+        compilations:
+          type: array
+          items:
+            "$ref": "#/components/schemas/Compilation"
+        pagination:
+          "$ref": "#/components/schemas/Pagination"
+      required:
+      - compilations
+      - pagination
+    CompilationContents:
+      type: object
+      properties:
+        contents:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                description: NOID
+              noid:
+                type: string
+                description: NOID (same value as id; find_many digest parity)
+              klass:
+                type: string
+                description: Resolved resource class name (always Work here)
+              title:
+                type: string
+                nullable: true
+                description: Plain-text title off the Solr doc
+              thumbnail:
+                type: string
+                nullable: true
+                description: IIIF URL of the thumbnail tier, or null
+            required:
+            - id
+            - noid
+            - klass
+            - title
+            - thumbnail
+        pagination:
+          "$ref": "#/components/schemas/Pagination"
+      required:
+      - contents
+      - pagination
 paths:
   "/files":
     get:
@@ -2261,6 +2297,61 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Compilation"
+  "/compilations/{id}/contents":
+    parameters:
+    - name: id
+      in: path
+      description: Compilation NOID
+      required: true
+      schema:
+        type: string
+    get:
+      summary: Resolve a compilation into its current contents
+      tags:
+      - Compilations
+      description: |
+        Resolves the recipe against the live index: works beneath any
+        included Collection (transitively, linked members included), plus
+        individually included works, minus set-asides, minus tombstoned
+        works — gated to what the caller may discover (public + the
+        caller's groups; admins see everything; same semantics as
+        Cerberus gated discovery). Solr-side pagination via `page` /
+        `per_page` (default 25, capped at 100).
+      security:
+      - BearerAuth: []
+        NuidHeader: []
+      parameters:
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          type: string
+      - name: User
+        in: header
+        required: false
+        schema:
+          type: string
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+      - name: per_page
+        in: query
+        required: false
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: pagination envelope (Solr-side start/rows)
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/CompilationContents"
+        '403':
+          description: guest cannot resolve a private set
+        '404':
+          description: unknown noid
   "/delegates/{id}":
     parameters:
     - name: id

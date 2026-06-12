@@ -27,8 +27,6 @@ module OpenapiSchemas
       BlobsIndex:         blobs_index,
       WorkAssets:         work_assets,
       WorkFileSets:       work_file_sets,
-      Compilation:        compilation,
-      CompilationsIndex:  compilations_index,
       Pagination:         pagination,
       User:               user,
       ProvisionedUser:    provisioned_user,
@@ -39,6 +37,14 @@ module OpenapiSchemas
       ResourceDigests:    resource_digests,
       Lineage:            lineage,
       ModsVersions:       mods_versions
+    }.merge(compilation_schemas)
+  end
+
+  def compilation_schemas
+    {
+      Compilation:         compilation,
+      CompilationsIndex:   compilations_index,
+      CompilationContents: compilation_contents
     }
   end
 
@@ -261,6 +267,34 @@ module OpenapiSchemas
 
   def compilations_index
     paged(:compilations, { '$ref' => '#/components/schemas/Compilation' })
+  end
+
+  # GET /compilations/{id}/contents — the resolved recipe as find_many-style
+  # digests (mirrors compilations/contents.json.jbuilder). Pagination is
+  # Solr-side: { total, page, per_page, pages }.
+  def compilation_contents
+    {
+      type:       :object,
+      properties: {
+        contents:   { type: :array, items: compilation_content_digest },
+        pagination: { '$ref' => '#/components/schemas/Pagination' }
+      },
+      required:   %w[contents pagination]
+    }
+  end
+
+  def compilation_content_digest
+    {
+      type:       :object,
+      properties: {
+        id:        { type: :string, description: 'NOID' },
+        noid:      { type: :string, description: 'NOID (same value as id; find_many digest parity)' },
+        klass:     { type: :string, description: 'Resolved resource class name (always Work here)' },
+        title:     { type: :string, nullable: true, description: 'Plain-text title off the Solr doc' },
+        thumbnail: { type: :string, nullable: true, description: 'IIIF URL of the thumbnail tier, or null' }
+      },
+      required:   %w[id noid klass title thumbnail]
+    }
   end
 
   def pagination

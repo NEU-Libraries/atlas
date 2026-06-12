@@ -80,11 +80,11 @@ RSpec.describe Compilation do
     it 'deletes join rows with the compilation' do
       compilation.work_inclusions.create!(resource_noid: work.noid)
       compilation.destroy!
-      expect(CompilationWorkInclusion.where(resource_noid: work.noid)).to be_empty
+      expect(Compilation::WorkInclusion.where(resource_noid: work.noid)).to be_empty
     end
   end
 
-  describe 'ACL helpers (CompilationPermissions)' do
+  describe 'ACL helpers (Compilation::ACL)' do
     it 'round-trips read groups' do
       compilation.add_read_group('northeastern:all')
       expect(compilation.read_groups).to eq(['northeastern:all'])

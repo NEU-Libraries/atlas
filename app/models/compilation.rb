@@ -13,13 +13,20 @@
 # is never exposed (audit rows store it internally, no endpoint surfaces
 # it). All controller lookups go find_by!(noid:).
 class Compilation < ApplicationRecord
-  include CompilationPermissions
+  include Compilation::ACL
 
+  # The membership join models nest under this class
+  # (Compilation::CollectionInclusion et al.). Both halves of the wiring are
+  # Rails convention: association class names resolve inside this namespace
+  # first (:collection_inclusions → Compilation::CollectionInclusion), and
+  # models nested in an AR class get the singular parent table name as a
+  # prefix — so the children land on the compilation_* tables the migration
+  # created with no table_name configuration at all.
   # dependent: :delete_all is belt-and-suspenders over the FK ON DELETE
   # CASCADE — keeps AR-initiated destroys correct even outside Postgres.
-  has_many :collection_inclusions, class_name: 'CompilationCollectionInclusion', dependent: :delete_all
-  has_many :work_inclusions,       class_name: 'CompilationWorkInclusion',       dependent: :delete_all
-  has_many :exclusions,            class_name: 'CompilationExclusion',           dependent: :delete_all
+  has_many :collection_inclusions, dependent: :delete_all
+  has_many :work_inclusions,       dependent: :delete_all
+  has_many :exclusions,            dependent: :delete_all
 
   validates :title, :depositor, presence: true
 

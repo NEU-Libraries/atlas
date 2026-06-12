@@ -20,4 +20,5 @@ ActiveSupport::Inflector.inflections(:en) do |inflect|
   inflect.acronym 'PCDM'
   inflect.acronym 'MODS'
   inflect.acronym 'METS'
+  inflect.acronym 'ACL'
 end

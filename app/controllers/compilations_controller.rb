@@ -12,10 +12,12 @@ class CompilationsController < ApplicationController
 
   # GET /compilations — owner-scoped listing, newest first. `?owner=<nuid>`
   # (cross-owner listing) is admin-only; there is no public browse endpoint
-  # in the first pass.
+  # in the first pass. `?q=<term>` narrows by case-insensitive title
+  # substring, applied before pagination so the pagination block describes
+  # the filtered result.
   def index
     authorize! :read, Compilation
-    pagy, @compilations = pagy(owner_scope)
+    pagy, @compilations = pagy(filtered_scope)
     @pagination = pagy_metadata(pagy)
   end
 
@@ -98,5 +100,12 @@ class CompilationsController < ApplicationController
       end
 
       Compilation.where(depositor: owner).order(created_at: :desc)
+    end
+
+    def filtered_scope
+      scope = owner_scope
+      return scope if params[:q].blank?
+
+      scope.where('title ILIKE ?', "%#{Compilation.sanitize_sql_like(params[:q])}%")
     end
 end

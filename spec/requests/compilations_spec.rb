@@ -43,19 +43,24 @@ RSpec.describe 'Compilations', type: :request, default_auth: false do
       description <<~D
         Paginated, newest-first listing of the caller's own Compilations.
         Pass `?owner=<nuid>` to list another user's Sets — admin-only.
-        There is no public browse endpoint.
+        Pass `?q=<term>` to narrow by case-insensitive title substring;
+        the filter applies before pagination, so the pagination block
+        describes the filtered result. There is no public browse endpoint.
       D
       security [{ BearerAuth: [], NuidHeader: [] }]
       parameter name: :Authorization, in: :header, type: :string, required: false
       parameter name: :User, in: :header, type: :string, required: false
       parameter name: :owner, in: :query, type: :string, required: false,
                 description: 'NUID whose Sets to list (admin-only); defaults to the caller'
+      parameter name: :q, in: :query, type: :string, required: false,
+                description: 'case-insensitive title substring filter'
 
       response '200', 'own compilations listed' do
         schema '$ref' => '#/components/schemas/CompilationsIndex'
         let(:Authorization) { auth_header }
         let(:User)  { "NUID #{curator.nuid}" }
         let(:owner) { nil }
+        let(:q)     { nil }
         before do
           create_compilation(curator)
           create_compilation(rando, title: 'Not mine')
@@ -67,10 +72,31 @@ RSpec.describe 'Compilations', type: :request, default_auth: false do
         end
       end
 
+      response '200', 'title-filtered listing', document: false do
+        schema '$ref' => '#/components/schemas/CompilationsIndex'
+        let(:Authorization) { auth_header }
+        let(:User)  { "NUID #{curator.nuid}" }
+        let(:owner) { nil }
+        let(:q)     { 'course' }
+        before do
+          create_compilation(curator, title: 'Course readings')
+          create_compilation(curator, title: 'Discourse and power') # substring match
+          create_compilation(curator, title: 'Field notes')
+          create_compilation(rando, title: 'Course readings') # other owner, stays invisible
+        end
+        run_test! do |response|
+          payload = JSON.parse(response.body)
+          titles = payload['compilations'].map { |c| c.dig('compilation', 'title') }
+          expect(titles).to contain_exactly('Course readings', 'Discourse and power')
+          expect(payload.dig('pagination', 'count')).to eq(2)
+        end
+      end
+
       response '403', 'cross-owner listing as a non-admin' do
         let(:Authorization) { auth_header }
         let(:User)  { "NUID #{rando.nuid}" }
         let(:owner) { curator.nuid }
+        let(:q)     { nil }
         run_test!
       end
     end

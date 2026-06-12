@@ -1835,7 +1835,9 @@ paths:
       description: |
         Paginated, newest-first listing of the caller's own Compilations.
         Pass `?owner=<nuid>` to list another user's Sets — admin-only.
-        There is no public browse endpoint.
+        Pass `?q=<term>` to narrow by case-insensitive title substring;
+        the filter applies before pagination, so the pagination block
+        describes the filtered result. There is no public browse endpoint.
       security:
       - BearerAuth: []
         NuidHeader: []
@@ -1854,6 +1856,12 @@ paths:
         in: query
         required: false
         description: NUID whose Sets to list (admin-only); defaults to the caller
+        schema:
+          type: string
+      - name: q
+        in: query
+        required: false
+        description: case-insensitive title substring filter
         schema:
           type: string
       responses:

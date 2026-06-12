@@ -1994,6 +1994,273 @@ paths:
           description: non-owner cannot destroy
         '404':
           description: unknown noid
+  "/compilations/{id}/included_collections":
+    parameters:
+    - name: id
+      in: path
+      description: Compilation NOID
+      required: true
+      schema:
+        type: string
+    post:
+      summary: Include a Collection (transitive)
+      tags:
+      - Compilations
+      description: Adds an include-collection recipe line. The noid must resolve to
+        a Collection (Communities and unknown noids are 422). Idempotent. No audit
+        row — recipe churn is personal curation.
+      security:
+      - BearerAuth: []
+        NuidHeader: []
+      parameters:
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          type: string
+      - name: User
+        in: header
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: collection included (idempotent)
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Compilation"
+        '422':
+          description: community noid rejected (no top-node includes)
+        '403':
+          description: non-owner cannot mutate the recipe
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                collection_id:
+                  type: string
+                  description: Collection NOID
+              required:
+              - collection_id
+  "/compilations/{id}/included_collections/{collection_id}":
+    parameters:
+    - name: id
+      in: path
+      description: Compilation NOID
+      required: true
+      schema:
+        type: string
+    - name: collection_id
+      in: path
+      description: Collection NOID
+      required: true
+      schema:
+        type: string
+    delete:
+      summary: Remove an included Collection
+      tags:
+      - Compilations
+      description: 'Idempotent: removing an absent inclusion is a 200 no-op.'
+      security:
+      - BearerAuth: []
+        NuidHeader: []
+      parameters:
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          type: string
+      - name: User
+        in: header
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: inclusion removed (or was already absent)
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Compilation"
+  "/compilations/{id}/included_works":
+    parameters:
+    - name: id
+      in: path
+      description: Compilation NOID
+      required: true
+      schema:
+        type: string
+    post:
+      summary: Include a Work individually
+      tags:
+      - Compilations
+      description: Adds an include-work recipe line. The noid must resolve to a Work.
+        Idempotent.
+      security:
+      - BearerAuth: []
+        NuidHeader: []
+      parameters:
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          type: string
+      - name: User
+        in: header
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: work included
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Compilation"
+        '422':
+          description: collection noid rejected where a Work is expected
+        '403':
+          description: guest cannot mutate the recipe
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                work_id:
+                  type: string
+                  description: Work NOID
+              required:
+              - work_id
+  "/compilations/{id}/included_works/{work_id}":
+    parameters:
+    - name: id
+      in: path
+      description: Compilation NOID
+      required: true
+      schema:
+        type: string
+    - name: work_id
+      in: path
+      description: Work NOID
+      required: true
+      schema:
+        type: string
+    delete:
+      summary: Remove an included Work
+      tags:
+      - Compilations
+      description: 'Idempotent: removing an absent inclusion is a 200 no-op.'
+      security:
+      - BearerAuth: []
+        NuidHeader: []
+      parameters:
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          type: string
+      - name: User
+        in: header
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: inclusion removed
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Compilation"
+  "/compilations/{id}/exclusions":
+    parameters:
+    - name: id
+      in: path
+      description: Compilation NOID
+      required: true
+      schema:
+        type: string
+    post:
+      summary: Set a Work aside
+      tags:
+      - Compilations
+      description: 'Adds a set-aside recipe line: the Work is subtracted from the
+        resolved union at read time. The noid must resolve to a Work. Idempotent.'
+      security:
+      - BearerAuth: []
+        NuidHeader: []
+      parameters:
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          type: string
+      - name: User
+        in: header
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: work set aside
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Compilation"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                work_id:
+                  type: string
+                  description: Work NOID
+              required:
+              - work_id
+  "/compilations/{id}/exclusions/{work_id}":
+    parameters:
+    - name: id
+      in: path
+      description: Compilation NOID
+      required: true
+      schema:
+        type: string
+    - name: work_id
+      in: path
+      description: Work NOID
+      required: true
+      schema:
+        type: string
+    delete:
+      summary: Clear a set-aside
+      tags:
+      - Compilations
+      description: 'Idempotent: clearing an absent set-aside is a 200 no-op.'
+      security:
+      - BearerAuth: []
+        NuidHeader: []
+      parameters:
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          type: string
+      - name: User
+        in: header
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: set-aside cleared
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Compilation"
   "/delegates/{id}":
     parameters:
     - name: id

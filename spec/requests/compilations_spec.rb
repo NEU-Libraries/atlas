@@ -281,4 +281,230 @@ RSpec.describe 'Compilations', type: :request, default_auth: false do
       end
     end
   end
+
+  # ---- membership (recipe) mutations ----
+  # Shared seed tree for the recipe lines. Adds resolve the noid against
+  # Valkyrie on create (type check); the response is always the updated
+  # compilation partial.
+
+  describe 'membership mutations' do
+    let!(:community)  { Atlas.persister.save(resource: Community.new) }
+    let!(:collection) { Atlas.persister.save(resource: Collection.new(a_member_of: community.id)) }
+    let!(:work)       { Atlas.persister.save(resource: Work.new(a_member_of: collection.id)) }
+
+    let(:compilation) { create_compilation(curator) }
+    let(:id) { compilation.noid }
+
+    path '/compilations/{id}/included_collections' do
+      parameter name: :id, in: :path, type: :string, description: 'Compilation NOID'
+
+      post 'Include a Collection (transitive)' do
+        tags 'Compilations'
+        consumes 'application/json'
+        produces 'application/json'
+        description 'Adds an include-collection recipe line. The noid must resolve to a ' \
+                    'Collection (Communities and unknown noids are 422). Idempotent. ' \
+                    'No audit row — recipe churn is personal curation.'
+        security [{ BearerAuth: [], NuidHeader: [] }]
+        parameter name: :Authorization, in: :header, type: :string, required: false
+        parameter name: :User, in: :header, type: :string, required: false
+        parameter name: :body, in: :body, schema: {
+          type:       :object,
+          properties: { collection_id: { type: :string, description: 'Collection NOID' } },
+          required:   %w[collection_id]
+        }
+
+        response '200', 'collection included (idempotent)' do
+          schema '$ref' => '#/components/schemas/Compilation'
+          let(:Authorization) { auth_header }
+          let(:User) { "NUID #{curator.nuid}" }
+          let(:body) { { collection_id: collection.noid } }
+          run_test! do |response|
+            payload = JSON.parse(response.body)['compilation']
+            expect(payload['included_collections']).to eq([collection.noid])
+
+            # Re-adding the same collection is a no-op, not a 422/500.
+            post "/compilations/#{compilation.noid}/included_collections",
+                 params:  { collection_id: collection.noid }.to_json,
+                 headers: { 'Authorization' => auth_header, 'User' => "NUID #{curator.nuid}",
+                            'Content-Type'  => 'application/json' }
+            expect(response).to have_http_status(:ok)
+            expect(compilation.reload.included_collections).to eq([collection.noid])
+          end
+        end
+
+        response '422', 'community noid rejected (no top-node includes)' do
+          let(:Authorization) { auth_header }
+          let(:User) { "NUID #{curator.nuid}" }
+          let(:body) { { collection_id: community.noid } }
+          run_test! do |response|
+            expect(JSON.parse(response.body)['error']).to eq('invalid_record')
+            expect(compilation.reload.included_collections).to be_empty
+          end
+        end
+
+        response '403', 'non-owner cannot mutate the recipe' do
+          let(:Authorization) { auth_header }
+          let(:User) { "NUID #{rando.nuid}" }
+          let(:body) { { collection_id: collection.noid } }
+          run_test!
+        end
+      end
+    end
+
+    path '/compilations/{id}/included_collections/{collection_id}' do
+      parameter name: :id, in: :path, type: :string, description: 'Compilation NOID'
+      parameter name: :collection_id, in: :path, type: :string, description: 'Collection NOID'
+
+      delete 'Remove an included Collection' do
+        tags 'Compilations'
+        produces 'application/json'
+        description 'Idempotent: removing an absent inclusion is a 200 no-op.'
+        security [{ BearerAuth: [], NuidHeader: [] }]
+        parameter name: :Authorization, in: :header, type: :string, required: false
+        parameter name: :User, in: :header, type: :string, required: false
+
+        response '200', 'inclusion removed (or was already absent)' do
+          schema '$ref' => '#/components/schemas/Compilation'
+          let(:Authorization) { auth_header }
+          let(:User) { "NUID #{curator.nuid}" }
+          let(:collection_id) { collection.noid }
+          before { compilation.collection_inclusions.create!(resource_noid: collection.noid) }
+          run_test! do |response|
+            expect(JSON.parse(response.body).dig('compilation', 'included_collections')).to eq([])
+
+            # And again — absent row, still 200.
+            delete "/compilations/#{compilation.noid}/included_collections/#{collection.noid}",
+                   headers: { 'Authorization' => auth_header, 'User' => "NUID #{curator.nuid}" }
+            expect(response).to have_http_status(:ok)
+          end
+        end
+      end
+    end
+
+    path '/compilations/{id}/included_works' do
+      parameter name: :id, in: :path, type: :string, description: 'Compilation NOID'
+
+      post 'Include a Work individually' do
+        tags 'Compilations'
+        consumes 'application/json'
+        produces 'application/json'
+        description 'Adds an include-work recipe line. The noid must resolve to a Work. Idempotent.'
+        security [{ BearerAuth: [], NuidHeader: [] }]
+        parameter name: :Authorization, in: :header, type: :string, required: false
+        parameter name: :User, in: :header, type: :string, required: false
+        parameter name: :body, in: :body, schema: {
+          type:       :object,
+          properties: { work_id: { type: :string, description: 'Work NOID' } },
+          required:   %w[work_id]
+        }
+
+        response '200', 'work included' do
+          schema '$ref' => '#/components/schemas/Compilation'
+          let(:Authorization) { auth_header }
+          let(:User) { "NUID #{curator.nuid}" }
+          let(:body) { { work_id: work.noid } }
+          run_test! do |response|
+            expect(JSON.parse(response.body).dig('compilation', 'included_works')).to eq([work.noid])
+          end
+        end
+
+        response '422', 'collection noid rejected where a Work is expected' do
+          let(:Authorization) { auth_header }
+          let(:User) { "NUID #{curator.nuid}" }
+          let(:body) { { work_id: collection.noid } }
+          run_test!
+        end
+
+        response '403', 'guest cannot mutate the recipe' do
+          let(:Authorization) { nil }
+          let(:User) { nil }
+          let(:body) { { work_id: work.noid } }
+          before { compilation.tap { |c| c.publicize && c.save! } }
+          run_test!
+        end
+      end
+    end
+
+    path '/compilations/{id}/included_works/{work_id}' do
+      parameter name: :id, in: :path, type: :string, description: 'Compilation NOID'
+      parameter name: :work_id, in: :path, type: :string, description: 'Work NOID'
+
+      delete 'Remove an included Work' do
+        tags 'Compilations'
+        produces 'application/json'
+        description 'Idempotent: removing an absent inclusion is a 200 no-op.'
+        security [{ BearerAuth: [], NuidHeader: [] }]
+        parameter name: :Authorization, in: :header, type: :string, required: false
+        parameter name: :User, in: :header, type: :string, required: false
+
+        response '200', 'inclusion removed' do
+          schema '$ref' => '#/components/schemas/Compilation'
+          let(:Authorization) { auth_header }
+          let(:User) { "NUID #{curator.nuid}" }
+          let(:work_id) { work.noid }
+          before { compilation.work_inclusions.create!(resource_noid: work.noid) }
+          run_test! do |response|
+            expect(JSON.parse(response.body).dig('compilation', 'included_works')).to eq([])
+          end
+        end
+      end
+    end
+
+    path '/compilations/{id}/exclusions' do
+      parameter name: :id, in: :path, type: :string, description: 'Compilation NOID'
+
+      post 'Set a Work aside' do
+        tags 'Compilations'
+        consumes 'application/json'
+        produces 'application/json'
+        description 'Adds a set-aside recipe line: the Work is subtracted from the resolved ' \
+                    'union at read time. The noid must resolve to a Work. Idempotent.'
+        security [{ BearerAuth: [], NuidHeader: [] }]
+        parameter name: :Authorization, in: :header, type: :string, required: false
+        parameter name: :User, in: :header, type: :string, required: false
+        parameter name: :body, in: :body, schema: {
+          type:       :object,
+          properties: { work_id: { type: :string, description: 'Work NOID' } },
+          required:   %w[work_id]
+        }
+
+        response '200', 'work set aside' do
+          schema '$ref' => '#/components/schemas/Compilation'
+          let(:Authorization) { auth_header }
+          let(:User) { "NUID #{curator.nuid}" }
+          let(:body) { { work_id: work.noid } }
+          run_test! do |response|
+            expect(JSON.parse(response.body).dig('compilation', 'excluded_works')).to eq([work.noid])
+            expect(AuditEvent.where(resource_type: 'Compilation').count).to eq(0)
+          end
+        end
+      end
+    end
+
+    path '/compilations/{id}/exclusions/{work_id}' do
+      parameter name: :id, in: :path, type: :string, description: 'Compilation NOID'
+      parameter name: :work_id, in: :path, type: :string, description: 'Work NOID'
+
+      delete 'Clear a set-aside' do
+        tags 'Compilations'
+        produces 'application/json'
+        description 'Idempotent: clearing an absent set-aside is a 200 no-op.'
+        security [{ BearerAuth: [], NuidHeader: [] }]
+        parameter name: :Authorization, in: :header, type: :string, required: false
+        parameter name: :User, in: :header, type: :string, required: false
+
+        response '200', 'set-aside cleared' do
+          schema '$ref' => '#/components/schemas/Compilation'
+          let(:Authorization) { auth_header }
+          let(:User) { "NUID #{curator.nuid}" }
+          let(:work_id) { work.noid }
+          before { compilation.exclusions.create!(resource_noid: work.noid) }
+          run_test! do |response|
+            expect(JSON.parse(response.body).dig('compilation', 'excluded_works')).to eq([])
+          end
+        end
+      end
+    end
+  end
 end

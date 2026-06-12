@@ -8,6 +8,7 @@
 class CompilationsController < ApplicationController
   include Pagy::Backend
   include Auditable
+  include CompilationMemberships
 
   # GET /compilations — owner-scoped listing, newest first. `?owner=<nuid>`
   # (cross-owner listing) is admin-only; there is no public browse endpoint

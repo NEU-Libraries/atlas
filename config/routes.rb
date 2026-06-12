@@ -37,7 +37,11 @@ Rails.application.routes.draw do
         patch :parent, action: :update_parent
       end
     end
-    resources :file_sets
+    resources :file_sets do
+      member do
+        patch :iiif_service, action: :update_iiif_service
+      end
+    end
     resources :files, :controller => :blobs do
       get :content, :on => :member
     end

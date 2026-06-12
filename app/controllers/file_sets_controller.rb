@@ -4,6 +4,8 @@
 class FileSetsController < ApplicationController
   include LazyPagination
   include IdempotentCreate
+  include DelegateUris
+  include StaleObjectRetry
 
   def index
     authorize! :read, FileSet
@@ -57,6 +59,24 @@ class FileSetsController < ApplicationController
       file_set_id: params[:id]
     )
     @file_set = FileSet.find(params[:id])
+  end
+
+  # Persist the per-page IIIF image-service pointer (Role.service_file) —
+  # the Cantaloupe base URI for this page's JP2, which manifest assembly
+  # reads back through GET /works/:id/file_sets. Upsert semantics via
+  # DelegateUpdater: re-PATCHing a URI never mints a duplicate Delegate.
+  def update_iiif_service
+    authorize! :update_iiif_service, FileSet
+
+    with_stale_object_retry do
+      @file_set = FileSet.find(params[:id])
+      return head(:not_found) if @file_set.nil?
+
+      apply_iiif_service_uri(resource_id: @file_set.id)
+    end
+
+    @file_set = FileSet.find(params[:id])
+    render :show
   end
 
   def destroy

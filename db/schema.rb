@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.0].define(version: 2026_05_22_140000) do
+ActiveRecord::Schema[7.0].define(version: 2026_06_11_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
   enable_extension "uuid-ossp"
@@ -33,6 +33,50 @@ ActiveRecord::Schema[7.0].define(version: 2026_05_22_140000) do
     t.index ["on_behalf_of_nuid"], name: "index_audit_events_on_on_behalf_of_nuid"
     t.index ["resource_id", "occurred_at"], name: "index_audit_events_on_resource_id_and_occurred_at", order: { occurred_at: :desc }
     t.index ["resource_id", "resource_type"], name: "index_audit_events_on_resource_id_and_resource_type"
+  end
+
+  create_table "compilation_collection_inclusions", force: :cascade do |t|
+    t.bigint "compilation_id", null: false
+    t.string "resource_noid", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["compilation_id", "resource_noid"], name: "idx_compilation_collection_inclusions_uniq", unique: true
+    t.index ["compilation_id"], name: "index_compilation_collection_inclusions_on_compilation_id"
+    t.index ["resource_noid"], name: "index_compilation_collection_inclusions_on_resource_noid"
+  end
+
+  create_table "compilation_exclusions", force: :cascade do |t|
+    t.bigint "compilation_id", null: false
+    t.string "resource_noid", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["compilation_id", "resource_noid"], name: "idx_compilation_exclusions_uniq", unique: true
+    t.index ["compilation_id"], name: "index_compilation_exclusions_on_compilation_id"
+    t.index ["resource_noid"], name: "index_compilation_exclusions_on_resource_noid"
+  end
+
+  create_table "compilation_work_inclusions", force: :cascade do |t|
+    t.bigint "compilation_id", null: false
+    t.string "resource_noid", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["compilation_id", "resource_noid"], name: "idx_compilation_work_inclusions_uniq", unique: true
+    t.index ["compilation_id"], name: "index_compilation_work_inclusions_on_compilation_id"
+    t.index ["resource_noid"], name: "index_compilation_work_inclusions_on_resource_noid"
+  end
+
+  create_table "compilations", force: :cascade do |t|
+    t.string "noid", null: false
+    t.string "title", null: false
+    t.text "description"
+    t.string "depositor", null: false
+    t.string "edit_users", default: [], null: false, array: true
+    t.string "read_groups", default: [], null: false, array: true
+    t.string "edit_groups", default: [], null: false, array: true
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["depositor"], name: "index_compilations_on_depositor"
+    t.index ["noid"], name: "index_compilations_on_noid", unique: true
   end
 
   create_table "idempotency_keys", force: :cascade do |t|
@@ -101,5 +145,8 @@ ActiveRecord::Schema[7.0].define(version: 2026_05_22_140000) do
     t.index ["reset_password_token"], name: "index_users_on_reset_password_token", unique: true
   end
 
+  add_foreign_key "compilation_collection_inclusions", "compilations", on_delete: :cascade
+  add_foreign_key "compilation_exclusions", "compilations", on_delete: :cascade
+  add_foreign_key "compilation_work_inclusions", "compilations", on_delete: :cascade
   add_foreign_key "idempotency_keys", "users"
 end

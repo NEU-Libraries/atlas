@@ -1,5 +1,10 @@
 # frozen_string_literal: true
 
+# NB: the AR-tier Compilation carries a thin mirror of this concern's
+# store-agnostic ACL slice (CompilationPermissions) rather than including
+# this module — this one is welded to Valkyrie attributes and the
+# preservation-envelope path. If you change the ACL helpers here, check
+# app/models/concerns/compilation_permissions.rb, and vice versa.
 module Permissions
   extend ActiveSupport::Concern
 

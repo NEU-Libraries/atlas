@@ -43,4 +43,32 @@ RSpec.describe 'FileSets via atlas_rb', :atlas_rb_server do
     AtlasRb::FileSet.destroy(file_set.noid, nuid: admin_nuid)
     expect(FileSet.find(file_set.noid)).to be_nil
   end
+
+  # atlas_rb 1.3.6 — per-page IIIF service pointer (manifest assembly).
+  describe '.set_iiif_service' do
+    it 'persists the service pointer and surfaces it in the ordered page listing' do
+      page = AtlasRb::FileSet.create(work.noid, 'image', position: 1, nuid: admin_nuid)
+      uri  = 'https://iiif.example/iiif/3/page1.jp2'
+
+      AtlasRb::FileSet.set_iiif_service(page['id'], uri, nuid: admin_nuid)
+
+      pages = AtlasRb::Work.file_sets(work.noid, nuid: admin_nuid)
+      page_entry = pages.find { |p| p['noid'] == page['id'] }
+      expect(page_entry['assets'].pluck('uri')).to include(uri)
+      expect(page_entry['assets'].pluck('use')).to include(Role.service_file.name)
+    end
+
+    it 'upserts in place — repeated calls hold one Delegate with the latest URI' do
+      page = AtlasRb::FileSet.create(work.noid, 'image', position: 1, nuid: admin_nuid)
+
+      AtlasRb::FileSet.set_iiif_service(page['id'], 'https://iiif.example/iiif/3/page1.jp2', nuid: admin_nuid)
+      AtlasRb::FileSet.set_iiif_service(page['id'], 'https://iiif.example/iiif/3/page1.jp2?v2', nuid: admin_nuid)
+
+      reloaded = FileSet.find(page['id'])
+      deriv_fs = reloaded.children.find { |c| c.is_a?(FileSet) && c.type == Classification.derivative.name }
+      members  = Atlas.query.find_members(resource: deriv_fs).to_a.select { |m| m.is_a?(Delegate) }
+      expect(members.size).to eq(1)
+      expect(members.first.uri).to eq('https://iiif.example/iiif/3/page1.jp2?v2')
+    end
+  end
 end

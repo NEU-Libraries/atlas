@@ -19,6 +19,11 @@ Metrics/ClassLength:
     # OCFL 1.1 write-path coordination naturally long; broken into private
     # helpers but the class itself stays a single coherent boundary.
     - 'app/lib/valkyrie/storage/ocfl.rb'
+Metrics/ModuleLength:
+  Exclude:
+    # Flat schema-definition map — length tracks the OpenAPI surface, not
+    # logic worth decomposing.
+    - 'spec/support/openapi_schemas.rb'
 Metrics/AbcSize:
   Max: 30
   Exclude:
@@ -39,6 +44,9 @@ Metrics/ParameterLists:
   Exclude:
     - 'app/lib/valkyrie/storage/ocfl.rb'
     - 'app/lib/valkyrie/storage/ocfl/inventory.rb'
+    # Service initializers take a keyword arg per resource attribute they
+    # set; mirrors the AbcSize/MissingSuper service carve-outs above.
+    - 'app/services/**/*'
 Lint/AmbiguousBlockAssociation:
   Enabled: false
 Rails/FindEach:
@@ -53,11 +61,14 @@ Layout/LineLength:
     - 'app/**/*'
 Metrics/MethodLength:
   Max: 15
-  AllowedMethods: ['role_permissions', 'convert_xml_to_json']
+  AllowedMethods: ['role_permissions', 'convert_xml_to_json', 'apply_role_abilities']
   Exclude:
     - 'app/lib/valkyrie/storage/ocfl.rb'
     - 'app/lib/valkyrie/storage/ocfl/inventory.rb'
     - 'app/lib/valkyrie/storage/ocfl/storage_root.rb'
+    # Flat schema-definition maps (one method per OpenAPI component) — length
+    # tracks the API surface, not logic worth decomposing.
+    - 'spec/support/openapi_schemas.rb'
 Metrics/BlockLength:
   Exclude:
     # BL config too long

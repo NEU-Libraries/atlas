@@ -38,25 +38,33 @@ class MaintenanceController < ApplicationController
     # across runs. Emptying the storage root makes every reseeded object start
     # at v1 with only its own content.
     purge_storage!
-
-    # non-human bookends — single-row each by design
-    User.create(password: Devise.friendly_token[0, 20], name: 'User, System', nuid: '000000000',
-                email: 'admin@northeastern.edu', role: :system)
-    User.create(password: Devise.friendly_token[0, 20], name: 'User, Anonymous', nuid: '000000099',
-                email: 'anonymous@northeastern.edu', role: :anonymous)
-
-    # human roles — dev fixtures exercising each tier of the gradient
-    User.create(password: Devise.friendly_token[0, 20], name: 'User, Guest', nuid: '000000001',
-                email: 'guest@northeastern.edu', role: :guest)
-    User.create(password: Devise.friendly_token[0, 20], name: 'Doe, Jane', nuid: '000000002',
-                email: 'dps@northeastern.edu', role: :privileged, groups: ['northeastern:drs:repository:staff'])
-    User.create(password: Devise.friendly_token[0, 20], name: 'Loader, Marcom', nuid: '000000003',
-                email: 'marcom-loader@northeastern.edu', role: :loader, groups: ['northeastern:drs:repository:loaders:marcom'])
-    User.create(password: Devise.friendly_token[0, 20], name: 'User, Admin', nuid: '000000004',
-                email: 'drs-admin@northeastern.edu', role: :admin)
+    seed_fixture_users!
   end
 
   private
+
+    def seed_fixture_users!
+      # non-human bookends — single-row each by design
+      create_fixture_user(name: 'User, System', nuid: '000000000',
+                          email: 'admin@northeastern.edu', role: :system)
+      create_fixture_user(name: 'User, Anonymous', nuid: '000000099',
+                          email: 'anonymous@northeastern.edu', role: :anonymous)
+
+      # human roles — dev fixtures exercising each tier of the gradient
+      create_fixture_user(name: 'User, Guest', nuid: '000000001',
+                          email: 'guest@northeastern.edu', role: :guest)
+      create_fixture_user(name: 'Doe, Jane', nuid: '000000002', role: :privileged,
+                          email: 'dps@northeastern.edu', groups: ['northeastern:drs:repository:staff'])
+      create_fixture_user(name: 'Loader, Marcom', nuid: '000000003', role: :loader,
+                          email: 'marcom-loader@northeastern.edu',
+                          groups: ['northeastern:drs:repository:loaders:marcom'])
+      create_fixture_user(name: 'User, Admin', nuid: '000000004',
+                          email: 'drs-admin@northeastern.edu', role: :admin)
+    end
+
+    def create_fixture_user(**attrs)
+      User.create(password: Devise.friendly_token[0, 20], **attrs)
+    end
 
     def resettable_env?
       RESETTABLE_ENVS.include?(Rails.env.to_s)

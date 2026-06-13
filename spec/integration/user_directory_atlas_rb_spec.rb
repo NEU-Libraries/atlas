@@ -29,7 +29,7 @@ RSpec.describe 'User directory via atlas_rb', :atlas_rb_server do
   it 'searches by name fragment, name-ordered, excluding non-directory roles' do
     entries = AtlasRb::User.search('jane', nuid: admin_nuid)
 
-    expect(entries.map { |e| e['nuid'] }).to eq([jane.nuid, janet.nuid])
+    expect(entries.pluck('nuid')).to eq([jane.nuid, janet.nuid])
     expect(entries.first.keys).to contain_exactly('nuid', 'name')
   end
 
@@ -58,7 +58,7 @@ RSpec.describe 'User directory via atlas_rb', :atlas_rb_server do
                                     nuid: admin_nuid)
 
     # guest + unknown dropped; result is name-ordered.
-    expect(entries.map { |e| e['nuid'] }).to eq([jane.nuid, janet.nuid])
+    expect(entries.pluck('nuid')).to eq([jane.nuid, janet.nuid])
   end
 
   it 'returns an empty list for a blank search' do

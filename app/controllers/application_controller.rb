@@ -192,7 +192,11 @@ class ApplicationController < ActionController::API
 
       user = User.find_by(nuid: @nuid)
       return render_error(:bad_request, "unknown principal #{@nuid}") if user.nil?
-      return render_error(:unauthorized, 'system token must only be paired with the :system fixture') unless user.system?
+
+      unless user.system?
+        return render_error(:unauthorized,
+                            'system token must only be paired with the :system fixture')
+      end
 
       @current_user = user
     end

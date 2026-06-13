@@ -44,7 +44,7 @@ rescue ActiveRecord::PendingMigrationError => e
 end
 RSpec.configure do |config|
   config.before(:suite) do
-    FileUtils.rm_rf(Rails.root.join('tmp', 'files'))
+    FileUtils.rm_rf(Rails.root.join('tmp/files'))
     Atlas.persister.wipe!
     # AR-managed rows that integration specs commit outside the per-example
     # transaction (the Capybara::Server Puma thread holds its own connection

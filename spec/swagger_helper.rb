@@ -60,12 +60,12 @@ RSpec.configure do |config|
       ],
       components: {
         securitySchemes: {
-          BearerAuth: {
+          BearerAuth:       {
             type:        :http,
             scheme:      :bearer,
             description: 'Cerberus system token or a devise-jwt user token. Both are accepted.'
           },
-          NuidHeader: {
+          NuidHeader:       {
             type:        :apiKey,
             in:          :header,
             name:        'User',

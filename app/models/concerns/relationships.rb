@@ -22,6 +22,9 @@ module Relationships
       # Accommodate for flipped relationships - member_ids vs a_member_of - via find_inverse_references_by
       result = Atlas.query.find_references_by(resource: self, property: :a_member_of)
     rescue KeyError
+      # a_member_of isn't a registered property on this resource type; treat it
+      # as "no parent via a_member_of" and fall through to the member_ids path.
+      nil
     end
     if result.blank?
       result = Atlas.query.find_inverse_references_by(resource: self,

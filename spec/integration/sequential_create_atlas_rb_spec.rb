@@ -15,7 +15,7 @@ RSpec.describe 'Sequential AtlasRb::*.create regression', :atlas_rb_server do
   let(:admin_nuid) { '000000004' }
 
   let(:mods_path) do
-    path = Rails.root.join('tmp', 'sequential-create-spec.xml').to_s
+    path = Rails.root.join('tmp/sequential-create-spec.xml').to_s
     File.write(path,
                '<?xml version="1.0" encoding="UTF-8"?>' \
                '<mods xmlns="http://www.loc.gov/mods/v3">' \

@@ -4,11 +4,13 @@ Rails.application.routes.draw do
   mount Rswag::Api::Engine => '/api-docs'
   get '/docs', to: 'docs#show'
 
-  devise_for :users, controllers: {
-    sessions: "users/sessions",
-    registrations: "users/registrations",
-    tokens: "users/tokens"
-  }
+  # Human auth is delegated to Cerberus (SSO) — Atlas never takes a password,
+  # so the devise sessions (sign_in/out) and registrations (sign_up) routes are
+  # skipped (F1). The devise modules stay on User and the :user Warden mapping
+  # is still established (warden-jwt's decoder needs it), leaving a door open
+  # for future non-SSO service accounts without exposing public login/signup.
+  # The token endpoints (/nuid, /user) are declared manually below.
+  devise_for :users, skip: %i[sessions registrations]
 
   defaults format: :json do
     resources :communities do
@@ -121,8 +123,10 @@ Rails.application.routes.draw do
     # Housekeeping
     get '/reset', to: 'maintenance#reset', as: 'reset'
 
-    # NUID
-    post '/nuid', to: 'users/tokens#nuid', as: 'nuid'
+    # NUID — mint a personal-access JWT (POST) / revoke all of a user's tokens
+    # by rotating its jti (DELETE). Both system-gated; nuid carried in the body.
+    post   '/nuid', to: 'users/tokens#nuid',   as: 'nuid'
+    delete '/nuid', to: 'users/tokens#revoke', as: 'revoke_token'
 
     # User details
     get '/user', to: 'users/tokens#show', as: 'user_show'

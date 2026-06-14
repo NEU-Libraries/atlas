@@ -7,6 +7,7 @@ class AuditEvent < ApplicationRecord
   ACTIONS        = %w[create update tombstone restore complete
                       reparent link_member unlink_member
                       add_file replace_file remove_file
+                      mint_token revoke_token
                       impersonation_started impersonation_ended].freeze
   CHANGE_TYPES   = %w[metadata structural permissions lifecycle file session].freeze
   EVENT_SOURCES  = %w[job controller script ingest migration].freeze

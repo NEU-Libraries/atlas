@@ -2866,10 +2866,76 @@ paths:
       tags:
       - User
       description: |
-        System-only endpoint used by Cerberus to mint a per-user JWT.
-        Requires the system Bearer token; non-system callers receive 403.
-      parameters: []
+        System-only endpoint used by Cerberus (post-SSO) to mint a personal-
+        access JWT for a user. The librarian then uses the token directly
+        against Atlas (Authorization: Bearer …) from scripts. Tokens carry a
+        1-week TTL. Requires the system Bearer token; non-system callers
+        receive 403. An unknown NUID returns 404. Emits a mint_token audit row.
+      security:
+      - BearerAuth: []
+      parameters:
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          type: string
+      - name: User
+        in: header
+        required: false
+        description: Acting principal, e.g. "NUID 000000000" for the system user
+        schema:
+          type: string
       responses:
+        '200':
+          description: token minted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                required:
+                - token
+        '403':
+          description: caller is not the system user
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nuid:
+                  type: string
+              required:
+              - nuid
+    delete:
+      summary: Revoke all of a user's tokens (system-only)
+      tags:
+      - User
+      description: |
+        System-only endpoint that revokes every outstanding token for a user
+        by rotating its jti (single-token model → all-or-nothing). Cerberus's
+        "regenerate token" is a revoke followed by a fresh mint. Requires the
+        system Bearer token; non-system callers receive 403. An unknown NUID
+        returns 404. Emits a revoke_token audit row.
+      security:
+      - BearerAuth: []
+      parameters:
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          type: string
+      - name: User
+        in: header
+        required: false
+        description: Acting principal, e.g. "NUID 000000000" for the system user
+        schema:
+          type: string
+      responses:
+        '204':
+          description: tokens revoked
         '403':
           description: caller is not the system user
       requestBody:

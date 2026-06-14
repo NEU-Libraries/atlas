@@ -5,6 +5,12 @@ class ApplicationController < ActionController::API
   include CanCan::ControllerAdditions
   respond_to :json
 
+  # Cerberus-signed relay assertion (the slated replacement for cerberus_token):
+  # Cerberus signs a short-lived JWT with its private key; Atlas verifies with
+  # the matching public key. `iss`/`aud` bind the assertion to this exchange.
+  CERBERUS_ISSUER   = 'cerberus'
+  CERBERUS_AUDIENCE = 'atlas'
+
   before_action :require_auth
 
   # Strict mode: any controller action that forgets to call `authorize!`
@@ -133,6 +139,15 @@ class ApplicationController < ActionController::API
     #                     comes from the TOKEN, not the header; the JTIMatcher
     #                     revocation + expiry checks run inside the warden
     #                     :jwt strategy. Never resolves :system/:anonymous.
+    #   cerberus assert — a short-lived JWT signed by Cerberus's PRIVATE key
+    #                     (iss=cerberus, aud=atlas), verified against Cerberus's
+    #                     public keyset. The slated replacement for the
+    #                     cerberus_token relay: identity is PROVEN (sub), not an
+    #                     asserted header. Dual-run — accepted alongside
+    #                     cerberus_token until the token is retired. Routed by an
+    #                     unverified iss peek; verification is strict (ES256,
+    #                     kid-selected public key, iss/aud/exp). Acting-as is NOT
+    #                     yet supported on this path (still rides cerberus_token).
     #
     # Matrix:
     #
@@ -149,6 +164,9 @@ class ApplicationController < ActionController::API
     #   valid JWT (real person)              → that user (header ignored)
     #   JWT for :system / :anonymous         → 401 (bookend guard)
     #   expired / revoked / malformed JWT    → 401
+    #   cerberus assertion (real-person sub) → that user (sub, not header)
+    #   cerberus assertion bad sig/kid/aud/exp → 401
+    #   cerberus assertion for :system/:anon → 401 ; unknown sub → 400
     #   any other token                      → 401
     #
     # Pre-piece-6 had a single token. The pairing split closes the
@@ -165,6 +183,8 @@ class ApplicationController < ActionController::API
         resolve_cerberus_user
       elsif valid_system_token?
         resolve_system_user
+      elsif cerberus_assertion?
+        resolve_cerberus_assertion
       elsif resolve_jwt_user
         # @current_user is set inside resolve_jwt_user — identity is in the token
       else
@@ -238,6 +258,77 @@ class ApplicationController < ActionController::API
       return if user.nil? || user.system? || user.anonymous?
 
       @current_user = user
+    end
+
+    # Route-only peek: is the bearer a JWT *claiming* to be a Cerberus assertion?
+    # Reads `iss` WITHOUT verifying — you can't know which issuer/key applies
+    # until you look, and the actual trust decision is made strictly in
+    # {#resolve_cerberus_assertion}. A user-JWT (no `iss`) and a non-JWT bearer
+    # both fall through to their own branches.
+    def cerberus_assertion?
+      payload, = JWT.decode(@token, nil, false)
+      payload.is_a?(Hash) && payload['iss'] == CERBERUS_ISSUER
+    rescue JWT::DecodeError
+      false
+    end
+
+    # Strictly verify a Cerberus relay assertion and resolve its `sub` to a real
+    # person. Reached only once the iss peek matched, so a failure here is a hard
+    # reject (no fall-through): the caller declared itself a Cerberus assertion.
+    # Identity is the signed `sub`; the `User:`/`On-Behalf-Of` headers are not
+    # consulted (acting-as is not yet carried on this path).
+    def resolve_cerberus_assertion
+      payload = verify_cerberus_assertion
+      return render_error(:unauthorized, 'invalid cerberus assertion') if payload.nil?
+
+      nuid = payload['sub']
+      return render_error(:bad_request, 'cerberus assertion missing sub') if nuid.blank?
+
+      user = User.find_by(nuid: nuid)
+      return render_error(:bad_request, "unknown principal #{nuid}") if user.nil?
+      return render_error(:unauthorized, ':anonymous cannot authenticate') if user.anonymous?
+      return render_error(:unauthorized, 'cerberus assertion must not name the :system fixture') if user.system?
+
+      @current_user = user
+    end
+
+    # Verify signature + claims of a Cerberus assertion. Pins `ES256` against the
+    # public key named by the assertion's `kid` — never HS256 (which would open
+    # the public-key-as-HMAC-secret algorithm-confusion attack) and never `none`.
+    # `iss`/`aud`/`exp` are all enforced; a 30s leeway absorbs clock skew.
+    # Returns the verified claims, or nil for any failure.
+    def verify_cerberus_assertion
+      keys = cerberus_signing_keys
+      return nil if keys.empty?
+
+      header = JWT.decode(@token, nil, false).last
+      key = keys[header['kid']]
+      return nil if key.nil?
+
+      payload, = JWT.decode(@token, key, true,
+                            algorithms:        ['ES256'],
+                            verify_iss:        true, iss: CERBERUS_ISSUER,
+                            verify_aud:        true, aud: CERBERUS_AUDIENCE,
+                            verify_expiration: true, leeway: 30)
+      payload
+    rescue JWT::DecodeError, OpenSSL::PKey::PKeyError
+      nil
+    end
+
+    # Cerberus's public signing keyset as { kid => OpenSSL::PKey }, parsed from
+    # credentials.cerberus_signing_keys ({ kid => PEM }). Public keys only — safe
+    # at rest, nothing to rotate-as-a-secret. Empty (the default until Cerberus
+    # is provisioned) leaves the assertion path inert, so dual-run starts with
+    # only cerberus_token live.
+    def cerberus_signing_keys
+      raw = Rails.application.credentials.cerberus_signing_keys
+      return {} if raw.blank?
+
+      raw.to_h.each_with_object({}) do |(kid, pem), acc|
+        acc[kid.to_s] = OpenSSL::PKey.read(pem)
+      end
+    rescue OpenSSL::PKey::PKeyError
+      {}
     end
 
     def valid_cerberus_token?

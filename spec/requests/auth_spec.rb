@@ -154,6 +154,95 @@ RSpec.describe 'Auth matrix', type: :request, default_auth: false do
     end
   end
 
+  describe 'Cerberus signed-assertion path (relay replacement, dual-run)' do
+    let(:signing_key) { OpenSSL::PKey::EC.generate('prime256v1') }
+    let(:kid)         { 'cerberus-test' }
+
+    before do
+      allow(Rails.application.credentials)
+        .to receive(:cerberus_signing_keys)
+        .and_return({ kid => signing_key.public_to_pem })
+    end
+
+    # Mint a Cerberus assertion. Defaults are valid; override claims/key/alg/kid
+    # per case to exercise the failure modes.
+    def assertion(key: signing_key, header_kid: kid, alg: 'ES256', **claims)
+      payload = { iss: 'cerberus', aud: 'atlas', sub: privileged.nuid,
+                  iat: Time.now.to_i, exp: Time.now.to_i + 30 }.merge(claims)
+      JWT.encode(payload, key, alg, { kid: header_kid })
+    end
+
+    def bearer(token, extra = {})
+      { 'Authorization' => "Bearer #{token}" }.merge(extra)
+    end
+
+    it 'resolves the signed sub — the User header is irrelevant on this path' do
+      get '/user', headers: bearer(assertion).merge('User' => "NUID #{system_user.nuid}")
+      expect(response).to have_http_status(:ok)
+      expect(response.parsed_body['nuid']).to eq(privileged.nuid)
+    end
+
+    it 'rejects an unknown kid (401)' do
+      get '/communities', headers: bearer(assertion(header_kid: 'no-such-kid'))
+      expect(response).to have_http_status(:unauthorized)
+    end
+
+    it 'rejects a signature from a different key (401)' do
+      other = OpenSSL::PKey::EC.generate('prime256v1')
+      get '/communities', headers: bearer(assertion(key: other))
+      expect(response).to have_http_status(:unauthorized)
+    end
+
+    it 'rejects an HS256 alg-confusion forgery using the public key as the HMAC secret (401)' do
+      forged = JWT.encode({ iss: 'cerberus', aud: 'atlas', sub: privileged.nuid, exp: Time.now.to_i + 30 },
+                          signing_key.public_to_pem, 'HS256', { kid: kid })
+      get '/communities', headers: bearer(forged)
+      expect(response).to have_http_status(:unauthorized)
+    end
+
+    it 'rejects an expired assertion (401)' do
+      get '/communities', headers: bearer(assertion(iat: Time.now.to_i - 180, exp: Time.now.to_i - 120))
+      expect(response).to have_http_status(:unauthorized)
+    end
+
+    it 'rejects a wrong audience (401)' do
+      get '/communities', headers: bearer(assertion(aud: 'not-atlas'))
+      expect(response).to have_http_status(:unauthorized)
+    end
+
+    it 'rejects an assertion naming the :system fixture (401)' do
+      get '/communities', headers: bearer(assertion(sub: system_user.nuid))
+      expect(response).to have_http_status(:unauthorized)
+    end
+
+    it 'rejects an assertion for :anonymous (401)' do
+      get '/communities', headers: bearer(assertion(sub: anonymous.nuid))
+      expect(response).to have_http_status(:unauthorized)
+    end
+
+    it 'returns 400 for an unknown sub NUID' do
+      get '/communities', headers: bearer(assertion(sub: '999999999'))
+      expect(response).to have_http_status(:bad_request)
+    end
+
+    it 'does not honour acting-as on the assertion path yet: On-Behalf-Of is 403' do
+      get '/communities', headers: bearer(assertion, 'On-Behalf-Of' => 'NUID 900000001')
+      expect(response).to have_http_status(:forbidden)
+      expect(response.parsed_body['error']).to match(/On-Behalf-Of requires an admin operator/)
+    end
+
+    context 'when no keyset is configured (pre-Cerberus-cutover)' do
+      before do
+        allow(Rails.application.credentials).to receive(:cerberus_signing_keys).and_return(nil)
+      end
+
+      it 'leaves the assertion path inert — a cerberus-iss token is 401' do
+        get '/communities', headers: bearer(assertion)
+        expect(response).to have_http_status(:unauthorized)
+      end
+    end
+  end
+
   describe 'piece-6 token-pairing matrix' do
     it 'rejects cerberus_token paired with the :system NUID (401)' do
       get '/communities', headers: auth_headers(token: cerberus_token, nuid: system_user.nuid)

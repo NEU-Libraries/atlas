@@ -19,6 +19,12 @@ Metrics/ClassLength:
     # OCFL 1.1 write-path coordination naturally long; broken into private
     # helpers but the class itself stays a single coherent boundary.
     - 'app/lib/valkyrie/storage/ocfl.rb'
+    # The single auth gate every request passes through: rescue_from handlers
+    # plus four credential paths (cerberus_token, system_token, devise-jwt,
+    # Cerberus signed assertion). Cohesive by design — already decomposed into
+    # small private resolvers. Candidate for a TokenAuthentication concern if it
+    # grows further; tracked as a follow-up refactor.
+    - 'app/controllers/application_controller.rb'
 Metrics/ModuleLength:
   Exclude:
     # Flat schema-definition map — length tracks the OpenAPI surface, not

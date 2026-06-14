@@ -317,6 +317,18 @@ Devise.setup do |config|
   # config.sign_in_after_change_password = true
 
   config.jwt do |jwt|
-    jwt.secret = Rails.application.credentials.secret_key_base
+    # Dedicated JWT signing secret (F3): rotating this is a global token
+    # kill-switch that does NOT also invalidate sessions/cookies. Falls back to
+    # secret_key_base until `jwt_secret` is provisioned (`rails credentials:edit`),
+    # so the path keeps working before the credential is added — but the
+    # decoupling benefit only lands once jwt_secret is set.
+    jwt.secret = Rails.application.credentials.jwt_secret ||
+                 Rails.application.secret_key_base
+
+    # Personal access tokens minted via POST /nuid live in librarians' scripts
+    # and cron, so the 1h devise-jwt default is hostile. 1 week balances
+    # ergonomics against leak exposure; single-token model (one jti/user) means
+    # re-mint or rotate revokes outstanding tokens.
+    jwt.expiration_time = 1.week.to_i
   end
 end

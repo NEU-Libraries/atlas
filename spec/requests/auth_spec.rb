@@ -89,6 +89,71 @@ RSpec.describe 'Auth matrix', type: :request, default_auth: false do
     end
   end
 
+  describe 'JWT-direct path (standalone-API access)' do
+    include ActiveSupport::Testing::TimeHelpers
+
+    # A devise-jwt minted for a real person authenticates directly, no
+    # cerberus_token and no User header — identity lives in the token. Mint with
+    # the same encoder POST /nuid uses.
+    def mint(user)
+      Warden::JWTAuth::UserEncoder.new.call(user, :user, nil)[0]
+    end
+
+    def bearer(token, nuid: nil)
+      h = { 'Authorization' => "Bearer #{token}" }
+      h['User'] = "NUID #{nuid}" if nuid
+      h
+    end
+
+    it 'resolves the encoded real person from a valid JWT' do
+      get '/user', headers: bearer(mint(privileged))
+      expect(response).to have_http_status(:ok)
+      expect(response.parsed_body['nuid']).to eq(privileged.nuid)
+    end
+
+    it 'takes identity from the token and ignores the User header' do
+      # Token is privileged's; User header names the :system fixture. The header
+      # is ignored on the JWT path, so this resolves privileged (not :system,
+      # and not the 401 the cross-pairing rule would give the header).
+      get '/user', headers: bearer(mint(privileged), nuid: system_user.nuid)
+      expect(response).to have_http_status(:ok)
+      expect(response.parsed_body['nuid']).to eq(privileged.nuid)
+    end
+
+    it 'rejects an expired JWT (401)' do
+      expired = nil
+      travel_to(10.days.ago) { expired = mint(privileged) } # 1-week TTL → expired now
+      get '/communities', headers: bearer(expired)
+      expect(response).to have_http_status(:unauthorized)
+    end
+
+    it 'rejects a revoked JWT after the jti is rotated (401)' do
+      token = mint(privileged)
+      User.revoke_jwt(nil, privileged) # rotates jti → outstanding tokens die
+      get '/communities', headers: bearer(token)
+      expect(response).to have_http_status(:unauthorized)
+    end
+
+    it 'rejects a JWT encoding the :system bookend (401)' do
+      get '/communities', headers: bearer(mint(system_user))
+      expect(response).to have_http_status(:unauthorized)
+    end
+
+    it 'rejects a JWT encoding the :anonymous bookend (401)' do
+      get '/communities', headers: bearer(mint(anonymous))
+      expect(response).to have_http_status(:unauthorized)
+    end
+
+    it 'forbids On-Behalf-Of on the JWT path even for an admin (403)' do
+      admin = User.create!(email: 'admin-jwt@example.invalid', password: SecureRandom.hex(16),
+                           nuid: '000000005', name: 'User, Admin', role: :admin)
+      get '/communities',
+          headers: bearer(mint(admin)).merge('On-Behalf-Of' => 'NUID 900000001')
+      expect(response).to have_http_status(:forbidden)
+      expect(response.parsed_body['error']).to match(/On-Behalf-Of requires an admin operator/)
+    end
+  end
+
   describe 'piece-6 token-pairing matrix' do
     it 'rejects cerberus_token paired with the :system NUID (401)' do
       get '/communities', headers: auth_headers(token: cerberus_token, nuid: system_user.nuid)

@@ -118,14 +118,21 @@ class ApplicationController < ActionController::API
       @on_behalf_of = obo_header.gsub(nuid_pattern, '') if obo_header&.match(nuid_pattern)
     end
 
-    # Resolve @current_user from the (Bearer token, User: NUID) pair.
+    # Resolve @current_user from the bearer token (+ User: NUID pair for the
+    # shared-secret credentials).
     #
-    # Two bearer tokens are recognized, with strict pairing rules:
+    # Three bearer credentials are recognized:
     #
-    #   cerberus_token  — Cerberus's user-facing wire token. Pairs with
-    #                     any real-person principal (NOT :system).
+    #   cerberus_token  — Cerberus's user-facing wire token. Pairs with the
+    #                     `User: NUID` header for any real-person principal
+    #                     (NOT :system). Identity comes from the header.
     #   system_token    — atlas_rb's System namespace token. Pairs only
     #                     with the :system fixture.
+    #   devise-jwt      — a JWT minted for a real person by POST /nuid (the
+    #                     Cerberus-delegated, standalone-API path). Identity
+    #                     comes from the TOKEN, not the header; the JTIMatcher
+    #                     revocation + expiry checks run inside the warden
+    #                     :jwt strategy. Never resolves :system/:anonymous.
     #
     # Matrix:
     #
@@ -139,12 +146,16 @@ class ApplicationController < ActionController::API
     #   system_token + unknown NUID          → 400
     #   system_token + non-:system NUID      → 401 (pairing rule)
     #   system_token + :system NUID          → :system
+    #   valid JWT (real person)              → that user (header ignored)
+    #   JWT for :system / :anonymous         → 401 (bookend guard)
+    #   expired / revoked / malformed JWT    → 401
     #   any other token                      → 401
     #
     # Pre-piece-6 had a single token. The pairing split closes the
     # leaked-token-cross-pairing footgun: a stolen user token can't
     # impersonate :system, and a stolen system token can't impersonate
-    # any real person.
+    # any real person. The JWT path was added after (standalone-API access);
+    # it is gated to real persons and carries no acting-as authority.
     def require_auth
       parse_headers
 
@@ -154,6 +165,8 @@ class ApplicationController < ActionController::API
         resolve_cerberus_user
       elsif valid_system_token?
         resolve_system_user
+      elsif resolve_jwt_user
+        # @current_user is set inside resolve_jwt_user — identity is in the token
       else
         return render_error(:unauthorized, 'invalid bearer token')
       end
@@ -169,9 +182,17 @@ class ApplicationController < ActionController::API
     # guest and the :system principal) presenting it is rejected. This is the
     # wire boundary; the proxy_uploader-null-under-impersonation rule and the
     # two-principal AuditEvent both hang off @on_behalf_of downstream.
+    #
+    # Acting-as is a Cerberus-RELAY concept: it only makes sense when an
+    # operator authorizes with the cerberus_token and names a separate
+    # attribution target. A JWT-direct principal IS the actor (the token carries
+    # the identity) and has no operator/target split, so On-Behalf-Of is
+    # rejected on the JWT path even for an admin — likewise on the system and
+    # guest paths. Only cerberus_token + admin may act-as, so the gate
+    # re-derives the path from the token rather than tracking auth state.
     def enforce_on_behalf_of_gate
       return if @on_behalf_of.blank?
-      return if @current_user&.admin?
+      return if valid_cerberus_token? && @current_user&.admin?
 
       render_error(:forbidden, 'On-Behalf-Of requires an admin operator')
     end
@@ -197,6 +218,24 @@ class ApplicationController < ActionController::API
         return render_error(:unauthorized,
                             'system token must only be paired with the :system fixture')
       end
+
+      @current_user = user
+    end
+
+    # Resolve a real person from a devise-jwt bearer token via the warden :jwt
+    # strategy. Routing through warden (rather than hand-decoding) is deliberate:
+    # the strategy runs TokenDecoder (signature + exp) AND the JTIMatcher
+    # revocation check, raising JWT::DecodeError subclasses that the strategy
+    # converts to a clean `fail!` — so this returns nil (not an exception) for
+    # expired, revoked, malformed, nil-user, or wrong-scope tokens. The
+    # `User: NUID` header is ignored; identity lives in the token's `sub`.
+    #
+    # The :system/:anonymous bookends are non-human and must never be reachable
+    # via a personal token, so they are rejected even if a token somehow encodes
+    # them (mint is gated to real persons, but this is the wire backstop).
+    def resolve_jwt_user
+      user = request.env['warden']&.authenticate(:jwt, scope: :user)
+      return if user.nil? || user.system? || user.anonymous?
 
       @current_user = user
     end

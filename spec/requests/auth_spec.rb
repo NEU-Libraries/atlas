@@ -16,12 +16,9 @@ require 'rails_helper'
 # default_auth: false — this spec drives the auth matrix by hand, so the
 # global admin-default in spec/support/auth_request_helper.rb does not apply.
 RSpec.describe 'Auth matrix', type: :request, default_auth: false do
-  let(:cerberus_token) { 'test-cerberus-token' }
-  let(:system_token)   { 'test-system-token' }
+  let(:system_token) { 'test-system-token' }
 
   before do
-    allow(Rails.application.credentials)
-      .to receive(:cerberus_token).and_return(cerberus_token)
     allow(Rails.application.credentials)
       .to receive(:system_token).and_return(system_token)
   end
@@ -46,7 +43,9 @@ RSpec.describe 'Auth matrix', type: :request, default_auth: false do
   let(:community)  { CommunityCreator.call }
   let(:collection) { CollectionCreator.call(parent_id: community.noid) }
 
-  def auth_headers(token: cerberus_token, nuid: nil)
+  # Literal header builder for the matrix tests (system_token / bogus / nil).
+  # cerberus_token is gone, so there is no default token — callers pass one.
+  def auth_headers(token: nil, nuid: nil)
     h = {}
     h['Authorization'] = "Bearer #{token}" unless token.nil?
     h['User']          = "NUID #{nuid}"    if nuid
@@ -54,32 +53,8 @@ RSpec.describe 'Auth matrix', type: :request, default_auth: false do
   end
 
   describe 'require_auth resolution' do
-    it 'resolves a known principal when token + User header are valid' do
-      get '/communities', headers: auth_headers(nuid: privileged.nuid)
-      expect(response).to have_http_status(:ok)
-    end
-
-    it 'returns 400 when the User header is missing under a valid token' do
-      get '/communities', headers: auth_headers
-      expect(response).to have_http_status(:bad_request)
-      expect(response.parsed_body['error']).to match(/User: NUID header required/)
-    end
-
-    it 'returns 400 when the User header names an unknown NUID' do
-      get '/communities', headers: auth_headers(nuid: '999999999')
-      expect(response).to have_http_status(:bad_request)
-      expect(response.parsed_body['error']).to match(/unknown principal/)
-    end
-
-    it 'returns 401 when the User header points at the :anonymous fixture' do
-      get '/communities', headers: auth_headers(nuid: anonymous.nuid)
-      expect(response).to have_http_status(:unauthorized)
-      expect(response.parsed_body['error']).to match(/anonymous cannot authenticate/)
-    end
-
-    it 'returns 401 for a mismatched (non-JWT) bearer token' do
-      get '/communities', headers: auth_headers(token: 'definitely-not-the-token',
-                                                nuid:  privileged.nuid)
+    it 'returns 401 for an unrecognized bearer token' do
+      get '/communities', headers: auth_headers(token: 'definitely-not-the-token')
       expect(response).to have_http_status(:unauthorized)
     end
 
@@ -273,13 +248,7 @@ RSpec.describe 'Auth matrix', type: :request, default_auth: false do
     end
   end
 
-  describe 'piece-6 token-pairing matrix' do
-    it 'rejects cerberus_token paired with the :system NUID (401)' do
-      get '/communities', headers: auth_headers(token: cerberus_token, nuid: system_user.nuid)
-      expect(response).to have_http_status(:unauthorized)
-      expect(response.parsed_body['error']).to match(/user token must not be paired with the :system fixture/)
-    end
-
+  describe 'system_token pairing matrix' do
     it 'rejects system_token paired with a real-person NUID (401)' do
       get '/communities', headers: auth_headers(token: system_token, nuid: privileged.nuid)
       expect(response).to have_http_status(:unauthorized)
@@ -306,48 +275,22 @@ RSpec.describe 'Auth matrix', type: :request, default_auth: false do
     end
   end
 
-  describe 'On-Behalf-Of admin gate (acting-as, piece 5)' do
-    # Q16: the operator (User header) authorizes; the target (On-Behalf-Of)
-    # is only an attribution stamp. So On-Behalf-Of is restricted to admin
-    # operators — everyone else presenting it is rejected before the action
-    # runs.
-    let!(:admin) do
-      User.create!(email: 'admin-obo@example.invalid', password: SecureRandom.hex(16),
-                   nuid: '000000004', name: 'User, Admin', role: :admin)
-    end
-    let(:target_nuid) { '900000001' }
+  describe 'On-Behalf-Of header is rejected off the assertion path' do
+    # Acting-as now rides a signed `obo` claim (covered in the assertion block).
+    # A bare On-Behalf-Of *header* has no legitimate path left, so it is rejected
+    # everywhere except an admin operator on the verified-assertion path.
+    let(:obo) { { 'On-Behalf-Of' => 'NUID 900000001' } }
 
-    def obo_headers(nuid:, token: cerberus_token, on_behalf_of: target_nuid)
-      h = auth_headers(token: token, nuid: nuid).merge('Content-Type' => 'application/json')
-      h['On-Behalf-Of'] = "NUID #{on_behalf_of}" if on_behalf_of
-      h
-    end
-
-    it 'rejects a non-admin operator presenting On-Behalf-Of (403)' do
-      get '/communities', headers: obo_headers(nuid: privileged.nuid)
+    it 'rejects a guest (no token) presenting On-Behalf-Of (403)' do
+      get '/communities', headers: obo
       expect(response).to have_http_status(:forbidden)
       expect(response.parsed_body['error']).to match(/On-Behalf-Of requires an admin operator/)
     end
 
-    it 'rejects a guest (no token) presenting On-Behalf-Of (403)' do
-      get '/communities', headers: { 'On-Behalf-Of' => "NUID #{target_nuid}" }
-      expect(response).to have_http_status(:forbidden)
-    end
-
     it 'rejects the :system principal presenting On-Behalf-Of (403)' do
-      get '/communities', headers: obo_headers(token: system_token, nuid: system_user.nuid)
+      get '/communities',
+          headers: auth_headers(token: system_token, nuid: system_user.nuid).merge(obo)
       expect(response).to have_http_status(:forbidden)
-    end
-
-    it 'permits an admin operator and attributes the deposit to the target (proxy_uploader null)' do
-      post '/works',
-           params:  { collection_id: collection.noid, depositor: target_nuid }.to_json,
-           headers: obo_headers(nuid: admin.nuid)
-      expect(response.status).to be_in([200, 201])
-
-      work = response.parsed_body['work']
-      expect(work['depositor']).to      eq(target_nuid)
-      expect(work['proxy_uploader']).to be_nil
     end
   end
 
@@ -377,7 +320,7 @@ RSpec.describe 'Auth matrix', type: :request, default_auth: false do
     it 'permits non-system principals on POST /works' do
       post '/works',
            params:  { collection_id: collection.noid }.to_json,
-           headers: auth_headers(nuid: privileged.nuid).merge('Content-Type' => 'application/json')
+           headers: signed_auth_headers(privileged.nuid).merge('Content-Type' => 'application/json')
       expect(response.status).to be_in([200, 201])
     end
 
@@ -431,7 +374,7 @@ RSpec.describe 'Auth matrix', type: :request, default_auth: false do
     let(:work)        { WorkCreator.call(parent_id: collection.noid) }
 
     def json_headers(nuid)
-      auth_headers(nuid: nuid).merge('Content-Type' => 'application/json')
+      signed_auth_headers(nuid).merge('Content-Type' => 'application/json')
     end
 
     describe 'PATCH /works/:id/parent' do

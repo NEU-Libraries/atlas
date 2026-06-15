@@ -127,9 +127,7 @@ RSpec.describe 'User directory', type: :request do
     end
 
     it 'allows a standard (non-admin) caller' do
-      get '/users', params:  { q: 'janet' },
-                    headers: { 'Authorization' => 'Bearer test-cerberus-token',
-                               'User'          => "NUID #{jane.nuid}" }
+      get '/users', params: { q: 'janet' }, headers: signed_auth_headers(jane.nuid)
       expect(response).to have_http_status(:ok)
       expect(response.parsed_body).to eq([{ 'nuid' => janet.nuid, 'name' => 'Smith, Janet' }])
     end

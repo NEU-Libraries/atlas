@@ -124,16 +124,13 @@ class ApplicationController < ActionController::API
       @on_behalf_of = obo_header.gsub(nuid_pattern, '') if obo_header&.match(nuid_pattern)
     end
 
-    # Resolve @current_user from the bearer token (+ User: NUID pair for the
-    # shared-secret credentials).
+    # Resolve @current_user from the bearer token.
     #
-    # Three bearer credentials are recognized:
+    # Three bearer credentials are recognized (the legacy shared-secret
+    # `cerberus_token` relay was retired in step C — Cerberus now signs):
     #
-    #   cerberus_token  — Cerberus's user-facing wire token. Pairs with the
-    #                     `User: NUID` header for any real-person principal
-    #                     (NOT :system). Identity comes from the header.
-    #   system_token    — atlas_rb's System namespace token. Pairs only
-    #                     with the :system fixture.
+    #   system_token    — atlas_rb's System namespace token. Pairs with the
+    #                     `User: NUID` header, only for the :system fixture.
     #   devise-jwt      — a JWT minted for a real person by POST /nuid (the
     #                     Cerberus-delegated, standalone-API path). Identity
     #                     comes from the TOKEN, not the header; the JTIMatcher
@@ -141,22 +138,14 @@ class ApplicationController < ActionController::API
     #                     :jwt strategy. Never resolves :system/:anonymous.
     #   cerberus assert — a short-lived JWT signed by Cerberus's PRIVATE key
     #                     (iss=cerberus, aud=atlas), verified against Cerberus's
-    #                     public keyset. The slated replacement for the
-    #                     cerberus_token relay: identity is PROVEN (sub), not an
-    #                     asserted header. Dual-run — accepted alongside
-    #                     cerberus_token until the token is retired. Routed by an
-    #                     unverified iss peek; verification is strict (ES256,
-    #                     kid-selected public key, iss/aud/exp). Acting-as is NOT
-    #                     yet supported on this path (still rides cerberus_token).
+    #                     public keyset. The relay: identity is PROVEN (`sub`),
+    #                     not an asserted header; acting-as rides a signed `obo`
+    #                     claim. Routed by an unverified iss peek; verification
+    #                     is strict (ES256, kid-selected public key, iss/aud/exp).
     #
     # Matrix:
     #
     #   blank token                          → guest (read-only)
-    #   cerberus_token + User missing        → 400
-    #   cerberus_token + unknown NUID        → 400
-    #   cerberus_token + :anonymous          → 401 (Q2 hard guard)
-    #   cerberus_token + :system NUID        → 401 (pairing rule)
-    #   cerberus_token + real-person NUID    → that user
     #   system_token + User missing          → 400
     #   system_token + unknown NUID          → 400
     #   system_token + non-:system NUID      → 401 (pairing rule)
@@ -169,23 +158,18 @@ class ApplicationController < ActionController::API
     #   cerberus assertion for :system/:anon → 401 ; unknown sub → 400
     #   assertion + signed `obo`, admin sub  → operator, acting as obo target
     #   assertion + signed `obo`, non-admin  → 403
-    #   assertion + On-Behalf-Of *header*    → header ignored (only signed obo counts)
+    #   On-Behalf-Of *header* (any path)     → ignored (assertion) / 403 (else)
     #   any other token                      → 401
     #
-    # Pre-piece-6 had a single token. The pairing split closes the
-    # leaked-token-cross-pairing footgun: a stolen user token can't
-    # impersonate :system, and a stolen system token can't impersonate
-    # any real person. The JWT path (standalone-API access) is gated to real
-    # persons and carries no acting-as. Acting-as is carried on the cerberus_token
-    # relay (On-Behalf-Of header) and the assertion path (signed `obo` claim),
-    # admin-only on both.
+    # The system/JWT split closes the leaked-token footgun: a stolen system
+    # token can't impersonate a real person, and a personal JWT can't reach
+    # :system/:anonymous. Acting-as exists only on the assertion path, via a
+    # signed `obo` claim (admin-only) — never a forgeable header.
     def require_auth
       parse_headers
 
       if @token.blank?
         guest_sign_in
-      elsif valid_cerberus_token?
-        resolve_cerberus_user
       elsif valid_system_token?
         resolve_system_user
       elsif cerberus_assertion?
@@ -202,41 +186,23 @@ class ApplicationController < ActionController::API
     end
 
     # Acting-as authorization (piece 5 / Q16): the operator authorizes the
-    # request, the target is only an attribution stamp and needs no rights —
-    # so `On-Behalf-Of` is restricted to admin operators. A non-admin (incl.
-    # guest and the :system principal) presenting it is rejected. This is the
-    # wire boundary; the proxy_uploader-null-under-impersonation rule and the
-    # two-principal AuditEvent both hang off @on_behalf_of downstream.
+    # request, the target is only an attribution stamp and needs no rights — so
+    # acting-as is restricted to admin operators, and only on the assertion path.
+    # The proxy_uploader-null-under-impersonation rule and the two-principal
+    # AuditEvent both hang off @on_behalf_of downstream.
     #
-    # Acting-as is a Cerberus-RELAY concept: an operator authorizes the request
-    # and names a separate attribution target. Two relay shapes carry it, both
-    # admin-only:
-    #   * cerberus_token + an `On-Behalf-Of` header (legacy);
-    #   * a signed assertion carrying an `obo` claim (the replacement) — the
-    #     target rides INSIDE the signature, so it can't be forged onto a stolen
-    #     assertion (resolve_cerberus_assertion sources @on_behalf_of from the
-    #     verified claim only, never the header).
-    # The JWT-direct, system, and guest paths have no operator/target split, so
-    # On-Behalf-Of is rejected there even for an admin. @auth_source distinguishes
-    # the acting-as-capable paths; @on_behalf_of is only ever set from a trusted
-    # source for them (header on :cerberus, signed claim on :assertion).
+    # Acting-as rides a SIGNED `obo` claim: the target is inside the signature,
+    # so it can't be forged onto a stolen assertion (resolve_cerberus_assertion
+    # sources @on_behalf_of from the verified claim only, never a header). The
+    # JWT-direct, system, and guest paths have no operator/target split, so a
+    # stray `On-Behalf-Of` header is rejected there even for an admin —
+    # @auth_source is :assertion only for the signed-claim path. (The legacy
+    # cerberus_token + On-Behalf-Of header relay was retired in step C.)
     def enforce_on_behalf_of_gate
       return if @on_behalf_of.blank?
-      return if @current_user&.admin? && %i[cerberus assertion].include?(@auth_source)
+      return if @current_user&.admin? && @auth_source == :assertion
 
       render_error(:forbidden, 'On-Behalf-Of requires an admin operator')
-    end
-
-    def resolve_cerberus_user
-      return render_error(:bad_request, 'User: NUID header required') if @nuid.blank?
-
-      user = User.find_by(nuid: @nuid)
-      return render_error(:bad_request, "unknown principal #{@nuid}") if user.nil?
-      return render_error(:unauthorized, ':anonymous cannot authenticate') if user.anonymous?
-      return render_error(:unauthorized, 'user token must not be paired with the :system fixture') if user.system?
-
-      @auth_source  = :cerberus
-      @current_user = user
     end
 
     def resolve_system_user
@@ -348,11 +314,6 @@ class ApplicationController < ActionController::API
       end
     rescue OpenSSL::PKey::PKeyError
       {}
-    end
-
-    def valid_cerberus_token?
-      configured = Rails.application.credentials.cerberus_token
-      configured.present? && @token == configured
     end
 
     def valid_system_token?

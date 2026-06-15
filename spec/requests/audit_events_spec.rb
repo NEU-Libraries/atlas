@@ -3,13 +3,6 @@
 require 'rails_helper'
 
 RSpec.describe 'Audit history endpoint', type: :request do
-  let(:cerberus_token) { 'test-cerberus-token' }
-
-  before do
-    allow(Rails.application.credentials)
-      .to receive(:cerberus_token).and_return(cerberus_token)
-  end
-
   let!(:admin) do
     User.find_by(nuid: '000000004') ||
       User.create!(email: 'admin@example.invalid', password: SecureRandom.hex(16),
@@ -46,14 +39,8 @@ RSpec.describe 'Audit history endpoint', type: :request do
     )
   end
 
-  let(:admin_headers) do
-    { 'Authorization' => "Bearer #{cerberus_token}",
-      'User'          => "NUID #{admin.nuid}" }
-  end
-  let(:guest_headers) do
-    { 'Authorization' => "Bearer #{cerberus_token}",
-      'User'          => "NUID #{guest.nuid}" }
-  end
+  let(:admin_headers) { signed_auth_headers(admin.nuid) }
+  let(:guest_headers) { signed_auth_headers(guest.nuid) }
 
   describe 'GET /resources/:id/history' do
     it 'returns 200 with reverse-chronological events for an admin' do

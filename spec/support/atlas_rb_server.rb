@@ -17,16 +17,19 @@
 # transactional fixtures don't apply here, since the test thread and the
 # server thread hold different AR connections.
 #
-# Auth context: every example in spec/integration/ now threads
-# `nuid: admin_nuid` explicitly via atlas_rb 0.0.101's uniform kwarg
-# coverage. The harness seeds the admin fixture and stubs the cerberus
-# token so those `nuid:` values land on a wire that Atlas's tightened
-# require_auth + Ability layer will accept.
+# Auth context: since step C retired cerberus_token, the harness drives the
+# gem's **relay-signing** path — it configures a test signing key on
+# AtlasRb.config and stubs the matching public key into Atlas's
+# credentials.cerberus_signing_keys. So a spec's `nuid:` is signed into an
+# assertion (sub = that nuid) the live server verifies. `on_behalf_of:` rides as
+# a signed `obo` claim. (BYO-JWT specs that set ENV['ATLAS_JWT'] still win over
+# signing, per the gem's precedence.) Config is reset after each example.
 
 require 'capybara'
 require 'atlas_rb'
+require 'openssl'
+require 'jwt'
 
-ATLAS_RB_SERVER_TOKEN = 'test-cerberus-token'
 ATLAS_RB_SERVER_ADMIN_NUID = '000000004'
 
 module AtlasRbServer
@@ -35,8 +38,7 @@ module AtlasRbServer
       @boot ||= begin
         Capybara.server = :puma, { Silent: true }
         Capybara::Server.new(Rails.application).boot.tap do |server|
-          ENV['ATLAS_URL']   = "http://#{server.host}:#{server.port}"
-          ENV['ATLAS_TOKEN'] = ATLAS_RB_SERVER_TOKEN
+          ENV['ATLAS_URL'] = "http://#{server.host}:#{server.port}"
         end
       end
     end
@@ -47,8 +49,15 @@ RSpec.configure do |config|
   config.before(:each, :atlas_rb_server) do
     AtlasRbServer.boot
 
+    # Share ONE test signing identity with DefaultAuthHeaders. Integration specs
+    # are type: :request too, so both this hook and DefaultAuthHeaders' run and
+    # both stub cerberus_signing_keys — using the same key/kid keeps them from
+    # clobbering each other (whichever wins, it matches what the gem signs with).
+    AtlasRb.config.assertion_signing_key = DefaultAuthHeaders::SIGNING_KEY
+    AtlasRb.config.assertion_signing_kid = DefaultAuthHeaders::KID
     allow(Rails.application.credentials)
-      .to receive(:cerberus_token).and_return(ATLAS_RB_SERVER_TOKEN)
+      .to receive(:cerberus_signing_keys)
+      .and_return({ DefaultAuthHeaders::KID => DefaultAuthHeaders::SIGNING_KEY.public_to_pem })
 
     User.find_by(nuid: ATLAS_RB_SERVER_ADMIN_NUID) ||
       User.create!(email: 'admin-atlas-rb@example.invalid', password: SecureRandom.hex(16),
@@ -56,6 +65,8 @@ RSpec.configure do |config|
   end
 
   config.after(:each, :atlas_rb_server) do
+    AtlasRb.config.assertion_signing_key = nil
+    AtlasRb.config.assertion_signing_kid = nil
     Atlas.persister.wipe!
   end
 end

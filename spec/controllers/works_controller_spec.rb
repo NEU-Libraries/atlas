@@ -298,7 +298,9 @@ describe WorksController, type: :controller do
     it 'forbids an edit-rights principal even with edit rights on BOTH work and target' do
       grant!(work)
       grant!(target)
-      request.headers['User'] = "NUID #{linker.nuid}"
+      # Act as the edit-rights (non-admin) principal: override the default admin
+      # assertion with one whose sub is the linker (the User header is ignored now).
+      request.headers['Authorization'] = "Bearer #{DefaultAuthHeaders.assertion_for(linker.nuid)}"
 
       post :add_linked_member, params: { id: work.noid, collection_id: target.noid }, as: :json
 

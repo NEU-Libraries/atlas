@@ -76,7 +76,9 @@ RSpec.describe 'Controller audit emission' do
     end
 
     it 'records the On-Behalf-Of operator as on_behalf_of_nuid under acting-as' do
-      request.headers['On-Behalf-Of'] = 'NUID 000000123'
+      # Acting-as rides a signed obo claim now (the On-Behalf-Of header is ignored
+      # on the assertion path): admin operator (actor) acting as 000000123.
+      request.headers['Authorization'] = "Bearer #{DefaultAuthHeaders.assertion_for(actor, obo: '000000123')}"
       patch :update,
             params: { id:     work.noid,
                       binary: Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/work-mods.xml')) },

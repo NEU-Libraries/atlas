@@ -24,12 +24,19 @@ RSpec.describe 'Compilations', type: :request, default_auth: false do
                  nuid: '000000004', role: :admin)
   end
 
-  let(:cerberus_token) { 'test-cerberus-token' }
-  let(:auth_header)    { "Bearer #{cerberus_token}" }
-
+  # cerberus_token was retired (step C). Authenticate via a Cerberus-signed
+  # assertion whose `sub` is the block's principal. The `User:` header still goes
+  # out (it's a declared param) but the server ignores it now — auth_header reads
+  # it (via send, to dodge the `User` model constant) only to choose the sub.
   before do
     allow(Rails.application.credentials)
-      .to receive(:cerberus_token).and_return(cerberus_token)
+      .to receive(:cerberus_signing_keys)
+      .and_return({ DefaultAuthHeaders::KID => DefaultAuthHeaders::SIGNING_KEY.public_to_pem })
+  end
+
+  let(:auth_header) do
+    nuid = send(:User).to_s[/\ANUID (\S+)/, 1]
+    "Bearer #{DefaultAuthHeaders.assertion_for(nuid)}" if nuid
   end
 
   def create_compilation(owner_user, title: 'My Set', **attrs)

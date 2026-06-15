@@ -1,24 +1,42 @@
 # frozen_string_literal: true
 
-# Default authentication for request specs that don't explicitly drive the
-# auth matrix themselves. Pre-piece-7 the bulk of request specs relied on
-# require_auth's guest fall-through (no Authorization header → guest user)
-# because all writes were ungated. With piece 7's Ability layer, guest can
-# no longer create/update/destroy resources, so those specs need a real
-# authenticated principal.
+# Default authentication for request/controller specs that don't drive the auth
+# matrix themselves. With piece 7's Ability layer, guest can't write, so these
+# specs need a real authenticated principal.
 #
-# Default: every request-type spec gets a stubbed cerberus token and the
-# admin fixture (NUID 000000004) injected as the acting principal. Specs
-# that test require_auth or other auth-matrix concerns can opt out at the
-# `describe` level with `default_auth: false`.
+# Since step C retired `cerberus_token`, the default is now a Cerberus-SIGNED
+# assertion (the relay's replacement): a short-lived ES256 JWT
+# (iss=cerberus, aud=atlas, sub=admin) verified against a stubbed public keyset —
+# the same path Cerberus uses in production. No `User:` header; identity is the
+# signed `sub`. Specs that test the auth matrix opt out with `default_auth: false`.
 #
-# Per-request headers (`get '/foo', headers: { 'X' => 'y' }`) still win over
-# these defaults — Hash#merge favors the caller-supplied value.
+# NOTE: principal is the assertion's `sub`, NOT a `User:` header. A spec that
+# needs to act as a different NUID must supply its own assertion (or set
+# `default_auth: false`) — overriding the `User:` header no longer switches the
+# acting principal.
+#
+# Per-request headers still win over these defaults (Hash#merge favours caller).
 
 module DefaultAuthHeaders
-  # Class-level toggle so before-each can flip it on per example. Process-wide
-  # because the integration session is reused; per-example reset clears state.
   mattr_accessor :default_headers, default: nil
+
+  # One test signing keypair for the whole run; its public half is stubbed into
+  # credentials.cerberus_signing_keys per example (see ensure_default_admin!).
+  SIGNING_KEY = OpenSSL::PKey::EC.generate('prime256v1')
+  KID         = 'test-default'
+  ADMIN_NUID  = '000000004'
+
+  # A fresh signed assertion for any NUID (1h TTL — longer than any example).
+  # Pass obo: to carry a signed acting-as claim (operator = nuid, target = obo).
+  def self.assertion_for(nuid, obo: nil)
+    now    = Time.now.to_i
+    claims = { 'iss' => 'cerberus', 'aud' => 'atlas', 'sub' => nuid.to_s,
+               'iat' => now, 'exp' => now + 3600 }
+    claims['obo'] = obo.to_s if obo
+    JWT.encode(claims, SIGNING_KEY, 'ES256', { kid: KID })
+  end
+
+  def self.admin_assertion = assertion_for(ADMIN_NUID)
 
   def process(method, path, **kwargs)
     if DefaultAuthHeaders.default_headers
@@ -32,11 +50,25 @@ ActionDispatch::Integration::Session.prepend(DefaultAuthHeaders)
 
 def ensure_default_admin!
   allow(Rails.application.credentials)
-    .to receive(:cerberus_token).and_return('test-cerberus-token')
+    .to receive(:cerberus_signing_keys)
+    .and_return({ DefaultAuthHeaders::KID => DefaultAuthHeaders::SIGNING_KEY.public_to_pem })
 
-  User.find_by(nuid: '000000004') ||
+  User.find_by(nuid: DefaultAuthHeaders::ADMIN_NUID) ||
     User.create!(email: 'admin@example.invalid', password: SecureRandom.hex(16),
-                 nuid: '000000004', name: 'User, Admin', role: :admin)
+                 nuid: DefaultAuthHeaders::ADMIN_NUID, name: 'User, Admin', role: :admin)
+end
+
+# Auth headers for a SPECIFIC principal, for specs that opt out of the default
+# (default_auth: false) and switch principals. Stubs the keyset so the assertion
+# verifies, then returns a signed-assertion bearer (sub = nuid). Pass nil for the
+# guest path (no Authorization header → require_auth's guest fall-through).
+def signed_auth_headers(nuid)
+  allow(Rails.application.credentials)
+    .to receive(:cerberus_signing_keys)
+    .and_return({ DefaultAuthHeaders::KID => DefaultAuthHeaders::SIGNING_KEY.public_to_pem })
+  return {} if nuid.nil?
+
+  { 'Authorization' => "Bearer #{DefaultAuthHeaders.assertion_for(nuid)}" }
 end
 
 RSpec.configure do |config|
@@ -45,11 +77,7 @@ RSpec.configure do |config|
     next if example.metadata[:default_auth] == false
 
     ensure_default_admin!
-
-    DefaultAuthHeaders.default_headers = {
-      'Authorization' => 'Bearer test-cerberus-token',
-      'User'          => 'NUID 000000004'
-    }
+    DefaultAuthHeaders.default_headers = { 'Authorization' => "Bearer #{DefaultAuthHeaders.admin_assertion}" }
   end
 
   config.after(:each, type: :request) do
@@ -57,16 +85,12 @@ RSpec.configure do |config|
   end
 
   # type: :controller goes through ActionController::TestCase, not the
-  # integration session — different request path, so the prepend above
-  # doesn't intercept. Inject admin auth via the controller's `request`
-  # object instead. Specs that override request.headers (e.g. to use a
-  # specific NUID) overwrite the default per-key.
+  # integration session — different request path, so the prepend above doesn't
+  # intercept. Inject the default assertion via the controller's `request` object.
   config.before(:each, type: :controller) do |example|
     next if example.metadata[:default_auth] == false
 
     ensure_default_admin!
-
-    request.headers['Authorization'] = 'Bearer test-cerberus-token'
-    request.headers['User']          = 'NUID 000000004'
+    request.headers['Authorization'] = "Bearer #{DefaultAuthHeaders.admin_assertion}"
   end
 end

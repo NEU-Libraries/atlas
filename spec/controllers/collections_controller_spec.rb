@@ -175,7 +175,9 @@ describe CollectionsController, type: :controller do
     it 'forbids an edit-rights principal even with edit rights on BOTH node and destination' do
       grant!(collection)
       grant!(destination)
-      request.headers['User'] = "NUID #{mover.nuid}"
+      # Act as the edit-rights (non-admin) principal: override the default admin
+      # assertion with one whose sub is the mover (the User header is ignored now).
+      request.headers['Authorization'] = "Bearer #{DefaultAuthHeaders.assertion_for(mover.nuid)}"
 
       patch :update_parent, params: { id: collection.noid, parent_id: destination.noid }, as: :json
 

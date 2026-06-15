@@ -30,9 +30,7 @@ RSpec.describe 'MODS version history endpoints', type: :request do
       User.create!(email: 'guest@example.invalid', password: SecureRandom.hex(16),
                    nuid: '000000001', name: 'User, Guest', role: :guest)
   end
-  let(:guest_headers) do
-    { 'Authorization' => 'Bearer test-cerberus-token', 'User' => "NUID #{guest.nuid}" }
-  end
+  let(:guest_headers) { signed_auth_headers(guest.nuid) }
 
   # The NOID minter (Noid::Rails::Minter::Db) reads a counter row that the
   # per-example transaction rolls back, so every example re-mints the same

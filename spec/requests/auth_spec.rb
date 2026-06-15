@@ -157,6 +157,11 @@ RSpec.describe 'Auth matrix', type: :request, default_auth: false do
   describe 'Cerberus signed-assertion path (relay replacement, dual-run)' do
     let(:signing_key) { OpenSSL::PKey::EC.generate('prime256v1') }
     let(:kid)         { 'cerberus-test' }
+    let!(:admin) do
+      User.create!(email: 'admin-assert@example.invalid', password: SecureRandom.hex(16),
+                   nuid: '000000005', name: 'User, Admin', role: :admin)
+    end
+    let(:obo_target) { '900000001' }
 
     before do
       allow(Rails.application.credentials)
@@ -225,10 +230,35 @@ RSpec.describe 'Auth matrix', type: :request, default_auth: false do
       expect(response).to have_http_status(:bad_request)
     end
 
-    it 'does not honour acting-as on the assertion path yet: On-Behalf-Of is 403' do
-      get '/communities', headers: bearer(assertion, 'On-Behalf-Of' => 'NUID 900000001')
-      expect(response).to have_http_status(:forbidden)
-      expect(response.parsed_body['error']).to match(/On-Behalf-Of requires an admin operator/)
+    describe 'acting-as via a signed `obo` claim' do
+      def create_work(headers)
+        post '/works',
+             params:  { collection_id: collection.noid }.to_json,
+             headers: headers.merge('Content-Type' => 'application/json')
+      end
+
+      it 'honours acting-as when an admin operator signs an `obo` claim' do
+        create_work(bearer(assertion(sub: admin.nuid, obo: obo_target)))
+        expect(response.status).to be_in([200, 201])
+        work = response.parsed_body['work']
+        expect(work['depositor']).to      eq(obo_target)
+        expect(work['proxy_uploader']).to be_nil
+      end
+
+      it 'rejects a signed `obo` from a non-admin operator (403)' do
+        create_work(bearer(assertion(sub: privileged.nuid, obo: obo_target)))
+        expect(response).to have_http_status(:forbidden)
+        expect(response.parsed_body['error']).to match(/On-Behalf-Of requires an admin operator/)
+      end
+
+      it 'ignores a forged On-Behalf-Of *header* — acting-as rides only the signed claim' do
+        # Admin operator, NO signed obo, but a header naming a target. The header
+        # is overwritten to nil on this path, so the request runs as the operator
+        # (depositor = admin), not acting-as the forged target.
+        create_work(bearer(assertion(sub: admin.nuid), 'On-Behalf-Of' => "NUID #{obo_target}"))
+        expect(response.status).to be_in([200, 201])
+        expect(response.parsed_body['work']['depositor']).to eq(admin.nuid)
+      end
     end
 
     context 'when no keyset is configured (pre-Cerberus-cutover)' do

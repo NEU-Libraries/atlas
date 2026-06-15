@@ -16,32 +16,30 @@ that's [Cerberus](#cerberus)'s job.
                         │ (Northeastern auth gateway)     │
                         └─────────────────────────────────┘
                                       │
-                                      │  Bearer <signed assertion>
-                                      │  (ES256 JWT, iss=cerberus)
+                                      │  uses (mints + signs the assertion)
                                       ▼
                         ┌─────────────────────────────────┐
-                        │             Atlas               │   ← this repo
-                        │ Rails API · Postgres · Solr ·   │
-                        │ Valkyrie · jbuilder             │
+                        │ atlas_rb (canonical Ruby client)│
                         └─────────────────────────────────┘
-                                      ▲
-                                      │  HTTP
                                       │
-                        ┌─────────────────────────────────┐
-                        │ atlas_rb (Ruby client)          │
-                        │ + any other OpenAPI consumer    │
+                                      │  HTTP · Bearer <signed assertion>
+                                      │  (ES256 JWT, iss=cerberus)
+                                      ▼
+   any other OpenAPI ──▶┌─────────────────────────────────┐
+   consumer (curl,      │             Atlas               │   ← this repo
+   codegen, agents)     │ Rails API · Postgres · Solr ·   │
+                        │ Valkyrie · jbuilder             │
                         └─────────────────────────────────┘
 ```
 
-- **Cerberus** terminates user sessions, asserts identity, and forwards
-  requests to Atlas as a short-lived **signed assertion** — an ES256 JWT
-  whose proven `sub` is the acting user (the relay that replaced the retired
-  `cerberus_token` shared secret). The pre-shared system token + `User: NUID`
-  header is now scoped to SSO first-login provisioning of the `:system`
-  principal.
+- **Cerberus** terminates user sessions and asserts identity. It never talks
+  to Atlas directly — it reaches it **through atlas_rb**, carrying a
+  short-lived **signed assertion**: an ES256 JWT whose proven `sub` is the
+  acting user. The pre-shared system token + `User: NUID` header is scoped to
+  SSO first-login provisioning of the `:system` principal.
 - **[atlas_rb](https://github.com/NEU-Libraries/atlas_rb)** is the canonical
-  Ruby client; it reads `ATLAS_URL` / `ATLAS_TOKEN` and wraps every
-  endpoint as a class method.
+  Ruby client and the only path Cerberus uses to reach Atlas; it reads
+  `ATLAS_URL` / `ATLAS_TOKEN` and wraps every endpoint as a class method.
 - Any other consumer (codegen, agents, curl) can drive Atlas straight from
   the OpenAPI document — see [API documentation](#api-documentation).
 
@@ -78,7 +76,7 @@ enforced by [cancancan](https://github.com/CanCanCommunity/cancancan).
 | 1 | **Guest**                   | *(no `Authorization`)*                                           | The `:guest` user — read-only.                                                                                                                           |
 | 2 | **System token**            | `Authorization: Bearer <system_token>` + `User: NUID <system NUID>` | The `:system` fixture **only** (SSO first-login provisioning). Missing/unknown NUID → 400; pairing the system token with any non-`:system` NUID → 401.   |
 | 3 | **Devise-JWT user token**   | `Authorization: Bearer <jwt>`                                   | The real person named by the token's signed `sub`. The `User:` header is ignored on this path; `:system` / `:anonymous` are rejected (401).               |
-| 4 | **Cerberus signed assertion** | `Authorization: Bearer <ES256 JWT>` (`iss == "cerberus"`)     | The real person named by the **signed** `sub`, verified against Cerberus's public keyset by `kid` (`aud=atlas`, `exp` with 30s leeway, ES256 only). The relay that replaced the retired `cerberus_token`. |
+| 4 | **Cerberus signed assertion** | `Authorization: Bearer <ES256 JWT>` (`iss == "cerberus"`)     | The real person named by the **signed** `sub`, verified against Cerberus's public keyset by `kid` (`aud=atlas`, `exp` with 30s leeway, ES256 only). This is the Cerberus relay path. |
 
 A blank bearer is the guest path; anything that matches none of the above is
 **401**. Read endpoints generally fall through to guest when no valid auth is

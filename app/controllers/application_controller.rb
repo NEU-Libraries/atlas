@@ -5,25 +5,23 @@ class ApplicationController < ActionController::API
   include CanCan::ControllerAdditions
   respond_to :json
 
-  # Cerberus-signed relay assertion (the slated replacement for cerberus_token):
-  # Cerberus signs a short-lived JWT with its private key; Atlas verifies with
-  # the matching public key. `iss`/`aud` bind the assertion to this exchange.
+  # Cerberus-signed relay assertion: Cerberus signs a short-lived JWT with its
+  # private key; Atlas verifies with the matching public key. `iss`/`aud` bind
+  # the assertion to this exchange.
   CERBERUS_ISSUER   = 'cerberus'
   CERBERUS_AUDIENCE = 'atlas'
 
   before_action :require_auth
 
   # Strict mode: any controller action that forgets to call `authorize!`
-  # raises CanCan::AuthorizationNotPerformed. The piece-2 footgun ("add
-  # reject_system_principal to every new write action") becomes
-  # structurally impossible — adding a new endpoint without authorize!
-  # fails its first test.
+  # raises CanCan::AuthorizationNotPerformed. This makes the
+  # "remember to guard every new write action" footgun structurally
+  # impossible — adding a new endpoint without authorize! fails its first
+  # test.
   check_authorization unless: :public_endpoint?
 
-  # Structured 403 for ability denials. The piece-2 shape was
-  # `{ error: "system principal cannot author resources" }` (specific
-  # to one rule); the new shape carries the ability metadata so
-  # callers can branch on action/subject if needed.
+  # Structured 403 for ability denials. The shape carries the ability
+  # metadata (action/subject) so callers can branch on it if needed.
   rescue_from CanCan::AccessDenied do |exception|
     render json: {
       error:   exception.message,
@@ -117,17 +115,17 @@ class ApplicationController < ActionController::API
       nuid_header  = request.headers['User']
       @nuid = nuid_header.gsub(nuid_pattern, '') if nuid_header&.match(nuid_pattern)
 
-      # Acting-as (piece 5): the operator authorizes with the `User` header;
-      # `On-Behalf-Of` carries the attribution target, same `NUID <nuid>`
-      # shape. Admin-gated below — see enforce_on_behalf_of_gate.
+      # An `On-Behalf-Of: NUID <nuid>` header is parsed here only so the gate
+      # below can reject it: acting-as is NOT header-driven. On the assertion
+      # path @on_behalf_of is overwritten by the signed `obo` claim; on every
+      # other path a present header is a 403 (see enforce_on_behalf_of_gate).
       obo_header = request.headers['On-Behalf-Of']
       @on_behalf_of = obo_header.gsub(nuid_pattern, '') if obo_header&.match(nuid_pattern)
     end
 
     # Resolve @current_user from the bearer token.
     #
-    # Three bearer credentials are recognized (the legacy shared-secret
-    # `cerberus_token` relay was retired in step C — Cerberus now signs):
+    # Three bearer credentials are recognized:
     #
     #   system_token    — atlas_rb's System namespace token. Pairs with the
     #                     `User: NUID` header, only for the :system fixture.
@@ -185,9 +183,9 @@ class ApplicationController < ActionController::API
       enforce_on_behalf_of_gate unless performed?
     end
 
-    # Acting-as authorization (piece 5 / Q16): the operator authorizes the
-    # request, the target is only an attribution stamp and needs no rights — so
-    # acting-as is restricted to admin operators, and only on the assertion path.
+    # Acting-as authorization: the operator authorizes the request, the target
+    # is only an attribution stamp and needs no rights — so acting-as is
+    # restricted to admin operators, and only on the assertion path.
     # The proxy_uploader-null-under-impersonation rule and the two-principal
     # AuditEvent both hang off @on_behalf_of downstream.
     #
@@ -196,8 +194,7 @@ class ApplicationController < ActionController::API
     # sources @on_behalf_of from the verified claim only, never a header). The
     # JWT-direct, system, and guest paths have no operator/target split, so a
     # stray `On-Behalf-Of` header is rejected there even for an admin —
-    # @auth_source is :assertion only for the signed-claim path. (The legacy
-    # cerberus_token + On-Behalf-Of header relay was retired in step C.)
+    # @auth_source is :assertion only for the signed-claim path.
     def enforce_on_behalf_of_gate
       return if @on_behalf_of.blank?
       return if @current_user&.admin? && @auth_source == :assertion
@@ -303,8 +300,7 @@ class ApplicationController < ActionController::API
     # Cerberus's public signing keyset as { kid => OpenSSL::PKey }, parsed from
     # credentials.cerberus_signing_keys ({ kid => PEM }). Public keys only — safe
     # at rest, nothing to rotate-as-a-secret. Empty (the default until Cerberus
-    # is provisioned) leaves the assertion path inert, so dual-run starts with
-    # only cerberus_token live.
+    # is provisioned) leaves the assertion path inert.
     def cerberus_signing_keys
       raw = Rails.application.credentials.cerberus_signing_keys
       return {} if raw.blank?

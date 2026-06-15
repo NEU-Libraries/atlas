@@ -16,8 +16,8 @@ that's [Cerberus](#cerberus)'s job.
                         │ (Northeastern auth gateway)     │
                         └─────────────────────────────────┘
                                       │
-                                      │  Bearer <system token>
-                                      │  User: NUID <nuid>
+                                      │  Bearer <signed assertion>
+                                      │  (ES256 JWT, iss=cerberus)
                                       ▼
                         ┌─────────────────────────────────┐
                         │             Atlas               │   ← this repo
@@ -34,8 +34,11 @@ that's [Cerberus](#cerberus)'s job.
 ```
 
 - **Cerberus** terminates user sessions, asserts identity, and forwards
-  requests to Atlas with a pre-shared system bearer token plus a `User:
-  NUID <nuid>` header naming the acting user.
+  requests to Atlas as a short-lived **signed assertion** — an ES256 JWT
+  whose proven `sub` is the acting user (the relay that replaced the retired
+  `cerberus_token` shared secret). The pre-shared system token + `User: NUID`
+  header is now scoped to SSO first-login provisioning of the `:system`
+  principal.
 - **[atlas_rb](https://github.com/NEU-Libraries/atlas_rb)** is the canonical
   Ruby client; it reads `ATLAS_URL` / `ATLAS_TOKEN` and wraps every
   endpoint as a class method.
@@ -65,17 +68,46 @@ typed endpoint (302 redirect to `/works/:id`, `/collections/:id`, etc.).
 
 ## Authentication
 
-Two headers, both threaded through from Cerberus:
+`require_auth` (`app/controllers/application_controller.rb`) resolves
+`@current_user` from the bearer token before every action. Atlas accepts
+**four** inbound credential shapes; endpoint authorization beyond identity is
+enforced by [cancancan](https://github.com/CanCanCommunity/cancancan).
 
-| Header          | Form                          | Purpose                                                                   |
-|-----------------|-------------------------------|---------------------------------------------------------------------------|
-| `Authorization` | `Bearer <token>`              | Cerberus system token *or* a devise-jwt user token. Both are accepted.    |
-| `User`          | `NUID <nuid>`                 | When the bearer is the system token, names the user being acted on behalf of. |
+| # | Credential                  | Headers                                                          | Resolves to                                                                                                                                              |
+|---|-----------------------------|------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------|
+| 1 | **Guest**                   | *(no `Authorization`)*                                           | The `:guest` user — read-only.                                                                                                                           |
+| 2 | **System token**            | `Authorization: Bearer <system_token>` + `User: NUID <system NUID>` | The `:system` fixture **only** (SSO first-login provisioning). Missing/unknown NUID → 400; pairing the system token with any non-`:system` NUID → 401.   |
+| 3 | **Devise-JWT user token**   | `Authorization: Bearer <jwt>`                                   | The real person named by the token's signed `sub`. The `User:` header is ignored on this path; `:system` / `:anonymous` are rejected (401).               |
+| 4 | **Cerberus signed assertion** | `Authorization: Bearer <ES256 JWT>` (`iss == "cerberus"`)     | The real person named by the **signed** `sub`, verified against Cerberus's public keyset by `kid` (`aud=atlas`, `exp` with 30s leeway, ES256 only). The relay that replaced the retired `cerberus_token`. |
 
-Read endpoints generally fall through to a guest user when no valid auth is
-supplied. Write endpoints rely on Cerberus having already authorized the
-caller. See `app/controllers/application_controller.rb` for the resolution
-order.
+A blank bearer is the guest path; anything that matches none of the above is
+**401**. Read endpoints generally fall through to guest when no valid auth is
+supplied; write endpoints rely on the caller having been authorized upstream
+(by Cerberus or by holding a personal JWT).
+
+**Headers vs. signed identity.** The `User:` header is only meaningful on the
+system path — there it must be `NUID <system NUID>` and resolves the `:system`
+fixture. On the JWT and assertion paths, identity comes from the signed token,
+and the `User:` header is ignored.
+
+**Acting-as** (an admin operator acting with a separate attribution target)
+lives **exclusively** on the Cerberus-assertion path and rides a **signed
+`obo` claim** — never a `User:` or `On-Behalf-Of` header. It is admin-only (a
+signed `obo` from a non-admin → 403). An `On-Behalf-Of` header is never
+honored: it is overwritten by the signed claim on the assertion path, and
+rejected (403) on every other path.
+
+## Credentials reference
+
+Atlas reads these keys from Rails encrypted credentials (`rails
+credentials:edit`):
+
+| Key                     | Purpose                                                                                                                                                                                                  |
+|-------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `cerberus_signing_keys` | `{ kid => PEM }` map of Cerberus's **public** signing keys, used to verify relay assertions (ES256). Public keys only — safe at rest, nothing to rotate as a secret. Empty (the default until Cerberus is provisioned) leaves the assertion path inert. |
+| `system_token`          | Shared bearer secret for the system / provisioning path (paired with Cerberus's `atlas_system_token`).                                                                                                    |
+| `jwt_secret`            | devise-jwt signing secret. **Falls back to `secret_key_base`** until provisioned; rotating it is a global token kill-switch that does not also invalidate sessions/cookies.                              |
+| `secret_key_base`       | Standard Rails secret.                                                                                                                                                                                    |
 
 ## API documentation
 

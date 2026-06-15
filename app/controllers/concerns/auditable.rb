@@ -5,22 +5,23 @@
 # from their service objects; this concern closes the *content/metadata/
 # lifecycle/file* gap by giving the three resource controllers (and the blob
 # controller) a one-line emit at each save point, closing over the actor
-# plumbing the controllers already carry (`@nuid` operator, `@on_behalf_of`
-# attribution target — set in ApplicationController#parse_headers).
+# plumbing the controllers already carry (`@current_user` actor, `@on_behalf_of`
+# attribution target — set in ApplicationController#require_auth).
 module Auditable
   extend ActiveSupport::Concern
 
   # Emit a controller-sourced audit row for `resource`. actor / on-behalf-of
   # and event_source are filled from request context so call sites stay to one
-  # line. No-ops when there is no authenticated actor: a row with no
-  # actor_nuid carries no provenance (and the column is NOT NULL), so guest
-  # reads and any upstream-authorized path lacking a User header write nothing.
+  # line. The actor is the authenticated principal (`@current_user`), which is
+  # set on every auth path — NOT the `User:` header, which the signed-assertion
+  # relay doesn't send. No-ops for guest: a guest carries no provenance (and
+  # actor_nuid is NOT NULL), so guest reads / unauthenticated paths write nothing.
   def audit!(resource:, action:, change_type:, payload: {}, note: nil)
-    return if @nuid.blank?
+    return if @current_user.nil? || @current_user.guest?
 
     AuditEventWriter.record(
       resource:          resource,
-      actor_nuid:        @nuid,
+      actor_nuid:        @current_user.nuid,
       on_behalf_of_nuid: @on_behalf_of.presence,
       action:            action,
       change_type:       change_type,

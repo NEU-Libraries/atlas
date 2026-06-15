@@ -104,7 +104,7 @@ class CollectionsController < ApplicationController
              status: :unprocessable_entity and return
     end
 
-    @collection.tombstone(by: @nuid)
+    @collection.tombstone(by: @current_user&.nuid)
     @collection = Atlas.persister.save(resource: @collection).decorate
     audit!(resource: @collection, action: 'tombstone', change_type: 'lifecycle')
   end

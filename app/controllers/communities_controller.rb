@@ -105,7 +105,7 @@ class CommunitiesController < ApplicationController
              status: :unprocessable_entity and return
     end
 
-    @community.tombstone(by: @nuid)
+    @community.tombstone(by: @current_user&.nuid)
     @community = Atlas.persister.save(resource: @community).decorate
     audit!(resource: @community, action: 'tombstone', change_type: 'lifecycle')
   end

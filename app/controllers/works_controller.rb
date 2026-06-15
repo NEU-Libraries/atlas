@@ -131,7 +131,7 @@ class WorksController < ApplicationController
   def tombstone
     @work = Work.find(params[:id])
     authorize! :tombstone, @work
-    @work.tombstone(by: @nuid)
+    @work.tombstone(by: @current_user&.nuid)
     @work = Atlas.persister.save(resource: @work).decorate
     audit!(resource: @work, action: 'tombstone', change_type: 'lifecycle')
   end

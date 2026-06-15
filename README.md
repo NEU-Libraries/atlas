@@ -39,7 +39,8 @@ that's [Cerberus](#cerberus)'s job.
   SSO first-login provisioning of the `:system` principal.
 - **[atlas_rb](https://github.com/NEU-Libraries/atlas_rb)** is the canonical
   Ruby client and the only path Cerberus uses to reach Atlas; it reads
-  `ATLAS_URL` / `ATLAS_TOKEN` and wraps every endpoint as a class method.
+  `ATLAS_URL`, authenticates by signing a relay assertion (or with a personal
+  JWT via `ATLAS_JWT`), and wraps every endpoint as a class method.
 - Any other consumer (codegen, agents, curl) can drive Atlas straight from
   the OpenAPI document — see [API documentation](#api-documentation).
 

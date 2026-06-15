@@ -44,7 +44,7 @@ RSpec.describe 'Auth matrix', type: :request, default_auth: false do
   let(:collection) { CollectionCreator.call(parent_id: community.noid) }
 
   # Literal header builder for the matrix tests (system_token / bogus / nil).
-  # cerberus_token is gone, so there is no default token — callers pass one.
+  # There is no default token on this builder — callers pass one explicitly.
   def auth_headers(token: nil, nuid: nil)
     h = {}
     h['Authorization'] = "Bearer #{token}" unless token.nil?
@@ -67,9 +67,9 @@ RSpec.describe 'Auth matrix', type: :request, default_auth: false do
   describe 'JWT-direct path (standalone-API access)' do
     include ActiveSupport::Testing::TimeHelpers
 
-    # A devise-jwt minted for a real person authenticates directly, no
-    # cerberus_token and no User header — identity lives in the token. Mint with
-    # the same encoder POST /nuid uses.
+    # A devise-jwt minted for a real person authenticates directly, no User
+    # header — identity lives in the token. Mint with the same encoder POST
+    # /nuid uses.
     def mint(user)
       Warden::JWTAuth::UserEncoder.new.call(user, :user, nil)[0]
     end
@@ -129,7 +129,7 @@ RSpec.describe 'Auth matrix', type: :request, default_auth: false do
     end
   end
 
-  describe 'Cerberus signed-assertion path (relay replacement, dual-run)' do
+  describe 'Cerberus signed-assertion path' do
     let(:signing_key) { OpenSSL::PKey::EC.generate('prime256v1') }
     let(:kid)         { 'cerberus-test' }
     let!(:admin) do
@@ -236,7 +236,7 @@ RSpec.describe 'Auth matrix', type: :request, default_auth: false do
       end
     end
 
-    context 'when no keyset is configured (pre-Cerberus-cutover)' do
+    context 'when no keyset is configured' do
       before do
         allow(Rails.application.credentials).to receive(:cerberus_signing_keys).and_return(nil)
       end
@@ -295,10 +295,9 @@ RSpec.describe 'Auth matrix', type: :request, default_auth: false do
   end
 
   describe 'Ability-driven 403s on write actions (system_token-paired)' do
-    # Post-piece-6, the :system principal authenticates with system_token,
-    # not cerberus_token. The Ability layer still denies :system on Work
-    # creation / mutation; only the wire token used to reach the action
-    # changes.
+    # The :system principal authenticates with system_token. The Ability layer
+    # still denies :system on Work creation / mutation; only the wire token used
+    # to reach the action changes.
     def system_headers
       auth_headers(token: system_token, nuid: system_user.nuid)
     end

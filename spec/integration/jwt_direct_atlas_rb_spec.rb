@@ -5,7 +5,7 @@ require 'rails_helper'
 # End-to-end proof of the JWT-direct path through the published atlas_rb gem
 # (>= 1.3.7, BYO-JWT mode). A personal-access JWT minted by Atlas is exported
 # as ATLAS_JWT; atlas_rb then authenticates with it directly — no `User:`
-# header, no cerberus_token relay — exactly the standalone-script scenario
+# header, identity is in the token — exactly the standalone-script scenario
 # (the fast_mods_v3.sh successor: a librarian pulling content with their own
 # token). The Puma server and this test run in one process and share the same
 # Warden::JWTAuth config, so a token minted here verifies on the server.

@@ -17,8 +17,8 @@
 # transactional fixtures don't apply here, since the test thread and the
 # server thread hold different AR connections.
 #
-# Auth context: since step C retired cerberus_token, the harness drives the
-# gem's **relay-signing** path — it configures a test signing key on
+# Auth context: the harness drives the gem's **relay-signing** path — it
+# configures a test signing key on
 # AtlasRb.config and stubs the matching public key into Atlas's
 # credentials.cerberus_signing_keys. So a spec's `nuid:` is signed into an
 # assertion (sub = that nuid) the live server verifies. `on_behalf_of:` rides as

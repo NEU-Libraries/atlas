@@ -24,8 +24,8 @@ RSpec.describe 'Compilations', type: :request, default_auth: false do
                  nuid: '000000004', role: :admin)
   end
 
-  # cerberus_token was retired (step C). Authenticate via a Cerberus-signed
-  # assertion whose `sub` is the block's principal. The `User:` header still goes
+  # Authenticate via a Cerberus-signed assertion whose `sub` is the block's
+  # principal. The `User:` header still goes
   # out (it's a declared param) but the server ignores it now — auth_header reads
   # it (via send, to dodge the `User` model constant) only to choose the sub.
   before do

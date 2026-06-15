@@ -1,11 +1,10 @@
 # frozen_string_literal: true
 
 # Default authentication for request/controller specs that don't drive the auth
-# matrix themselves. With piece 7's Ability layer, guest can't write, so these
-# specs need a real authenticated principal.
+# matrix themselves. With the Ability layer, guest can't write, so these specs
+# need a real authenticated principal.
 #
-# Since step C retired `cerberus_token`, the default is now a Cerberus-SIGNED
-# assertion (the relay's replacement): a short-lived ES256 JWT
+# The default is a Cerberus-SIGNED assertion: a short-lived ES256 JWT
 # (iss=cerberus, aud=atlas, sub=admin) verified against a stubbed public keyset —
 # the same path Cerberus uses in production. No `User:` header; identity is the
 # signed `sub`. Specs that test the auth matrix opt out with `default_auth: false`.

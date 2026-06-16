@@ -4,15 +4,20 @@ class BlobCreator < ApplicationService
   include FileHelper
   include MimeHelper
 
-  def initialize(path:, work_id: nil, file_set_id: nil, original_filename: nil, use: nil)
+  def initialize(path:, work_id: nil, file_set_id: nil, original_filename: nil, use: nil, expected_digest: nil)
     @work_id = resolve_id(work_id) unless work_id.nil?
     @path = path
     @file_set_id = file_set_id
     @original_filename = original_filename
     @use = use || Role.original_file.name
+    @expected_digest = expected_digest
   end
 
   def call
+    # Verify-on-ingest runs first, before any persistence — a corrupted
+    # transfer is rejected (FixityMismatch -> 422) without leaving an orphaned
+    # Blob/FileSet behind. No-op unless expected_digest was supplied.
+    verify_digest!(@path, @expected_digest)
     create_blob
   end
 
@@ -55,7 +60,9 @@ class BlobCreator < ApplicationService
     end
 
     def upload_and_save(blob)
-      blob.file_identifiers += [create_file(@path, blob).version_id]
+      file = create_file(@path, blob)
+      blob.file_identifiers += [file.version_id]
+      blob.digest = recorded_digest(file.version_id)
       # TODO: implement bespoke Blob permissions for differentiated access
       blob.permissions = Work.find(@work_id).permissions if @work_id
       blob = Atlas.persister.save(resource: blob)

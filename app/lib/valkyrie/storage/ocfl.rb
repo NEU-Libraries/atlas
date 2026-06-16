@@ -134,6 +134,27 @@ module Valkyrie
         end
       end
 
+      # The recorded content digest for a stored id, read straight from the
+      # inventory — no byte re-hash. Returns { algorithm:, value: } or nil when
+      # the id doesn't resolve. Lets callers expose/compare fixity cheaply
+      # (reconciliation at TB scale) without streaming the bytes back down.
+      def digest_for(id:)
+        parsed = parse_id(id)
+        return nil unless parsed
+
+        object_root = storage_root.object_root_for(parsed[:key])
+        return nil unless object_root.exist?
+
+        inventory = load_inventory(object_root: object_root, version: parsed[:version])
+        return nil unless inventory
+
+        version = parsed[:version] || inventory.head
+        value = inventory.digest_for(version: version, logical_path: parsed[:logical_path])
+        return nil unless value
+
+        { algorithm: inventory.digest_algorithm, value: value }
+      end
+
       def delete(id:)
         parsed = parse_id(id)
         return unless parsed

@@ -39,6 +39,7 @@ RSpec.describe 'Files (Blobs)', type: :request do
       DESC
       parameter name: :work_id,           in: :formData, required: true
       parameter name: :original_filename, in: :formData, required: false
+      parameter name: :expected_digest,   in: :formData, required: false
       parameter name: :binary,            in: :formData, required: true
       parameter name: :'Idempotency-Key', in: :header, type: :string, required: false,
                 description: 'Client-supplied UUID; repeats return the existing resource.'
@@ -46,6 +47,9 @@ RSpec.describe 'Files (Blobs)', type: :request do
         {
           work_id:           { type: :string, description: 'NOID of the parent Work' },
           original_filename: { type: :string },
+          expected_digest:   { type:        :string,
+                               description: 'Optional verify-on-ingest checksum, "<algorithm>:<hexvalue>" ' \
+                                            '(sha512/sha256/sha1/md5). Rejected 422 if the bytes do not match.' },
           binary:            { type: :string, format: :binary, description: 'File bytes to upload' }
         },
         required: %i[work_id binary]
@@ -54,10 +58,36 @@ RSpec.describe 'Files (Blobs)', type: :request do
       response '200', 'file uploaded' do
         let(:work_id)           { work.noid }
         let(:original_filename) { 'example.bin' }
+        let(:expected_digest)   { nil }
+        let(:binary)            { Rack::Test::UploadedFile.new(fixture) }
+        let(:'Idempotency-Key') { nil }
+        schema '$ref' => '#/components/schemas/Blob'
+        run_test! do |response|
+          expect(JSON.parse(response.body).dig('blob', 'digest')).to match(/\Asha512:[0-9a-f]+\z/)
+        end
+      end
+
+      response '200', 'verify-on-ingest passes when the digest matches' do
+        let(:work_id)           { work.noid }
+        let(:original_filename) { 'example.bin' }
+        let(:expected_digest)   { "sha256:#{Digest::SHA256.file(fixture).hexdigest}" }
         let(:binary)            { Rack::Test::UploadedFile.new(fixture) }
         let(:'Idempotency-Key') { nil }
         schema '$ref' => '#/components/schemas/Blob'
         run_test!
+      end
+
+      response '422', 'verify-on-ingest rejects a digest mismatch (nothing persisted)' do
+        let(:work_id)           { work.noid }
+        let(:original_filename) { 'example.bin' }
+        let(:expected_digest)   { 'sha256:0000000000000000000000000000000000000000000000000000000000000000' }
+        let(:binary)            { Rack::Test::UploadedFile.new(fixture) }
+        let(:'Idempotency-Key') { nil }
+        run_test! do |response|
+          expect(JSON.parse(response.body)['error']).to eq('fixity_mismatch')
+          # No content Blob landed (the Work's descriptive-metadata Blob is unrelated setup).
+          expect(Atlas.query.find_all_of_model(model: Blob).to_a.reject(&:metadata?)).to be_empty
+        end
       end
 
       response '200', 'idempotent replay returns existing blob' do
@@ -129,18 +159,26 @@ RSpec.describe 'Files (Blobs)', type: :request do
       consumes 'multipart/form-data'
       produces 'application/json'
       description 'Uber-basic versioning: posts a new binary, appends its file identifier to the Blob.'
-      parameter name: :binary, in: :formData, required: true
+      parameter name: :binary,          in: :formData, required: true
+      parameter name: :expected_digest, in: :formData, required: false
       multipart_request_body(
-        { binary: { type: :string, format: :binary, description: 'New revision bytes' } },
+        {
+          binary:          { type: :string, format: :binary, description: 'New revision bytes' },
+          expected_digest: { type:        :string,
+                             description: 'Optional verify-on-ingest checksum, "<algorithm>:<hexvalue>". 422 on mismatch.' }
+        },
         required: %i[binary]
       )
 
       response '200', 'revision appended' do
-        let(:blob)   { BlobCreator.call(work_id: work.noid, original_filename: 'example.bin', path: fixture.to_s) }
-        let(:id)     { blob.noid }
-        let(:binary) { Rack::Test::UploadedFile.new(fixture) }
+        let(:blob)            { BlobCreator.call(work_id: work.noid, original_filename: 'example.bin', path: fixture.to_s) }
+        let(:id)              { blob.noid }
+        let(:binary)          { Rack::Test::UploadedFile.new(fixture) }
+        let(:expected_digest) { nil }
         schema '$ref' => '#/components/schemas/Blob'
-        run_test!
+        run_test! do |response|
+          expect(JSON.parse(response.body).dig('blob', 'digest')).to match(/\Asha512:[0-9a-f]+\z/)
+        end
       end
     end
 

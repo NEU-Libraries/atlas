@@ -81,6 +81,8 @@ module OpenapiSchemas
               original_filename: { type: :string, nullable: true },
               use:               { type: :string, nullable: true },
               size:              { type: :integer, nullable: true },
+              digest:            { type: :string, nullable: true,
+                                   description: 'Fixity digest of the head revision, "<algorithm>:<hexvalue>" (e.g. sha512:…), recorded at ingest from the OCFL inventory' },
               filename:          { type: :string, nullable: true },
               label:             { type: :string, nullable: true },
               file_identifiers:  {

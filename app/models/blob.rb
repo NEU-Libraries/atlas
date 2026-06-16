@@ -7,6 +7,12 @@ class Blob < Resource
   attribute :use, Valkyrie::Types::String
   attribute :label, Valkyrie::Types::String # Small Image, Text etc.
   attribute :size, Valkyrie::Types::String
+  # Self-describing fixity digest of the head revision's bytes, recorded at
+  # ingest as "<algorithm>:<hexvalue>" (e.g. "sha512:abc…"). A denormalized
+  # cache of the OCFL inventory's digest (the canonical source) — like `size`,
+  # it keeps the fixity read path off the storage layer so reconciliation can
+  # compare expected vs. stored without streaming bytes back down.
+  attribute :digest, Valkyrie::Types::String
 
   def versions
     file_identifiers.count

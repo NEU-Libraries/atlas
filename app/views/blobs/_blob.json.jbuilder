@@ -6,6 +6,7 @@ json.blob do
   json.original_filename @blob.original_filename
   json.use @blob.use
   json.size @blob.size
+  json.digest @blob.digest
   json.filename @blob.filename
   json.label Label.find(@blob.label)&.name
   json.file_identifiers @blob.file_identifiers

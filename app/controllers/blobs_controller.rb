@@ -33,8 +33,8 @@ class BlobsController < ApplicationController
       work_id:           params[:work_id],
       original_filename: params[:original_filename],
       use:               params[:use],
-      path:              (file.tempfile.path.presence ||
-             file.path)
+      expected_digest:   params[:expected_digest],
+      path:              (file.tempfile.path.presence || file.path)
     )
     record_idempotency_key!(@blob.noid, Blob)
     audit_add_file(@blob)
@@ -46,8 +46,11 @@ class BlobsController < ApplicationController
     blob = Blob.find(params[:id])
     file = params[:binary]
     path = file.tempfile.path.presence || file.path
-    file_id = create_file(path, blob).version_id
+    verify_digest!(path, params[:expected_digest])
+    new_file = create_file(path, blob)
+    file_id = new_file.version_id
     blob.file_identifiers += [file_id]
+    blob.digest = recorded_digest(file_id)
     @blob = Atlas.persister.save(resource: blob)
     audit_file!(action: 'replace_file', resource: parent_work_of(@blob),
                 payload: { blob_noid: @blob.noid, version_id: file_id })

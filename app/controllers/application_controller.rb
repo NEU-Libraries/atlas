@@ -89,6 +89,18 @@ class ApplicationController < ActionController::API
     }, status: :unprocessable_entity
   end
 
+  # Structured 422 for verify-on-ingest failures (an upload whose bytes don't
+  # match a supplied expected_digest, or an unsupported digest algorithm).
+  # Same code-as-discriminator contract; the upload is rejected before any
+  # resource is persisted, so nothing is left behind.
+  rescue_from Exceptions::FixityMismatch do |exception|
+    render json: {
+      error:       exception.code,
+      resource_id: params[:id],
+      message:     exception.message
+    }, status: :unprocessable_entity
+  end
+
   private
 
     # CanCan looks up `current_user` to construct the Ability. Atlas's

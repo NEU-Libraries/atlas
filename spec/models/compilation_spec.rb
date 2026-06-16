@@ -84,6 +84,39 @@ RSpec.describe Compilation do
     end
   end
 
+  describe '.granted_to (grant-scoped listing)' do
+    let(:group) { 'northeastern:drs:test-readers' }
+    let!(:by_edit_user)  { described_class.create!(title: 'edit_user',  depositor: 'owner', edit_users: ['000000002']) }
+    let!(:by_edit_group) { described_class.create!(title: 'edit_group', depositor: 'owner', edit_groups: [group]) }
+    let!(:by_read_group) { described_class.create!(title: 'read_group', depositor: 'owner', read_groups: [group]) }
+    let!(:owned)         { described_class.create!(title: 'owned',      depositor: '000000002', edit_groups: [group]) }
+    let!(:unrelated)     { described_class.create!(title: 'unrelated',  depositor: 'owner') }
+
+    it 'editable (include_read: false) returns edit grants, never owned or read-only' do
+      titles = described_class.granted_to(nuid: '000000002', groups: [group], include_read: false).map(&:title)
+      expect(titles).to contain_exactly('edit_user', 'edit_group')
+    end
+
+    it 'shared (include_read: true) adds read grants, still excluding owned' do
+      titles = described_class.granted_to(nuid: '000000002', groups: [group], include_read: true).map(&:title)
+      expect(titles).to contain_exactly('edit_user', 'edit_group', 'read_group')
+    end
+
+    it 'matches edit_users even with no groups' do
+      titles = described_class.granted_to(nuid: '000000002', groups: [], include_read: true).map(&:title)
+      expect(titles).to eq(['edit_user'])
+    end
+
+    it 'returns nothing for a principal with no nuid and no groups' do
+      expect(described_class.granted_to(nuid: nil, groups: [], include_read: true)).to be_empty
+    end
+
+    it 'orders newest-first' do
+      scope = described_class.granted_to(nuid: '000000002', groups: [group], include_read: true)
+      expect(scope.to_a).to eq(scope.order(created_at: :desc).to_a)
+    end
+  end
+
   describe 'ACL helpers (Compilation::ACL)' do
     it 'round-trips read groups' do
       compilation.add_read_group('northeastern:all')

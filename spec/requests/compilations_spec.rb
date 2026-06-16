@@ -44,21 +44,35 @@ RSpec.describe 'Compilations', type: :request, default_auth: false do
   end
 
   path '/compilations' do
-    get 'List compilations (owner-scoped)' do
+    get 'List compilations (owner- or grant-scoped)' do
       tags 'Compilations'
       produces 'application/json'
       description <<~D
-        Paginated, newest-first listing of the caller's own Compilations.
-        Pass `?owner=<nuid>` to list another user's Sets — admin-only.
-        Pass `?q=<term>` to narrow by case-insensitive title substring;
+        Paginated, newest-first listing of Compilations. Three modes:
+
+        - default (no `scope`): the caller's own Sets. `?owner=<nuid>` lists
+          another user's Sets — admin-only. There is no public browse endpoint.
+        - `?scope=editable`: Sets the caller may edit but does **not** own
+          (granted via `edit_users` or `edit_groups`).
+        - `?scope=shared`: Sets shared with the caller but not owned
+          (`read_groups` grants, plus the edit grants that imply read).
+
+        Grant-scoped modes are keyed on the acting principal — `owner` is
+        ignored — and group membership is resolved server-side. Pass
+        `?q=<term>` to narrow by case-insensitive title substring in any mode;
         the filter applies before pagination, so the pagination block
-        describes the filtered result. There is no public browse endpoint.
+        describes the filtered result.
       D
       security [{ BearerAuth: [], NuidHeader: [] }]
       parameter name: :Authorization, in: :header, type: :string, required: false
       parameter name: :User, in: :header, type: :string, required: false
       parameter name: :owner, in: :query, type: :string, required: false,
-                description: 'NUID whose Sets to list (admin-only); defaults to the caller'
+                description: 'NUID whose Sets to list (admin-only); defaults to the caller. ' \
+                             'Ignored when scope is given.'
+      parameter name: :scope, in: :query, type: :string, required: false,
+                enum: %w[editable shared],
+                description: 'grant-scoped mode: editable (edit grants) or shared (read+edit grants), ' \
+                             'both excluding owned Sets'
       parameter name: :q, in: :query, type: :string, required: false,
                 description: 'case-insensitive title substring filter'
 
@@ -67,6 +81,7 @@ RSpec.describe 'Compilations', type: :request, default_auth: false do
         let(:Authorization) { auth_header }
         let(:User)  { "NUID #{curator.nuid}" }
         let(:owner) { nil }
+        let(:scope) { nil }
         let(:q)     { nil }
         before do
           create_compilation(curator)
@@ -84,6 +99,7 @@ RSpec.describe 'Compilations', type: :request, default_auth: false do
         let(:Authorization) { auth_header }
         let(:User)  { "NUID #{curator.nuid}" }
         let(:owner) { nil }
+        let(:scope) { nil }
         let(:q)     { 'course' }
         before do
           create_compilation(curator, title: 'Course readings')
@@ -99,10 +115,70 @@ RSpec.describe 'Compilations', type: :request, default_auth: false do
         end
       end
 
+      # Grant-scoped discovery. `curator` belongs to `northeastern:drs:test-readers`;
+      # `rando` owns the seed Sets and grants curator various ways. Owned Sets are
+      # always excluded from the grant scopes (the UI lists those under "My Sets").
+      response '200', 'editable-by-me listing (edit grants, owned excluded)' do
+        schema '$ref' => '#/components/schemas/CompilationsIndex'
+        let(:Authorization) { auth_header }
+        let(:User)  { "NUID #{curator.nuid}" }
+        let(:owner) { nil }
+        let(:scope) { 'editable' }
+        let(:q)     { nil }
+        before do
+          create_compilation(rando, title: 'By edit_users grant', edit_users: [curator.nuid])
+          create_compilation(rando, title:       'By edit_groups grant',
+                                    edit_groups: ['northeastern:drs:test-readers'])
+          create_compilation(rando, title:       'Read-only to me',
+                                    read_groups: ['northeastern:drs:test-readers'])
+          create_compilation(curator, title: 'Owned by me') # excluded from grant scope
+        end
+        run_test! do |response|
+          payload = JSON.parse(response.body)
+          titles = payload['compilations'].map { |c| c.dig('compilation', 'title') }
+          expect(titles).to contain_exactly('By edit_users grant', 'By edit_groups grant')
+        end
+      end
+
+      response '200', 'shared-with-me listing (read grants imply read; edit too)', document: false do
+        schema '$ref' => '#/components/schemas/CompilationsIndex'
+        let(:Authorization) { auth_header }
+        let(:User)  { "NUID #{curator.nuid}" }
+        let(:owner) { nil }
+        let(:scope) { 'shared' }
+        let(:q)     { nil }
+        before do
+          create_compilation(rando, title: 'By edit_users grant', edit_users: [curator.nuid])
+          create_compilation(rando, title:       'By edit_groups grant',
+                                    edit_groups: ['northeastern:drs:test-readers'])
+          create_compilation(rando, title:       'Read-only to me',
+                                    read_groups: ['northeastern:drs:test-readers'])
+          create_compilation(rando, title: 'Not shared with me')
+          create_compilation(curator, title: 'Owned by me') # excluded from grant scope
+        end
+        run_test! do |response|
+          payload = JSON.parse(response.body)
+          titles = payload['compilations'].map { |c| c.dig('compilation', 'title') }
+          expect(titles).to contain_exactly(
+            'By edit_users grant', 'By edit_groups grant', 'Read-only to me'
+          )
+        end
+      end
+
+      response '400', 'unknown scope value' do
+        let(:Authorization) { auth_header }
+        let(:User)  { "NUID #{curator.nuid}" }
+        let(:owner) { nil }
+        let(:scope) { 'bogus' }
+        let(:q)     { nil }
+        run_test!
+      end
+
       response '403', 'cross-owner listing as a non-admin' do
         let(:Authorization) { auth_header }
         let(:User)  { "NUID #{rando.nuid}" }
         let(:owner) { curator.nuid }
+        let(:scope) { nil }
         let(:q)     { nil }
         run_test!
       end

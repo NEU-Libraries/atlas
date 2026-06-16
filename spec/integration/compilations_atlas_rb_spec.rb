@@ -167,6 +167,38 @@ RSpec.describe 'Compilations via atlas_rb', :atlas_rb_server do
     }
   end
 
+  it 'lists grant-scoped Sets (editable / shared), excluding owned' do
+    group = 'northeastern:drs:test-readers'
+    curator.update!(groups: [group])
+    Compilation.delete_all # deterministic baseline (AR rows survive the Valkyrie wipe)
+
+    # rando owns these and grants curator three different ways.
+    editable_user  = create_set(title: 'Editable via edit_users', nuid: rando.nuid)
+    editable_group = create_set(title: 'Editable via edit_group', nuid: rando.nuid)
+    read_only      = create_set(title: 'Read-only to me',         nuid: rando.nuid)
+    create_set(title: 'Not shared with me', nuid: rando.nuid)
+    owned = create_set(title: 'Owned by me', nuid: curator.nuid)
+
+    AtlasRb::Compilation.update(editable_user['id'],
+                                permissions: { read: [], edit: [], edit_users: [curator.nuid] },
+                                nuid:        rando.nuid)
+    AtlasRb::Compilation.update(editable_group['id'],
+                                permissions: { read: [], edit: [group], edit_users: [] },
+                                nuid:        rando.nuid)
+    AtlasRb::Compilation.update(read_only['id'],
+                                permissions: { read: [group], edit: [], edit_users: [] },
+                                nuid:        rando.nuid)
+
+    editable_ids = AtlasRb::Compilation.list(scope: :editable, nuid: curator.nuid)['compilations']
+                                       .map { |e| e.dig('compilation', 'id') }
+    expect(editable_ids).to contain_exactly(editable_user['id'], editable_group['id'])
+
+    shared_ids = AtlasRb::Compilation.list(scope: :shared, nuid: curator.nuid)['compilations']
+                                     .map { |e| e.dig('compilation', 'id') }
+    expect(shared_ids).to contain_exactly(editable_user['id'], editable_group['id'], read_only['id'])
+    expect(shared_ids).not_to include(owned['id'])
+  end
+
   it 'raises AtlasRb::ForbiddenError for non-owner writes and cross-owner listing' do
     set = create_set
 

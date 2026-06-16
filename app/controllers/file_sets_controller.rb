@@ -48,17 +48,29 @@ class FileSetsController < ApplicationController
     record_idempotency_key!(@file_set.noid, FileSet)
   end
 
+  # Attach a binary as a Blob appended to an existing FileSet — the ordered/
+  # classified-slot attach the migration uses after POST /file_sets cuts the
+  # slot. Idempotent on the Idempotency-Key header (same semantics as create:
+  # a replay returns the FileSet with its already-attached Blob, no recopy),
+  # carries through the v1 original_filename, and honors verify-on-ingest via
+  # expected_digest.
   def update
     authorize! :update, FileSet
-    # Naive first implementation - expect a binary POST
-    # and just add it to the existing file set
-    # TODO: pass through original filename and label enumeration
+
+    if (record = find_idempotency_record(FileSet))
+      @file_set = FileSet.find(record.resource_noid)
+      return render_idempotent_resource(@file_set, view: :update)
+    end
+
     file = params[:binary]
     BlobCreator.call(
-      path:        (file.tempfile.path.presence || file.path),
-      file_set_id: params[:id]
+      path:              (file.tempfile.path.presence || file.path),
+      file_set_id:       params[:id],
+      original_filename: params[:original_filename],
+      expected_digest:   params[:expected_digest]
     )
     @file_set = FileSet.find(params[:id])
+    record_idempotency_key!(@file_set.noid, FileSet)
   end
 
   # Persist the per-page IIIF image-service pointer (Role.service_file) —

@@ -442,6 +442,11 @@ components:
             size:
               type: integer
               nullable: true
+            digest:
+              type: string
+              nullable: true
+              description: Fixity digest of the head revision, "<algorithm>:<hexvalue>"
+                (e.g. sha512:…), recorded at ingest from the OCFL inventory
             filename:
               type: string
               nullable: true
@@ -471,6 +476,7 @@ components:
           - original_filename
           - use
           - size
+          - digest
           - filename
           - label
           - file_identifiers
@@ -1144,6 +1150,10 @@ paths:
                   description: NOID of the parent Work
                 original_filename:
                   type: string
+                expected_digest:
+                  type: string
+                  description: Optional verify-on-ingest checksum, "<algorithm>:<hexvalue>"
+                    (sha512/sha256/sha1/md5). Rejected 422 if the bytes do not match.
                 binary:
                   type: string
                   format: binary
@@ -1158,6 +1168,8 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Blob"
+        '422':
+          description: verify-on-ingest rejects a digest mismatch (nothing persisted)
         '410':
           description: idempotent replay on a tombstoned blob
           content:
@@ -1207,6 +1219,10 @@ paths:
                   type: string
                   format: binary
                   description: New revision bytes
+                expected_digest:
+                  type: string
+                  description: Optional verify-on-ingest checksum, "<algorithm>:<hexvalue>".
+                    422 on mismatch.
               required:
               - binary
       responses:
@@ -2481,9 +2497,24 @@ paths:
       summary: Append binary content to a file set
       tags:
       - FileSets
-      description: 'Naive first implementation: posts binary content and appends it
-        as a Blob to the existing FileSet.'
-      parameters: []
+      description: |
+        Attaches a binary as a Blob appended to the existing FileSet — the
+        ordered/classified-slot attach used after `POST /file_sets` cuts the slot.
+
+        Idempotent on the optional `Idempotency-Key` header: a repeat request
+        from the same caller with the same key returns the FileSet with its
+        already-attached Blob without re-uploading the bytes (410 + tombstone
+        payload if the FileSet was tombstoned in the interim). Retains the v1
+        `original_filename`, and verifies an optional `expected_digest`
+        (`"<algorithm>:<hexvalue>"`), 422 on mismatch.
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: false
+        description: Client-supplied UUID; repeats return the existing FileSet without
+          recopying bytes.
+        schema:
+          type: string
       requestBody:
         required: true
         content:
@@ -2495,15 +2526,24 @@ paths:
                   type: string
                   format: binary
                   description: Binary file to attach
+                original_filename:
+                  type: string
+                  description: Preserved v1 filename, stored on the resulting Blob
+                expected_digest:
+                  type: string
+                  description: Optional verify-on-ingest checksum, "<algorithm>:<hexvalue>".
+                    422 on mismatch.
               required:
               - binary
       responses:
         '200':
-          description: binary attached
+          description: idempotent replay does not recopy bytes
           content:
             application/json:
               schema:
                 "$ref": "#/components/schemas/FileSet"
+        '422':
+          description: verify-on-ingest rejects a digest mismatch
     delete:
       summary: Destroy a file set
       tags:

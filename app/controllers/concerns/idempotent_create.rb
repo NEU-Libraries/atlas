@@ -39,12 +39,14 @@ module IdempotentCreate
 
     # Render a replay response for a resource the caller has just
     # loaded and assigned. head(:gone) if the resource is missing
-    # (hard-deleted), :show + 410 if tombstoned, :create otherwise.
-    def render_idempotent_resource(resource)
+    # (hard-deleted), :show + 410 if tombstoned, otherwise the given view
+    # (defaults to :create; the FileSet attach replay passes :update since
+    # the idempotent operation there is a PATCH, not a POST).
+    def render_idempotent_resource(resource, view: :create)
       return head(:gone) if resource.nil?
       return render(:show, status: :gone) if resource.tombstoned
 
-      render :create
+      render view
     end
 
     # Persist the key after a successful create. No-op when there's no

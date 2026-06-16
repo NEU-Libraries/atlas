@@ -132,19 +132,80 @@ RSpec.describe 'FileSets', type: :request do
       tags 'FileSets'
       consumes 'multipart/form-data'
       produces 'application/json'
-      description 'Naive first implementation: posts binary content and appends it as a Blob to the existing FileSet.'
-      parameter name: :binary, in: :formData, required: true
+      description <<~DESC
+        Attaches a binary as a Blob appended to the existing FileSet — the
+        ordered/classified-slot attach used after `POST /file_sets` cuts the slot.
+
+        Idempotent on the optional `Idempotency-Key` header: a repeat request
+        from the same caller with the same key returns the FileSet with its
+        already-attached Blob without re-uploading the bytes (410 + tombstone
+        payload if the FileSet was tombstoned in the interim). Retains the v1
+        `original_filename`, and verifies an optional `expected_digest`
+        (`"<algorithm>:<hexvalue>"`), 422 on mismatch.
+      DESC
+      parameter name: :binary,            in: :formData, required: true
+      parameter name: :original_filename, in: :formData, required: false
+      parameter name: :expected_digest,   in: :formData, required: false
+      parameter name: :'Idempotency-Key', in: :header, type: :string, required: false,
+                description: 'Client-supplied UUID; repeats return the existing FileSet without recopying bytes.'
       multipart_request_body(
-        { binary: { type: :string, format: :binary, description: 'Binary file to attach' } },
+        {
+          binary:            { type: :string, format: :binary, description: 'Binary file to attach' },
+          original_filename: { type: :string, description: 'Preserved v1 filename, stored on the resulting Blob' },
+          expected_digest:   { type:        :string,
+                               description: 'Optional verify-on-ingest checksum, "<algorithm>:<hexvalue>". 422 on mismatch.' }
+        },
         required: %i[binary]
       )
 
       response '200', 'binary attached' do
-        let(:file_set) { FileSetCreator.call(work_id: work.noid, classification: Classification.generic) }
-        let(:id)       { file_set.noid }
-        let(:binary)   { Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/example.bin')) }
+        let(:file_set)          { FileSetCreator.call(work_id: work.noid, classification: Classification.generic) }
+        let(:id)                { file_set.noid }
+        let(:binary)            { Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/example.bin')) }
+        let(:original_filename) { 'page-0001.tif' }
+        let(:expected_digest)   { nil }
+        let(:'Idempotency-Key') { nil }
         schema '$ref' => '#/components/schemas/FileSet'
-        run_test!
+        run_test! do
+          attached = FileSet.find(file_set.noid).files.compact
+          expect(attached.map(&:original_filename)).to include('page-0001.tif')
+        end
+      end
+
+      response '200', 'idempotent replay does not recopy bytes' do
+        let(:file_set)          { FileSetCreator.call(work_id: work.noid, classification: Classification.generic) }
+        let(:id)                { file_set.noid }
+        let(:binary)            { Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/example.bin')) }
+        let(:original_filename) { 'page-0001.tif' }
+        let(:expected_digest)   { nil }
+        let(:idempotency_key)   { SecureRandom.uuid }
+        let(:'Idempotency-Key') { idempotency_key }
+        let!(:existing) do
+          BlobCreator.call(file_set_id: file_set.noid, original_filename: 'page-0001.tif',
+                           path: Rails.root.join('spec/fixtures/files/example.bin').to_s)
+          IdempotencyKey.create!(user: User.find_by(nuid: '000000004'), key: idempotency_key,
+                                 resource_type: 'FileSet', resource_noid: file_set.noid)
+        end
+        schema '$ref' => '#/components/schemas/FileSet'
+        run_test! do |response|
+          expect(JSON.parse(response.body).dig('file_set', 'id')).to eq(file_set.noid)
+          # No second content Blob was attached on the replay (METS metadata Blob excluded).
+          expect(FileSet.find(file_set.noid).content_files.size).to eq(1)
+        end
+      end
+
+      response '422', 'verify-on-ingest rejects a digest mismatch' do
+        let(:file_set)          { FileSetCreator.call(work_id: work.noid, classification: Classification.generic) }
+        let(:id)                { file_set.noid }
+        let(:binary)            { Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/example.bin')) }
+        let(:original_filename) { 'page-0001.tif' }
+        let(:expected_digest)   { 'sha256:0000000000000000000000000000000000000000000000000000000000000000' }
+        let(:'Idempotency-Key') { nil }
+        run_test! do |response|
+          expect(JSON.parse(response.body)['error']).to eq('fixity_mismatch')
+          # No content Blob landed (the FileSet's METS metadata Blob is unrelated setup).
+          expect(FileSet.find(file_set.noid).content_files).to be_empty
+        end
       end
     end
 

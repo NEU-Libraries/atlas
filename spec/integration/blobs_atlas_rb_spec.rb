@@ -40,4 +40,29 @@ RSpec.describe 'Blobs via atlas_rb', :atlas_rb_server do
     AtlasRb::Blob.destroy(blob['id'], nuid: admin_nuid)
     expect(Blob.find(blob['id'])).to be_nil
   end
+
+  # atlas_rb 1.6.0 — fixity digest exposure + verify-on-ingest (Atlas v0.6.74).
+  describe 'fixity' do
+    it 'surfaces the recorded digest on create and find' do
+      created = AtlasRb::Blob.create(work.noid, fixture, 'example.bin', nuid: admin_nuid)
+      expect(created['digest']).to match(/\Asha512:[0-9a-f]+\z/)
+
+      found = AtlasRb::Blob.find(created['id'], nuid: admin_nuid)
+      expect(found['digest']).to eq(created['digest'])
+    end
+
+    it 'passes verify-on-ingest when expected_digest matches' do
+      digest  = "sha256:#{Digest::SHA256.file(fixture).hexdigest}"
+      created = AtlasRb::Blob.create(work.noid, fixture, 'example.bin',
+                                     expected_digest: digest, nuid: admin_nuid)
+      expect(created['id']).to be_present
+    end
+
+    it 'raises FixityMismatchError when expected_digest does not match' do
+      expect do
+        AtlasRb::Blob.create(work.noid, fixture, 'example.bin',
+                             expected_digest: "sha256:#{'0' * 64}", nuid: admin_nuid)
+      end.to raise_error(AtlasRb::FixityMismatchError) { |e| expect(e.code).to eq('fixity_mismatch') }
+    end
+  end
 end

@@ -73,6 +73,24 @@ RSpec.describe 'Idempotency + in_progress bindings via atlas_rb', :atlas_rb_serv
     end
   end
 
+  # atlas_rb 1.6.0 — the binary attach (PATCH /file_sets/{id}) is now idempotent
+  # too, so a re-run of the migration's attach phase doesn't recopy bytes.
+  describe 'AtlasRb::FileSet.update (binary attach)' do
+    let(:work)    { WorkCreator.call(parent_id: collection.noid) }
+    let(:fixture) { Rails.root.join('spec/fixtures/files/example.bin').to_s }
+
+    it 'returns the FileSet without recopying bytes on replay with the same key' do
+      file_set = FileSetCreator.call(work_id: work.noid, classification: Classification.generic)
+      key      = SecureRandom.uuid
+
+      first  = AtlasRb::FileSet.update(file_set.noid, fixture, idempotency_key: key, nuid: admin_nuid)
+      replay = AtlasRb::FileSet.update(file_set.noid, fixture, idempotency_key: key, nuid: admin_nuid)
+
+      expect(replay['file_set']['id']).to eq(first['file_set']['id'])
+      expect(FileSet.find(file_set.noid).content_files.size).to eq(1)
+    end
+  end
+
   describe 'AtlasRb::Blob.create' do
     let(:work)    { WorkCreator.call(parent_id: collection.noid) }
     let(:fixture) { Rails.root.join('spec/fixtures/files/example.bin').to_s }

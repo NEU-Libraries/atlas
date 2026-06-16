@@ -71,4 +71,37 @@ RSpec.describe 'FileSets via atlas_rb', :atlas_rb_server do
       expect(members.first.uri).to eq('https://iiif.example/iiif/3/page1.jp2?v2')
     end
   end
+
+  # atlas_rb 1.6.0 — the ordered attach is now resumable (Idempotency-Key),
+  # filename-preserving (original_filename), and fixity-verifiable
+  # (expected_digest). Requires Atlas v0.6.74's PATCH /file_sets/{id}.
+  describe '.update (binary attach gap closures)' do
+    let(:fixture) { Rails.root.join('spec/fixtures/files/example.bin').to_s }
+
+    it 'retains original_filename and is idempotent on the key (replay does not recopy)' do
+      file_set = FileSetCreator.call(work_id: work.noid, classification: Classification.generic)
+      key      = SecureRandom.uuid
+
+      2.times do
+        AtlasRb::FileSet.update(file_set.noid, fixture,
+                                original_filename: 'page-0001.tif',
+                                idempotency_key: key, nuid: admin_nuid)
+      end
+
+      reloaded = FileSet.find(file_set.noid)
+      expect(reloaded.content_files.size).to eq(1)
+      expect(reloaded.content_files.first.original_filename).to eq('page-0001.tif')
+    end
+
+    it 'raises FixityMismatchError on an expected_digest mismatch and persists nothing' do
+      file_set = FileSetCreator.call(work_id: work.noid, classification: Classification.generic)
+
+      expect do
+        AtlasRb::FileSet.update(file_set.noid, fixture,
+                                expected_digest: "sha256:#{'0' * 64}", nuid: admin_nuid)
+      end.to raise_error(AtlasRb::FixityMismatchError) { |e| expect(e.code).to eq('fixity_mismatch') }
+
+      expect(FileSet.find(file_set.noid).content_files).to be_empty
+    end
+  end
 end

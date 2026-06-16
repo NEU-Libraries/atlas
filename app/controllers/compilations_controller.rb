@@ -10,13 +10,26 @@ class CompilationsController < ApplicationController
   include Auditable
   include CompilationMemberships
 
-  # GET /compilations — owner-scoped listing, newest first. `?owner=<nuid>`
-  # (cross-owner listing) is admin-only; there is no public browse endpoint
-  # in the first pass. `?q=<term>` narrows by case-insensitive title
-  # substring, applied before pagination so the pagination block describes
-  # the filtered result.
+  # Grant-scoped listing modes. Default (no `?scope=`) is owner-scoped and
+  # backward compatible.
+  GRANT_SCOPES = %w[editable shared].freeze
+
+  # GET /compilations — newest-first listing. Three modes:
+  #   - default (no `?scope=`): the caller's own Sets. `?owner=<nuid>` lists
+  #     another user's (admin-only); there is no public browse endpoint.
+  #   - `?scope=editable`: Sets the caller may edit but does not own
+  #     (edit_users / edit_groups grants).
+  #   - `?scope=shared`: Sets shared with the caller but not owned (read_groups
+  #     grants, plus the edit grants that imply read).
+  # `?q=<term>` narrows by case-insensitive title substring in every mode,
+  # applied before pagination so the pagination block describes the filtered
+  # result.
   def index
     authorize! :read, Compilation
+    if params[:scope].present? && GRANT_SCOPES.exclude?(params[:scope])
+      return render_error(:bad_request, "unknown scope #{params[:scope]} (expected: #{GRANT_SCOPES.join(', ')})")
+    end
+
     pagy, @compilations = pagy(filtered_scope)
     @pagination = pagy_metadata(pagy)
   end
@@ -102,8 +115,25 @@ class CompilationsController < ApplicationController
       Compilation.where(depositor: owner).order(created_at: :desc)
     end
 
+    # Grant-scoped listing keyed on the acting principal (never a `?owner=`);
+    # `?scope=editable` excludes read-only grants, `?scope=shared` includes
+    # them. Group membership is resolved server-side from @current_user.
+    def grant_scope(include_read:)
+      Compilation.granted_to(nuid:         @current_user&.nuid,
+                             groups:       @current_user&.groups,
+                             include_read: include_read)
+    end
+
+    def base_scope
+      case params[:scope]
+      when 'editable' then grant_scope(include_read: false)
+      when 'shared'   then grant_scope(include_read: true)
+      else owner_scope
+      end
+    end
+
     def filtered_scope
-      scope = owner_scope
+      scope = base_scope
       return scope if params[:q].blank?
 
       scope.where('title ILIKE ?', "%#{Compilation.sanitize_sql_like(params[:q])}%")

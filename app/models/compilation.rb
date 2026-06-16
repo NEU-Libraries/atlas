@@ -32,6 +32,49 @@ class Compilation < ApplicationRecord
 
   before_create { self.noid ||= Minter.mint }
 
+  # Grant-scoped listing: Sets where the principal is a *grantee* but not the
+  # owner — the "Shared with me" / "Editable by me" surfaces. Owned Sets are
+  # always excluded (the UI lists those under "My Sets"); the caller's own
+  # owner-scoped listing stays a separate query. Newest-first, like the
+  # owner scope.
+  #
+  # The grant axes mirror the Ability per-row checks (Ability#group_acl_grants?
+  # / #compilation_readable?), evaluated in SQL here instead of Ruby:
+  #   - edit_users contains the caller's NUID, OR
+  #   - edit_groups intersects the caller's groups, AND (when include_read)
+  #   - read_groups intersects the caller's groups (edit grants imply read).
+  # `include_read: false` is the "editable by me" bucket (edit grants only);
+  # `true` is "shared with me" (read grants too). Group membership is resolved
+  # server-side from the authenticated principal — same source the Ability
+  # consults — so no group list crosses the wire.
+  #
+  # A principal with neither a NUID nor any groups (e.g. guest) matches no
+  # grant and gets an empty relation.
+  def self.granted_to(nuid:, groups:, include_read:)
+    groups  = Array(groups)
+    clauses = []
+    binds   = []
+
+    if nuid.present?
+      clauses << 'edit_users && ARRAY[?]::varchar[]'
+      binds   << [nuid]
+    end
+    if groups.any?
+      clauses << 'edit_groups && ARRAY[?]::varchar[]'
+      binds   << groups
+      if include_read
+        clauses << 'read_groups && ARRAY[?]::varchar[]'
+        binds   << groups
+      end
+    end
+
+    return none if clauses.empty?
+
+    scope = where("(#{clauses.join(' OR ')})", *binds)
+    scope = scope.where.not(depositor: nuid) if nuid.present?
+    scope.order(created_at: :desc)
+  end
+
   def included_collections
     collection_inclusions.order(:id).pluck(:resource_noid)
   end

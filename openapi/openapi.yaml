@@ -1845,15 +1845,24 @@ paths:
                 "$ref": "#/components/schemas/Community"
   "/compilations":
     get:
-      summary: List compilations (owner-scoped)
+      summary: List compilations (owner- or grant-scoped)
       tags:
       - Compilations
       description: |
-        Paginated, newest-first listing of the caller's own Compilations.
-        Pass `?owner=<nuid>` to list another user's Sets — admin-only.
-        Pass `?q=<term>` to narrow by case-insensitive title substring;
+        Paginated, newest-first listing of Compilations. Three modes:
+
+        - default (no `scope`): the caller's own Sets. `?owner=<nuid>` lists
+          another user's Sets — admin-only. There is no public browse endpoint.
+        - `?scope=editable`: Sets the caller may edit but does **not** own
+          (granted via `edit_users` or `edit_groups`).
+        - `?scope=shared`: Sets shared with the caller but not owned
+          (`read_groups` grants, plus the edit grants that imply read).
+
+        Grant-scoped modes are keyed on the acting principal — `owner` is
+        ignored — and group membership is resolved server-side. Pass
+        `?q=<term>` to narrow by case-insensitive title substring in any mode;
         the filter applies before pagination, so the pagination block
-        describes the filtered result. There is no public browse endpoint.
+        describes the filtered result.
       security:
       - BearerAuth: []
         NuidHeader: []
@@ -1871,7 +1880,18 @@ paths:
       - name: owner
         in: query
         required: false
-        description: NUID whose Sets to list (admin-only); defaults to the caller
+        description: NUID whose Sets to list (admin-only); defaults to the caller.
+          Ignored when scope is given.
+        schema:
+          type: string
+      - name: scope
+        in: query
+        required: false
+        enum:
+        - editable
+        - shared
+        description: "grant-scoped mode: editable (edit grants) or shared (read+edit
+          grants), both excluding owned Sets:\n * `editable` \n * `shared` \n "
         schema:
           type: string
       - name: q
@@ -1882,11 +1902,13 @@ paths:
           type: string
       responses:
         '200':
-          description: own compilations listed
+          description: editable-by-me listing (edit grants, owned excluded)
           content:
             application/json:
               schema:
                 "$ref": "#/components/schemas/CompilationsIndex"
+        '400':
+          description: unknown scope value
         '403':
           description: cross-owner listing as a non-admin
     post:

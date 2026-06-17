@@ -35,6 +35,7 @@ Rails.application.config.to_prepare do
           MODSIndexer,
           TombstoneIndexer,
           ThumbnailIndexer,
+          ClassificationIndexer,
           ProvenanceIndexer,
           AncestryIndexer
         )
@@ -50,6 +51,7 @@ Rails.application.config.to_prepare do
           MODSIndexer,
           TombstoneIndexer,
           ThumbnailIndexer,
+          ClassificationIndexer,
           ProvenanceIndexer,
           AncestryIndexer
         )

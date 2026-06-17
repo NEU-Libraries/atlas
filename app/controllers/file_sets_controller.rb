@@ -108,6 +108,9 @@ class FileSetsController < ApplicationController
       return unless file_set.page?
       return unless parent.is_a?(Work) && parent.in_progress == false
 
-      WorkMETSRebuilder.call(work: parent)
+      parent = WorkMETSRebuilder.call(work: parent)
+      # Page set shrank — re-project the Work's "Content" classification facet
+      # (see FileSetCreator#reproject_classification). Solr-only, no lock bump.
+      Atlas.index_adapter.persister.save(resource: parent)
     end
 end

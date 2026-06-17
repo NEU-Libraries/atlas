@@ -49,6 +49,17 @@ class FileSetCreator < ApplicationService
       work = file_set.parent
       return unless work.is_a?(Work) && work.in_progress == false
 
-      WorkMETSRebuilder.call(work: work)
+      work = WorkMETSRebuilder.call(work: work)
+      reproject_classification(work)
+    end
+
+    # The page set of a completed Work just changed, so its content-type
+    # projection (ClassificationIndexer -> classification_ssim, the catalog's
+    # "Content" facet) is stale. Re-project the Work's Solr doc only —
+    # Atlas.index_adapter never bumps the optimistic-lock token, so adding a
+    # page can't 409 a concurrent edit of the Work. (At POST /works/:id/complete
+    # the Work is composite-saved, so that path re-projects for free.)
+    def reproject_classification(work)
+      Atlas.index_adapter.persister.save(resource: work)
     end
 end

@@ -86,6 +86,15 @@ Rails.application.routes.draw do
     # order-guaranteed — callers index by noid.
     post '/resources/find_many', to: 'resources#find_many'
 
+    # Operational, :system-gated Solr re-projection. Re-derives a resource's
+    # Solr doc (and, for _subtree, its descendant containers + the Works
+    # beneath them) from the current Postgres/OCFL source of truth — no
+    # lifecycle transition, no audit, no optimistic-lock bump. The supported
+    # lever after an indexer ships/changes and finalized resources carry a
+    # stale projection. Synchronous by design; Cerberus chunks a large subtree.
+    post '/resources/:id/reindex', to: 'resources#reindex'
+    post '/resources/:id/reindex_subtree', to: 'resources#reindex_subtree'
+
     # Session-scoped audit emit (no resource to hang on): impersonation
     # start/end. Admin-gated. See AtlasRb::AuditEvent.emit.
     post '/audit_events', to: 'audit_events#create', as: 'audit_events'

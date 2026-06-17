@@ -81,6 +81,12 @@ class Ability
         can :read,       User
         can :create,     Community
         can :create,     Collection
+        # Operational Solr re-projection (POST /resources/:id/reindex[_subtree]).
+        # Side-effect-free (no Postgres write, no lifecycle/audit) — re-derives
+        # the Solr doc after an indexer ships/changes. An operational action,
+        # never a user one, so it lives here on the :system tier (admin reaches
+        # it via the manage :all wildcard, like :reparent).
+        can :reindex,    Resource
       when :guest
         # Read floor only. Devise /user shape lets guests fetch their own
         # session info — no resource-modifying ability.

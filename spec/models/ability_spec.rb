@@ -82,6 +82,8 @@ RSpec.describe Ability do
     it { is_expected.to     be_able_to(:read,       Resource) }
     it { is_expected.to     be_able_to(:create,     Community) }
     it { is_expected.to     be_able_to(:create,     Collection) }
+    # Operational Solr re-projection is a :system-tier action.
+    it { is_expected.to     be_able_to(:reindex,    Resource) }
 
     # The rule the piece-2 reject_system_principal sprinkle encoded by hand:
     # :system cannot author Works or mutate any container resource.
@@ -118,6 +120,8 @@ RSpec.describe Ability do
       it { is_expected.to     be_able_to(:update,  Blob) }
       it { is_expected.to     be_able_to(:preview, Resource) }
 
+      # Reindex is operational (:system / admin only), not a user action.
+      it { is_expected.not_to be_able_to(:reindex,    Resource) }
       it { is_expected.not_to be_able_to(:destroy,    Work.new) }
       it { is_expected.not_to be_able_to(:destroy,    FileSet) }
       it { is_expected.not_to be_able_to(:destroy,    Blob) }

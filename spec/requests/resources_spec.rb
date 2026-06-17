@@ -9,6 +9,14 @@ RSpec.describe 'Resources', type: :request do
 
   after { Atlas.persister.wipe! }
 
+  # Read the projected catalog facet straight off a resource's Solr doc — the
+  # reindex endpoints' observable effect (mirrors classification_indexer_spec).
+  def classification_in_solr(resource)
+    Atlas.index_adapter.connection.get(
+      'select', params: { q: %(id:"#{resource.id}"), fl: 'classification_ssim' }
+    ).dig('response', 'docs').first&.fetch('classification_ssim', nil)
+  end
+
   path '/resources/{id}' do
     parameter name: :id, in: :path, type: :string, description: 'NOID of any resource (Work, Collection, Community, FileSet)'
 
@@ -179,6 +187,142 @@ RSpec.describe 'Resources', type: :request do
         run_test! do |response|
           expect(JSON.parse(response.body)).to eq([])
         end
+      end
+    end
+  end
+
+  path '/resources/{id}/reindex' do
+    parameter name: :id, in: :path, type: :string, description: 'NOID of any resource'
+
+    post 'Re-project a resource\'s Solr doc (system-only)' do
+      tags 'Resources'
+      produces 'application/json'
+      description <<~DESC
+        Operational, **system-gated** Solr re-projection. Re-derives the
+        resource's Solr doc from the current Postgres/OCFL source of truth — no
+        lifecycle transition, no audit event, no optimistic-lock bump. This is
+        the supported lever after an indexer ships or changes (e.g.
+        `classification_ssim`) and an already-finalized resource carries a
+        stale/empty projection; previously the only option was to abuse a
+        lifecycle transition (`POST /works/{id}/complete`). Idempotent.
+
+        Requires the system bearer token paired with the system `User:` NUID
+        header; any non-system caller is rejected (401/403). Unknown id → 404.
+      DESC
+      security [{ BearerAuth: [] }]
+      parameter name: :Authorization, in: :header, type: :string, required: false
+      parameter name: :User, in: :header, type: :string, required: false,
+                description: 'System principal, e.g. "NUID 000000000"'
+
+      let!(:system_user) do
+        User.create!(email: 'system@example.com', password: SecureRandom.hex(16),
+                     nuid: '000000000', role: :system)
+      end
+      let(:system_token) { 'test-system-token' }
+      before do
+        allow(Rails.application.credentials).to receive(:system_token).and_return(system_token)
+      end
+      let(:Authorization) { "Bearer #{system_token}" }
+      let(:User) { "NUID #{system_user.nuid}" }
+
+      response '204', 'resource re-projected from current state' do
+        let(:id) { work.noid }
+        before do
+          # Manufacture drift: add a page FileSet to the still-in-progress Work.
+          # FileSetCreator only re-projects a *completed* Work, so the Work's
+          # own Solr doc keeps an empty classification_ssim — exactly the
+          # stale-projection case this endpoint repairs.
+          FileSetCreator.call(work_id: work.noid, classification: Classification.image)
+          expect(classification_in_solr(work)).to be_nil
+        end
+        run_test! do |response|
+          expect(response.body).to be_blank
+          expect(classification_in_solr(work)).to contain_exactly('Image')
+        end
+      end
+
+      response '404', 'unknown id' do
+        let(:id) { 'does-not-exist' }
+        run_test!
+      end
+
+      response '403', 'non-system caller is rejected' do
+        let!(:standard) do
+          User.create!(email: 'sue@example.edu', password: SecureRandom.hex(16),
+                       nuid: '009999999', role: :standard)
+        end
+        let(:id) { work.noid }
+        # A real, authenticated non-system principal (signed Cerberus assertion,
+        # verified against the suite's default keyset stub). Authorized for
+        # reads/writes but not the :system-only :reindex action.
+        let(:Authorization) { "Bearer #{DefaultAuthHeaders.assertion_for('009999999')}" }
+        let(:User) { nil }
+        run_test!
+      end
+    end
+  end
+
+  path '/resources/{id}/reindex_subtree' do
+    parameter name: :id, in: :path, type: :string, description: 'NOID of any resource (subtree root)'
+
+    post 'Re-project a resource and its full descendant subtree (system-only)' do
+      tags 'Resources'
+      produces 'application/json'
+      description <<~DESC
+        Operational, **system-gated** subtree Solr re-projection. Gathers the
+        resource plus its full descendant subtree — descendant containers
+        (Collection/Community) **and the Works beneath them**, a deliberate
+        superset of the re-parent cascade so Work-level projections like
+        `classification_ssim` refresh too — and re-derives each doc from the
+        current Postgres/OCFL source of truth (no lifecycle/audit/lock bump).
+
+        Rooted at a Collection it refreshes that Collection's contents; rooted
+        at the top Community it backfills the whole repository. **Synchronous**
+        by design — for a pathologically large subtree the caller roots lower or
+        drives the cascade in chunks. Idempotent. Returns the count re-projected.
+        Non-system callers are rejected (401/403); unknown id → 404.
+      DESC
+      security [{ BearerAuth: [] }]
+      parameter name: :Authorization, in: :header, type: :string, required: false
+      parameter name: :User, in: :header, type: :string, required: false,
+                description: 'System principal, e.g. "NUID 000000000"'
+
+      let!(:system_user) do
+        User.create!(email: 'system@example.com', password: SecureRandom.hex(16),
+                     nuid: '000000000', role: :system)
+      end
+      let(:system_token) { 'test-system-token' }
+      before do
+        allow(Rails.application.credentials).to receive(:system_token).and_return(system_token)
+      end
+      let(:Authorization) { "Bearer #{system_token}" }
+      let(:User) { "NUID #{system_user.nuid}" }
+
+      response '200', 'subtree re-projected; descendant Works refreshed' do
+        let(:id) { collection.noid }
+        before do
+          # Drift the descendant Work (see single-reindex note). The subtree
+          # gather must reach this Work, not just the Collection container.
+          FileSetCreator.call(work_id: work.noid, classification: Classification.image)
+          expect(classification_in_solr(work)).to be_nil
+        end
+        schema type: :object, properties: { reindexed: { type: :integer } }, required: %w[reindexed]
+        run_test! do |response|
+          # Collection (root container) + its member Work.
+          expect(JSON.parse(response.body)['reindexed']).to eq(2)
+          expect(classification_in_solr(work)).to contain_exactly('Image')
+
+          # Idempotent: a re-run converges to the same set and same projection.
+          post "/resources/#{collection.noid}/reindex_subtree",
+               headers: { 'Authorization' => "Bearer #{system_token}", 'User' => "NUID #{system_user.nuid}" }
+          expect(JSON.parse(response.body)['reindexed']).to eq(2)
+          expect(classification_in_solr(work)).to contain_exactly('Image')
+        end
+      end
+
+      response '404', 'unknown id' do
+        let(:id) { 'does-not-exist' }
+        run_test!
       end
     end
   end

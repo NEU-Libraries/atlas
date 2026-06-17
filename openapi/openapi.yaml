@@ -2803,6 +2803,103 @@ paths:
                   description: NOIDs to resolve
               required:
               - ids
+  "/resources/{id}/reindex":
+    parameters:
+    - name: id
+      in: path
+      description: NOID of any resource
+      required: true
+      schema:
+        type: string
+    post:
+      summary: Re-project a resource's Solr doc (system-only)
+      tags:
+      - Resources
+      description: |
+        Operational, **system-gated** Solr re-projection. Re-derives the
+        resource's Solr doc from the current Postgres/OCFL source of truth — no
+        lifecycle transition, no audit event, no optimistic-lock bump. This is
+        the supported lever after an indexer ships or changes (e.g.
+        `classification_ssim`) and an already-finalized resource carries a
+        stale/empty projection; previously the only option was to abuse a
+        lifecycle transition (`POST /works/{id}/complete`). Idempotent.
+
+        Requires the system bearer token paired with the system `User:` NUID
+        header; any non-system caller is rejected (401/403). Unknown id → 404.
+      security:
+      - BearerAuth: []
+      parameters:
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          type: string
+      - name: User
+        in: header
+        required: false
+        description: System principal, e.g. "NUID 000000000"
+        schema:
+          type: string
+      responses:
+        '204':
+          description: resource re-projected from current state
+        '404':
+          description: unknown id
+        '403':
+          description: non-system caller is rejected
+  "/resources/{id}/reindex_subtree":
+    parameters:
+    - name: id
+      in: path
+      description: NOID of any resource (subtree root)
+      required: true
+      schema:
+        type: string
+    post:
+      summary: Re-project a resource and its full descendant subtree (system-only)
+      tags:
+      - Resources
+      description: |
+        Operational, **system-gated** subtree Solr re-projection. Gathers the
+        resource plus its full descendant subtree — descendant containers
+        (Collection/Community) **and the Works beneath them**, a deliberate
+        superset of the re-parent cascade so Work-level projections like
+        `classification_ssim` refresh too — and re-derives each doc from the
+        current Postgres/OCFL source of truth (no lifecycle/audit/lock bump).
+
+        Rooted at a Collection it refreshes that Collection's contents; rooted
+        at the top Community it backfills the whole repository. **Synchronous**
+        by design — for a pathologically large subtree the caller roots lower or
+        drives the cascade in chunks. Idempotent. Returns the count re-projected.
+        Non-system callers are rejected (401/403); unknown id → 404.
+      security:
+      - BearerAuth: []
+      parameters:
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          type: string
+      - name: User
+        in: header
+        required: false
+        description: System principal, e.g. "NUID 000000000"
+        schema:
+          type: string
+      responses:
+        '200':
+          description: subtree re-projected; descendant Works refreshed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reindexed:
+                    type: integer
+                required:
+                - reindexed
+        '404':
+          description: unknown id
   "/users":
     get:
       summary: Search the user directory

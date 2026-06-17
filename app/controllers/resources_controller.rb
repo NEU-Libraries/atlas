@@ -65,4 +65,39 @@ class ResourcesController < ApplicationController
     resources = Atlas.query.custom_queries.find_many_by_alternate_identifiers(alternate_identifiers: ids)
     @resources = resources.map(&:decorate)
   end
+
+  # Re-project a single resource's Solr doc from its current Postgres/OCFL
+  # state. Solr-only (Atlas.index_adapter) — no Postgres write, no
+  # optimistic-lock bump, no lifecycle/audit/minting. This is the
+  # purpose-built, side-effect-free reindex: when an indexer ships or changes
+  # (e.g. ClassificationIndexer -> classification_ssim), a resource finalized
+  # before it carries a stale/empty projection and must be re-indexed without
+  # abusing a lifecycle transition (POST /works/:id/complete). :system-gated —
+  # an operational action, never a user one. Idempotent. Unknown id -> 404.
+  def reindex
+    authorize! :reindex, Resource
+    resource = Resource.find(params[:id])
+    return head(:not_found) if resource.nil?
+
+    Atlas.index_adapter.persister.save(resource: resource)
+    head :no_content
+  end
+
+  # Re-project a resource AND its full descendant subtree. The gather is a
+  # deliberate superset of the re-parent cascade: descendant containers
+  # (Collection/Community, via ancestor_ids_ssim) PLUS the Works beneath them,
+  # because a reindex refreshes any projection — including classification_ssim,
+  # which lives on Works, which the container-only reparent cascade never
+  # touches. Fed to the generic SubtreeReindexer (Solr-only, idempotent,
+  # order-independent). Stays synchronous (Atlas's posture); for a
+  # pathologically large subtree the caller (Cerberus) roots lower or drives it
+  # in chunks. Unknown id -> 404. Returns the count re-projected.
+  def reindex_subtree
+    authorize! :reindex, Resource
+    resource = Resource.find(params[:id])
+    return head(:not_found) if resource.nil?
+
+    count = SubtreeReindexer.call(resources: SubtreeResourcesQuery.call(resource))
+    render json: { reindexed: count }
+  end
 end

@@ -336,10 +336,21 @@ RSpec.describe 'Works', type: :request do
       DESC
 
       response '200', 'assets listed' do
-        let(:work) { WorkCreator.call(parent_id: collection.noid) }
-        let(:id)   { work.noid }
+        let(:work)     { WorkCreator.call(parent_id: collection.noid) }
+        let(:id)       { work.noid }
+        let(:file_set) { FileSetCreator.call(work_id: work.noid, classification: Classification.image) }
+        before do
+          BlobCreator.call(path:              Rails.root.join('spec/fixtures/files/example.png').to_s,
+                           file_set_id:       file_set.noid,
+                           original_filename: 'page1.png')
+        end
         schema '$ref' => '#/components/schemas/WorkAssets'
-        run_test!
+        run_test! do |response|
+          blob = JSON.parse(response.body).find { |a| a['original_filename'] == 'page1.png' }
+          # Labeled, consumer-facing name: <Label#prefix><noid>.<ext> —
+          # distinct from the deposited original_filename.
+          expect(blob['filename']).to match(/\.png\z/)
+        end
       end
 
       response '200', 'thumbnail Delegate is excluded; non-thumbnail Delegate is included' do

@@ -727,6 +727,9 @@ components:
             size:
               type: integer
               nullable: true
+            filename:
+              type: string
+              nullable: true
             label:
               type: string
               nullable: true
@@ -787,6 +790,9 @@ components:
                     nullable: true
                   size:
                     type: integer
+                    nullable: true
+                  filename:
+                    type: string
                     nullable: true
                   label:
                     type: string

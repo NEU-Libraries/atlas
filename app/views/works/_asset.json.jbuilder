@@ -8,6 +8,7 @@
 case asset
 when Blob
   json.extract! asset, :noid, :mime_type, :original_filename, :size
+  json.filename asset.filename
   json.label Label.find(asset.label)&.name
 when Delegate
   json.extract! asset, :noid, :mime_type, :use, :uri

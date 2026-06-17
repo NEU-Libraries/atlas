@@ -188,6 +188,7 @@ module OpenapiSchemas
             mime_type:         { type: :string, nullable: true },
             original_filename: { type: :string, nullable: true },
             size:              { type: :integer, nullable: true },
+            filename:          { type: :string, nullable: true },
             label:             { type: :string, nullable: true }
           },
           required:    %w[noid],

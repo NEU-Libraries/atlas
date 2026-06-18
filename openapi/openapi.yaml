@@ -2720,10 +2720,11 @@ paths:
       tags:
       - People
       description: |
-        Without params: a paginated list of all Persons. With `?nuids=a,b,c`:
-        batch-resolve to the authoritative display_name (supersedes the SSO
-        users directory's name), dropping unresolved nuids — `pagination` is
-        omitted on the batch path.
+        Without params: a paginated list of all Persons (`?page`, `?per_page`) —
+        the NOID-keyed People-index source; each row carries the NOID (public
+        address) plus the server-side nuid. With `?nuids=a,b,c`: batch-resolve to
+        the authoritative display_name (supersedes the SSO users directory's
+        name), dropping unresolved nuids — page size follows the match count.
       parameters:
       - name: nuids
         in: query
@@ -2731,6 +2732,17 @@ paths:
         description: Comma-separated NUIDs to batch-resolve
         schema:
           type: string
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+      - name: per_page
+        in: query
+        required: false
+        description: Page size (capped at 100)
+        schema:
+          type: integer
       responses:
         '200':
           description: batch resolve by nuids (no pagination)
@@ -2781,16 +2793,16 @@ paths:
               required:
               - nuid
               - display_name
-  "/people/{nuid}":
+  "/people/{id}":
     parameters:
-    - name: nuid
+    - name: id
       in: path
-      description: NUID of the person
+      description: NOID of the person
       required: true
       schema:
         type: string
     get:
-      summary: Fetch a person by NUID
+      summary: Fetch a person by NOID
       tags:
       - People
       responses:
@@ -2801,7 +2813,7 @@ paths:
               schema:
                 "$ref": "#/components/schemas/Person"
         '404':
-          description: unknown nuid
+          description: unknown noid
     patch:
       summary: Edit authority fields (system/admin)
       tags:
@@ -2817,7 +2829,7 @@ paths:
               schema:
                 "$ref": "#/components/schemas/Person"
         '404':
-          description: unknown nuid
+          description: unknown noid
       requestBody:
         content:
           application/json:
@@ -2832,10 +2844,11 @@ paths:
                   type: string
                 title:
                   type: string
-  "/people/{nuid}/affiliations":
+  "/people/{id}/affiliations":
     parameters:
-    - name: nuid
+    - name: id
       in: path
+      description: NOID of the person
       required: true
       schema:
         type: string
@@ -2865,10 +2878,11 @@ paths:
                   description: NOID of the community
               required:
               - community_id
-  "/people/{nuid}/affiliations/{community_id}":
+  "/people/{id}/affiliations/{community_id}":
     parameters:
-    - name: nuid
+    - name: id
       in: path
+      description: NOID of the person
       required: true
       schema:
         type: string

@@ -49,16 +49,18 @@ Rails.application.routes.draw do
     end
     resources :delegates, only: :show
 
-    # People — neutral curatorial identities, addressed by NUID (the
-    # correlation key), not NOID. Reads on the authenticated floor; create /
-    # update / affiliation writes are :system + admin. Affiliations are an
-    # audited Person↔Community edge.
-    get    '/people',                                   to: 'people#index'
-    post   '/people',                                   to: 'people#create'
-    get    '/people/:nuid',                             to: 'people#show',   as: 'person'
-    patch  '/people/:nuid',                             to: 'people#update'
-    post   '/people/:nuid/affiliations',               to: 'people#add_affiliation'
-    delete '/people/:nuid/affiliations/:community_id',  to: 'people#remove_affiliation'
+    # People — neutral curatorial identities. Addressable endpoints are keyed
+    # by NOID (like /works/:id), keeping the staff-facing NUID server-side
+    # (NEU IT Security: don't surface NUIDs in public URLs). NUID stays the key
+    # only for create (one Person per NUID) and the ?nuids= resolve batch.
+    # Reads on the authenticated floor; create/update/affiliation writes are
+    # :system + admin. Affiliations are an audited Person↔Community edge.
+    get    '/people',                                 to: 'people#index'
+    post   '/people',                                 to: 'people#create'
+    get    '/people/:id',                             to: 'people#show',   as: 'person'
+    patch  '/people/:id',                             to: 'people#update'
+    post   '/people/:id/affiliations',               to: 'people#add_affiliation'
+    delete '/people/:id/affiliations/:community_id',  to: 'people#remove_affiliation'
 
     # Compilations (DRS "Sets") — AR-tier personal curation, recipe-based.
     # Membership routes mutate one recipe line each and re-render the

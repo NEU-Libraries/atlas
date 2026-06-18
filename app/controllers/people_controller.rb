@@ -1,15 +1,20 @@
 # frozen_string_literal: true
 
-# People — neutral curatorial identities (see Person). Addressed by NUID (the
-# correlation key consumers hold), not NOID. Reads sit on the authenticated
-# floor; create/update/affiliation writes are :system + admin (name authority
-# and affiliations are operational/curatorial, not a self-service user action).
+# People — neutral curatorial identities (see Person). Addressable endpoints
+# are keyed by NOID (like Work/Collection), keeping the staff-facing NUID
+# server-side — NEU IT Security treats surfacing NUIDs in public URLs as an
+# enumeration risk. NUID stays the key only where it must: create (one Person
+# per NUID, the correlation key) and the ?nuids= resolve batch (NuidResolver,
+# never user-facing). Reads sit on the authenticated floor; create/update/
+# affiliation writes are :system + admin.
 class PeopleController < ApplicationController
   include LazyPagination
   include StaleObjectRetry
   include Auditable
 
-  # GET /people            — paginated list of all Persons.
+  # GET /people            — paginated list of all Persons (?page, ?per_page).
+  #                           The People-index source; each row carries the NOID
+  #                           (public address) + server-side nuid.
   # GET /people?nuids=a,b,c — batch resolve to authoritative display_name
   #                           (supersedes User.resolve); unresolved nuids drop.
   def index
@@ -21,12 +26,12 @@ class PeopleController < ApplicationController
       people = Atlas.query.custom_queries.find_people_by_nuids(nuids: batch_nuids)
       @pagination, items = paginate_array(people)
     else
-      @pagination, items = paginate_model(Person)
+      @pagination, items = paginate_model(Person, per_page: params[:per_page])
     end
     @people = items.map(&:decorate)
   end
 
-  # GET /people/:nuid
+  # GET /people/:noid
   def show
     authorize! :read, Person
     @person = find_person
@@ -52,7 +57,7 @@ class PeopleController < ApplicationController
     render :show, status: :created
   end
 
-  # PATCH /people/:nuid — librarian edits to authority fields. NUID is the
+  # PATCH /people/:noid — librarian edits to authority fields. NUID is the
   # immutable correlation key and is not patchable here. Person carries no
   # per-instance ACL, so authorization is class-level (:system + admin) and
   # runs before the lookup.
@@ -72,7 +77,7 @@ class PeopleController < ApplicationController
     render :show
   end
 
-  # POST /people/:nuid/affiliations { community_id } — idempotent add.
+  # POST /people/:noid/affiliations { community_id } — idempotent add.
   def add_affiliation
     authorize! :update, Person
     with_stale_object_retry do
@@ -91,7 +96,7 @@ class PeopleController < ApplicationController
     render :show
   end
 
-  # DELETE /people/:nuid/affiliations/:community_id — tolerant remove.
+  # DELETE /people/:noid/affiliations/:community_id — tolerant remove.
   def remove_affiliation
     authorize! :update, Person
     with_stale_object_retry do
@@ -111,8 +116,13 @@ class PeopleController < ApplicationController
 
   private
 
+    # Addressable lookups are by NOID (Resource.find resolves the alternate_id),
+    # scoped to Person so a non-Person NOID reads as absent. The NUID-keyed
+    # find_person_by_nuid is reserved for create's uniqueness guard and the
+    # ?nuids= resolve batch.
     def find_person
-      Atlas.query.custom_queries.find_person_by_nuid(nuid: params[:nuid])
+      resource = Resource.find(params[:id])
+      resource if resource.is_a?(Person)
     end
 
     # Affiliations are to Communities specifically; a non-Community id is

@@ -4,9 +4,9 @@ class ResourcesController < ApplicationController
   def show
     authorize! :read, Resource
     @resource = Resource.find(params[:id]).decorate
-    # Person is addressed by NUID and has no resourceful route, so polymorphic
-    # redirect_to can't build its path — send it to the NUID-keyed endpoint.
-    return redirect_to(person_path(nuid: @resource.nuid)) if @resource.is_a?(Person)
+    # Person has no resourceful route, so polymorphic redirect_to can't build
+    # its path — send it to the NOID-keyed endpoint.
+    return redirect_to(person_path(@resource.noid)) if @resource.is_a?(Person)
 
     redirect_to(@resource)
   end

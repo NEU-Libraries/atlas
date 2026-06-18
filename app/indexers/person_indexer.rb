@@ -5,7 +5,11 @@
 #
 # - display_name_ssi: the authoritative, librarian-editable name (single-value
 #   string) — what every name render should resolve to.
-# - nuid_ssi: the correlation key, for NUID-keyed lookups / profile gating.
+# - noid_ssi: the public address. The community Faculty-and-Staff browse finds
+#   Person docs via affiliated_community_ids_ssim and links to /people/:noid, so
+#   it needs the NOID explicitly (rather than parsing alternate_ids).
+# - nuid_ssi: the correlation key, server-side only (NUID-keyed lookups /
+#   depositor gating); never the public address.
 # - affiliated_community_ids_ssim: the affiliated communities as NOIDs (the
 #   public id, matching ancestor_ids_ssim's noid shape), so a community page can
 #   pull its affiliated Persons with one fq=affiliated_community_ids_ssim:"<noid>".
@@ -24,6 +28,7 @@ class PersonIndexer
     return {} unless resource.is_a?(Person)
 
     {
+      noid_ssi:                      resource.noid,
       display_name_ssi:              resource.display_name,
       nuid_ssi:                      resource.nuid,
       affiliated_community_ids_ssim: affiliated_noids

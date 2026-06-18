@@ -16,4 +16,5 @@ json.collection do
   json.tombstoned_by @collection.tombstoned_by
   json.depositor @collection.depositor
   json.proxy_uploader @collection.proxy_uploader
+  json.featured @collection.featured
 end

@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 # Collections
+# rubocop:disable Metrics/ClassLength
 class CollectionsController < ApplicationController
   include LazyPagination
   include DelegateUris
@@ -31,6 +32,7 @@ class CollectionsController < ApplicationController
     # TODO: XML
     @collection = CollectionCreator.call(
       parent_id:         params[:parent_id],
+      featured:          featured_param,
       proxy_uploader:    proxy_uploader_nuid,
       depositor:         depositor_nuid,
       actor_nuid:        @current_user&.nuid,
@@ -72,6 +74,8 @@ class CollectionsController < ApplicationController
       binary_update
     elsif params[:metadata].present?
       metadata_update
+    elsif params.key?('featured')
+      featured_update
     end
   end
 
@@ -154,4 +158,21 @@ class CollectionsController < ApplicationController
     def metadata_update
       @collection = audited_metadata_update(@collection)
     end
+
+    # Toggle the showcase "Featured" flag. A resource-attribute write (not
+    # MODS), so it bypasses the descriptive-metadata path; @collection is
+    # already found + authorized in #update, and the view auto-decorates.
+    def featured_update
+      @collection.featured = featured_param
+      @collection = Atlas.persister.save(resource: @collection)
+      audit!(resource: @collection, action: 'update', change_type: 'metadata',
+             payload: { featured: @collection.featured })
+    end
+
+    # Coerce the wire value ("true"/"false"/absent) to a real Boolean,
+    # defaulting to false so a create without the param is not featured.
+    def featured_param
+      ActiveModel::Type::Boolean.new.cast(params[:featured]) || false
+    end
 end
+# rubocop:enable Metrics/ClassLength

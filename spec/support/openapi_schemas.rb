@@ -65,7 +65,9 @@ module OpenapiSchemas
   end
 
   def collection
-    wrapped(:collection, base_resource_props)
+    wrapped(:collection, base_resource_props.merge(
+                           featured: { type: :boolean, description: 'Showcase "Featured" flag (genre-showcase Collection)' }
+                         ))
   end
 
   def community

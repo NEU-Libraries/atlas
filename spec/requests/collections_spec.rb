@@ -35,7 +35,8 @@ RSpec.describe 'Collections', type: :request do
         type:       :object,
         properties: {
           parent_id: { type: :string, description: 'NOID of the parent Community' },
-          depositor: { type: :string, description: 'NUID to stamp as the Collection depositor (optional)' }
+          depositor: { type: :string, description: 'NUID to stamp as the Collection depositor (optional)' },
+          featured:  { type: :boolean, description: 'Mark as a genre-showcase ("Featured") Collection (optional)' }
         },
         required:   %w[parent_id]
       }
@@ -43,7 +44,18 @@ RSpec.describe 'Collections', type: :request do
       response '200', 'collection created' do
         let(:body) { { parent_id: community.noid } }
         schema '$ref' => '#/components/schemas/Collection'
-        run_test!
+        run_test! do |response|
+          # Defaults to not-featured.
+          expect(JSON.parse(response.body).dig('collection', 'featured')).to be(false)
+        end
+      end
+
+      response '200', 'create a featured showcase collection' do
+        let(:body) { { parent_id: community.noid, featured: true } }
+        schema '$ref' => '#/components/schemas/Collection'
+        run_test! do |response|
+          expect(JSON.parse(response.body).dig('collection', 'featured')).to be(true)
+        end
       end
 
       response '200', 'create with explicit depositor stamps the resource' do
@@ -98,9 +110,12 @@ RSpec.describe 'Collections', type: :request do
         endpoint — see `PATCH /collections/{id}/thumbnails`.
       DESC
       parameter name: :binary, in: :formData, required: false
+      parameter name: :featured, in: :formData, type: :string, required: false,
+                description: 'Toggle the showcase "Featured" flag ("true"/"false")'
       multipart_request_body(
         {
-          binary: { type: :string, format: :binary, description: 'MODS XML to apply to the Collection' }
+          binary:   { type: :string, format: :binary, description: 'MODS XML to apply to the Collection' },
+          featured: { type: :string, description: 'Toggle the showcase "Featured" flag ("true"/"false")' }
         }
       )
 
@@ -110,6 +125,16 @@ RSpec.describe 'Collections', type: :request do
         let(:binary)     { Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/work-mods.xml')) }
         schema '$ref' => '#/components/schemas/Collection'
         run_test!
+      end
+
+      response '200', 'toggle the Featured showcase flag' do
+        let(:collection) { CollectionCreator.call(parent_id: community.noid, featured: true) }
+        let(:id)         { collection.noid }
+        let(:featured)   { 'false' }
+        schema '$ref' => '#/components/schemas/Collection'
+        run_test! do |response|
+          expect(JSON.parse(response.body).dig('collection', 'featured')).to be(false)
+        end
       end
     end
 

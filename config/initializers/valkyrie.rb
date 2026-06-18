@@ -39,7 +39,8 @@ Rails.application.config.to_prepare do
           GenreIndexer,
           ProvenanceIndexer,
           AncestryIndexer,
-          PersonIndexer
+          PersonIndexer,
+          FeaturedIndexer
         )
       ),
       :index_solr
@@ -57,7 +58,8 @@ Rails.application.config.to_prepare do
           GenreIndexer,
           ProvenanceIndexer,
           AncestryIndexer,
-          PersonIndexer
+          PersonIndexer,
+          FeaturedIndexer
         )
       ),
       :test_solr

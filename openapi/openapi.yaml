@@ -261,6 +261,9 @@ components:
                 (proxy-deposit) case. Left null under acting-as impersonation (On-Behalf-Of
                 header present) — the operator is recorded only in the AuditEvent,
                 not on the resource.
+            featured:
+              type: boolean
+              description: Showcase "Featured" flag (genre-showcase Collection)
           required:
           - id
           - valkyrie_id
@@ -277,6 +280,7 @@ components:
           - tombstoned_by
           - depositor
           - proxy_uploader
+          - featured
       required:
       - collection
     Community:
@@ -1360,6 +1364,9 @@ paths:
                 depositor:
                   type: string
                   description: NUID to stamp as the Collection depositor (optional)
+                featured:
+                  type: boolean
+                  description: Mark as a genre-showcase ("Featured") Collection (optional)
               required:
               - parent_id
   "/collections/{id}":
@@ -1406,15 +1413,11 @@ paths:
         content:
           multipart/form-data:
             schema:
-              type: object
-              properties:
-                binary:
-                  type: string
-                  format: binary
-                  description: MODS XML to apply to the Collection
+              type: string
+        description: Toggle the showcase "Featured" flag ("true"/"false")
       responses:
         '200':
-          description: collection updated
+          description: toggle the Featured showcase flag
           content:
             application/json:
               schema:

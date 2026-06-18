@@ -38,7 +38,8 @@ Rails.application.config.to_prepare do
           ClassificationIndexer,
           GenreIndexer,
           ProvenanceIndexer,
-          AncestryIndexer
+          AncestryIndexer,
+          PersonIndexer
         )
       ),
       :index_solr
@@ -55,7 +56,8 @@ Rails.application.config.to_prepare do
           ClassificationIndexer,
           GenreIndexer,
           ProvenanceIndexer,
-          AncestryIndexer
+          AncestryIndexer,
+          PersonIndexer
         )
       ),
       :test_solr
@@ -92,6 +94,13 @@ Rails.application.config.to_prepare do
     # redefines the singleton method.
     Valkyrie::MetadataAdapter.find(:postgres).query_service
                              .custom_queries.register_query_handler(FindManyByAlternateIdentifiers)
+
+    # Person-by-NUID resolver (app/queries/find_people_by_nuids.rb): single and
+    # batch lookup of Persons by their correlation key (the NUID is the public
+    # address for the People surface; Resource.find only resolves NOID/Valkyrie
+    # id). Registered on the same shared postgres query service.
+    Valkyrie::MetadataAdapter.find(:postgres).query_service
+                             .custom_queries.register_query_handler(FindPeopleByNuids)
 
   module Atlas
     def self.persister

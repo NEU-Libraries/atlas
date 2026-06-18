@@ -7,11 +7,12 @@ class AuditEvent < ApplicationRecord
   ACTIONS        = %w[create update tombstone restore complete
                       reparent link_member unlink_member
                       add_file replace_file remove_file
+                      add_affiliation remove_affiliation
                       mint_token revoke_token
                       impersonation_started impersonation_ended].freeze
   CHANGE_TYPES   = %w[metadata structural permissions lifecycle file session].freeze
   EVENT_SOURCES  = %w[job controller script ingest migration].freeze
-  RESOURCE_TYPES = %w[Community Collection Work].freeze
+  RESOURCE_TYPES = %w[Community Collection Work Person].freeze
 
   validates :actor_nuid,   presence: true
   validates :action,       presence: true, inclusion: { in: ACTIONS }

@@ -7,6 +7,8 @@ module OpenapiSchemas
   # changes, the corresponding entry here must change too — strict schema
   # validation in rswag will otherwise fail the request specs.
 
+  # rubocop:disable Metrics/AbcSize -- a flat schema registry that grows by one
+  # call per schema; splitting it further hurts readability more than it helps.
   def all
     {
       Work:               work,
@@ -37,7 +39,15 @@ module OpenapiSchemas
       ResourceDigests:    resource_digests,
       Lineage:            lineage,
       ModsVersions:       mods_versions
-    }.merge(compilation_schemas)
+    }.merge(compilation_schemas).merge(person_schemas)
+  end
+  # rubocop:enable Metrics/AbcSize
+
+  def person_schemas
+    {
+      Person:      person,
+      PeopleIndex: people_index
+    }
   end
 
   def compilation_schemas
@@ -151,6 +161,28 @@ module OpenapiSchemas
 
   def communities_index
     paged(:communities, { '$ref' => '#/components/schemas/CommunitySummary' })
+  end
+
+  # Person detail (a wrapped object). Every key is always emitted by the
+  # partial (null when absent), so all are required + nullable as appropriate.
+  def person
+    wrapped(:person, {
+              id:                       { type: :string, description: 'NOID' },
+              valkyrie_id:              { type: :string, description: 'Valkyrie internal id' },
+              nuid:                     { type: :string, description: 'Correlation key + public address' },
+              display_name:             { type: :string, description: 'Authoritative, librarian-editable name' },
+              bio:                      { type: :string, nullable: true },
+              orcid:                    { type: :string, nullable: true },
+              title:                    { type: :string, nullable: true },
+              affiliated_community_ids: { type: :array, items: { type: :string },
+                                          description: 'NOIDs of affiliated communities' }
+            })
+  end
+
+  # People index / batch-resolve. Always paginated for a uniform shape (the
+  # ?nuids batch returns all matches in one page — page size = match count).
+  def people_index
+    paged(:people, { '$ref' => '#/components/schemas/Person' })
   end
 
   def file_sets_index

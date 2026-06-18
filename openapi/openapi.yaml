@@ -1113,6 +1113,61 @@ components:
       required:
       - contents
       - pagination
+    Person:
+      type: object
+      properties:
+        person:
+          type: object
+          properties:
+            id:
+              type: string
+              description: NOID
+            valkyrie_id:
+              type: string
+              description: Valkyrie internal id
+            nuid:
+              type: string
+              description: Correlation key + public address
+            display_name:
+              type: string
+              description: Authoritative, librarian-editable name
+            bio:
+              type: string
+              nullable: true
+            orcid:
+              type: string
+              nullable: true
+            title:
+              type: string
+              nullable: true
+            affiliated_community_ids:
+              type: array
+              items:
+                type: string
+              description: NOIDs of affiliated communities
+          required:
+          - id
+          - valkyrie_id
+          - nuid
+          - display_name
+          - bio
+          - orcid
+          - title
+          - affiliated_community_ids
+      required:
+      - person
+    PeopleIndex:
+      type: object
+      properties:
+        people:
+          type: array
+          items:
+            "$ref": "#/components/schemas/Person"
+        pagination:
+          "$ref": "#/components/schemas/Pagination"
+      required:
+      - people
+      - pagination
 paths:
   "/files":
     get:
@@ -2656,6 +2711,182 @@ paths:
       responses:
         '204':
           description: state reset
+  "/people":
+    get:
+      summary: List or batch-resolve people
+      tags:
+      - People
+      description: |
+        Without params: a paginated list of all Persons. With `?nuids=a,b,c`:
+        batch-resolve to the authoritative display_name (supersedes the SSO
+        users directory's name), dropping unresolved nuids — `pagination` is
+        omitted on the batch path.
+      parameters:
+      - name: nuids
+        in: query
+        required: false
+        description: Comma-separated NUIDs to batch-resolve
+        schema:
+          type: string
+      responses:
+        '200':
+          description: batch resolve by nuids (no pagination)
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/PeopleIndex"
+    post:
+      summary: Create a person (system/admin)
+      tags:
+      - People
+      description: |
+        Creates a neutral curatorial identity. One Person per NUID — a duplicate
+        NUID is a 409. System/admin only; a non-privileged caller receives 403.
+      parameters:
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          type: string
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Person"
+        '409':
+          description: duplicate nuid
+        '403':
+          description: non-system/admin caller is rejected
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nuid:
+                  type: string
+                display_name:
+                  type: string
+                bio:
+                  type: string
+                orcid:
+                  type: string
+                title:
+                  type: string
+              required:
+              - nuid
+              - display_name
+  "/people/{nuid}":
+    parameters:
+    - name: nuid
+      in: path
+      description: NUID of the person
+      required: true
+      schema:
+        type: string
+    get:
+      summary: Fetch a person by NUID
+      tags:
+      - People
+      responses:
+        '200':
+          description: person found
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Person"
+        '404':
+          description: unknown nuid
+    patch:
+      summary: Edit authority fields (system/admin)
+      tags:
+      - People
+      description: Librarian edits to display_name/bio/orcid/title. NUID is immutable
+        and not patchable.
+      parameters: []
+      responses:
+        '200':
+          description: updated
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Person"
+        '404':
+          description: unknown nuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                display_name:
+                  type: string
+                bio:
+                  type: string
+                orcid:
+                  type: string
+                title:
+                  type: string
+  "/people/{nuid}/affiliations":
+    parameters:
+    - name: nuid
+      in: path
+      required: true
+      schema:
+        type: string
+    post:
+      summary: Add a community affiliation (audited, system/admin)
+      tags:
+      - People
+      description: Idempotent. Emits an add_affiliation audit event.
+      parameters: []
+      responses:
+        '200':
+          description: affiliation added
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Person"
+        '422':
+          description: unknown community
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                community_id:
+                  type: string
+                  description: NOID of the community
+              required:
+              - community_id
+  "/people/{nuid}/affiliations/{community_id}":
+    parameters:
+    - name: nuid
+      in: path
+      required: true
+      schema:
+        type: string
+    - name: community_id
+      in: path
+      required: true
+      schema:
+        type: string
+    delete:
+      summary: Remove a community affiliation (audited, system/admin)
+      tags:
+      - People
+      description: Tolerant — removing an absent affiliation is a no-op. Emits a remove_affiliation
+        audit event.
+      responses:
+        '200':
+          description: affiliation removed
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Person"
   "/resources/{id}":
     parameters:
     - name: id

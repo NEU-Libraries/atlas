@@ -87,6 +87,12 @@ class Ability
         # never a user one, so it lives here on the :system tier (admin reaches
         # it via the manage :all wildcard, like :reparent).
         can :reindex,    Resource
+        # Person curation — create + edit authority fields + manage affiliations
+        # (affiliation add/remove ride :update). Name authority and affiliations
+        # are operational/curatorial, not a self-service user action, so they
+        # live on the :system tier; admin reaches them via manage :all. Reads
+        # stay on the `can :read, Resource` floor above (Person < Resource).
+        can %i[create update], Person
       when :guest
         # Read floor only. Devise /user shape lets guests fetch their own
         # session info — no resource-modifying ability.

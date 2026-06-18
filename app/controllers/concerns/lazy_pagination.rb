@@ -12,6 +12,16 @@ module LazyPagination
     [pagination, items]
   end
 
+  # Paginate an already-resolved in-memory array (e.g. a batch-resolved set)
+  # with no truncation: page size follows the array length, so the whole match
+  # comes back in one page while keeping the uniform paginated response shape.
+  # Shares the array-aware pagy_get_items override below.
+  def paginate_array(array)
+    array = Array(array)
+    pagy, items = pagy(array, count: array.size, items: [array.size, 1].max)
+    [pagy_metadata(pagy), items]
+  end
+
   def pagy_get_items(lazy, pagy)
     lazy.drop(pagy.offset).first(pagy.items)
   end

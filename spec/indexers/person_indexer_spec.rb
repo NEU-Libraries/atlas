@@ -19,6 +19,7 @@ RSpec.describe PersonIndexer do
       person.affiliated_community_ids = [community.id]
 
       result = described_class.new(resource: person).to_solr
+      expect(result[:noid_ssi]).to eq(person.noid)
       expect(result[:display_name_ssi]).to eq('Jane Doe')
       expect(result[:nuid_ssi]).to eq('001234567')
       expect(result[:affiliated_community_ids_ssim]).to eq([community.noid])
@@ -41,7 +42,9 @@ RSpec.describe PersonIndexer do
       person.affiliated_community_ids = [community.id]
       saved = Atlas.persister.save(resource: person)
 
-      doc = person_doc(saved, 'display_name_ssi', 'nuid_ssi', 'affiliated_community_ids_ssim', 'internal_resource_tesim')
+      doc = person_doc(saved, 'noid_ssi', 'display_name_ssi', 'nuid_ssi', 'affiliated_community_ids_ssim',
+                       'internal_resource_tesim')
+      expect(doc['noid_ssi']).to eq(saved.noid)
       expect(doc['display_name_ssi']).to eq('Jane Doe')
       expect(doc['nuid_ssi']).to eq('001234567')
       expect(doc['affiliated_community_ids_ssim']).to eq([community.noid])

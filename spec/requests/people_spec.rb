@@ -17,16 +17,22 @@ RSpec.describe 'People', type: :request do
       tags 'People'
       produces 'application/json'
       description <<~DESC
-        Without params: a paginated list of all Persons. With `?nuids=a,b,c`:
-        batch-resolve to the authoritative display_name (supersedes the SSO
-        users directory's name), dropping unresolved nuids — `pagination` is
-        omitted on the batch path.
+        Without params: a paginated list of all Persons (`?page`, `?per_page`) —
+        the NOID-keyed People-index source; each row carries the NOID (public
+        address) plus the server-side nuid. With `?nuids=a,b,c`: batch-resolve to
+        the authoritative display_name (supersedes the SSO users directory's
+        name), dropping unresolved nuids — page size follows the match count.
       DESC
       parameter name: :nuids, in: :query, type: :string, required: false,
                 description: 'Comma-separated NUIDs to batch-resolve'
+      parameter name: :page, in: :query, type: :integer, required: false
+      parameter name: :per_page, in: :query, type: :integer, required: false,
+                description: "Page size (capped at #{LazyPagination::MAX_PER_PAGE})"
 
       response '200', 'paginated list' do
         let(:nuids) { nil }
+        let(:page) { nil }
+        let(:per_page) { nil }
         schema '$ref' => '#/components/schemas/PeopleIndex'
         run_test! do |response|
           body = JSON.parse(response.body)
@@ -35,9 +41,24 @@ RSpec.describe 'People', type: :request do
         end
       end
 
+      response '200', 'per_page caps the page size' do
+        let!(:bob) { PersonCreator.call(nuid: '007654321', display_name: 'Bob Roe') }
+        let(:nuids) { nil }
+        let(:page) { 1 }
+        let(:per_page) { 1 }
+        schema '$ref' => '#/components/schemas/PeopleIndex'
+        run_test! do |response|
+          body = JSON.parse(response.body)
+          expect(body['people'].size).to eq(1)
+          expect(body['pagination']['items']).to eq(1)
+        end
+      end
+
       response '200', 'batch resolve by nuids (no pagination)' do
         let!(:bob) { PersonCreator.call(nuid: '007654321', display_name: 'Bob Roe') }
         let(:nuids) { '001234567,007654321,000000000' }
+        let(:page) { nil }
+        let(:per_page) { nil }
         schema '$ref' => '#/components/schemas/PeopleIndex'
         run_test! do |response|
           body = JSON.parse(response.body)
@@ -101,23 +122,27 @@ RSpec.describe 'People', type: :request do
     end
   end
 
-  path '/people/{nuid}' do
-    parameter name: :nuid, in: :path, type: :string, description: 'NUID of the person'
+  path '/people/{id}' do
+    parameter name: :id, in: :path, type: :string, description: 'NOID of the person'
 
-    get 'Fetch a person by NUID' do
+    get 'Fetch a person by NOID' do
       tags 'People'
       produces 'application/json'
 
       response '200', 'person found' do
-        let(:nuid) { '001234567' }
+        let(:id) { jane.noid }
         schema '$ref' => '#/components/schemas/Person'
         run_test! do |response|
-          expect(JSON.parse(response.body)['person']['display_name']).to eq('Jane Doe')
+          person = JSON.parse(response.body)['person']
+          expect(person['id']).to eq(jane.noid)
+          expect(person['display_name']).to eq('Jane Doe')
+          # NUID stays in the (server-side) response body, just not in the URL.
+          expect(person['nuid']).to eq('001234567')
         end
       end
 
-      response '404', 'unknown nuid' do
-        let(:nuid) { '000000000' }
+      response '404', 'unknown noid' do
+        let(:id) { 'does-not-exist' }
         run_test!
       end
     end
@@ -138,7 +163,7 @@ RSpec.describe 'People', type: :request do
       }
 
       response '200', 'updated' do
-        let(:nuid) { '001234567' }
+        let(:id) { jane.noid }
         let(:body) { { display_name: 'Jane A. Doe', bio: 'Researcher' } }
         schema '$ref' => '#/components/schemas/Person'
         run_test! do |response|
@@ -147,16 +172,16 @@ RSpec.describe 'People', type: :request do
         end
       end
 
-      response '404', 'unknown nuid' do
-        let(:nuid) { '000000000' }
+      response '404', 'unknown noid' do
+        let(:id) { 'does-not-exist' }
         let(:body) { { display_name: 'X' } }
         run_test!
       end
     end
   end
 
-  path '/people/{nuid}/affiliations' do
-    parameter name: :nuid, in: :path, type: :string
+  path '/people/{id}/affiliations' do
+    parameter name: :id, in: :path, type: :string, description: 'NOID of the person'
 
     post 'Add a community affiliation (audited, system/admin)' do
       tags 'People'
@@ -170,7 +195,7 @@ RSpec.describe 'People', type: :request do
       }
 
       response '200', 'affiliation added' do
-        let(:nuid) { '001234567' }
+        let(:id) { jane.noid }
         let(:body) { { community_id: community.noid } }
         schema '$ref' => '#/components/schemas/Person'
         run_test! do |response|
@@ -180,7 +205,7 @@ RSpec.describe 'People', type: :request do
       end
 
       response '422', 'unknown community' do
-        let(:nuid) { '001234567' }
+        let(:id) { jane.noid }
         let(:body) { { community_id: 'does-not-exist' } }
         run_test! do |response|
           expect(JSON.parse(response.body)['code']).to eq('unknown_community')
@@ -189,8 +214,8 @@ RSpec.describe 'People', type: :request do
     end
   end
 
-  path '/people/{nuid}/affiliations/{community_id}' do
-    parameter name: :nuid, in: :path, type: :string
+  path '/people/{id}/affiliations/{community_id}' do
+    parameter name: :id, in: :path, type: :string, description: 'NOID of the person'
     parameter name: :community_id, in: :path, type: :string
 
     delete 'Remove a community affiliation (audited, system/admin)' do
@@ -199,7 +224,7 @@ RSpec.describe 'People', type: :request do
       description 'Tolerant — removing an absent affiliation is a no-op. Emits a remove_affiliation audit event.'
 
       response '200', 'affiliation removed' do
-        let(:nuid) { '001234567' }
+        let(:id) { jane.noid }
         let(:community_id) { community.noid }
         before do
           jane.affiliated_community_ids = [community.id]

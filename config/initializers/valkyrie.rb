@@ -36,6 +36,7 @@ Rails.application.config.to_prepare do
           TombstoneIndexer,
           ThumbnailIndexer,
           ClassificationIndexer,
+          GenreIndexer,
           ProvenanceIndexer,
           AncestryIndexer
         )
@@ -52,6 +53,7 @@ Rails.application.config.to_prepare do
           TombstoneIndexer,
           ThumbnailIndexer,
           ClassificationIndexer,
+          GenreIndexer,
           ProvenanceIndexer,
           AncestryIndexer
         )

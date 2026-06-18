@@ -20,6 +20,21 @@ module MODSFixtureHelper
     doc.abstract_nodes.first.content = abstract
     resource.mods_xml = doc.to_xml
   end
+
+  # Append <mods:genre> elements and reassign through the raw mods_xml= path, so
+  # the genres flow through the real NEU::MODS projection into mods.genres (the
+  # same chain GenreIndexer reads) rather than being poked onto the JSON record.
+  def set_mods_genres!(resource, genres)
+    doc  = NEU::MODS::Document.parse(resource.mods_xml)
+    root = doc.doc.at_xpath('/mods:mods', NEU::MODS::NAMESPACE)
+    Array(genres).each do |value|
+      node = Nokogiri::XML::Node.new('genre', doc.doc)
+      node.namespace = root.namespace
+      node.content   = value
+      root.add_child(node)
+    end
+    resource.mods_xml = doc.to_xml
+  end
 end
 
 RSpec.configure do |config|

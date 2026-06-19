@@ -3,13 +3,25 @@
 # Projects a Person onto its Solr doc so the People surface and the
 # community-scoped Faculty-and-Staff browse can be Blacklight result sets.
 #
+# - title_tsim: display_name projected into the standard title field every
+#   other resource type uses (MODSIndexer sets it from plain_title). This is
+#   what makes a Person a first-class Blacklight result: Cerberus *displays* it
+#   (index.title_field) and *keyword-searches* it (qf targets tokenized *_tsim),
+#   so `q=David Cliff` matches the Person and the row renders with a name rather
+#   than falling back to the id. (display_name is auto-indexed as
+#   display_name_tsim too, but qf targets the title field, not that one.)
+# - type_ssim: ['Person'] so Person is a Type-facet value alongside
+#   Work/Collection/Community. Overrides the auto-projected `type` attribute
+#   (which is the human label "Faculty and Staff") for the facet field only;
+#   the type attribute and its other Solr variants are untouched.
 # - display_name_ssi: the authoritative, librarian-editable name (single-value
 #   string) — what every name render should resolve to.
 # - noid_ssi: the public address. The community Faculty-and-Staff browse finds
 #   Person docs via affiliated_community_ids_ssim and links to /people/:noid, so
 #   it needs the NOID explicitly (rather than parsing alternate_ids).
 # - nuid_ssi: the correlation key, server-side only (NUID-keyed lookups /
-#   depositor gating); never the public address.
+#   depositor gating); never the public address. (NB: the NUID is NOT added to
+#   any title/searchable field here — IT Security: no NUID in search responses.)
 # - affiliated_community_ids_ssim: the affiliated communities as NOIDs (the
 #   public id, matching ancestor_ids_ssim's noid shape), so a community page can
 #   pull its affiliated Persons with one fq=affiliated_community_ids_ssim:"<noid>".
@@ -28,6 +40,8 @@ class PersonIndexer
     return {} unless resource.is_a?(Person)
 
     {
+      title_tsim:                    [resource.display_name],
+      type_ssim:                     ['Person'],
       noid_ssi:                      resource.noid,
       display_name_ssi:              resource.display_name,
       nuid_ssi:                      resource.nuid,

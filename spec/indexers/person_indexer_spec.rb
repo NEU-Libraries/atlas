@@ -68,5 +68,13 @@ RSpec.describe PersonIndexer do
       ).dig('response', 'docs').pluck('id')
       expect(hits).to include(person.id.to_s)
     end
+
+    it 'is publicly readable so gated discovery does not drop it' do
+      # AccessControlsIndexer projects the PersonCreator-set public read group;
+      # without it the {!terms f=read_access_group_ssim}public,… filter excludes
+      # the Person from every non-admin search.
+      doc = person_doc(person, 'read_access_group_ssim')
+      expect(doc['read_access_group_ssim']).to eq(['public'])
+    end
   end
 end

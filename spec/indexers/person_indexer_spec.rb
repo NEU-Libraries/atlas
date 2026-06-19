@@ -19,6 +19,8 @@ RSpec.describe PersonIndexer do
       person.affiliated_community_ids = [community.id]
 
       result = described_class.new(resource: person).to_solr
+      expect(result[:title_tsim]).to eq(['Jane Doe'])
+      expect(result[:type_ssim]).to eq(['Person'])
       expect(result[:noid_ssi]).to eq(person.noid)
       expect(result[:display_name_ssi]).to eq('Jane Doe')
       expect(result[:nuid_ssi]).to eq('001234567')
@@ -42,8 +44,13 @@ RSpec.describe PersonIndexer do
       person.affiliated_community_ids = [community.id]
       saved = Atlas.persister.save(resource: person)
 
-      doc = person_doc(saved, 'noid_ssi', 'display_name_ssi', 'nuid_ssi', 'affiliated_community_ids_ssim',
-                       'internal_resource_tesim')
+      doc = person_doc(saved, 'title_tsim', 'type_ssim', 'noid_ssi', 'display_name_ssi', 'nuid_ssi',
+                       'affiliated_community_ids_ssim', 'internal_resource_tesim')
+      # Name in the standard title field → displayed + keyword-searchable.
+      expect(doc['title_tsim']).to eq(['Jane Doe'])
+      # type_ssim overrides the auto-projected type attribute ("Faculty and
+      # Staff") to the facet value 'Person' — exactly, not appended.
+      expect(doc['type_ssim']).to eq(['Person'])
       expect(doc['noid_ssi']).to eq(saved.noid)
       expect(doc['display_name_ssi']).to eq('Jane Doe')
       expect(doc['nuid_ssi']).to eq('001234567')
@@ -51,6 +58,15 @@ RSpec.describe PersonIndexer do
       # internal_resource lands automatically, so Cerberus's type-allowlisted
       # catalog naturally excludes Person.
       expect(doc['internal_resource_tesim']).to include('Person')
+    end
+
+    it 'makes the Person keyword-searchable by name via the title field' do
+      Atlas.persister.save(resource: person)
+      # qf targets title_tsim, so a name query matches the Person doc.
+      hits = Atlas.index_adapter.connection.get(
+        'select', params: { q: 'title_tsim:"Jane Doe"', fl: 'id' }
+      ).dig('response', 'docs').pluck('id')
+      expect(hits).to include(person.id.to_s)
     end
   end
 end

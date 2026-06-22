@@ -25,6 +25,8 @@ RSpec.describe PersonIndexer do
       expect(result[:display_name_ssi]).to eq('Jane Doe')
       expect(result[:nuid_ssi]).to eq('001234567')
       expect(result[:affiliated_community_ids_ssim]).to eq([community.noid])
+      # PersonCreator mints the personal root eagerly, so the NOID projects.
+      expect(result[:personal_root_id_ssi]).to eq(person.personal_root_id)
     end
 
     it 'projects an empty affiliation list when the Person has none' do

@@ -1149,6 +1149,11 @@ components:
               items:
                 type: string
               description: NOIDs of affiliated communities
+            personal_root_id:
+              type: string
+              nullable: true
+              description: NOID of the Person's personal-root Collection (the publish
+                conduit's structural parent)
           required:
           - id
           - valkyrie_id
@@ -1158,6 +1163,7 @@ components:
           - orcid
           - title
           - affiliated_community_ids
+          - personal_root_id
       required:
       - person
     PeopleIndex:

@@ -9,10 +9,12 @@
 # on a stable object). Persons also declare community affiliations, which drive
 # which community genre-showcases the publish conduit targets.
 #
-# Lean by design — "Employee, done right": identity + affiliation only. No
-# per-person collection graph, no creation job, no fan-out, and (decision)
-# Postgres + Solr only — Person is curatorial identity, not preserved content,
-# so it writes no OCFL envelope and seeds no descriptive-metadata FileSet.
+# Lean by design — "Employee, done right": identity + affiliation, plus a single
+# personal-root Collection (see personal_root_id). No per-person collection
+# *graph*, no fan-out — one root, not v1's 8-folders-per-person sprawl. The
+# Person itself is (decision) Postgres + Solr only — curatorial identity, not
+# preserved content, so it writes no OCFL envelope and seeds no
+# descriptive-metadata FileSet (its personal root, an ordinary Collection, does).
 # It lives in orm_resources alongside Community/Collection/Work but is scoped
 # OUT of the catalog default by its internal_resource (Cerberus type-allowlists
 # Work/Collection/Community); see PersonIndexer for the People-surface
@@ -32,6 +34,18 @@ class Person < Resource
   # Librarian-declared Person↔Community edges (Valkyrie ids). Mutated only via
   # the audited add/remove affiliation actions.
   attribute :affiliated_community_ids, Valkyrie::Types::Set.of(Valkyrie::Types::ID)
+
+  # The Person's stable personal-root Collection — the structural parent the
+  # publish conduit writes a depositor's own Works under (mirrors v1's per-
+  # Employee "User Root", but one root per Person, affiliation-independent).
+  # Minted eagerly by PersonCreator (PersonalRootCreator) and never moved when
+  # affiliations change. Stores the root's NOID (a plain string — the public id,
+  # like nuid; NOT a Valkyrie::Types::ID, which is the internal-id wrapper
+  # affiliated_community_ids holds and the decorator has to resolve to NOIDs),
+  # so the read path emits it with no resolve query and Cerberus reads it
+  # straight off the JSON. Optional so a Person can exist pre-mint (backfill /
+  # pre-existing rows).
+  attribute :personal_root_id, Valkyrie::Types::String.optional
 
   attribute :type, Valkyrie::Types::String.default(Classification.person.name.freeze)
 end

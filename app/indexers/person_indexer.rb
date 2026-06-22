@@ -25,6 +25,9 @@
 # - affiliated_community_ids_ssim: the affiliated communities as NOIDs (the
 #   public id, matching ancestor_ids_ssim's noid shape), so a community page can
 #   pull its affiliated Persons with one fq=affiliated_community_ids_ssim:"<noid>".
+# - personal_root_id_ssi: NOID of the Person's personal-root Collection. Not
+#   required by Cerberus (it reads personal_root_id off the Person JSON); indexed
+#   for discovery + to verify provisioning straight from Solr.
 #
 # Empty hash for everything that isn't a Person. Valkyrie's solr persister sets
 # internal_resource on the doc, so Cerberus's type-allowlisted catalog naturally
@@ -45,7 +48,8 @@ class PersonIndexer
       noid_ssi:                      resource.noid,
       display_name_ssi:              resource.display_name,
       nuid_ssi:                      resource.nuid,
-      affiliated_community_ids_ssim: affiliated_noids
+      affiliated_community_ids_ssim: affiliated_noids,
+      personal_root_id_ssi:          resource.personal_root_id
     }
   end
 

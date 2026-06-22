@@ -4,8 +4,10 @@
 # identity/authority, not preserved content, so unlike WorkCreator /
 # CollectionCreator this does NOT seed a descriptive-metadata FileSet, write a
 # MODS template, write an OCFL preservation envelope, or inherit any parent
-# permissions. It saves the resource (Postgres + Solr) and emits the structural
-# create audit row.
+# permissions for the Person row itself. It saves the resource (Postgres +
+# Solr), eagerly mints the Person's personal-root Collection
+# (PersonalRootCreator — that root IS a preserved Collection), and emits the
+# structural create audit row.
 #
 # Born public-readable: People are public directory entries (v1's Faculty &
 # Staff was world-browsable). Person has no parent to inherit a public ACL from
@@ -35,6 +37,11 @@ class PersonCreator < ApplicationService
     person = Person.new(nuid: @nuid, display_name: @display_name, bio: @bio, orcid: @orcid, title: @title)
     # Public read before the first composite save, so AccessControlsIndexer projects it (see class note).
     person.publicize
+    person = Atlas.persister.save(resource: person)
+    # Eagerly mint the personal root so it always exists by the time this Person
+    # publishes (see PersonalRootCreator). An unattributed system side effect —
+    # no actor passed, so it emits no structural audit of its own.
+    person.personal_root_id = PersonalRootCreator.call(nuid: @nuid).noid
     person = Atlas.persister.save(resource: person)
     emit_audit_event!(person)
     person

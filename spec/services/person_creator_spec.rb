@@ -12,6 +12,16 @@ RSpec.describe PersonCreator do
     expect(person).to have_attributes(nuid: '001234567', display_name: 'Jane Doe', orcid: '0000-0002-1825-0097')
   end
 
+  # The publish conduit needs a stable structural parent per Person.
+  it 'eagerly mints a personal-root Collection owned by the new person' do
+    person = described_class.call(nuid: '001234567', display_name: 'Jane Doe')
+
+    expect(person.personal_root_id).to be_present
+    root = Resource.find(person.personal_root_id)
+    expect(root).to be_a(Collection)
+    expect(root.depositor).to eq('001234567')
+  end
+
   # People are public directory entries (v1 Faculty & Staff was world-browsable),
   # and Person has no parent to inherit a public ACL from — so the creator sets
   # it, which is what keeps the Person in gated discovery.

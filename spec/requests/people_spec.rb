@@ -97,6 +97,8 @@ RSpec.describe 'People', type: :request do
         run_test! do |response|
           person = JSON.parse(response.body)['person']
           expect(person).to include('nuid' => '009998888', 'display_name' => 'New Person', 'title' => 'Professor')
+          # The personal root is minted eagerly and surfaced as a NOID.
+          expect(person['personal_root_id']).to be_present
           # Create emits a structural audit row for the Person.
           expect(AuditEvent.where(action: 'create', resource_type: 'Person')).to exist
         end

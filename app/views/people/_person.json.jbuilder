@@ -7,4 +7,7 @@ json.person do
   json.orcid person.orcid
   json.title person.title
   json.affiliated_community_ids person.affiliated_community_noids
+  # NOID of the Person's personal-root Collection (the publish conduit's
+  # structural parent). Stored as a NOID, so emitted directly — no resolve.
+  json.personal_root_id person.personal_root_id
 end

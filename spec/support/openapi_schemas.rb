@@ -177,7 +177,10 @@ module OpenapiSchemas
               orcid:                    { type: :string, nullable: true },
               title:                    { type: :string, nullable: true },
               affiliated_community_ids: { type: :array, items: { type: :string },
-                                          description: 'NOIDs of affiliated communities' }
+                                          description: 'NOIDs of affiliated communities' },
+              personal_root_id:         { type: :string, nullable: true,
+                                          description: "NOID of the Person's personal-root Collection " \
+                                                       "(the publish conduit's structural parent)" }
             })
   end
 

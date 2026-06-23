@@ -31,7 +31,22 @@ class PersonalRootCreator < ApplicationService
   end
 
   def call
-    CollectionCreator.call(parent_id: people_community.id, depositor: @nuid, mods_xml: titled_mods('Personal Root'))
+    root = CollectionCreator.call(parent_id: people_community.id, depositor: @nuid,
+                                  mods_xml: titled_mods('Personal Root'))
+
+    # Mint the root public-but-unpromoted (see gap_reports/
+    # atlas_person_root_visibility.md). The People Community has no public read
+    # grant, so a root that merely inherits its ACL 403s for its own owner — and
+    # collections created under it inherit those non-readable permissions, so the
+    # owner can't view a collection they just made. Publicizing the root makes it
+    # owner-navigable and lets workspace collections inherit a public read,
+    # keeping the hierarchy consistent (public child under public root); an owner
+    # may still privatize an individual workspace collection later. Re-save +
+    # re-write the envelope so the on-disk preservation copy carries the grant.
+    root.publicize
+    root = Atlas.persister.save(resource: root)
+    root.write_preservation_envelope!
+    root
   end
 
   private

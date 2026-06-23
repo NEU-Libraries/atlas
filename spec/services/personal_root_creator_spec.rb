@@ -30,6 +30,13 @@ RSpec.describe PersonalRootCreator do
     expect(Atlas.query.find_all_of_model(model: Collection).count).to eq(2)
   end
 
+  it 'mints the root public-but-unpromoted (public read grant)' do
+    root = described_class.call(nuid: '001234567')
+
+    expect(root).to be_public
+    expect(root.read_groups).to include('public')
+  end
+
   it 'titles the People Community and the root for on-disk recoverability' do
     root   = described_class.call(nuid: '001234567')
     parent = root.parent

@@ -43,7 +43,13 @@ class PersonalRootCreator < ApplicationService
     # keeping the hierarchy consistent (public child under public root); an owner
     # may still privatize an individual workspace collection later. Re-save +
     # re-write the envelope so the on-disk preservation copy carries the grant.
+    #
+    # Flag it a personal root (-> personal_root_bsi) so Cerberus can exclude it
+    # from the global catalog and rewrite breadcrumbs around it — a personal root
+    # is a structural container, not content (see
+    # gap_reports/atlas_personal_root_flag.md).
     root.publicize
+    root.personal_root = true
     root = Atlas.persister.save(resource: root)
     root.write_preservation_envelope!
     root

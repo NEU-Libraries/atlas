@@ -66,7 +66,8 @@ module OpenapiSchemas
 
   def collection
     wrapped(:collection, base_resource_props.merge(
-                           featured: { type: :boolean, description: 'Showcase "Featured" flag (genre-showcase Collection)' }
+                           featured:      { type: :boolean, description: 'Showcase "Featured" flag (genre-showcase Collection)' },
+                           personal_root: { type: :boolean, description: "Personal-root flag (a Person's structural workspace container)" }
                          ))
   end
 

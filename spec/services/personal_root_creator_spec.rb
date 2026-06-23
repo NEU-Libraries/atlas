@@ -37,6 +37,12 @@ RSpec.describe PersonalRootCreator do
     expect(root.read_groups).to include('public')
   end
 
+  it 'flags the root as a personal root' do
+    root = described_class.call(nuid: '001234567')
+
+    expect(root.personal_root).to be(true)
+  end
+
   it 'titles the People Community and the root for on-disk recoverability' do
     root   = described_class.call(nuid: '001234567')
     parent = root.parent

@@ -17,4 +17,5 @@ json.collection do
   json.depositor @collection.depositor
   json.proxy_uploader @collection.proxy_uploader
   json.featured @collection.featured
+  json.personal_root @collection.personal_root
 end

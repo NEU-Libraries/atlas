@@ -264,6 +264,9 @@ components:
             featured:
               type: boolean
               description: Showcase "Featured" flag (genre-showcase Collection)
+            personal_root:
+              type: boolean
+              description: Personal-root flag (a Person's structural workspace container)
           required:
           - id
           - valkyrie_id
@@ -281,6 +284,7 @@ components:
           - depositor
           - proxy_uploader
           - featured
+          - personal_root
       required:
       - collection
     Community:

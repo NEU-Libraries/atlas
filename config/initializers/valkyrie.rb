@@ -40,7 +40,8 @@ Rails.application.config.to_prepare do
           ProvenanceIndexer,
           AncestryIndexer,
           PersonIndexer,
-          FeaturedIndexer
+          FeaturedIndexer,
+          PersonalRootIndexer
         )
       ),
       :index_solr
@@ -59,7 +60,8 @@ Rails.application.config.to_prepare do
           ProvenanceIndexer,
           AncestryIndexer,
           PersonIndexer,
-          FeaturedIndexer
+          FeaturedIndexer,
+          PersonalRootIndexer
         )
       ),
       :test_solr

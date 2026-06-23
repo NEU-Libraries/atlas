@@ -10,4 +10,11 @@ class Collection < Resource
   # entry in the community's browse. A discovery/badge hint, not bibliographic
   # description — hence a resource attribute projected to featured_bsi, not MODS.
   attribute :featured, Valkyrie::Types::Bool.default(false)
+
+  # Marks a Person's personal-root Collection (minted by PersonalRootCreator at
+  # Person.create). A structural container, not content: Cerberus excludes it
+  # from the global catalog and rewrites breadcrumbs around it. Set once at mint
+  # time; projected to personal_root_bsi for discovery (mirrors `featured`), not
+  # MODS. See gap_reports/atlas_personal_root_flag.md.
+  attribute :personal_root, Valkyrie::Types::Bool.default(false)
 end

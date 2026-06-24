@@ -1008,6 +1008,61 @@ components:
       required:
       - resource_id
       - versions
+    BlobVersions:
+      type: object
+      properties:
+        blob_id:
+          type: string
+          description: NOID of the Blob
+        versions:
+          type: array
+          items:
+            type: object
+            properties:
+              version_id:
+                type: string
+                description: OCFL version label (vN); stable and sortable
+              file_identifier:
+                type: string
+                description: Versioned Valkyrie::ID appended for this revision
+              created:
+                type: string
+                format: date-time
+                description: OCFL version creation timestamp (ISO-8601)
+              actor_nuid:
+                type: string
+                nullable: true
+                description: NUID that wrote this revision, correlated from the file
+                  audit log; null when uncorrelatable
+              on_behalf_of_nuid:
+                type: string
+                nullable: true
+                description: Impersonation target NUID from the correlated event;
+                  usually null
+              digest:
+                type: string
+                nullable: true
+                description: Fixity as recorded at that version, "<algorithm>:<hexvalue>"
+              size:
+                type: integer
+                nullable: true
+                description: Byte size of this revision
+              original_filename:
+                type: string
+                nullable: true
+                description: Stable original filename (preserved across revisions)
+            required:
+            - version_id
+            - file_identifier
+            - created
+            - actor_nuid
+            - on_behalf_of_nuid
+            - digest
+            - size
+            - original_filename
+      required:
+      - blob_id
+      - versions
     Compilation:
       type: object
       properties:
@@ -1280,9 +1335,21 @@ paths:
       summary: Append a new revision to a file
       tags:
       - Files
-      description: 'Uber-basic versioning: posts a new binary, appends its file identifier
-        to the Blob.'
-      parameters: []
+      description: |
+        Uber-basic versioning: posts a new binary, appends its file identifier
+        to the Blob (NOID preserved, prior bytes retained by OCFL).
+
+        Idempotent on the optional `Idempotency-Key` header: a double-submit of
+        the replace form with the same key returns the existing Blob instead of
+        minting a second OCFL version.
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: false
+        description: Client-supplied UUID; repeats return the existing resource without
+          a new revision.
+        schema:
+          type: string
       requestBody:
         required: true
         content:
@@ -1331,6 +1398,103 @@ paths:
       responses:
         '200':
           description: content streamed
+  "/files/{id}/versions":
+    parameters:
+    - name: id
+      in: path
+      description: NOID of the Blob
+      required: true
+      schema:
+        type: string
+    get:
+      summary: List binary version history for a file
+      tags:
+      - Files
+      description: |
+        Reverse-chronological list of the Blob's retained content revisions —
+        the counterpart to `GET /resources/{id}/mods/versions`. Each descriptor
+        carries the OCFL version label, its file identifier, the fixity
+        `digest`/`size` recorded at that version, and actor attribution
+        correlated from the file audit log (`actor_nuid` etc. are null when no
+        event matches, e.g. a back-loaded Blob).
+
+        Admin-gated, like the MODS version list, because the descriptors expose
+        edit attribution. Unknown id → 404.
+      responses:
+        '200':
+          description: versions listed (newest first)
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/BlobVersions"
+        '404':
+          description: unknown blob
+  "/files/{id}/versions/{version_id}/content":
+    parameters:
+    - name: id
+      in: path
+      description: NOID of the Blob
+      required: true
+      schema:
+        type: string
+    - name: version_id
+      in: path
+      description: OCFL version label, e.g. v1
+      required: true
+      schema:
+        type: string
+    get:
+      summary: Stream a prior version’s content bytes
+      tags:
+      - Files
+      description: |
+        Streams the bytes of a retained version, pinned to its OCFL label.
+        Mirrors `GET /files/{id}/content` (same memory-safe send_file path) but
+        resolves through the version history, so only listed content revisions
+        are addressable. Unknown id or version → 404.
+      responses:
+        '200':
+          description: version content streamed
+        '404':
+          description: unknown version
+  "/files/{id}/rollback":
+    parameters:
+    - name: id
+      in: path
+      description: NOID of the Blob
+      required: true
+      schema:
+        type: string
+    post:
+      summary: Roll a file back to a prior version
+      tags:
+      - Files
+      description: |
+        Promote a prior version to current by appending its bytes again as a
+        new revision (non-destructive — it becomes vN+1 with the bytes of vN),
+        keeping the Blob NOID. OCFL dedups the identical content. Unknown id or
+        version → 404.
+      parameters: []
+      responses:
+        '200':
+          description: rolled back (new revision appended)
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Blob"
+        '404':
+          description: unknown version
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                version_id:
+                  type: string
+                  description: OCFL version label to reinstate, e.g. v1
+              required:
+              - version_id
   "/collections":
     get:
       summary: List collections

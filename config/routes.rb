@@ -45,7 +45,19 @@ Rails.application.routes.draw do
       end
     end
     resources :files, :controller => :blobs do
-      get :content, :on => :member
+      member do
+        get :content
+        # Binary version read surface — the counterpart to the MODS version
+        # pair (/resources/:id/mods/versions[/:version_id]). List is admin-
+        # gated (carries edit attribution); per-version content rides the
+        # Blob read floor; rollback is a non-destructive write. The trailing
+        # /content disambiguates the per-version stream from the list, and the
+        # vN constraint keeps a `.xml`-style suffix out of the id.
+        get :versions
+        get 'versions/:version_id/content', action: :version_content,
+            as: :version_content, constraints: { version_id: /v\d+/ }
+        post :rollback
+      end
     end
     resources :delegates, only: :show
 

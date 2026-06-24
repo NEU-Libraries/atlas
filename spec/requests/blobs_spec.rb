@@ -158,9 +158,18 @@ RSpec.describe 'Files (Blobs)', type: :request do
       tags 'Files'
       consumes 'multipart/form-data'
       produces 'application/json'
-      description 'Uber-basic versioning: posts a new binary, appends its file identifier to the Blob.'
+      description <<~DESC
+        Uber-basic versioning: posts a new binary, appends its file identifier
+        to the Blob (NOID preserved, prior bytes retained by OCFL).
+
+        Idempotent on the optional `Idempotency-Key` header: a double-submit of
+        the replace form with the same key returns the existing Blob instead of
+        minting a second OCFL version.
+      DESC
       parameter name: :binary,          in: :formData, required: true
       parameter name: :expected_digest, in: :formData, required: false
+      parameter name: :'Idempotency-Key', in: :header, type: :string, required: false,
+                description: 'Client-supplied UUID; repeats return the existing resource without a new revision.'
       multipart_request_body(
         {
           binary:          { type: :string, format: :binary, description: 'New revision bytes' },
@@ -175,6 +184,7 @@ RSpec.describe 'Files (Blobs)', type: :request do
         let(:id)              { blob.noid }
         let(:binary)          { Rack::Test::UploadedFile.new(fixture) }
         let(:expected_digest) { nil }
+        let(:'Idempotency-Key') { nil }
         schema '$ref' => '#/components/schemas/Blob'
         run_test! do |response|
           expect(JSON.parse(response.body).dig('blob', 'digest')).to match(/\Asha512:[0-9a-f]+\z/)
@@ -204,6 +214,116 @@ RSpec.describe 'Files (Blobs)', type: :request do
       response '200', 'content streamed' do
         let(:blob) { BlobCreator.call(work_id: work.noid, original_filename: 'example.bin', path: fixture.to_s) }
         let(:id)   { blob.noid }
+        run_test!
+      end
+    end
+  end
+
+  # Helper: the OCFL version label (vN) of a Blob's seed content revision.
+  def seed_version_label(blob)
+    Blob.find(blob.noid).file_identifiers.first.to_s[%r{/(v\d+)/}, 1]
+  end
+
+  path '/files/{id}/versions' do
+    parameter name: :id, in: :path, type: :string, description: 'NOID of the Blob'
+
+    get 'List binary version history for a file' do
+      tags 'Files'
+      produces 'application/json'
+      description <<~DESC
+        Reverse-chronological list of the Blob's retained content revisions —
+        the counterpart to `GET /resources/{id}/mods/versions`. Each descriptor
+        carries the OCFL version label, its file identifier, the fixity
+        `digest`/`size` recorded at that version, and actor attribution
+        correlated from the file audit log (`actor_nuid` etc. are null when no
+        event matches, e.g. a back-loaded Blob).
+
+        Admin-gated, like the MODS version list, because the descriptors expose
+        edit attribution. Unknown id → 404.
+      DESC
+
+      response '200', 'versions listed (newest first)' do
+        let(:blob) { BlobCreator.call(work_id: work.noid, original_filename: 'example.bin', path: fixture.to_s) }
+        let(:id)   { blob.noid }
+        schema '$ref' => '#/components/schemas/BlobVersions'
+        run_test! do |response|
+          body = JSON.parse(response.body)
+          expect(body['blob_id']).to eq(blob.noid)
+          expect(body['versions'].first['version_id']).to match(/\Av\d+\z/)
+          expect(body['versions'].first['digest']).to match(/\Asha512:[0-9a-f]+\z/)
+        end
+      end
+
+      response '404', 'unknown blob' do
+        let(:id) { 'does-not-exist' }
+        run_test!
+      end
+    end
+  end
+
+  path '/files/{id}/versions/{version_id}/content' do
+    parameter name: :id, in: :path, type: :string, description: 'NOID of the Blob'
+    parameter name: :version_id, in: :path, type: :string, description: 'OCFL version label, e.g. v1'
+
+    get 'Stream a prior version’s content bytes' do
+      tags 'Files'
+      produces 'application/octet-stream'
+      description <<~DESC
+        Streams the bytes of a retained version, pinned to its OCFL label.
+        Mirrors `GET /files/{id}/content` (same memory-safe send_file path) but
+        resolves through the version history, so only listed content revisions
+        are addressable. Unknown id or version → 404.
+      DESC
+
+      response '200', 'version content streamed' do
+        let(:blob)       { BlobCreator.call(work_id: work.noid, original_filename: 'example.bin', path: fixture.to_s) }
+        let(:id)         { blob.noid }
+        let(:version_id) { seed_version_label(blob) }
+        run_test!
+      end
+
+      response '404', 'unknown version' do
+        let(:blob)       { BlobCreator.call(work_id: work.noid, original_filename: 'example.bin', path: fixture.to_s) }
+        let(:id)         { blob.noid }
+        let(:version_id) { 'v9999' }
+        run_test!
+      end
+    end
+  end
+
+  path '/files/{id}/rollback' do
+    parameter name: :id, in: :path, type: :string, description: 'NOID of the Blob'
+
+    post 'Roll a file back to a prior version' do
+      tags 'Files'
+      consumes 'application/json'
+      produces 'application/json'
+      description <<~DESC
+        Promote a prior version to current by appending its bytes again as a
+        new revision (non-destructive — it becomes vN+1 with the bytes of vN),
+        keeping the Blob NOID. OCFL dedups the identical content. Unknown id or
+        version → 404.
+      DESC
+      parameter name: :body, in: :body, schema: {
+        type:       :object,
+        properties: { version_id: { type: :string, description: 'OCFL version label to reinstate, e.g. v1' } },
+        required:   %w[version_id]
+      }
+
+      response '200', 'rolled back (new revision appended)' do
+        let(:blob)    { BlobCreator.call(work_id: work.noid, original_filename: 'example.bin', path: fixture.to_s) }
+        let(:id)      { blob.noid }
+        let(:body)    { { version_id: seed_version_label(blob) } }
+        schema '$ref' => '#/components/schemas/Blob'
+        run_test! do |response|
+          expect(JSON.parse(response.body).dig('blob', 'id')).to eq(blob.noid)
+        end
+      end
+
+      response '404', 'unknown version' do
+        let(:blob) { BlobCreator.call(work_id: work.noid, original_filename: 'example.bin', path: fixture.to_s) }
+        let(:id)   { blob.noid }
+        let(:body) { { version_id: 'v9999' } }
         run_test!
       end
     end

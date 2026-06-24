@@ -38,7 +38,8 @@ module OpenapiSchemas
       ResourceRef:        resource_ref,
       ResourceDigests:    resource_digests,
       Lineage:            lineage,
-      ModsVersions:       mods_versions
+      ModsVersions:       mods_versions,
+      BlobVersions:       blob_versions
     }.merge(compilation_schemas).merge(person_schemas)
   end
   # rubocop:enable Metrics/AbcSize
@@ -538,6 +539,38 @@ module OpenapiSchemas
         }
       },
       required:   %w[resource_id versions]
+    }
+  end
+
+  # GET /files/:id/versions — binary version-history envelope. The counterpart
+  # to ModsVersions: one descriptor per retained content revision (off the
+  # Blob's file_identifiers), reverse-chronological. created/digest/size come
+  # from the OCFL inventory; actor fields are correlated from the file audit
+  # ledger and null when no event matches (e.g. a back-loaded Blob).
+  def blob_versions
+    {
+      type:       :object,
+      properties: {
+        blob_id:  { type: :string, description: 'NOID of the Blob' },
+        versions: {
+          type:  :array,
+          items: {
+            type:       :object,
+            properties: {
+              version_id:        { type: :string, description: 'OCFL version label (vN); stable and sortable' },
+              file_identifier:   { type: :string, description: 'Versioned Valkyrie::ID appended for this revision' },
+              created:           { type: :string, format: 'date-time', description: 'OCFL version creation timestamp (ISO-8601)' },
+              actor_nuid:        { type: :string, nullable: true, description: 'NUID that wrote this revision, correlated from the file audit log; null when uncorrelatable' },
+              on_behalf_of_nuid: { type: :string, nullable: true, description: 'Impersonation target NUID from the correlated event; usually null' },
+              digest:            { type: :string, nullable: true, description: 'Fixity as recorded at that version, "<algorithm>:<hexvalue>"' },
+              size:              { type: :integer, nullable: true, description: 'Byte size of this revision' },
+              original_filename: { type: :string, nullable: true, description: 'Stable original filename (preserved across revisions)' }
+            },
+            required:   %w[version_id file_identifier created actor_nuid on_behalf_of_nuid digest size original_filename]
+          }
+        }
+      },
+      required:   %w[blob_id versions]
     }
   end
 

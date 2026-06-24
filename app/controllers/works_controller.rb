@@ -122,6 +122,27 @@ class WorksController < ApplicationController
     render :show
   end
 
+  # Receive the Work-level aggregate of Cerberus-extracted document text and
+  # store it as the Work's derived `full_text` attribute. FullTextIndexer then
+  # projects it onto the Work's Solr doc (all_text_timv) for body-text search +
+  # the "Full Text Match" snippet. Same "machine-set derived metadata" seam as
+  # #update_thumbnails — re-sent on any re-ingest, never user-authored. Empty/
+  # absent text clears the field. The response intentionally omits the text (a
+  # long PDF is MBs) — it's write-only here, read back only through Solr.
+  def update_full_text
+    with_stale_object_retry do
+      @work = Work.find(params[:id])
+      authorize! :update_full_text, @work
+      return head(:not_found) if @work.nil?
+
+      @work.full_text = params[:text].to_s
+      @work = Atlas.persister.save(resource: @work)
+    end
+
+    @work = Work.find(@work.id).decorate
+    render :show
+  end
+
   def destroy
     @work = Work.find(params[:id])
     authorize! :destroy, @work

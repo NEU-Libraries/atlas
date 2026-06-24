@@ -20,6 +20,17 @@ class Work < Resource
   # /works?in_progress=true monitoring query can find stuck deposits.
   attribute :in_progress, Valkyrie::Types::Bool.default(true)
 
+  # Derived full-document text, extracted by Cerberus (pdftotext / Tika in a
+  # Solid Queue job) and PATCHed in via /works/:id/full_text — the Work-level
+  # aggregate of its content FileSets' body text. A regenerable **search aid**,
+  # NOT a preservation artifact: it's re-sent on any re-ingest, so it is
+  # deliberately omitted from the OCFL preservation envelope (graph_payload),
+  # exactly like the fungible thumbnail derivatives ([[project_thumbnail_fungible]]).
+  # Stored in the Postgres source of truth (the metadata adapter's jsonb) so
+  # FullTextIndexer re-reads it and re-projects all_text_timv on every reindex /
+  # reset:data. Size is unbounded-ish (a long PDF is MBs of text).
+  attribute :full_text, Valkyrie::Types::String
+
   # Page-bearing FileSets in presentation order: position ASC, unordered
   # (nil) last, creation-order tie-break — a total order even over
   # legacy/unordered data. Shared by works#file_sets and the Work-level

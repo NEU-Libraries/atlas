@@ -3861,6 +3861,50 @@ paths:
                 large:
                   type: string
                   description: IIIF URL for the large image tier
+  "/works/{id}/full_text":
+    parameters:
+    - name: id
+      in: path
+      description: NOID of the Work
+      required: true
+      schema:
+        type: string
+    patch:
+      summary: Store a work’s derived full-document text
+      tags:
+      - Works
+      description: |
+        Stores the Work-level aggregate of Cerberus-extracted document text as
+        the Work's derived `full_text` attribute. FullTextIndexer projects it
+        onto the Work's Solr doc (`all_text_timv`) for body-text search and the
+        "Full Text Match" snippet.
+
+        Same "machine-set derived metadata" seam as `/thumbnails` — a
+        regenerable search aid re-sent on any re-ingest, never user-authored.
+        Cerberus's FullTextExtractionJob is the primary caller. The response
+        omits the text (a long PDF is MBs); it's read back only through Solr.
+      parameters: []
+      responses:
+        '200':
+          description: full text stored and projected to all_text_timv
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Work"
+        '409':
+          description: optimistic-lock conflict survived the internal retry budget
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                text:
+                  type: string
+                  description: Extracted plain text (Work-level aggregate of content
+                    FileSets)
+              required:
+              - text
   "/works/{id}/parent":
     parameters:
     - name: id

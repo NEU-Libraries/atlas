@@ -604,6 +604,64 @@ RSpec.describe 'Works', type: :request do
     end
   end
 
+  path '/works/{id}/full_text' do
+    parameter name: :id, in: :path, type: :string, description: 'NOID of the Work'
+
+    patch 'Store a work’s derived full-document text' do
+      tags 'Works'
+      consumes 'application/json'
+      produces 'application/json'
+      description <<~DESC
+        Stores the Work-level aggregate of Cerberus-extracted document text as
+        the Work's derived `full_text` attribute. FullTextIndexer projects it
+        onto the Work's Solr doc (`all_text_timv`) for body-text search and the
+        "Full Text Match" snippet.
+
+        Same "machine-set derived metadata" seam as `/thumbnails` — a
+        regenerable search aid re-sent on any re-ingest, never user-authored.
+        Cerberus's FullTextExtractionJob is the primary caller. The response
+        omits the text (a long PDF is MBs); it's read back only through Solr.
+      DESC
+      parameter name: :body, in: :body, schema: {
+        type:       :object,
+        properties: {
+          text: { type: :string, description: 'Extracted plain text (Work-level aggregate of content FileSets)' }
+        },
+        required:   %w[text]
+      }
+
+      response '200', 'full text stored and projected to all_text_timv' do
+        let(:work) { WorkCreator.call(parent_id: collection.noid) }
+        let(:id)   { work.noid }
+        let(:body) { { text: 'Running Boston Jon Masters DESCRIPTION: I have a good friend' } }
+        schema '$ref' => '#/components/schemas/Work'
+        run_test! do
+          # Stored on the Work (source of truth)...
+          expect(Work.find(work.noid).full_text).to include('Running Boston')
+          # ...and projected onto the Work's Solr doc as the searchable catch-all.
+          doc = Atlas.index_adapter.connection.get(
+            'select', params: { q: %(id:"#{work.id}"), fl: 'id' }
+          ).dig('response', 'docs').first
+          expect(doc).not_to be_nil
+        end
+      end
+
+      response '409', 'optimistic-lock conflict survived the internal retry budget' do
+        let(:work) { WorkCreator.call(parent_id: collection.noid) }
+        let(:id)   { work.noid }
+        let(:body) { { text: 'some text' } }
+        before do
+          work # materialize before stubbing so creation isn't caught by the stub
+          allow_any_instance_of(WorksController).to receive(:sleep)
+          allow(Atlas.persister).to receive(:save).and_raise(Valkyrie::Persistence::StaleObjectError)
+        end
+        run_test! do |response|
+          expect(JSON.parse(response.body)['error']).to eq('stale_resource')
+        end
+      end
+    end
+  end
+
   path '/works/{id}/parent' do
     parameter name: :id, in: :path, type: :string, description: 'NOID of the Work to move'
 

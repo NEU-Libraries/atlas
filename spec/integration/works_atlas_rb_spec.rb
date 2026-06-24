@@ -164,6 +164,26 @@ RSpec.describe 'Works via atlas_rb', :atlas_rb_server do
     end
   end
 
+  describe '.set_full_text' do
+    it 'stores the derived text and makes the Work body-text searchable in Solr' do
+      work = WorkCreator.call(parent_id: collection.noid)
+
+      result = AtlasRb::Work.set_full_text(
+        work.noid,
+        text: 'Running Boston Jon Masters DESCRIPTION: I have a good friend',
+        nuid: admin_nuid
+      )
+      # Returns the Work (the text itself is not echoed — read only through Solr).
+      expect(result['work']['id']).to eq(work.noid)
+
+      # Projected onto the Work's Solr doc as the searchable catch-all.
+      hits = Atlas.index_adapter.connection.get(
+        'select', params: { q: 'all_text_timv:Boston', fl: 'id' }
+      ).dig('response', 'docs')
+      expect(hits.pluck('id')).to include(work.id.to_s)
+    end
+  end
+
   describe '.set_image_derivatives' do
     it 'attaches small/medium/large Delegates that surface in .assets' do
       work = WorkCreator.call(parent_id: collection.noid)

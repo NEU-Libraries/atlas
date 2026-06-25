@@ -176,9 +176,9 @@ RSpec.describe 'Works via atlas_rb', :atlas_rb_server do
       # Returns the Work (the text itself is not echoed — read only through Solr).
       expect(result['work']['id']).to eq(work.noid)
 
-      # Projected onto the Work's Solr doc as the searchable catch-all.
+      # Projected onto the Work's Solr doc as the dedicated full_text_tesimv field.
       hits = Atlas.index_adapter.connection.get(
-        'select', params: { q: 'all_text_timv:Boston', fl: 'id' }
+        'select', params: { q: 'full_text_tesimv:Boston', fl: 'id' }
       ).dig('response', 'docs')
       expect(hits.pluck('id')).to include(work.id.to_s)
     end

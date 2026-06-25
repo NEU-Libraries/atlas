@@ -614,8 +614,8 @@ RSpec.describe 'Works', type: :request do
       description <<~DESC
         Stores the Work-level aggregate of Cerberus-extracted document text as
         the Work's derived `full_text` attribute. FullTextIndexer projects it
-        onto the Work's Solr doc (`all_text_timv`) for body-text search and the
-        "Full Text Match" snippet.
+        onto the Work's Solr doc as the dedicated `full_text_tesimv` field for
+        body-text search and the "Full Text Match" snippet.
 
         Same "machine-set derived metadata" seam as `/thumbnails` — a
         regenerable search aid re-sent on any re-ingest, never user-authored.
@@ -630,7 +630,7 @@ RSpec.describe 'Works', type: :request do
         required:   %w[text]
       }
 
-      response '200', 'full text stored and projected to all_text_timv' do
+      response '200', 'full text stored and projected to full_text_tesimv' do
         let(:work) { WorkCreator.call(parent_id: collection.noid) }
         let(:id)   { work.noid }
         let(:body) { { text: 'Running Boston Jon Masters DESCRIPTION: I have a good friend' } }
@@ -638,7 +638,7 @@ RSpec.describe 'Works', type: :request do
         run_test! do
           # Stored on the Work (source of truth)...
           expect(Work.find(work.noid).full_text).to include('Running Boston')
-          # ...and projected onto the Work's Solr doc as the searchable catch-all.
+          # ...and projected onto the Work's Solr doc (dedicated full_text_tesimv).
           doc = Atlas.index_adapter.connection.get(
             'select', params: { q: %(id:"#{work.id}"), fl: 'id' }
           ).dig('response', 'docs').first

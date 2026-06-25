@@ -27,7 +27,7 @@ class Work < Resource
   # deliberately omitted from the OCFL preservation envelope (graph_payload),
   # exactly like the fungible thumbnail derivatives ([[project_thumbnail_fungible]]).
   # Stored in the Postgres source of truth (the metadata adapter's jsonb) so
-  # FullTextIndexer re-reads it and re-projects all_text_timv on every reindex /
+  # FullTextIndexer re-reads it and re-projects full_text_tesimv on every reindex /
   # reset:data. Size is unbounded-ish (a long PDF is MBs of text).
   attribute :full_text, Valkyrie::Types::String
 

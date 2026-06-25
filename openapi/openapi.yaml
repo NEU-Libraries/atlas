@@ -3876,8 +3876,8 @@ paths:
       description: |
         Stores the Work-level aggregate of Cerberus-extracted document text as
         the Work's derived `full_text` attribute. FullTextIndexer projects it
-        onto the Work's Solr doc (`all_text_timv`) for body-text search and the
-        "Full Text Match" snippet.
+        onto the Work's Solr doc as the dedicated `full_text_tesimv` field for
+        body-text search and the "Full Text Match" snippet.
 
         Same "machine-set derived metadata" seam as `/thumbnails` — a
         regenerable search aid re-sent on any re-ingest, never user-authored.
@@ -3886,7 +3886,7 @@ paths:
       parameters: []
       responses:
         '200':
-          description: full text stored and projected to all_text_timv
+          description: full text stored and projected to full_text_tesimv
           content:
             application/json:
               schema:

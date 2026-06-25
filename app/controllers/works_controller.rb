@@ -124,7 +124,7 @@ class WorksController < ApplicationController
 
   # Receive the Work-level aggregate of Cerberus-extracted document text and
   # store it as the Work's derived `full_text` attribute. FullTextIndexer then
-  # projects it onto the Work's Solr doc (all_text_timv) for body-text search +
+  # projects it onto the Work's Solr doc (full_text_tesimv) for body-text search +
   # the "Full Text Match" snippet. Same "machine-set derived metadata" seam as
   # #update_thumbnails — re-sent on any re-ingest, never user-authored. Empty/
   # absent text clears the field. The response intentionally omits the text (a

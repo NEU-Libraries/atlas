@@ -8,10 +8,10 @@ RSpec.describe FullTextIndexer do
   let(:work)       { WorkCreator.call(parent_id: collection.noid) }
 
   # Re-read the projected field straight off the resource's Solr doc.
-  def all_text_in_solr(resource)
+  def full_text_in_solr(resource)
     Atlas.index_adapter.connection.get(
-      'select', params: { q: %(id:"#{resource.id}"), fl: 'all_text_timv' }
-    ).dig('response', 'docs').first&.fetch('all_text_timv', nil)
+      'select', params: { q: %(id:"#{resource.id}"), fl: 'full_text_tesimv' }
+    ).dig('response', 'docs').first&.fetch('full_text_tesimv', nil)
   end
 
   describe '#to_solr' do
@@ -19,11 +19,11 @@ RSpec.describe FullTextIndexer do
       expect(described_class.new(resource: work).to_solr).to eq({})
     end
 
-    it "projects the Work's stored full_text onto all_text_timv" do
+    it "projects the Work's stored full_text onto full_text_tesimv" do
       work.full_text = 'Running Boston Jon Masters'
       saved = Atlas.persister.save(resource: work)
 
-      expect(described_class.new(resource: saved).to_solr).to eq(all_text_timv: 'Running Boston Jon Masters')
+      expect(described_class.new(resource: saved).to_solr).to eq(full_text_tesimv: 'Running Boston Jon Masters')
     end
 
     it 'returns an empty hash for non-Work resources' do
@@ -35,15 +35,15 @@ RSpec.describe FullTextIndexer do
   end
 
   describe 'end-to-end through the composite indexer' do
-    it 'lands all_text_timv on the Work doc when the Work is saved, and is body-text searchable' do
+    it 'lands full_text_tesimv on the Work doc when the Work is saved, and is body-text searchable' do
       work.full_text = 'a quotation about the running of Boston'
       Atlas.persister.save(resource: work)
 
-      # Stored content is retrievable only if the Solr field is stored=true
-      # (an image-side schema concern); but the value is *indexed* regardless,
-      # so a body-text term matches the Work doc — which is the search half.
+      # The dedicated *_tesimv field is stored + indexed in the image, so a
+      # body-text term matches the Work doc — the search half (highlighting the
+      # stored value is a Cerberus-side hl.fl concern).
       hits = Atlas.index_adapter.connection.get(
-        'select', params: { q: 'all_text_timv:Boston', fl: 'id' }
+        'select', params: { q: 'full_text_tesimv:Boston', fl: 'id' }
       ).dig('response', 'docs')
       expect(hits.pluck('id')).to include(work.id.to_s)
     end
@@ -56,7 +56,7 @@ RSpec.describe FullTextIndexer do
       Atlas.index_adapter.persister.save(resource: Work.find(work.noid))
 
       hits = Atlas.index_adapter.connection.get(
-        'select', params: { q: 'all_text_timv:persisted', fl: 'id' }
+        'select', params: { q: 'full_text_tesimv:persisted', fl: 'id' }
       ).dig('response', 'docs')
       expect(hits.pluck('id')).to include(work.id.to_s)
     end

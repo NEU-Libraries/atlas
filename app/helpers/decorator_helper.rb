@@ -51,6 +51,17 @@ module DecoratorHelper
     result
   end
 
+  # Single-value counterpart of loop_field: render the label/value pair, or
+  # omit the whole field (label + value) when the value is blank -- so sparse
+  # records don't show empty <dd>s under headings like "Date created" or
+  # "Permanent URL". Pass link: true to run the value through linkify (URL
+  # detection + paragraphing); otherwise it's emitted as plain escaped text.
+  def field(label, value, link: false)
+    return '' if value.blank?
+
+    tag.dt(label) + tag.dd(link ? linkify(value) : value)
+  end
+
   # Render curator-authored freetext as a safe HTML fragment:
   #   1. Sanitize against a tiny inline whitelist (sup/sub only).
   #   2. Split on blank-line paragraph breaks and wrap each paragraph in

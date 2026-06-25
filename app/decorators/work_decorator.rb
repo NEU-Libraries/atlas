@@ -25,13 +25,11 @@ module WorkDecorator
   end
 
   def date_created
-    tag.dt('Date created') +
-      tag.dd(mods.date_created&.strftime('%Y-%m-%d'))
+    field('Date created', mods.date_created&.strftime('%Y-%m-%d'))
   end
 
   def resource_type
-    tag.dt('Resource Type') +
-      tag.dd(mods.resource_type&.titleize)
+    field('Resource Type', mods.resource_type&.titleize)
   end
 
   def genres
@@ -39,8 +37,7 @@ module WorkDecorator
   end
 
   def digital_origin
-    tag.dt('Digital Origin') +
-      tag.dd(mods.digital_origin&.titleize)
+    field('Digital Origin', mods.digital_origin&.titleize)
   end
 
   def related_series
@@ -52,12 +49,10 @@ module WorkDecorator
   end
 
   def permanent_url
-    tag.dt('Permanent URL') +
-      tag.dd(linkify(mods.permanent_url))
+    field('Permanent URL', mods.permanent_url, link: true)
   end
 
   def access_condition
-    tag.dt('Use and reproduction') +
-      tag.dd(linkify(mods.access_condition))
+    field('Use and reproduction', mods.access_condition, link: true)
   end
 end

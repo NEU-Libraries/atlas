@@ -22,7 +22,6 @@ module MODSDecoration
   end
 
   def abstract
-    tag.dt('Abstract') +
-      tag.dd(linkify(plain_description))
+    field('Abstract', plain_description, link: true)
   end
 end

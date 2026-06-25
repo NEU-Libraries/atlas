@@ -160,4 +160,33 @@ describe DecoratorHelper do
       )
     end
   end
+
+  describe '#field' do
+    it 'renders a dt/dd pair for a present value' do
+      expect(helper.field('Date created', '2017-09-19'))
+        .to eq('<dt>Date created</dt><dd>2017-09-19</dd>')
+    end
+
+    it 'omits the whole field (label + value) for a nil value' do
+      expect(helper.field('Date created', nil)).to eq('')
+    end
+
+    it 'omits the whole field for a blank value' do
+      expect(helper.field('Use and reproduction', '   ')).to eq('')
+    end
+
+    it 'runs the value through linkify when link: true' do
+      expect(helper.field('Permanent URL', 'http://hdl.handle.net/2047/D20254217', link: true))
+        .to eq(
+          '<dt>Permanent URL</dt><dd><p>' \
+          '<a href="http://hdl.handle.net/2047/D20254217" rel="nofollow noopener" ' \
+          'target="_blank">http://hdl.handle.net/2047/D20254217</a></p></dd>'
+        )
+    end
+
+    it 'escapes a plain (non-linked) value' do
+      expect(helper.field('Resource Type', 'Sound & vision'))
+        .to eq('<dt>Resource Type</dt><dd>Sound &amp; vision</dd>')
+    end
+  end
 end

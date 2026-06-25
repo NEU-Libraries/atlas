@@ -48,6 +48,10 @@ Rails.application.routes.draw do
     resources :files, :controller => :blobs do
       member do
         get :content
+        # Blob → parent FileSet → parent Work resolver. The download path
+        # (DownloadsController) is keyed only by blob id, so impression capture
+        # rolls a download up to its containing Work by resolving here.
+        get :ancestry
         # Binary version read surface — the counterpart to the MODS version
         # pair (/resources/:id/mods/versions[/:version_id]). List is admin-
         # gated (carries edit attribution); per-version content rides the

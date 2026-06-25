@@ -1063,6 +1063,20 @@ components:
       required:
       - blob_id
       - versions
+    BlobAncestry:
+      type: object
+      properties:
+        file_set:
+          type: string
+          nullable: true
+          description: NOID of the parent FileSet; null when unresolvable
+        work:
+          type: string
+          nullable: true
+          description: NOID of the containing Work; null when unresolvable
+      required:
+      - file_set
+      - work
     Compilation:
       type: object
       properties:
@@ -1398,6 +1412,35 @@ paths:
       responses:
         '200':
           description: content streamed
+  "/files/{id}/ancestry":
+    parameters:
+    - name: id
+      in: path
+      description: NOID of the Blob
+      required: true
+      schema:
+        type: string
+    get:
+      summary: Resolve a file to its parent FileSet and Work
+      tags:
+      - Files
+      description: |
+        Resolves a content Blob to its parent FileSet and containing Work noids
+        (`{ "file_set": "<noid>", "work": "<noid>" }`). The download path is
+        keyed only by the blob id, so a consumer recording a download/stream
+        impression against the containing Work resolves it here rather than
+        threading the work noid through the download URL. Reads on the Blob
+        floor. Unknown id → 404; either value is null when unresolvable (e.g.
+        an orphan blob with no FileSet parent).
+      responses:
+        '200':
+          description: ancestry resolved
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/BlobAncestry"
+        '404':
+          description: unknown blob
   "/files/{id}/versions":
     parameters:
     - name: id

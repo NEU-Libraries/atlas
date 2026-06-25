@@ -219,6 +219,41 @@ RSpec.describe 'Files (Blobs)', type: :request do
     end
   end
 
+  path '/files/{id}/ancestry' do
+    parameter name: :id, in: :path, type: :string, description: 'NOID of the Blob'
+
+    get 'Resolve a file to its parent FileSet and Work' do
+      tags 'Files'
+      produces 'application/json'
+      description <<~DESC
+        Resolves a content Blob to its parent FileSet and containing Work noids
+        (`{ "file_set": "<noid>", "work": "<noid>" }`). The download path is
+        keyed only by the blob id, so a consumer recording a download/stream
+        impression against the containing Work resolves it here rather than
+        threading the work noid through the download URL. Reads on the Blob
+        floor. Unknown id → 404; either value is null when unresolvable (e.g.
+        an orphan blob with no FileSet parent).
+      DESC
+
+      response '200', 'ancestry resolved' do
+        let(:blob) { BlobCreator.call(work_id: work.noid, original_filename: 'example.bin', path: fixture.to_s) }
+        let(:id)   { blob.noid }
+        schema '$ref' => '#/components/schemas/BlobAncestry'
+        run_test! do |response|
+          body = JSON.parse(response.body)
+          expect(body['work']).to eq(work.noid)
+          file_set = Blob.find(blob.noid).parent
+          expect(body['file_set']).to eq(file_set.noid)
+        end
+      end
+
+      response '404', 'unknown blob' do
+        let(:id) { 'does-not-exist' }
+        run_test!
+      end
+    end
+  end
+
   # Helper: the OCFL version label (vN) of a Blob's seed content revision.
   def seed_version_label(blob)
     Blob.find(blob.noid).file_identifiers.first.to_s[%r{/(v\d+)/}, 1]

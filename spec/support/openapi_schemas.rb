@@ -39,7 +39,8 @@ module OpenapiSchemas
       ResourceDigests:    resource_digests,
       Lineage:            lineage,
       ModsVersions:       mods_versions,
-      BlobVersions:       blob_versions
+      BlobVersions:       blob_versions,
+      BlobAncestry:       blob_ancestry
     }.merge(compilation_schemas).merge(person_schemas)
   end
   # rubocop:enable Metrics/AbcSize
@@ -571,6 +572,22 @@ module OpenapiSchemas
         }
       },
       required:   %w[blob_id versions]
+    }
+  end
+
+  # GET /files/:id/ancestry — resolve a content Blob to its parent FileSet and
+  # parent Work noids. Flat so a consumer can roll a download impression up to
+  # its containing Work from the blob id alone. Either value is null when
+  # unresolvable (orphan blob, or a non-content blob whose ancestor isn't a
+  # FileSet/Work).
+  def blob_ancestry
+    {
+      type:       :object,
+      properties: {
+        file_set: { type: :string, nullable: true, description: 'NOID of the parent FileSet; null when unresolvable' },
+        work:     { type: :string, nullable: true, description: 'NOID of the containing Work; null when unresolvable' }
+      },
+      required:   %w[file_set work]
     }
   end
 

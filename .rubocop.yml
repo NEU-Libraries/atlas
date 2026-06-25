@@ -25,6 +25,12 @@ Metrics/ClassLength:
     # small private resolvers. Candidate for a TokenAuthentication concern if it
     # grows further; tracked as a follow-up refactor.
     - 'app/controllers/application_controller.rb'
+    # The Files resource controller: the full binary surface (index/show/
+    # create/replace/versions/version_content/rollback/destroy/content/
+    # ancestry) plus its file-audit helpers. Cohesive by resource and already
+    # decomposed into small private methods; the bytes-on-disk operations
+    # belong together.
+    - 'app/controllers/blobs_controller.rb'
 Metrics/ModuleLength:
   Exclude:
     # Flat schema-definition map — length tracks the OpenAPI surface, not

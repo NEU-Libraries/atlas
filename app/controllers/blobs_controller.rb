@@ -152,6 +152,25 @@ class BlobsController < ApplicationController
     head :not_found
   end
 
+  # GET /files/:id/ancestry
+  # Resolve a content Blob to its parent FileSet and parent Work noids —
+  # { "file_set": "<noid>", "work": "<noid>" }. The download path
+  # (DownloadsController) is keyed only by the blob id, so a consumer recording
+  # a download/stream impression against the containing Work resolves it here
+  # rather than threading the work noid through the download URL. Reads on the
+  # Blob floor (like #content / #show). Unknown id → 404; either ancestor is
+  # null when unresolvable (e.g. an orphan blob with no FileSet parent).
+  def ancestry
+    authorize! :read, Blob
+    @blob = Blob.find(params[:id])
+    return head(:not_found) if @blob.nil?
+
+    parent = @blob.parent
+    @file_set = parent if parent.is_a?(FileSet)
+    grandparent = @file_set&.parent
+    @work = grandparent if grandparent.is_a?(Work)
+  end
+
   private
 
     # send_file hands a Pathname to Rack::Files which chunks at the Rack layer,

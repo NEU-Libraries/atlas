@@ -26,12 +26,30 @@ RSpec.describe 'Blobs via atlas_rb', :atlas_rb_server do
     blob = AtlasRb::Blob.create(work.noid, fixture, 'example.bin', nuid: admin_nuid)
 
     buffer = String.new(encoding: Encoding::ASCII_8BIT)
-    headers = AtlasRb::Blob.content(blob['id'], nuid: admin_nuid) { |chunk| buffer << chunk }
+    res = AtlasRb::Blob.content(blob['id'], nuid: admin_nuid) { |chunk| buffer << chunk }
 
     expect(buffer.bytesize).to eq(File.size(fixture))
     expect(buffer).to eq(File.binread(fixture))
-    expect(headers['content-disposition']).to include('attachment')
-    expect(headers['content-disposition']).to include('example.bin')
+    expect(res[:status]).to eq(200)
+    expect(res[:headers]['content-disposition']).to include('attachment')
+    expect(res[:headers]['content-disposition']).to include('example.bin')
+    expect(res[:headers]['accept-ranges']).to eq('bytes')
+  end
+
+  # atlas_rb (next) — Range forwarding + 206 passthrough (Atlas blob range streaming).
+  it 'forwards a Range header and surfaces a 206 partial response' do
+    blob = AtlasRb::Blob.create(work.noid, fixture, 'example.bin', nuid: admin_nuid)
+
+    buffer = String.new(encoding: Encoding::ASCII_8BIT)
+    res = AtlasRb::Blob.content(blob['id'], range: 'bytes=0-9', nuid: admin_nuid) { |chunk| buffer << chunk }
+
+    total = File.size(fixture)
+    expect(res[:status]).to eq(206)
+    expect(res[:headers]['content-range']).to eq("bytes 0-9/#{total}")
+    expect(res[:headers]['content-length']).to eq('10')
+    expect(res[:headers]['accept-ranges']).to eq('bytes')
+    expect(buffer.bytesize).to eq(10)
+    expect(buffer).to eq(File.binread(fixture)[0..9])
   end
 
   it 'destroys a Blob via HTTP' do

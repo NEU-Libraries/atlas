@@ -136,9 +136,10 @@ class BlobsController < ApplicationController
 
   # GET /files/:id/content
   # send_file hands a Pathname to Rack::Files which chunks at the Rack layer,
-  # so this is memory-safe for 20GB+ files. Once nginx fronts Atlas, un-comment
-  # the X-Accel-Redirect line in config/environments/production.rb so nginx
-  # handles byte-serving natively.
+  # so this is memory-safe for 20GB+ files. Honours an HTTP Range request so a
+  # browser media element can seek (see #serve_bytes). Once nginx fronts Atlas,
+  # un-comment the X-Accel-Redirect line in config/environments/production.rb
+  # so nginx handles byte-serving — and Range — natively.
   def content
     authorize! :read, Blob
     blob = Blob.find(params[:id])
@@ -147,7 +148,7 @@ class BlobsController < ApplicationController
     file = blob.file
     return head(:not_found) if file.nil?
 
-    stream_file(blob, file)
+    serve_bytes(blob, file)
   rescue Valkyrie::StorageAdapter::FileNotFound
     head :not_found
   end
@@ -174,11 +175,85 @@ class BlobsController < ApplicationController
   private
 
     # send_file hands a Pathname to Rack::Files which chunks at the Rack layer,
-    # so this is memory-safe for 20GB+ files. Shared by #content (head bytes)
-    # and #version_content (a pinned prior version).
+    # so this is memory-safe for 20GB+ files. Used by #version_content (a pinned
+    # prior version); #content goes through #serve_bytes for Range support.
     def stream_file(blob, file)
       send_file file.disk_path, type: blob.mime_type, disposition: 'attachment',
                                 filename: blob.original_filename
+    end
+
+    # Byte-serve a Blob's current content with HTTP Range support, so a browser
+    # media element can seek (it issues `Range: bytes=…` and expects a `206
+    # Partial Content` it can scrub over). Always advertises `Accept-Ranges:
+    # bytes`; serves the whole body as `200` when no (or an unparseable) Range
+    # is present, a single byte range as `206` + `Content-Range`, and a valid-
+    # but-out-of-bounds range as `416`. Multi-range is unsupported — a single
+    # range is all media elements need. Memory-safe: the slice is streamed in
+    # chunks via FileSlice, never buffered.
+    def serve_bytes(blob, file)
+      path  = file.disk_path
+      total = ::File.size(path)
+      response.set_header('Accept-Ranges', 'bytes')
+
+      range = parse_byte_range(request.get_header('HTTP_RANGE'), total)
+      return stream_file(blob, file) if range.nil?
+
+      if range == :unsatisfiable
+        response.set_header('Content-Range', "bytes */#{total}")
+        return head(:range_not_satisfiable)
+      end
+
+      send_byte_range(blob, path, range, total)
+    end
+
+    # Stream a single inclusive [first, last] byte range as 206 Partial Content.
+    # Content-Length is set explicitly to the slice size (Rails does not derive
+    # it for a streamed body) and Last-Modified is set so Rack::ETag skips
+    # buffering the body to digest it — keeping the partial response streamed.
+    def send_byte_range(blob, path, range, total)
+      first, last = range
+      response.status = 206
+      response.set_header('Content-Range', "bytes #{first}-#{last}/#{total}")
+      response.set_header('Content-Length', (last - first + 1).to_s)
+      response.set_header('Last-Modified', ::File.mtime(path).httpdate)
+      response.content_type = blob.mime_type
+      response.set_header('Content-Disposition',
+                          ActionDispatch::Http::ContentDisposition.format(
+                            disposition: 'attachment', filename: blob.original_filename
+                          ))
+      self.response_body = FileSlice.new(path, first, last - first + 1)
+    end
+
+    # Parse a single HTTP byte range against the resource size. Returns nil when
+    # no Range header is present or it is not a single `bytes=` range (RFC 7233:
+    # ignore and serve the full 200 body — covers multi-range and other units),
+    # a `[first, last]` inclusive pair when satisfiable, or :unsatisfiable for a
+    # syntactically-valid but out-of-bounds range (416).
+    def parse_byte_range(header, total)
+      return nil if header.blank?
+
+      match = /\Abytes=(\d*)-(\d*)\z/.match(header)
+      return nil unless match
+
+      match[1].empty? ? suffix_range(match[2], total) : explicit_range(match[1], match[2], total)
+    end
+
+    # `bytes=-N` — the final N bytes. An empty/zero suffix is unsatisfiable.
+    def suffix_range(end_str, total)
+      suffix = end_str.to_i
+      return :unsatisfiable if end_str.empty? || suffix.zero?
+
+      [[total - suffix, 0].max, total - 1]
+    end
+
+    # `bytes=START-` / `bytes=START-END` — clamp END to the last byte; a start
+    # past the last byte (or START > END) is unsatisfiable.
+    def explicit_range(start_str, end_str, total)
+      first = start_str.to_i
+      last  = end_str.empty? ? total - 1 : [end_str.to_i, total - 1].min
+      return :unsatisfiable if first > last || first >= total
+
+      [first, last]
     end
 
     # Append a freshly-uploaded revision's versioned file identifier to the

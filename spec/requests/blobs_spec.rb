@@ -209,12 +209,47 @@ RSpec.describe 'Files (Blobs)', type: :request do
     get 'Stream file content bytes' do
       tags 'Files'
       produces 'application/octet-stream'
-      description 'Streams the underlying bytes via send_file with attachment disposition. Memory-safe for large files.'
+      description <<~DESC
+        Streams the underlying bytes with attachment disposition; memory-safe
+        for large files. Supports HTTP Range for seekable A/V playback:
+        `Accept-Ranges: bytes` is always advertised, a single `Range:
+        bytes=START-END` request is answered `206 Partial Content` with
+        `Content-Range`, and a syntactically-valid but unsatisfiable range is
+        rejected `416`. Multi-range is not supported; an absent or unparseable
+        Range serves the full `200` body.
+      DESC
 
-      response '200', 'content streamed' do
-        let(:blob) { BlobCreator.call(work_id: work.noid, original_filename: 'example.bin', path: fixture.to_s) }
-        let(:id)   { blob.noid }
-        run_test!
+      parameter name: 'Range', in: :header, type: :string, required: false,
+                description: 'Optional single byte range, e.g. `bytes=0-1048575`. Triggers a 206 Partial Content response.'
+
+      let(:blob)  { BlobCreator.call(work_id: work.noid, original_filename: 'example.bin', path: fixture.to_s) }
+      let(:id)    { blob.noid }
+      let(:Range) { nil }
+
+      response '200', 'content streamed (whole body)' do
+        run_test! do |response|
+          expect(response.headers['Accept-Ranges']).to eq('bytes')
+          expect(response.body.bytesize).to eq(File.size(fixture))
+        end
+      end
+
+      response '206', 'partial content (byte range)' do
+        let(:Range) { 'bytes=0-9' }
+        run_test! do |response|
+          total = File.size(fixture)
+          expect(response.headers['Content-Range']).to eq("bytes 0-9/#{total}")
+          expect(response.headers['Content-Length']).to eq('10')
+          expect(response.headers['Accept-Ranges']).to eq('bytes')
+          expect(response.body.bytesize).to eq(10)
+          expect(response.body).to eq(File.binread(fixture)[0..9])
+        end
+      end
+
+      response '416', 'range not satisfiable' do
+        let(:Range) { 'bytes=200000-200010' }
+        run_test! do |response|
+          expect(response.headers['Content-Range']).to eq("bytes */#{File.size(fixture)}")
+        end
       end
     end
   end

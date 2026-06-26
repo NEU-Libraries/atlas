@@ -1407,11 +1407,29 @@ paths:
       summary: Stream file content bytes
       tags:
       - Files
-      description: Streams the underlying bytes via send_file with attachment disposition.
-        Memory-safe for large files.
+      description: |
+        Streams the underlying bytes with attachment disposition; memory-safe
+        for large files. Supports HTTP Range for seekable A/V playback:
+        `Accept-Ranges: bytes` is always advertised, a single `Range:
+        bytes=START-END` request is answered `206 Partial Content` with
+        `Content-Range`, and a syntactically-valid but unsatisfiable range is
+        rejected `416`. Multi-range is not supported; an absent or unparseable
+        Range serves the full `200` body.
+      parameters:
+      - name: Range
+        in: header
+        required: false
+        description: Optional single byte range, e.g. `bytes=0-1048575`. Triggers
+          a 206 Partial Content response.
+        schema:
+          type: string
       responses:
         '200':
-          description: content streamed
+          description: content streamed (whole body)
+        '206':
+          description: partial content (byte range)
+        '416':
+          description: range not satisfiable
   "/files/{id}/ancestry":
     parameters:
     - name: id

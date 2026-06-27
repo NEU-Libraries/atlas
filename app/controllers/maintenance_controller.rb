@@ -53,6 +53,11 @@ class MaintenanceController < ApplicationController
       # human roles — dev fixtures exercising each tier of the gradient
       create_fixture_user(name: 'User, Guest', nuid: '000000001',
                           email: 'guest@northeastern.edu', role: :guest)
+      # Plain Northeastern depositor tier: no Grouper groups, not an owner of the
+      # seed tree — isolates the standard-vs-staff boundary (e.g. request_change,
+      # whose UI control only appears to a non-editor/owner of a work).
+      create_fixture_user(name: 'User, Standard', nuid: '000000005',
+                          email: 'standard@northeastern.edu', role: :standard)
       create_fixture_user(name: 'Doe, Jane', nuid: '000000002', role: :privileged,
                           email: 'dps@northeastern.edu', groups: ['northeastern:drs:repository:staff'])
       create_fixture_user(name: 'Loader, Marcom', nuid: '000000003', role: :loader,

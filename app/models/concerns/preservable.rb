@@ -9,8 +9,8 @@ module Preservable
 
   # v1 → v2: :depositor changed from "array of edit_users" to a single
   # NUID string (intellectual owner). Added :proxy_uploader (single NUID
-  # string) and :edit_users (the explicit ACL list previously aliased
-  # behind :depositor). See gap_reports/proxy_uploader_and_system_auth.md.
+  # string) and :edit_users (the explicit ACL list, which in v1 was carried
+  # under :depositor).
   # v2 → v3: additive :position — FileSet page order within a multipage
   # Work; null elsewhere. The Work-level METS structMap is the canonical
   # preservation record of order; this keeps each FileSet's own OCFL

@@ -355,10 +355,11 @@ RSpec.describe 'Collections', type: :request do
     end
   end
 
-  # Gap C regression — an ACL-only metadata PATCH used to wipe
-  # depositor / proxy_uploader because Permissions#permissions= unconditionally
-  # wrote those slots. Plain RSpec example (not rswag) since the multipart
-  # nested-params shape is awkward to document via parameter declarations.
+  # An ACL-only metadata PATCH must preserve depositor / proxy_uploader.
+  # Permissions#permissions= writes the ACL slots; a naive version that also
+  # wrote depositor/proxy_uploader would clear them whenever the caller omits
+  # them. Plain RSpec example (not rswag) since the multipart nested-params
+  # shape is awkward to document via parameter declarations.
   describe 'PATCH /collections/:id with ACL-only metadata preserves provenance' do
     it 'leaves depositor/proxy_uploader intact when metadata[permissions] omits them' do
       collection = CollectionCreator.call(

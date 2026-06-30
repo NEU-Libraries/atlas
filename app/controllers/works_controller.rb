@@ -2,10 +2,10 @@
 
 # Works
 # rubocop:disable Metrics/ClassLength
-# Five lines over the 120-line bar from the depositor-resolution helpers
-# (proxy_uploader_nuid, depositor_nuid, parent_collection_for_depositor)
-# added in piece 3. Extracting them to a separate object would overweight
-# the indirection vs. the work they do.
+# Slightly over the class-length bar because of the depositor-resolution
+# helpers (proxy_uploader_nuid, depositor_nuid, parent_collection_for_depositor).
+# Extracting them to a separate object would overweight the indirection vs.
+# the work they do.
 class WorksController < ApplicationController
   include LazyPagination
   include IdempotentCreate
@@ -206,8 +206,8 @@ class WorksController < ApplicationController
       { in_progress: ActiveModel::Type::Boolean.new.cast(params[:in_progress]) }
     end
 
-    # The hands-on-keyboard actor for this create. Under acting-as (piece 5)
-    # the On-Behalf-Of header is present and there is NO hands-on-keyboard
+    # The hands-on-keyboard actor for this create. Under acting-as the
+    # On-Behalf-Of header is present and there is NO hands-on-keyboard
     # stamp — the deposit reads as pure impersonation (proxy_uploader left
     # null, admin recorded only in the AuditEvent). Otherwise the
     # authenticated caller is the proxy_uploader. (The creator also nulls it

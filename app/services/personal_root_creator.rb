@@ -5,9 +5,8 @@
 # Mirrors v1's per-Employee "User Root", but one root per Person rather than
 # v1's 8-folders-per-person sprawl.
 #
-# Parent strategy (see gap_reports/atlas_person_personal_root.md, "Parent
-# question"): every personal root hangs under a SINGLE singleton system "People"
-# Community, not the person's affiliated community. This keeps the root
+# Parent strategy: every personal root hangs under a SINGLE singleton system
+# "People" Community, not the person's affiliated community. This keeps the root
 # affiliation-independent — a Person may publish across several affiliated
 # communities, and the root must not move when affiliations change. It also lets
 # the root be minted eagerly at Person.create, before any affiliation exists.
@@ -34,9 +33,8 @@ class PersonalRootCreator < ApplicationService
     root = CollectionCreator.call(parent_id: people_community.id, depositor: @nuid,
                                   mods_xml: titled_mods('Personal Root'))
 
-    # Mint the root public-but-unpromoted (see gap_reports/
-    # atlas_person_root_visibility.md). The People Community has no public read
-    # grant, so a root that merely inherits its ACL 403s for its own owner — and
+    # Mint the root public-but-unpromoted. The People Community has no public
+    # read grant, so a root that merely inherits its ACL 403s for its own owner — and
     # collections created under it inherit those non-readable permissions, so the
     # owner can't view a collection they just made. Publicizing the root makes it
     # owner-navigable and lets workspace collections inherit a public read,
@@ -46,8 +44,7 @@ class PersonalRootCreator < ApplicationService
     #
     # Flag it a personal root (-> personal_root_bsi) so Cerberus can exclude it
     # from the global catalog and rewrite breadcrumbs around it — a personal root
-    # is a structural container, not content (see
-    # gap_reports/atlas_personal_root_flag.md).
+    # is a structural container, not content.
     root.publicize
     root.personal_root = true
     root = Atlas.persister.save(resource: root)

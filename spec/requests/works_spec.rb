@@ -893,8 +893,8 @@ RSpec.describe 'Works', type: :request do
     end
   end
 
-  # Gap C regression — see collections_spec / permissions_spec for the
-  # full rationale.
+  # An ACL-only metadata PATCH must preserve provenance — see collections_spec
+  # / permissions_spec for the full rationale.
   describe 'PATCH /works/:id with ACL-only metadata preserves provenance' do
     it 'leaves depositor/proxy_uploader intact when metadata[permissions] omits them' do
       work = WorkCreator.call(

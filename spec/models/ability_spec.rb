@@ -74,7 +74,7 @@ RSpec.describe Ability do
     let(:user) { build_user(role: :system, nuid: '000000000') }
     subject { described_class.new(user) }
 
-    # Explicit allowlist: User provisioning, JWT mint, Q7 container-create
+    # Explicit allowlist: User provisioning, JWT mint, container-create
     # carve-out, read floor.
     it { is_expected.to     be_able_to(:provision,  User) }
     it { is_expected.to     be_able_to(:mint_token, User) }

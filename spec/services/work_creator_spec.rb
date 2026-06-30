@@ -2,8 +2,8 @@
 
 require 'rails_helper'
 
-# Three named deposit shapes from the gap report; each asserts both the
-# resource-level provenance fields and the matching AuditEvent attribution.
+# Three named deposit shapes; each asserts both the resource-level provenance
+# fields and the matching AuditEvent attribution.
 RSpec.describe WorkCreator do
   let(:community)  { CommunityCreator.call }
   let(:collection) { CollectionCreator.call(parent_id: community.noid) }
@@ -104,9 +104,9 @@ RSpec.describe WorkCreator do
     end
   end
 
-  # Acting-as (Q16, 2026-06-03): pure impersonation. The Work must read
-  # exactly as if the target deposited it — depositor = target,
-  # proxy_uploader null — with the admin captured only in the AuditEvent.
+  # Acting-as: pure impersonation. The Work must read exactly as if the target
+  # deposited it — depositor = target, proxy_uploader null — with the admin
+  # captured only in the AuditEvent.
   describe 'acting-as impersonation (On-Behalf-Of present)' do
     it 'stamps depositor = target, leaves proxy_uploader null, and records both principals' do
       expect do
@@ -150,10 +150,9 @@ RSpec.describe WorkCreator do
     end
   end
 
-  # Fix A (gap_reports/atlas_permissions_grant_audit_event.md): the ACL a Work
-  # is born with — copied from its parent at create — must surface as a
-  # permissions audit event, or the meaningful "granted at creation" transition
-  # is invisible in Rights history.
+  # The ACL a Work is born with — copied from its parent at create — must
+  # surface as a permissions audit event, or the meaningful "granted at
+  # creation" transition is invisible in Rights history.
   describe 'permissions grant at create' do
     it 'emits an inherited permissions grant naming the parent' do
       # Make the parent public so the inherited grant carries a real read ACL.

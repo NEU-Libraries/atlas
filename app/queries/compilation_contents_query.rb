@@ -20,8 +20,8 @@
 # The ACL fq mirrors Cerberus SearchBuilder#apply_gated_discovery exactly:
 # {!terms f=read_access_group_ssim}public,<user groups>, skipped entirely
 # for admins. Cerberus does not gate on embargo state at the discovery
-# layer (parity-checked 2026-06-11), so neither does this query — the two
-# resolutions must agree on visibility.
+# layer, so neither does this query — the two resolutions must agree on
+# visibility.
 class CompilationContentsQuery
   DEFAULT_PER_PAGE = 25
   MAX_PER_PAGE     = 100

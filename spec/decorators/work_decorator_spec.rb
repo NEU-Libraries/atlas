@@ -4,9 +4,9 @@ require 'rails_helper'
 
 # The MODS HTML projection (works/mods.html.haml) is just a concatenation of
 # these decorator methods, so asserting each method's output IS asserting the
-# rendered HTML. The gap: single-value fields used to emit an empty <dd> under
-# a label for blank values; they must now omit the whole field, matching how
-# the multivalued loop_field branch already behaves.
+# rendered HTML. Single-value fields must omit the whole field for blank values
+# rather than emitting an empty <dd> under a label, matching how the multivalued
+# loop_field branch behaves.
 RSpec.describe WorkDecorator do
   # Decorate a bare Work whose #mods returns a controlled access copy, so the
   # gating is asserted directly without depending on the WorkCreator template.

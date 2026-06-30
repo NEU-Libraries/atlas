@@ -54,15 +54,14 @@ class ResourcesController < ApplicationController
   end
 
   # Batch resolver. Given a list of NOIDs, return a lightweight digest per
-  # resolvable resource in a single request, so a caller resolving a set of
-  # ids no longer fans out to one find per id. Mirrors #show's class-level
-  # read floor (Atlas grants :read on every resource to any authenticated
-  # principal). Unknown/unresolvable ids are dropped silently; tombstoned
-  # resources are kept but flagged, so callers can render a placeholder rather
-  # than blow up. Resolution is a single index-backed query
-  # (FindManyByAlternateIdentifiers) — both the N HTTP round-trips and the N
-  # per-id DB lookups collapse to one. Resolves alternate ids (NOIDs) only;
-  # raw Valkyrie ids are not a supported input here.
+  # resolvable resource in a single request, so a caller can resolve a set of
+  # ids without one find per id. Mirrors #show's class-level read floor (Atlas
+  # grants :read on every resource to any authenticated principal). Unknown/
+  # unresolvable ids are dropped silently; tombstoned resources are kept but
+  # flagged, so callers can render a placeholder rather than blow up. Resolution
+  # is a single index-backed query (FindManyByAlternateIdentifiers), collapsing
+  # both the N HTTP round-trips and the N per-id DB lookups to one. Resolves
+  # alternate ids (NOIDs) only; raw Valkyrie ids are not a supported input here.
   def find_many
     authorize! :read, Resource
     ids = Array(params[:ids]).map(&:to_s).uniq

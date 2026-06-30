@@ -9,10 +9,10 @@ class CollectionsController < ApplicationController
   include Reparentable
   include Auditable
 
-  # Container creation is intentionally left open to :system (Q7 lean) so the
-  # seed task can bootstrap Communities + Collections. The :system carve-out
-  # for :create lives in Ability#apply_role_abilities; once a dedicated
-  # container-creation role exists, that carve-out goes away.
+  # Container creation is intentionally left open to :system so the seed task
+  # can bootstrap Communities + Collections. The :system carve-out for :create
+  # lives in Ability#apply_role_abilities; it can be retired once a dedicated
+  # container-creation role exists.
 
   def index
     authorize! :read, Collection

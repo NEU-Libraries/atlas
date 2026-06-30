@@ -37,12 +37,12 @@ class Ability
   # granted to any role except :admin (which carries them via `manage :all`).
   # Re-parenting a node and linking a Work into additional Collections are
   # structural mutations of the content graph; the matching Cerberus UI is
-  # admin-only, and Atlas is the real boundary, so edit-rights no longer
-  # implies either. Non-admins get a clean 403.
+  # admin-only, and Atlas is the real boundary, so edit-rights alone do not
+  # grant either. Non-admins get a clean 403.
   UPDATE_ALIASES = %i[update_thumbnails update_image_derivatives update_iiif_service update_full_text complete].freeze
 
   def initialize(user)
-    # @current_user is never nil under piece-2 require_auth — at worst it
+    # @current_user is never nil under require_auth — at worst it
     # falls through to the :guest fixture. Guard anyway so Ability can be
     # constructed in isolation (specs, console) and so a missing guest
     # row in the test DB doesn't crash the controller.
@@ -72,11 +72,10 @@ class Ability
       case user.role.to_sym
       when :system
         # Non-human bookend. Tightly enumerated: SSO user provisioning +
-        # JWT mint, plus the Q7 carve-out for container creation so the
-        # seed task can bootstrap Communities/Collections. The piece-2
-        # reject_system_principal sprinkle is what this list replaces —
-        # :system explicitly cannot author Works, mutate any resource, or
-        # tombstone/restore/destroy anything.
+        # JWT mint, plus a carve-out for container creation so the seed task
+        # can bootstrap Communities/Collections. Everything outside this list
+        # is denied — :system explicitly cannot author Works, mutate any
+        # resource, or tombstone/restore/destroy anything.
         can :provision,  User
         can :mint_token, User
         can :read,       User

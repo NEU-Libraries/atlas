@@ -17,8 +17,7 @@ class Compilation
   #  - no embargo, no proxy_uploader — Compilations carry neither.
   #  - no STAFF_EDIT_GROUP auto-prepend (and no delete guard for it): a
   #    *personal* Set should not be staff-editable by default. Owner +
-  #    explicit grants + admin wildcard only. (Flagged decision F2 in
-  #    gap_reports/compilations_atlas_implementation_plan.md.)
+  #    explicit grants + admin wildcard only.
   #  - depositor is write-once at create (stamped by the controller from the
   #    authenticated NUID); the `permissions=` setter never touches it.
   module ACL

@@ -61,11 +61,11 @@ RSpec.describe AuditEventWriter do
         change_type:  'permissions',
         event_source: 'script',
         payload:      { old_role: 'standard', new_role: 'loader' },
-        note:         'Manager request 2026-05-22'
+        note:         'Manager request — ingest cohort onboarding'
       )
       ev = AuditEvent.last
       expect(ev.payload).to eq('old_role' => 'standard', 'new_role' => 'loader')
-      expect(ev.note).to eq('Manager request 2026-05-22')
+      expect(ev.note).to eq('Manager request — ingest cohort onboarding')
     end
 
     it 'raises on invalid input' do

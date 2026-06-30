@@ -130,9 +130,9 @@ class MODSVersionHistory
     #
     # Every change_type:'metadata' event is a MODS-touching edit: a
     # full-document replace via the binary `mods_xml=` path (binary_update),
-    # tagged payload { source: 'mods' }. (The metadata PATCH no longer writes
-    # descriptive fields — the flat title/description setters were removed; the
-    # caller assembles the MODS it uploads.)
+    # tagged payload { source: 'mods' }. Descriptive fields are written only
+    # through that full-document upload — the caller assembles the MODS it
+    # sends; there are no flat per-field setters on the metadata PATCH.
     def mods_events
       @mods_events ||=
         AuditEvent.for_resource(resource.id.to_s)

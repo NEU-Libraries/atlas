@@ -2,9 +2,9 @@
 
 require 'rails_helper'
 
-# Safety coverage for MaintenanceController#reset's on-disk storage purge
-# (gap_reports/atlas_reset_does_not_purge_ocfl_storage.md). The rswag doc spec
-# (spec/requests/maintenance_spec.rb) covers the 204 contract.
+# Safety coverage for MaintenanceController#reset's on-disk storage purge.
+# The rswag doc spec (spec/requests/maintenance_spec.rb) covers the 204
+# contract.
 #
 # Why the purge matters: the DB wipe resets the NOID minter, so the next seed
 # re-mints the same NOID sequence; without purging storage those reminted ids
@@ -52,11 +52,10 @@ RSpec.describe MaintenanceController do
       expect(@root.children).not_to be_empty
     end
 
-    # Regression (gap_reports/atlas_purge_storage_missing_root_regression.md):
-    # test's tmp/files is ephemeral and absent on a fresh container; the OCFL
-    # adapter would lazily create it on first write, but the purge runs before
-    # any write. An absent root must mean "nothing to purge", not a fatal error
-    # that aborts /reset and breaks the suite.
+    # Regression: test's tmp/files is ephemeral and absent on a fresh container;
+    # the OCFL adapter would lazily create it on first write, but the purge runs
+    # before any write. An absent root must mean "nothing to purge", not a fatal
+    # error that aborts /reset and breaks the suite.
     it 'tolerates an absent root, creating an empty one for the re-seed' do
       absent       = @root.join('not-yet-created')
       fake_root    = instance_double(Valkyrie::Storage::OCFL::StorageRoot, base_path: absent)

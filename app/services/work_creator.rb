@@ -59,8 +59,8 @@ class WorkCreator < ApplicationService
       work.depositor ||= @proxy_uploader
     end
 
-    # Acting-as (Q16 settled 2026-06-03): a pure impersonation deposit reads
-    # exactly as if the target deposited it — depositor = target,
+    # Acting-as: a pure impersonation deposit reads exactly as if the target
+    # deposited it — depositor = target,
     # proxy_uploader explicitly NULL (the admin lives only in the AuditEvent,
     # not on the resource). proxy_uploader is cleared rather than skipped
     # because the parent.permissions copy upstream may have seeded an

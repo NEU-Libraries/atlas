@@ -79,8 +79,8 @@ RSpec.describe Permissions do
       expect(work.read_groups.to_a).to eq(['public'])
     end
 
-    # Gap C regression — metadata PATCH carries only ACL keys, and used
-    # to wipe depositor/proxy_uploader as a side effect.
+    # A metadata PATCH carrying only ACL keys must leave depositor /
+    # proxy_uploader intact rather than clearing them as a side effect.
     describe 'provenance-preserve semantics' do
       before do
         work.depositor      = 'faculty_nuid'

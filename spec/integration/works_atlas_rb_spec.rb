@@ -235,10 +235,10 @@ RSpec.describe 'Works via atlas_rb', :atlas_rb_server do
     end
   end
 
-  # atlas_rb 1.1.2 — RaiseOnStaleResource middleware translates Atlas's
-  # 409 `stale_resource` envelope into a typed exception. Pairs with the
-  # Atlas-side StaleObjectRetry + 409 rescue_from. This is the end-to-end
-  # wire path the optimistic-locking gap report called for.
+  # atlas_rb's RaiseOnStaleResource middleware translates Atlas's 409
+  # `stale_resource` envelope into a typed exception. Pairs with the
+  # Atlas-side StaleObjectRetry + 409 rescue_from to cover the optimistic-
+  # locking conflict end-to-end over the wire.
   describe 'stale-resource conflict surfaces as AtlasRb::StaleResourceError' do
     it 'raises the typed exception (carrying resource_id + action) when Atlas exhausts its retry budget' do
       work = WorkCreator.call(parent_id: collection.noid)

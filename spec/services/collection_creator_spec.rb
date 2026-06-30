@@ -4,8 +4,7 @@ require 'rails_helper'
 
 # Mirrors spec/services/work_creator_spec.rb. Containers (Collection,
 # Community) carry the same proxy_uploader/depositor provenance pair as
-# Works — the gap report on collection/community provenance covers the
-# motivation.
+# Works, so the creation paths must stamp and attribute them identically.
 RSpec.describe CollectionCreator do
   let(:community) { CommunityCreator.call }
 

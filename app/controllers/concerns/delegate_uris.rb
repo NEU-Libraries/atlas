@@ -7,9 +7,8 @@
 # the named helpers below; non-blank entries in `params` are upserted
 # via DelegateUpdater.
 #
-# Programmatic Delegate writes used to ride the generic `metadata[…]`
-# PATCH bag; that overload is gone — each Delegate-write surface now has
-# its own route and its own atlas_rb binding.
+# Each Delegate-write surface has its own route and its own atlas_rb binding,
+# rather than overloading the generic `metadata[…]` PATCH bag.
 module DelegateUris
   extend ActiveSupport::Concern
 

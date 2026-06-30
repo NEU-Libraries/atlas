@@ -106,7 +106,7 @@ RSpec.describe 'Audit history endpoint', type: :request do
     end
   end
 
-  # Session-scoped emit (Gap B): impersonation start/end events that hang on
+  # Session-scoped emit: impersonation start/end events that hang on
   # no resource. atlas_rb's AtlasRb::AuditEvent.emit drives this endpoint.
   describe 'POST /audit_events' do
     let(:json_headers) { admin_headers.merge('Content-Type' => 'application/json') }

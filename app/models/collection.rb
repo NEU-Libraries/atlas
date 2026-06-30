@@ -15,6 +15,6 @@ class Collection < Resource
   # Person.create). A structural container, not content: Cerberus excludes it
   # from the global catalog and rewrites breadcrumbs around it. Set once at mint
   # time; projected to personal_root_bsi for discovery (mirrors `featured`), not
-  # MODS. See gap_reports/atlas_personal_root_flag.md.
+  # MODS.
   attribute :personal_root, Valkyrie::Types::Bool.default(false)
 end

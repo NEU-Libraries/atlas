@@ -2,13 +2,12 @@
 
 require 'rails_helper'
 
-# Regression for the Cerberus-side gap report dated 2026-05-22 evening:
-# two sequential `AtlasRb::Community.create(nil, xml_path, nuid: admin_nuid)`
-# calls within the same test process fail on the second one's PATCH with a
-# 500 / wrong-type return from `Community.find(params[:id])` inside
-# CommunitiesController#update.
+# Regression: two sequential `AtlasRb::Community.create(nil, xml_path,
+# nuid: admin_nuid)` calls within the same test process must both succeed. The
+# failure mode it guards: the second call's PATCH 500s with a wrong-type return
+# from `Community.find(params[:id])` inside CommunitiesController#update.
 #
-# atlas_rb's Community.create is POST → PATCH → GET; the PATCH is the failing
+# atlas_rb's Community.create is POST → PATCH → GET; the PATCH is the vulnerable
 # step. The spec drives the same shape Cerberus's `let` blocks produce (each
 # spec creates Community → Collection → Work back-to-back via atlas_rb).
 RSpec.describe 'Sequential AtlasRb::*.create regression', :atlas_rb_server do

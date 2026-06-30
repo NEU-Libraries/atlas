@@ -20,7 +20,7 @@ module Permissions
   included do
     attribute :embargo_release_date, Valkyrie::Types::DateTime.optional
 
-    # Provenance fields — see gap_reports/proxy_uploader_and_system_auth.md.
+    # Provenance fields.
     # depositor       = intellectual owner (the named author/depositor; may
     #                   point at the seeded :anonymous user for batch loads).
     # proxy_uploader  = hands-on-keyboard actor for the most recent

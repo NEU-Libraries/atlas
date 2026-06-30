@@ -40,8 +40,8 @@ RSpec.describe 'User#set_role audit emission' do
 
     it 'records the Manager rationale in note when supplied' do
       target.set_role(:loader, actor_nuid: actor_nuid,
-                               note:       'Manager request 2026-05-22 — Q2 ingest cohort')
-      expect(AuditEvent.last.note).to eq('Manager request 2026-05-22 — Q2 ingest cohort')
+                               note:       'Manager request — ingest cohort onboarding')
+      expect(AuditEvent.last.note).to eq('Manager request — ingest cohort onboarding')
     end
   end
 end

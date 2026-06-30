@@ -12,14 +12,9 @@
 # Cerberus surface (the /admin actions hub) is admin-gated, so Atlas agrees.
 # The check is two-sided (Work AND target Collection) so intent stays
 # documented, but :link_member is granted to no role except :admin (via
-# `manage :all`) — edit-rights no longer implies it. Listing only needs the
+# `manage :all`) — there is deliberately no self-service path for a collection
+# manager to link a Work into their own collection. Listing only needs the
 # read floor.
-#
-# NOTE: this tightens a deliberate prior design. The original linked-members
-# plan gated on two-sided edit-rights so a collection manager could self-serve
-# linking a permitted Work into their own collection; admin-only removes that
-# self-service path (a conscious product reversal, 2026-06-02). See
-# gap_reports/atlas_tighten_reparent_linked_member_to_admin.md.
 #
 # All three return the updated list of linked collection noids (the affected
 # sub-resource), so atlas_rb and the Cerberus provenance panel see the result

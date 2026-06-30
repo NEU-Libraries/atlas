@@ -2,16 +2,11 @@
 
 require 'rails_helper'
 
-# The piece-2 auth-matrix regression, extended in piece 6 with the
-# token-pairing rules.
-#
-# Closes the pre-piece-2 footguns (missing User header silently elevating
-# to :system, mismatched token silently falling through to guest); the
-# piece-7 Ability layer 403s; and the piece-6 cross-pairing footgun (user
-# token impersonating :system, system token impersonating a real person).
-#
-# See gap_reports/proxy_uploader_and_system_auth.md, gap_reports/
-# plan_atlas.md pieces 2 and 6, and the piece-6 prompt for design notes.
+# Exercises the auth matrix by hand: the token/header pairing rules and the
+# footguns they close — a missing User header must not silently elevate to
+# :system, a mismatched token must not fall through to guest, and cross-pairing
+# (a user token claiming :system, or a system token claiming a real person)
+# must 401. Endpoint authorization beyond auth surfaces as a 403 from Ability.
 #
 # default_auth: false — this spec drives the auth matrix by hand, so the
 # global admin-default in spec/support/auth_request_helper.rb does not apply.
@@ -323,7 +318,7 @@ RSpec.describe 'Auth matrix', type: :request, default_auth: false do
       expect(response.status).to be_in([200, 201])
     end
 
-    it 'rejects the :system principal on Collection tombstone but permits create (Q7 lean)' do
+    it 'rejects the :system principal on Collection tombstone but permits create' do
       post "/collections/#{collection.noid}/tombstone", headers: system_headers
       expect(response).to have_http_status(:forbidden)
 
@@ -333,7 +328,7 @@ RSpec.describe 'Auth matrix', type: :request, default_auth: false do
       expect(response.status).to be_in([200, 201])
     end
 
-    it 'rejects the :system principal on Community tombstone but permits create (Q7 lean)' do
+    it 'rejects the :system principal on Community tombstone but permits create' do
       empty_community = CommunityCreator.call
       post "/communities/#{empty_community.noid}/tombstone", headers: system_headers
       expect(response).to have_http_status(:forbidden)

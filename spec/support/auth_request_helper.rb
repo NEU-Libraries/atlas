@@ -11,8 +11,8 @@
 #
 # NOTE: principal is the assertion's `sub`, NOT a `User:` header. A spec that
 # needs to act as a different NUID must supply its own assertion (or set
-# `default_auth: false`) — overriding the `User:` header no longer switches the
-# acting principal.
+# `default_auth: false`); overriding the `User:` header does not switch the
+# acting principal on this path.
 #
 # Per-request headers still win over these defaults (Hash#merge favours caller).
 

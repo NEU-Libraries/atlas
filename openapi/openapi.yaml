@@ -154,6 +154,14 @@ components:
               type: boolean
               description: Cerberus-driven workflow flag; true until the bulk-deposit
                 job marks the Work complete.
+            derivative_permissions:
+              type: object
+              additionalProperties:
+                type: array
+                items:
+                  type: string
+              description: 'Per-tier derivative read policy: sparse map of tier (small/medium/large/service)
+                => [read groups]. Empty when unset (tiers inherit the Work visibility).'
           required:
           - id
           - valkyrie_id
@@ -171,6 +179,7 @@ components:
           - depositor
           - proxy_uploader
           - in_progress
+          - derivative_permissions
       required:
       - work
     Collection:
@@ -760,6 +769,18 @@ components:
             label:
               type: string
               nullable: true
+            gated:
+              type: boolean
+              description: True if this derivative tier must be authorized rather
+                than linked directly (its audience is not public)
+            permission:
+              type: array
+              items:
+                type: string
+              nullable: true
+              description: Effective read-group set gating this tier (public / Grouper
+                groups / [] private); null for guests, to whom group names are not
+                disclosed
           required:
           - noid
           description: Delegate asset — external pointer (e.g. IIIF URL)
@@ -824,6 +845,18 @@ components:
                   label:
                     type: string
                     nullable: true
+                  gated:
+                    type: boolean
+                    description: True if this derivative tier must be authorized rather
+                      than linked directly (its audience is not public)
+                  permission:
+                    type: array
+                    items:
+                      type: string
+                    nullable: true
+                    description: Effective read-group set gating this tier (public
+                      / Grouper groups / [] private); null for guests, to whom group
+                      names are not disclosed
                 required:
                 - noid
                 description: Delegate asset — external pointer (e.g. IIIF URL)
@@ -3795,7 +3828,7 @@ paths:
         Role.downloadable?.
       responses:
         '200':
-          description: thumbnail Delegate is excluded; non-thumbnail Delegate is included
+          description: per-tier gate (gated / permission) surfaces on Delegate entries
           content:
             application/json:
               schema:
@@ -3922,6 +3955,75 @@ paths:
                 large:
                   type: string
                   description: IIIF URL for the large image tier
+  "/works/{id}/derivative_permissions":
+    parameters:
+    - name: id
+      in: path
+      description: NOID of the Work
+      required: true
+      schema:
+        type: string
+    patch:
+      summary: Set a work's per-tier derivative-visibility policy
+      tags:
+      - Works
+      description: |
+        Replaces the Work's per-tier read policy for its sized image derivatives —
+        which Grouper groups may fetch the `small` / `medium` / `large` / `service`
+        (deep-zoom) renditions. Each tier is an array of read-group tokens (the
+        resource vocabulary: `public`, Grouper group names, `[]` = private).
+
+        Whole-object replace: the body is the complete policy; omitted tiers
+        inherit by cascade (an absent tier inherits the next lower-resolution
+        tier; `small` inherits the Work). Two invariants are enforced (422 on
+        violation): a tier may not be more visible than the Work
+        (`tier_exceeds_resource`), and visibility must narrow as resolution grows
+        — `service` ⊆ `large` ⊆ `medium` ⊆ `small` (`tier_ordering_violation`); an
+        unrecognized tier key is `unknown_tier`.
+
+        The gate is advisory — Cerberus and the IIIF auth layer enforce it. The
+        effective per-Delegate gate surfaces on `GET /works/{id}/assets`
+        (`gated` / `permission`), and the stored map echoes back under
+        `derivative_permissions`.
+      parameters: []
+      responses:
+        '200':
+          description: policy stored (echoed under derivative_permissions)
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Work"
+        '422':
+          description: an unknown tier key is rejected
+        '409':
+          description: optimistic-lock conflict surfaces (permission edits are not
+            retried)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                small:
+                  type: array
+                  items:
+                    type: string
+                  description: Read groups for the small tier
+                medium:
+                  type: array
+                  items:
+                    type: string
+                  description: Read groups for the medium tier
+                large:
+                  type: array
+                  items:
+                    type: string
+                  description: Read groups for the large tier
+                service:
+                  type: array
+                  items:
+                    type: string
+                  description: Read groups for the service (deep-zoom) tier
   "/works/{id}/full_text":
     parameters:
     - name: id

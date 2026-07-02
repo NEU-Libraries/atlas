@@ -55,6 +55,20 @@ RSpec.describe 'Works via atlas_rb', :atlas_rb_server do
       expect(blob_entry).not_to be_nil
       expect(blob_entry['size']).to eq(File.size(fixture))
     end
+
+    it 'surfaces the per-tier gate (gated / permission) on Delegate entries' do
+      work = WorkCreator.call(parent_id: collection.noid)
+      work.publicize
+      Atlas.persister.save(resource: work)
+      DelegateCreator.call(resource_id: work.id, use: Role.small_image.name, uri: 'https://iiif.example/small.jpg')
+      DelegateCreator.call(resource_id: work.id, use: Role.large_image.name, uri: 'https://iiif.example/large.jpg')
+      DerivativePermissionsUpdater.call(work: Work.find(work.noid), policy: { large: ['northeastern:drs:x:archives'] })
+
+      by_use = AtlasRb::Work.assets(work.noid, nuid: admin_nuid).index_by { |a| a['use'] }
+      expect(by_use[Role.small_image.name]['gated']).to be(false)
+      expect(by_use[Role.large_image.name]['gated']).to be(true)
+      expect(by_use[Role.large_image.name]['permission']).to eq(['northeastern:drs:x:archives'])
+    end
   end
 
   describe '.file_sets' do

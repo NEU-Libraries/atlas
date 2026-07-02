@@ -379,6 +379,29 @@ RSpec.describe 'Works', type: :request do
           expect(uses).not_to include(Role.thumbnail_image.name)
         end
       end
+
+      response '200', 'per-tier gate (gated / permission) surfaces on Delegate entries' do
+        let(:work) do
+          w = WorkCreator.call(parent_id: collection.noid)
+          w.publicize
+          Atlas.persister.save(resource: w)
+        end
+        let(:id) { work.noid }
+        before do
+          DelegateCreator.call(resource_id: work.id, use: Role.small_image.name, uri: 'https://iiif.example/small.jpg')
+          DelegateCreator.call(resource_id: work.id, use: Role.large_image.name, uri: 'https://iiif.example/large.jpg')
+          DerivativePermissionsUpdater.call(work: Work.find(work.noid), policy: { large: ['northeastern:drs:x:archives'] })
+        end
+        schema '$ref' => '#/components/schemas/WorkAssets'
+        run_test! do |response|
+          by_use = JSON.parse(response.body).index_by { |a| a['use'] }
+          expect(by_use[Role.small_image.name]).to include('gated' => false, 'permission' => ['public'])
+          # `large` gated to a group; the default request principal is admin, so
+          # the group list is disclosed (it is withheld only from guests).
+          expect(by_use[Role.large_image.name]).to include('gated'      => true,
+                                                           'permission' => ['northeastern:drs:x:archives'])
+        end
+      end
     end
   end
 
@@ -596,6 +619,110 @@ RSpec.describe 'Works', type: :request do
         before do
           allow_any_instance_of(WorksController).to receive(:sleep)
           allow(DelegateUpdater).to receive(:call).and_raise(Valkyrie::Persistence::StaleObjectError)
+        end
+        run_test! do |response|
+          expect(JSON.parse(response.body)['error']).to eq('stale_resource')
+        end
+      end
+    end
+  end
+
+  path '/works/{id}/derivative_permissions' do
+    parameter name: :id, in: :path, type: :string, description: 'NOID of the Work'
+
+    patch "Set a work's per-tier derivative-visibility policy" do
+      tags 'Works'
+      consumes 'application/json'
+      produces 'application/json'
+      description <<~DESC
+        Replaces the Work's per-tier read policy for its sized image derivatives —
+        which Grouper groups may fetch the `small` / `medium` / `large` / `service`
+        (deep-zoom) renditions. Each tier is an array of read-group tokens (the
+        resource vocabulary: `public`, Grouper group names, `[]` = private).
+
+        Whole-object replace: the body is the complete policy; omitted tiers
+        inherit by cascade (an absent tier inherits the next lower-resolution
+        tier; `small` inherits the Work). Two invariants are enforced (422 on
+        violation): a tier may not be more visible than the Work
+        (`tier_exceeds_resource`), and visibility must narrow as resolution grows
+        — `service` ⊆ `large` ⊆ `medium` ⊆ `small` (`tier_ordering_violation`); an
+        unrecognized tier key is `unknown_tier`.
+
+        The gate is advisory — Cerberus and the IIIF auth layer enforce it. The
+        effective per-Delegate gate surfaces on `GET /works/{id}/assets`
+        (`gated` / `permission`), and the stored map echoes back under
+        `derivative_permissions`.
+      DESC
+      parameter name: :body, in: :body, schema: {
+        type:       :object,
+        properties: {
+          small:   { type: :array, items: { type: :string }, description: 'Read groups for the small tier' },
+          medium:  { type: :array, items: { type: :string }, description: 'Read groups for the medium tier' },
+          large:   { type: :array, items: { type: :string }, description: 'Read groups for the large tier' },
+          service: { type: :array, items: { type: :string }, description: 'Read groups for the service (deep-zoom) tier' }
+        }
+      }
+
+      response '200', 'policy stored (echoed under derivative_permissions)' do
+        let(:work) do
+          w = WorkCreator.call(parent_id: collection.noid)
+          w.publicize
+          Atlas.persister.save(resource: w)
+        end
+        let(:id)   { work.noid }
+        let(:body) { { large: ['northeastern:drs:x:archives'], service: ['northeastern:drs:x:archives'] } }
+        schema '$ref' => '#/components/schemas/Work'
+        run_test! do |response|
+          dp = JSON.parse(response.body).dig('work', 'derivative_permissions')
+          expect(dp['large']).to eq(['northeastern:drs:x:archives'])
+          expect(dp['service']).to eq(['northeastern:drs:x:archives'])
+        end
+      end
+
+      response '422', 'a tier more visible than the Work is rejected' do
+        let(:work) do
+          w = WorkCreator.call(parent_id: collection.noid)
+          w.read_groups = ['northeastern:drs:x:groupA']
+          Atlas.persister.save(resource: w)
+        end
+        let(:id)   { work.noid }
+        let(:body) { { small: ['northeastern:drs:x:groupB'] } }
+        run_test! do |response|
+          expect(JSON.parse(response.body)['error']).to eq('tier_exceeds_resource')
+        end
+      end
+
+      response '422', 'visibility that widens with resolution is rejected' do
+        let(:work) do
+          w = WorkCreator.call(parent_id: collection.noid)
+          w.publicize
+          Atlas.persister.save(resource: w)
+        end
+        let(:id)   { work.noid }
+        # medium public while small is restricted — a wider tier at higher
+        # resolution.
+        let(:body) { { small: ['northeastern:drs:x:archives'], medium: ['public'] } }
+        run_test! do |response|
+          expect(JSON.parse(response.body)['error']).to eq('tier_ordering_violation')
+        end
+      end
+
+      response '422', 'an unknown tier key is rejected' do
+        let(:work) { WorkCreator.call(parent_id: collection.noid) }
+        let(:id)   { work.noid }
+        let(:body) { { huge: ['public'] } }
+        run_test! do |response|
+          expect(JSON.parse(response.body)['error']).to eq('unknown_tier')
+        end
+      end
+
+      response '409', 'optimistic-lock conflict surfaces (permission edits are not retried)' do
+        let(:work) { WorkCreator.call(parent_id: collection.noid) }
+        let(:id)   { work.noid }
+        let(:body) { { large: [] } }
+        before do
+          work # persist before stubbing so the creator's saves don't hit the stub
+          allow(Atlas.persister).to receive(:save).and_raise(Valkyrie::Persistence::StaleObjectError)
         end
         run_test! do |response|
           expect(JSON.parse(response.body)['error']).to eq('stale_resource')

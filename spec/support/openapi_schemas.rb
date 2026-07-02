@@ -63,7 +63,15 @@ module OpenapiSchemas
   # ---- detail shapes (one wrapped object) ----
 
   def work
-    wrapped(:work, base_resource_props.merge(work_only_props))
+    wrapped(:work, base_resource_props.merge(work_only_props).merge(
+                     derivative_permissions: {
+                       type:                 :object,
+                       additionalProperties: { type: :array, items: { type: :string } },
+                       description:          'Per-tier derivative read policy: sparse map of tier ' \
+                                             '(small/medium/large/service) => [read groups]. Empty ' \
+                                             'when unset (tiers inherit the Work visibility).'
+                     }
+                   ))
   end
 
   def collection
@@ -237,11 +245,15 @@ module OpenapiSchemas
         {
           type:        :object,
           properties:  {
-            noid:      { type: :string },
-            mime_type: { type: :string, nullable: true },
-            use:       { type: :string, nullable: true },
-            uri:       { type: :string, nullable: true },
-            label:     { type: :string, nullable: true }
+            noid:       { type: :string },
+            mime_type:  { type: :string, nullable: true },
+            use:        { type: :string, nullable: true },
+            uri:        { type: :string, nullable: true },
+            label:      { type: :string, nullable: true },
+            gated:      { type:        :boolean,
+                          description: 'True if this derivative tier must be authorized rather than linked directly (its audience is not public)' },
+            permission: { type: :array, items: { type: :string }, nullable: true,
+                          description: 'Effective read-group set gating this tier (public / Grouper groups / [] private); null for guests, to whom group names are not disclosed' }
           },
           required:    %w[noid],
           description: 'Delegate asset — external pointer (e.g. IIIF URL)'

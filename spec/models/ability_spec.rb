@@ -173,11 +173,13 @@ RSpec.describe Ability do
       expect(subject).to be_able_to(:restore,   work_via_edit_group)
     end
 
-    it 'aliases :update_thumbnails / :update_image_derivatives / :complete to :update' do
-      expect(subject).to     be_able_to(:update_thumbnails,         work_via_edit_user)
-      expect(subject).to     be_able_to(:update_image_derivatives,  work_via_edit_user)
-      expect(subject).to     be_able_to(:complete,                  work_via_edit_user)
-      expect(subject).not_to be_able_to(:update_thumbnails,         other_users_work)
+    it 'aliases :update_thumbnails / :update_image_derivatives / :update_derivative_permissions / :complete to :update' do
+      expect(subject).to     be_able_to(:update_thumbnails,            work_via_edit_user)
+      expect(subject).to     be_able_to(:update_image_derivatives,     work_via_edit_user)
+      expect(subject).to     be_able_to(:update_derivative_permissions, work_via_edit_user)
+      expect(subject).to     be_able_to(:complete,                     work_via_edit_user)
+      expect(subject).not_to be_able_to(:update_thumbnails,            other_users_work)
+      expect(subject).not_to be_able_to(:update_derivative_permissions, other_users_work)
     end
 
     it 'does NOT grant :reparent or :link_member — structural mutations are admin-only' do

@@ -71,6 +71,32 @@ RSpec.describe 'Works via atlas_rb', :atlas_rb_server do
     end
   end
 
+  describe '.set_derivative_permissions' do
+    it 'stores a per-tier policy and echoes it back on the Work' do
+      work = WorkCreator.call(parent_id: collection.noid)
+      work.publicize
+      Atlas.persister.save(resource: work)
+
+      result = AtlasRb::Work.set_derivative_permissions(
+        work.noid,
+        policy: { large: ['northeastern:drs:x:archives'], service: ['northeastern:drs:x:archives'] },
+        nuid:   admin_nuid
+      )
+      expect(result['work']['derivative_permissions']['large']).to eq(['northeastern:drs:x:archives'])
+      expect(Work.find(work.noid).derivative_gated?(Role.large_image.name)).to be(true)
+    end
+
+    it 'raises the typed DerivativePermissionsError on an invariant violation' do
+      work = WorkCreator.call(parent_id: collection.noid)
+      work.read_groups = ['northeastern:drs:x:groupA']
+      Atlas.persister.save(resource: work)
+
+      expect do
+        AtlasRb::Work.set_derivative_permissions(work.noid, policy: { small: ['northeastern:drs:x:groupB'] }, nuid: admin_nuid)
+      end.to raise_error(AtlasRb::DerivativePermissionsError) { |e| expect(e.code).to eq('tier_exceeds_resource') }
+    end
+  end
+
   describe '.file_sets' do
     it 'returns page FileSets in position order, each with its assets grouped' do
       work = WorkCreator.call(parent_id: collection.noid)

@@ -122,6 +122,27 @@ class WorksController < ApplicationController
     render :show
   end
 
+  # Replace the Work's per-tier derivative-visibility policy (see
+  # TierVisibility) — which Grouper groups may fetch the small / medium / large
+  # / service (deep-zoom) renditions. Unlike its Delegate-URI siblings this is a
+  # rights edit, so it is NOT wrapped in with_stale_object_retry (silently
+  # retrying would clobber a concurrent operator's different intent — the 409
+  # surfaces instead) and it emits a `permissions` audit row. The updater
+  # validates the two invariants (tier ⊆ Work, and visibility narrows with
+  # resolution) and 422s on violation before persisting.
+  def update_derivative_permissions
+    @work = Work.find(params[:id])
+    authorize! :update_derivative_permissions, @work
+    return head(:not_found) if @work.nil?
+
+    before = @work.derivative_permissions_map
+    @work  = DerivativePermissionsUpdater.call(work: @work, policy: derivative_permissions_body)
+    audit!(resource: @work, action: 'update', change_type: 'permissions',
+           payload: { before: before, after: @work.derivative_permissions_map, source: 'derivative_permissions' })
+    @work = @work.decorate
+    render :show
+  end
+
   # Receive the Work-level aggregate of Cerberus-extracted document text and
   # store it as the Work's derived `full_text` attribute. FullTextIndexer then
   # projects it onto the Work's Solr doc (full_text_tesimv) for body-text search +
@@ -189,6 +210,16 @@ class WorksController < ApplicationController
   end
 
   private
+
+    # The submitted tier policy, read straight from the JSON body rather than
+    # `params` — ParamsWrapper mirrors the body under a `work` key that would
+    # otherwise look like an unknown tier. Reading raw keeps unknown tier keys
+    # visible to the updater (so a typo is rejected, not silently dropped).
+    def derivative_permissions_body
+      JSON.parse(request.raw_post.presence || '{}')
+    rescue JSON::ParserError
+      {}
+    end
 
     # A page's downloadable assets: its own member Blobs plus the members of
     # any nested :derivative FileSet (per-page IIIF Delegates land there via

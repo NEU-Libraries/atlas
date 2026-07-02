@@ -101,6 +101,18 @@ class ApplicationController < ActionController::API
     }, status: :unprocessable_entity
   end
 
+  # Structured 422 for an invalid per-tier derivative-visibility policy (unknown
+  # tier, a tier more visible than its Work, or visibility not narrowing with
+  # resolution). Same code-as-discriminator contract; the policy is rejected
+  # before it persists.
+  rescue_from Exceptions::DerivativePermissionsError do |exception|
+    render json: {
+      error:       exception.code,
+      resource_id: params[:id],
+      message:     exception.message
+    }, status: :unprocessable_entity
+  end
+
   private
 
     # CanCan looks up `current_user` to construct the Ability. Atlas's

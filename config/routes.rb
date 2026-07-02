@@ -36,6 +36,7 @@ Rails.application.routes.draw do
         post :complete
         patch :thumbnails, action: :update_thumbnails
         patch :image_derivatives, action: :update_image_derivatives
+        patch :derivative_permissions, action: :update_derivative_permissions
         patch :full_text, action: :update_full_text
         patch :parent, action: :update_parent
       end

@@ -8,6 +8,10 @@ json.work do
   json.thumbnail @work.thumbnail_uri
   json.thumbnail_2x @work.thumbnail_uri_for(Role.thumbnail_image_2x.name)
   json.preview @work.thumbnail_uri_for(Role.preview_image.name)
+  # Per-tier derivative read policy (sparse tier => [read groups]; see
+  # TierVisibility). Echoed for Cerberus's editing UI; the effective per-Delegate
+  # gate is surfaced on /works/:id/assets.
+  json.derivative_permissions @work.derivative_permissions_map
   json.title @work.plain_title
   json.description @work.plain_description
   json.permanent_url @work.mods&.permanent_url

@@ -2,6 +2,7 @@
 
 class Work < Resource
   include Metsable
+  include TierVisibility
 
   # The one structural home (Tree). Scalar — a Work lives in exactly one
   # Collection. Mirrors FileSet's existing scalar a_member_of.
@@ -30,6 +31,17 @@ class Work < Resource
   # FullTextIndexer re-reads it and re-projects full_text_tesimv on every reindex /
   # reset:data. Size is unbounded-ish (a long PDF is MBs of text).
   attribute :full_text, Valkyrie::Types::String
+
+  # Per-tier read-visibility policy for the Work's sized image derivatives —
+  # a JSON-encoded sparse map of tier => [read groups], e.g.
+  # {"large":["northeastern:drs:...:archives"]}. Read/written through the
+  # TierVisibility concern, never raw. Stored as a JSON string rather than a
+  # Valkyrie::Types::Hash because the metadata adapter collapses single-element
+  # array values ({"small"=>["public"]} round-trips as {"small"=>"public"}),
+  # which would corrupt the group-set arrays. Derived/advisory (Cerberus + the
+  # IIIF layer enforce it), so it lives in Postgres/Solr, not the OCFL envelope,
+  # like [[project_thumbnail_fungible]].
+  attribute :derivative_permissions, Valkyrie::Types::String
 
   # Page-bearing FileSets in presentation order: position ASC, unordered
   # (nil) last, creation-order tie-break — a total order even over

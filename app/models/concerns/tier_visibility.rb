@@ -1,25 +1,30 @@
 # frozen_string_literal: true
 
-# Per-tier read-visibility policy for a Work's sized image-derivative
-# Delegates. Departments reserve the larger renditions (large / master-zoom)
-# to Grouper groups while smaller access copies stay public — "each download
-# rendition has its own permissions." The policy is a sparse map of
+# Per-asset read-visibility policy for a Work's downloadable binaries.
+# Departments reserve the higher-fidelity renditions — most importantly the
+# original/master, and secondarily non-image renditions (PDF / audio / video) —
+# to Grouper groups while smaller access copies stay public ("each download
+# rendition has its own permissions"). The policy is a sparse map of
 # tier => [read groups] stored (JSON-encoded) on Work#derivative_permissions;
-# this concern resolves the effective gate for any Delegate and answers
-# whether it must be authorized rather than linked directly.
+# this concern resolves the effective gate for any asset — image-derivative
+# Delegate OR held Blob — and answers whether it must be authorized rather than
+# fetched directly.
 #
-# The gate is ADVISORY, not an Atlas-enforced byte boundary: a Delegate holds
-# only an IIIF `uri` and Atlas never proxies the pixels, so Cerberus and the
-# IIIF auth layer are the enforcers. The read path (GET /works/:id/assets,
-# /file_sets) surfaces `permission` + `gated` per Delegate for them.
+# The gate is ADVISORY, not an Atlas-enforced byte boundary. Image Delegates
+# hold only an IIIF `uri` and Atlas never proxies the pixels, so Cerberus and
+# the IIIF auth layer enforce; for Blobs the enforcing point is Cerberus's
+# DownloadsController :read check on the stream. The read path
+# (GET /works/:id/assets, /file_sets) surfaces `permission` + `gated` per asset
+# for them.
 #
 # Tier vocabulary reuses the resource read-group tokens (`public`, Grouper
 # group names, `[]` = private) so the same groups apply unchanged.
 module TierVisibility
   extend ActiveSupport::Concern
 
-  # Delegate `use` (a Role name) -> policy tier. Thumbnail/preview chrome is
-  # deliberately absent: it is public by design and never gated.
+  # Image-derivative Delegate `use` (a Role name) -> image-ladder tier.
+  # Thumbnail/preview chrome is deliberately absent: it is the open display
+  # pipe, public by construction, and never gated.
   TIER_FOR_ROLE = {
     Role.small_image.name  => :small,
     Role.medium_image.name => :medium,
@@ -27,12 +32,39 @@ module TierVisibility
     Role.service_file.name => :service
   }.freeze
 
-  # Most-visible -> least-visible. Visibility must narrow as resolution grows
-  # (service ⊆ large ⊆ medium ⊆ small ⊆ the Work), so an absent tier inherits
-  # the next lower-resolution tier and `small` falls back to the Work's own
-  # read_groups. This makes a sparse policy monotonic by construction — gating
-  # only `large` also gates `service`, closing the full-res-zoom leak.
-  TIER_ORDER = %i[small medium large service].freeze
+  # The image ladder, most-visible -> least-visible with `master` (the original
+  # image binary) as the floor. Visibility must narrow as resolution grows
+  # (master ⊆ service ⊆ large ⊆ medium ⊆ small ⊆ the Work), so an absent tier
+  # inherits the next lower-resolution tier and `small` falls back to the Work's
+  # own read_groups. This makes a sparse image policy monotonic by construction
+  # — gating only `large` also gates `service` and `master`, closing the
+  # full-res / original leak.
+  IMAGE_LADDER = %i[small medium large service master].freeze
+
+  # Non-image media gate INDEPENDENTLY — there is no meaningful resolution
+  # ordering across a PDF, an audio file and a video, so each is validated only
+  # against the Work (tier ⊆ resource) and resolves on its own (an absent key
+  # inherits the Work directly, no cascade).
+  INDEPENDENT_MEDIA = %i[audio video pdf].freeze
+
+  # The complete accepted policy vocabulary.
+  TIERS = (IMAGE_LADDER + INDEPENDENT_MEDIA).freeze
+
+  # Media type ("image" / "audio" / "video") -> policy tier. An image original
+  # is the `master` floor; audio/video gate independently. (PDF is keyed on the
+  # full mime string, not a media type, so it is handled separately.)
+  MEDIA_TIER_BY_MEDIA_TYPE = { 'image' => :master, 'audio' => :audio, 'video' => :video }.freeze
+
+  # Classify a held Blob into its media policy tier from the detected mime
+  # type: an image original is the `master`; PDF / audio / video renditions gate
+  # independently. Anything else (text, office docs, archives, metadata) has no
+  # tier and rides the Work's own read gate.
+  def self.media_tier(mime_type)
+    return nil if mime_type.blank?
+    return :pdf if mime_type == 'application/pdf'
+
+    MEDIA_TIER_BY_MEDIA_TYPE[mime_type.split('/').first]
+  end
 
   # The stored policy as a symbol-keyed { tier => [read groups] } hash; empty
   # when unset. Malformed JSON (only the updater ever writes it) degrades to
@@ -45,11 +77,12 @@ module TierVisibility
     {}
   end
 
-  # Effective read-group set for a Delegate's `use`, after cascade + clamp. A
-  # `use` outside TIER_FOR_ROLE (thumbnails, original binaries) resolves to the
-  # Work's own read_groups, so it stays ungated when the Work is public.
-  def derivative_gate_for(use)
-    tier = TIER_FOR_ROLE[use]
+  # Effective read-group set for an asset (Delegate or Blob), after cascade +
+  # clamp. An asset with no policy tier (thumbnail chrome, a text sidecar)
+  # resolves to the Work's own read_groups, so it stays ungated when the Work
+  # is public.
+  def derivative_gate_for(asset)
+    tier = tier_for_asset(asset)
     return Array(read_groups) unless tier
 
     # Clamp to the Work's CURRENT visibility so a later read_groups narrowing
@@ -57,18 +90,32 @@ module TierVisibility
     TierVisibility.audience_intersect(resolved_tier_gate(tier), Array(read_groups))
   end
 
-  # Whether a Delegate must be routed through an authorizing fetch rather than
-  # linked at the IIIF server directly — true unless its audience is public.
-  def derivative_gated?(use)
-    derivative_gate_for(use).exclude?('public')
+  # Whether an asset must be routed through an authorizing fetch rather than
+  # fetched directly (at the IIIF server for Delegates, at Atlas for Blobs) —
+  # true unless its audience is public.
+  def derivative_gated?(asset)
+    derivative_gate_for(asset).exclude?('public')
   end
 
-  # Cascade-down resolution (pre-clamp): an absent tier inherits the nearest
-  # set lower-resolution tier; `small` falls back to the Work's read_groups.
+  # The policy tier an asset falls under: an image Delegate by its Role `use`,
+  # a held Blob by its media type. nil for assets outside the vocabulary.
+  def tier_for_asset(asset)
+    case asset
+    when Delegate then TIER_FOR_ROLE[asset.use]
+    when Blob     then TierVisibility.media_tier(asset.mime_type)
+    end
+  end
+
+  # Resolve a tier's read-group set (pre-clamp). Image-ladder tiers cascade
+  # down: an absent tier inherits the nearest set lower-resolution tier and
+  # `small` falls back to the Work's read_groups. Independent-media tiers do
+  # NOT cascade: an absent key inherits the Work directly.
   def resolved_tier_gate(tier)
     map = derivative_permissions_map
+    return Array(map.fetch(tier) { read_groups }) unless IMAGE_LADDER.include?(tier)
+
     inherited = Array(read_groups)
-    TIER_ORDER.each do |t|
+    IMAGE_LADDER.each do |t|
       inherited = Array(map[t]) if map.key?(t)
       return inherited if t == tier
     end

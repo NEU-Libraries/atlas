@@ -402,6 +402,28 @@ RSpec.describe 'Works', type: :request do
                                                            'permission' => ['northeastern:drs:x:archives'])
         end
       end
+
+      response '200', 'the gate also surfaces on held Blob entries (master / pdf)' do
+        let(:work) do
+          w = WorkCreator.call(parent_id: collection.noid)
+          w.publicize
+          Atlas.persister.save(resource: w)
+        end
+        let(:id)       { work.noid }
+        let(:file_set) { FileSetCreator.call(work_id: work.noid, classification: Classification.image) }
+        before do
+          # An image original Blob is the `master`; gate it to a group.
+          BlobCreator.call(path:              Rails.root.join('spec/fixtures/files/example.png').to_s,
+                           file_set_id:       file_set.noid,
+                           original_filename: 'master.png')
+          DerivativePermissionsUpdater.call(work: Work.find(work.noid), policy: { master: ['northeastern:drs:x:archives'] })
+        end
+        schema '$ref' => '#/components/schemas/WorkAssets'
+        run_test! do |response|
+          master = JSON.parse(response.body).find { |a| a['original_filename'] == 'master.png' }
+          expect(master).to include('gated' => true, 'permission' => ['northeastern:drs:x:archives'])
+        end
+      end
     end
   end
 
@@ -630,36 +652,46 @@ RSpec.describe 'Works', type: :request do
   path '/works/{id}/derivative_permissions' do
     parameter name: :id, in: :path, type: :string, description: 'NOID of the Work'
 
-    patch "Set a work's per-tier derivative-visibility policy" do
+    patch "Set a work's per-asset derivative-visibility policy" do
       tags 'Works'
       consumes 'application/json'
       produces 'application/json'
       description <<~DESC
-        Replaces the Work's per-tier read policy for its sized image derivatives —
-        which Grouper groups may fetch the `small` / `medium` / `large` / `service`
-        (deep-zoom) renditions. Each tier is an array of read-group tokens (the
-        resource vocabulary: `public`, Grouper group names, `[]` = private).
+        Replaces the Work's per-asset read policy for its downloadable renditions —
+        which Grouper groups may fetch each binary. Two media families: the image
+        ladder `small` / `medium` / `large` / `service` (deep-zoom) / `master` (the
+        original image), and the independent media `audio` / `video` / `pdf`. Each
+        tier is an array of read-group tokens (the resource vocabulary: `public`,
+        Grouper group names, `[]` = private).
 
         Whole-object replace: the body is the complete policy; omitted tiers
-        inherit by cascade (an absent tier inherits the next lower-resolution
-        tier; `small` inherits the Work). Two invariants are enforced (422 on
-        violation): a tier may not be more visible than the Work
-        (`tier_exceeds_resource`), and visibility must narrow as resolution grows
-        — `service` ⊆ `large` ⊆ `medium` ⊆ `small` (`tier_ordering_violation`); an
-        unrecognized tier key is `unknown_tier`.
+        inherit by cascade WITHIN the image ladder (an absent tier inherits the
+        next lower-resolution tier; `small` inherits the Work). Independent media
+        do not cascade — an absent `audio`/`video`/`pdf` key rides the Work.
+        Invariants are enforced (422 on violation): a tier may not be more visible
+        than the Work (`tier_exceeds_resource`); within the image ladder visibility
+        must narrow as resolution grows —
+        `master` ⊆ `service` ⊆ `large` ⊆ `medium` ⊆ `small` (`tier_ordering_violation`;
+        independent media impose no ordering); an unrecognized tier key is
+        `unknown_tier`.
 
-        The gate is advisory — Cerberus and the IIIF auth layer enforce it. The
-        effective per-Delegate gate surfaces on `GET /works/{id}/assets`
-        (`gated` / `permission`), and the stored map echoes back under
-        `derivative_permissions`.
+        The gate is advisory — Cerberus and the IIIF auth layer enforce it (image
+        tiers via signed IIIF URLs, held binaries via Cerberus's download :read
+        check). The effective per-asset gate surfaces on `GET /works/{id}/assets`
+        (`gated` / `permission`) for both Delegate and Blob entries, and the stored
+        map echoes back under `derivative_permissions`.
       DESC
       parameter name: :body, in: :body, schema: {
         type:       :object,
         properties: {
-          small:   { type: :array, items: { type: :string }, description: 'Read groups for the small tier' },
-          medium:  { type: :array, items: { type: :string }, description: 'Read groups for the medium tier' },
-          large:   { type: :array, items: { type: :string }, description: 'Read groups for the large tier' },
-          service: { type: :array, items: { type: :string }, description: 'Read groups for the service (deep-zoom) tier' }
+          small:   { type: :array, items: { type: :string }, description: 'Read groups for the small image tier' },
+          medium:  { type: :array, items: { type: :string }, description: 'Read groups for the medium image tier' },
+          large:   { type: :array, items: { type: :string }, description: 'Read groups for the large image tier' },
+          service: { type: :array, items: { type: :string }, description: 'Read groups for the service (deep-zoom) image tier' },
+          master:  { type: :array, items: { type: :string }, description: 'Read groups for the master (original image) — the image-ladder floor' },
+          audio:   { type: :array, items: { type: :string }, description: 'Read groups for audio renditions (independent)' },
+          video:   { type: :array, items: { type: :string }, description: 'Read groups for video renditions (independent)' },
+          pdf:     { type: :array, items: { type: :string }, description: 'Read groups for PDF renditions (independent)' }
         }
       }
 
@@ -676,6 +708,22 @@ RSpec.describe 'Works', type: :request do
           dp = JSON.parse(response.body).dig('work', 'derivative_permissions')
           expect(dp['large']).to eq(['northeastern:drs:x:archives'])
           expect(dp['service']).to eq(['northeastern:drs:x:archives'])
+        end
+      end
+
+      response '200', 'accepts the widened vocabulary (master + independent media)' do
+        let(:work) do
+          w = WorkCreator.call(parent_id: collection.noid)
+          w.publicize
+          Atlas.persister.save(resource: w)
+        end
+        let(:id)   { work.noid }
+        let(:body) { { master: ['northeastern:drs:x:archives'], pdf: ['northeastern:drs:x:pdf'] } }
+        schema '$ref' => '#/components/schemas/Work'
+        run_test! do |response|
+          dp = JSON.parse(response.body).dig('work', 'derivative_permissions')
+          expect(dp['master']).to eq(['northeastern:drs:x:archives'])
+          expect(dp['pdf']).to eq(['northeastern:drs:x:pdf'])
         end
       end
 

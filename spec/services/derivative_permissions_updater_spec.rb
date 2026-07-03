@@ -29,9 +29,26 @@ RSpec.describe DerivativePermissionsUpdater do
     it 'accepts a partial policy — an absent higher tier inherits the set lower tier' do
       work = work_with(['public'])
       described_class.call(work: work, policy: { 'large' => ['grp:archives'] })
-      # service is absent → cascades to large; large is gated, service inherits it.
-      expect(work.derivative_gate_for(Role.service_file.name)).to eq(['grp:archives'])
-      expect(work.derivative_gate_for(Role.small_image.name)).to eq(['public'])
+      # service is absent → cascades to large; large is gated, service and the
+      # master (image original Blob) inherit it.
+      expect(work.derivative_gate_for(Delegate.new(use: Role.service_file.name))).to eq(['grp:archives'])
+      expect(work.derivative_gate_for(Blob.new(mime_type: 'image/tiff'))).to eq(['grp:archives'])
+      expect(work.derivative_gate_for(Delegate.new(use: Role.small_image.name))).to eq(['public'])
+    end
+
+    it 'accepts master reserved to a subset of the image ladder above it' do
+      work = work_with(['public'])
+      expect { described_class.call(work: work, policy: { 'service' => ['grp:a', 'grp:b'], 'master' => ['grp:a'] }) }
+        .not_to raise_error
+      expect(work.derivative_gate_for(Blob.new(mime_type: 'image/tiff'))).to eq(['grp:a'])
+    end
+
+    it 'accepts independent media gates alongside the image ladder' do
+      work = work_with(['public'])
+      described_class.call(work: work, policy: { 'large' => ['grp:archives'], 'pdf' => ['grp:pdf'], 'audio' => [] })
+      expect(work.derivative_gate_for(Blob.new(mime_type: 'application/pdf'))).to eq(['grp:pdf'])
+      expect(work.derivative_gated?(Blob.new(mime_type: 'audio/mpeg'))).to be(true) # [] private
+      expect(work.derivative_gated?(Blob.new(mime_type: 'video/mp4'))).to be(false) # absent → Work (public)
     end
 
     it 'collapses a value containing public to [public]' do
@@ -66,6 +83,25 @@ RSpec.describe DerivativePermissionsUpdater do
         .to raise_error(Exceptions::DerivativePermissionsError) { |e| expect(e.code).to eq(:tier_ordering_violation) }
     end
 
+    it 'rejects master more visible than the tier above it (tier_ordering_violation)' do
+      work = work_with(['public'])
+      # master is the ladder floor — it may be no wider than service.
+      expect { described_class.call(work: work, policy: { 'service' => ['grp:a'], 'master' => ['public'] }) }
+        .to raise_error(Exceptions::DerivativePermissionsError) { |e| expect(e.code).to eq(:tier_ordering_violation) }
+    end
+
+    it 'rejects an independent media tier more visible than the Work (tier_exceeds_resource)' do
+      work = work_with(['grp:a'])
+      expect { described_class.call(work: work, policy: { 'pdf' => ['grp:b'] }) }
+        .to raise_error(Exceptions::DerivativePermissionsError) { |e| expect(e.code).to eq(:tier_exceeds_resource) }
+    end
+
+    it 'imposes NO ordering across independent media (audio vs video)' do
+      work = work_with(['public'])
+      expect { described_class.call(work: work, policy: { 'audio' => ['grp:a'], 'video' => ['public'] }) }
+        .not_to raise_error
+    end
+
     it 'rejects an unknown tier key (unknown_tier) before persisting' do
       work = work_with(['public'])
       expect { described_class.call(work: work, policy: { 'huge' => ['public'] }) }
@@ -87,9 +123,9 @@ RSpec.describe DerivativePermissionsUpdater do
       # The Work is later narrowed to a different group without re-validating
       # the policy; the effective gate can never exceed the Work.
       work.read_groups = ['grp:b']
-      expect(work.derivative_gate_for(Role.large_image.name)).to eq([]) # grp:a ∩ grp:b
-      expect(work.derivative_gated?(Role.large_image.name)).to be(true)
-      expect(work.derivative_gate_for(Role.small_image.name)).to eq(['grp:b']) # cascades to Work
+      expect(work.derivative_gate_for(Delegate.new(use: Role.large_image.name))).to eq([]) # grp:a ∩ grp:b
+      expect(work.derivative_gated?(Delegate.new(use: Role.large_image.name))).to be(true)
+      expect(work.derivative_gate_for(Delegate.new(use: Role.small_image.name))).to eq(['grp:b']) # cascades to Work
     end
   end
 end

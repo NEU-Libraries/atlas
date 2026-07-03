@@ -67,8 +67,9 @@ module OpenapiSchemas
                      derivative_permissions: {
                        type:                 :object,
                        additionalProperties: { type: :array, items: { type: :string } },
-                       description:          'Per-tier derivative read policy: sparse map of tier ' \
-                                             '(small/medium/large/service) => [read groups]. Empty ' \
+                       description:          'Per-asset derivative read policy: sparse map of tier => ' \
+                                             '[read groups]. Image ladder small/medium/large/service/' \
+                                             'master plus independent media audio/video/pdf. Empty ' \
                                              'when unset (tiers inherit the Work visibility).'
                      }
                    ))
@@ -237,7 +238,11 @@ module OpenapiSchemas
             original_filename: { type: :string, nullable: true },
             size:              { type: :integer, nullable: true },
             filename:          { type: :string, nullable: true },
-            label:             { type: :string, nullable: true }
+            label:             { type: :string, nullable: true },
+            gated:             { type:        :boolean,
+                                 description: 'True if this binary must be authorized rather than downloaded directly (its audience is not public). Blobs classify by media type: image original => master, plus pdf/audio/video; other types ride the Work gate' },
+            permission:        { type: :array, items: { type: :string }, nullable: true,
+                                 description: 'Effective read-group set gating this binary (public / Grouper groups / [] private); null for guests, to whom group names are not disclosed' }
           },
           required:    %w[noid],
           description: 'Blob asset — held binary'

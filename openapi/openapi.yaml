@@ -160,8 +160,10 @@ components:
                 type: array
                 items:
                   type: string
-              description: 'Per-tier derivative read policy: sparse map of tier (small/medium/large/service)
-                => [read groups]. Empty when unset (tiers inherit the Work visibility).'
+              description: 'Per-asset derivative read policy: sparse map of tier =>
+                [read groups]. Image ladder small/medium/large/service/master plus
+                independent media audio/video/pdf. Empty when unset (tiers inherit
+                the Work visibility).'
           required:
           - id
           - valkyrie_id
@@ -750,6 +752,20 @@ components:
             label:
               type: string
               nullable: true
+            gated:
+              type: boolean
+              description: 'True if this binary must be authorized rather than downloaded
+                directly (its audience is not public). Blobs classify by media type:
+                image original => master, plus pdf/audio/video; other types ride the
+                Work gate'
+            permission:
+              type: array
+              items:
+                type: string
+              nullable: true
+              description: Effective read-group set gating this binary (public / Grouper
+                groups / [] private); null for guests, to whom group names are not
+                disclosed
           required:
           - noid
           description: Blob asset — held binary
@@ -826,6 +842,20 @@ components:
                   label:
                     type: string
                     nullable: true
+                  gated:
+                    type: boolean
+                    description: 'True if this binary must be authorized rather than
+                      downloaded directly (its audience is not public). Blobs classify
+                      by media type: image original => master, plus pdf/audio/video;
+                      other types ride the Work gate'
+                  permission:
+                    type: array
+                    items:
+                      type: string
+                    nullable: true
+                    description: Effective read-group set gating this binary (public
+                      / Grouper groups / [] private); null for guests, to whom group
+                      names are not disclosed
                 required:
                 - noid
                 description: Blob asset — held binary
@@ -3828,7 +3858,7 @@ paths:
         Role.downloadable?.
       responses:
         '200':
-          description: per-tier gate (gated / permission) surfaces on Delegate entries
+          description: the gate also surfaces on held Blob entries (master / pdf)
           content:
             application/json:
               schema:
@@ -3964,31 +3994,37 @@ paths:
       schema:
         type: string
     patch:
-      summary: Set a work's per-tier derivative-visibility policy
+      summary: Set a work's per-asset derivative-visibility policy
       tags:
       - Works
       description: |
-        Replaces the Work's per-tier read policy for its sized image derivatives —
-        which Grouper groups may fetch the `small` / `medium` / `large` / `service`
-        (deep-zoom) renditions. Each tier is an array of read-group tokens (the
-        resource vocabulary: `public`, Grouper group names, `[]` = private).
+        Replaces the Work's per-asset read policy for its downloadable renditions —
+        which Grouper groups may fetch each binary. Two media families: the image
+        ladder `small` / `medium` / `large` / `service` (deep-zoom) / `master` (the
+        original image), and the independent media `audio` / `video` / `pdf`. Each
+        tier is an array of read-group tokens (the resource vocabulary: `public`,
+        Grouper group names, `[]` = private).
 
         Whole-object replace: the body is the complete policy; omitted tiers
-        inherit by cascade (an absent tier inherits the next lower-resolution
-        tier; `small` inherits the Work). Two invariants are enforced (422 on
-        violation): a tier may not be more visible than the Work
-        (`tier_exceeds_resource`), and visibility must narrow as resolution grows
-        — `service` ⊆ `large` ⊆ `medium` ⊆ `small` (`tier_ordering_violation`); an
-        unrecognized tier key is `unknown_tier`.
+        inherit by cascade WITHIN the image ladder (an absent tier inherits the
+        next lower-resolution tier; `small` inherits the Work). Independent media
+        do not cascade — an absent `audio`/`video`/`pdf` key rides the Work.
+        Invariants are enforced (422 on violation): a tier may not be more visible
+        than the Work (`tier_exceeds_resource`); within the image ladder visibility
+        must narrow as resolution grows —
+        `master` ⊆ `service` ⊆ `large` ⊆ `medium` ⊆ `small` (`tier_ordering_violation`;
+        independent media impose no ordering); an unrecognized tier key is
+        `unknown_tier`.
 
-        The gate is advisory — Cerberus and the IIIF auth layer enforce it. The
-        effective per-Delegate gate surfaces on `GET /works/{id}/assets`
-        (`gated` / `permission`), and the stored map echoes back under
-        `derivative_permissions`.
+        The gate is advisory — Cerberus and the IIIF auth layer enforce it (image
+        tiers via signed IIIF URLs, held binaries via Cerberus's download :read
+        check). The effective per-asset gate surfaces on `GET /works/{id}/assets`
+        (`gated` / `permission`) for both Delegate and Blob entries, and the stored
+        map echoes back under `derivative_permissions`.
       parameters: []
       responses:
         '200':
-          description: policy stored (echoed under derivative_permissions)
+          description: accepts the widened vocabulary (master + independent media)
           content:
             application/json:
               schema:
@@ -4008,22 +4044,43 @@ paths:
                   type: array
                   items:
                     type: string
-                  description: Read groups for the small tier
+                  description: Read groups for the small image tier
                 medium:
                   type: array
                   items:
                     type: string
-                  description: Read groups for the medium tier
+                  description: Read groups for the medium image tier
                 large:
                   type: array
                   items:
                     type: string
-                  description: Read groups for the large tier
+                  description: Read groups for the large image tier
                 service:
                   type: array
                   items:
                     type: string
-                  description: Read groups for the service (deep-zoom) tier
+                  description: Read groups for the service (deep-zoom) image tier
+                master:
+                  type: array
+                  items:
+                    type: string
+                  description: Read groups for the master (original image) — the image-ladder
+                    floor
+                audio:
+                  type: array
+                  items:
+                    type: string
+                  description: Read groups for audio renditions (independent)
+                video:
+                  type: array
+                  items:
+                    type: string
+                  description: Read groups for video renditions (independent)
+                pdf:
+                  type: array
+                  items:
+                    type: string
+                  description: Read groups for PDF renditions (independent)
   "/works/{id}/full_text":
     parameters:
     - name: id

@@ -386,6 +386,10 @@ components:
                 (proxy-deposit) case. Left null under acting-as impersonation (On-Behalf-Of
                 header present) — the operator is recorded only in the AuditEvent,
                 not on the resource.
+            system_container:
+              type: boolean
+              description: Auto-provisioned structural-container flag (the singleton
+                "People" Community); excluded from discovery
           required:
           - id
           - valkyrie_id
@@ -402,6 +406,7 @@ components:
           - tombstoned_by
           - depositor
           - proxy_uploader
+          - system_container
       required:
       - community
     FileSet:

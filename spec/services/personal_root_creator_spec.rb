@@ -43,6 +43,23 @@ RSpec.describe PersonalRootCreator do
     expect(root.personal_root).to be(true)
   end
 
+  it 'flags the People Community as a system container' do
+    root = described_class.call(nuid: '001234567')
+
+    expect(root.parent.system_container).to be(true)
+  end
+
+  it 'backfills the flag onto a People Community minted before it existed' do
+    described_class.call(nuid: '001234567')
+    people = people_communities.first
+    # Simulate the pre-flag state, then let a later mint self-heal it.
+    people.system_container = false
+    Atlas.persister.save(resource: people)
+
+    described_class.call(nuid: '007654321')
+    expect(people_communities.first.system_container).to be(true)
+  end
+
   it 'titles the People Community and the root for on-disk recoverability' do
     root   = described_class.call(nuid: '001234567')
     parent = root.parent

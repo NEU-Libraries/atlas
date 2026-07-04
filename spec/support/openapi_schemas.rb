@@ -83,7 +83,9 @@ module OpenapiSchemas
   end
 
   def community
-    wrapped(:community, base_resource_props)
+    wrapped(:community, base_resource_props.merge(
+                          system_container: { type: :boolean, description: 'Auto-provisioned structural-container flag (the singleton "People" Community); excluded from discovery' }
+                        ))
   end
 
   def file_set

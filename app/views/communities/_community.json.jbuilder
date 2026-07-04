@@ -16,4 +16,5 @@ json.community do
   json.tombstoned_by @community.tombstoned_by
   json.depositor @community.depositor
   json.proxy_uploader @community.proxy_uploader
+  json.system_container @community.system_container
 end

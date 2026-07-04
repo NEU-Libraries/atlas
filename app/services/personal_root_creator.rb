@@ -12,9 +12,10 @@
 # the root be minted eagerly at Person.create, before any affiliation exists.
 #
 # The singleton is found-or-created idempotently, marked by the sentinel
-# depositor "system" (no new Community attribute; the marker serializes into the
-# on-disk preservation envelope naturally). There are only a handful of
-# Communities, so the linear find_all_of_model scan is cheap.
+# depositor "system" (which serializes into the on-disk preservation envelope
+# naturally) and flagged system_container = true so Cerberus can exclude it from
+# discovery. There are only a handful of Communities, so the linear
+# find_all_of_model scan is cheap.
 #
 # Provisioning here is an unattributed system side effect: the root and the
 # People Community are created WITHOUT an actor_nuid, so CollectionCreator /
@@ -59,7 +60,22 @@ class PersonalRootCreator < ApplicationService
     def people_community
       existing = Atlas.query.find_all_of_model(model: Community)
                       .find { |c| c.depositor == PEOPLE_COMMUNITY_DEPOSITOR }
-      existing || CommunityCreator.call(depositor: PEOPLE_COMMUNITY_DEPOSITOR, mods_xml: titled_mods('People'))
+      ensure_system_container(existing || create_people_community)
+    end
+
+    def create_people_community
+      CommunityCreator.call(depositor: PEOPLE_COMMUNITY_DEPOSITOR, mods_xml: titled_mods('People'))
+    end
+
+    # Mark the singleton a system container (-> system_container_bsi) so Cerberus
+    # excludes it from the global catalog. Self-healing and idempotent: a People
+    # Community minted before this flag existed acquires it — and re-projects to
+    # Solr — on the next Person create; an already-flagged one is untouched.
+    def ensure_system_container(community)
+      return community if community.system_container
+
+      community.system_container = true
+      Atlas.persister.save(resource: community)
     end
 
     # The empty MODS template with its primary title set, so the on-disk

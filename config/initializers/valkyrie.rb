@@ -43,7 +43,8 @@ Rails.application.config.to_prepare do
           AncestryIndexer,
           PersonIndexer,
           FeaturedIndexer,
-          PersonalRootIndexer
+          PersonalRootIndexer,
+          SystemContainerIndexer
         )
       ),
       :index_solr
@@ -65,7 +66,8 @@ Rails.application.config.to_prepare do
           AncestryIndexer,
           PersonIndexer,
           FeaturedIndexer,
-          PersonalRootIndexer
+          PersonalRootIndexer,
+          SystemContainerIndexer
         )
       ),
       :test_solr

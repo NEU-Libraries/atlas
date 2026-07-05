@@ -3242,6 +3242,31 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Permissions"
+  "/resources/{id}/mods":
+    parameters:
+    - name: id
+      in: path
+      description: NOID of any Modsable resource (Work, Collection, Community)
+      required: true
+      schema:
+        type: string
+    get:
+      summary: Retrieve current MODS metadata for any resource
+      tags:
+      - Resources
+      description: |
+        Type-agnostic current MODS: resolves the NOID and returns the resource's
+        descriptive MODS without the caller knowing whether it is a Work,
+        Collection, or Community. Output is byte-identical to the typed
+        /works|collections|communities/{id}/mods routes (same views). Returns
+        the JSON projection by default; append the .xml format suffix
+        (/resources/{id}/mods.xml) for MODS XML. 404 for an unknown id, a
+        non-Modsable resource, or one with no MODS.
+      responses:
+        '200':
+          description: current mods returned
+        '404':
+          description: unknown id / non-Modsable / no MODS
   "/resources/{id}/mods/versions":
     parameters:
     - name: id

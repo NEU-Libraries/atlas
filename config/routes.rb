@@ -99,6 +99,12 @@ Rails.application.routes.draw do
     get '/resources/:id', to: 'resources#show'
     get '/resources/:id/permissions', to: 'resources#permissions'
     get '/resources/:id/history', to: 'audit_events#index', as: 'resource_history'
+    # Current MODS for any Modsable resource, type-agnostic — the polymorphic
+    # sibling of /works/:id/mods etc. Lets a caller holding only a NOID (no
+    # type) fetch descriptive MODS in one call, instead of resolving the klass
+    # first and dispatching to the typed route. Format negotiation and per-type
+    # output match the typed routes exactly (it renders their views).
+    get '/resources/:id/mods', to: 'resources#mods', as: 'resource_mods'
     # MODS version history (type-agnostic, like /history and /permissions —
     # the descriptive-metadata Blob lookup is identical across Work/Collection/
     # Community). List carries audit-derived actor attribution (admin-gated);

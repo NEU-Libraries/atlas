@@ -47,6 +47,87 @@ RSpec.describe 'Resources', type: :request do
     end
   end
 
+  path '/resources/{id}/mods' do
+    parameter name: :id, in: :path, type: :string, description: 'NOID of any Modsable resource (Work, Collection, Community)'
+
+    get 'Retrieve current MODS metadata for any resource' do
+      tags 'Resources'
+      produces 'application/xml', 'application/json'
+      description <<~DESC
+        Type-agnostic current MODS: resolves the NOID and returns the resource's
+        descriptive MODS without the caller knowing whether it is a Work,
+        Collection, or Community. Output is byte-identical to the typed
+        /works|collections|communities/{id}/mods routes (same views). Returns
+        the JSON projection by default; append the .xml format suffix
+        (/resources/{id}/mods.xml) for MODS XML. 404 for an unknown id, a
+        non-Modsable resource, or one with no MODS.
+      DESC
+
+      response '200', 'current mods returned' do
+        let(:id)     { work.noid }
+        let(:Accept) { 'application/xml' }
+        run_test!
+      end
+
+      response '404', 'unknown id / non-Modsable / no MODS' do
+        let(:id)     { 'neu:nonexistent' }
+        let(:Accept) { 'application/xml' }
+        run_test!
+      end
+    end
+  end
+
+  # Polymorphic dispatch + per-format output across the three Modsable types.
+  # Not rswag (one 200 example already documents the operation); these prove the
+  # resolved klass drives the SAME typed view, so output stays byte-identical.
+  describe 'GET /resources/:id/mods (polymorphic dispatch)' do
+    it 'returns a Collection\'s current MODS XML via the .xml suffix' do
+      get "/resources/#{collection.noid}/mods.xml"
+      expect(response).to have_http_status(:ok)
+      expect(response.content_type).to include('xml')
+      expect(response.body).to start_with('<?xml')
+    end
+
+    it 'returns a Community\'s current MODS XML via the .xml suffix' do
+      get "/resources/#{community.noid}/mods.xml"
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to start_with('<?xml')
+    end
+
+    it 'renders the type-keyed JSON projection by default (a Work under the "work" key)' do
+      get "/resources/#{work.noid}/mods"
+      expect(response).to have_http_status(:ok)
+      expect(response.parsed_body).to have_key('work')
+    end
+
+    it 'XML output byte-matches the typed collection route (no drift)' do
+      get "/resources/#{collection.noid}/mods.xml"
+      polymorphic = response.body
+      get "/collections/#{collection.noid}/mods.xml"
+
+      expect(polymorphic).to eq(response.body)
+    end
+
+    it 'JSON output byte-matches the typed collection route (no drift)' do
+      get "/resources/#{collection.noid}/mods.json"
+      polymorphic = response.body
+      get "/collections/#{collection.noid}/mods.json"
+
+      expect(polymorphic).to eq(response.body)
+    end
+
+    it '404s for a non-Modsable resource (FileSet)' do
+      file_set = FileSetCreator.call(work_id: work.noid, classification: Classification.image)
+      get "/resources/#{file_set.noid}/mods.xml"
+      expect(response).to have_http_status(:not_found)
+    end
+
+    it '404s for an unknown id' do
+      get '/resources/neu:missing/mods'
+      expect(response).to have_http_status(:not_found)
+    end
+  end
+
   path '/resources/{id}/mods/versions' do
     parameter name: :id, in: :path, type: :string
 

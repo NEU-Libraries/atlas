@@ -1,6 +1,15 @@
 # frozen_string_literal: true
 
 class ResourcesController < ApplicationController
+  # Resolved-class → [ivar, template] for the current-MODS dispatch. Only the
+  # three container/object types carry a MODS view; a FileSet/Blob/Person
+  # resolves fine but has no MODS projection, so it falls through to 404.
+  TYPED_MODS_VIEWS = {
+    Work       => ['@work',       'works/mods'],
+    Collection => ['@collection', 'collections/mods'],
+    Community  => ['@community',  'communities/mods']
+  }.freeze
+
   def show
     authorize! :read, Resource
     @resource = Resource.find(params[:id]).decorate
@@ -51,6 +60,28 @@ class ResourcesController < ApplicationController
     return head(:not_found) if xml.nil?
 
     render xml: xml
+  end
+
+  # Current MODS for any Modsable resource, type-agnostic — the polymorphic
+  # sibling of /works/:id/mods. Resolves the NOID once and renders the SAME
+  # per-type MODS view the typed routes use, so output (and format negotiation)
+  # is byte-identical and there is no second MODS representation to drift.
+  #
+  # Authorization gates on the resolved record (:read), matching the typed
+  # per-record gate rather than this controller's class-level floor — so a
+  # gated object's MODS is exactly as protected here as via /works/:id/mods.
+  # authorize! runs before any 404 (falling back to the Resource class for an
+  # unresolvable id) so the check_authorization hook can't turn a miss into a
+  # 500. Unknown id, non-Modsable type, or absent MODS all → 404, as the typed
+  # actions do.
+  def mods
+    resource = Resource.find(params[:id])
+    authorize! :read, resource || Resource
+    return head(:not_found) unless resource && TYPED_MODS_VIEWS.key?(resource.class) && resource.mods
+
+    ivar, template = TYPED_MODS_VIEWS[resource.class]
+    instance_variable_set(ivar, resource.decorate)
+    render template: template
   end
 
   # Batch resolver. Given a list of NOIDs, return a lightweight digest per

@@ -59,7 +59,8 @@ class MaintenanceController < ApplicationController
       create_fixture_user(name: 'User, Standard', nuid: '000000005',
                           email: 'standard@northeastern.edu', role: :standard)
       create_fixture_user(name: 'Doe, Jane', nuid: '000000002', role: :privileged,
-                          email: 'dps@northeastern.edu', groups: ['northeastern:drs:repository:staff'])
+                          email: 'dps@northeastern.edu',
+                          groups: ['northeastern:drs:repository:staff', 'northeastern:drs:repository:api'])
       create_fixture_user(name: 'Loader, Marcom', nuid: '000000003', role: :loader,
                           email: 'marcom-loader@northeastern.edu',
                           groups: ['northeastern:drs:repository:loaders:marcom'])

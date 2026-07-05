@@ -73,7 +73,7 @@ Layout/LineLength:
     - 'app/**/*'
 Metrics/MethodLength:
   Max: 15
-  AllowedMethods: ['role_permissions', 'convert_xml_to_json', 'apply_role_abilities']
+  AllowedMethods: ['role_permissions', 'convert_xml_to_json', 'apply_role_abilities', 'seed_fixture_users!']
   Exclude:
     - 'app/lib/valkyrie/storage/ocfl.rb'
     - 'app/lib/valkyrie/storage/ocfl/inventory.rb'

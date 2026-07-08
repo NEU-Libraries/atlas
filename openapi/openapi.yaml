@@ -1145,6 +1145,42 @@ components:
       required:
       - file_set
       - work
+    DescendantWorks:
+      type: object
+      properties:
+        works:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                description: NOID
+              noid:
+                type: string
+                description: NOID (same value as id; find_many digest parity)
+              klass:
+                type: string
+                description: Resolved resource class name (always Work here)
+              title:
+                type: string
+                nullable: true
+                description: Plain-text title off the Solr doc
+              thumbnail:
+                type: string
+                nullable: true
+                description: IIIF URL of the thumbnail tier, or null
+            required:
+            - id
+            - noid
+            - klass
+            - title
+            - thumbnail
+        pagination:
+          "$ref": "#/components/schemas/Pagination"
+      required:
+      - works
+      - pagination
     Compilation:
       type: object
       properties:
@@ -3474,6 +3510,59 @@ paths:
                     type: integer
                 required:
                 - reindexed
+        '404':
+          description: unknown id
+  "/resources/{id}/descendant_works":
+    parameters:
+    - name: id
+      in: path
+      description: NOID of any resource (subtree root)
+      required: true
+      schema:
+        type: string
+    get:
+      summary: Every Work beneath a resource, flattened (gated, paginated)
+      tags:
+      - Resources
+      description: |
+        Resolves a resource's full descendant subtree to the Works it contains,
+        at any depth — the structural counterpart to
+        `GET /compilations/{id}/contents`. Same digest shape and query engine,
+        but the container set is the resource's own subtree (self +
+        `ancestor_ids_ssim` descendants) instead of a Set recipe.
+
+        Gated per-Work to what the caller may discover (public + the caller's
+        groups; admins see everything; same semantics as Cerberus gated
+        discovery), so a restricted Work never leaks via the subtree. Tombstoned
+        works are dropped. Membership is **structural** (`a_member_of`) only;
+        pass `include_linked=true` to also surface linked members
+        (`a_linked_member_of`). Solr-side pagination via `page` / `per_page`
+        (default 25, capped at 100). Unknown id → 404.
+      parameters:
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+      - name: per_page
+        in: query
+        required: false
+        schema:
+          type: integer
+      - name: include_linked
+        in: query
+        required: false
+        description: Include linked members (a_linked_member_of); structural-only
+          by default
+        schema:
+          type: boolean
+      responses:
+        '200':
+          description: descendant works (transitively flattened, gated, paginated)
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/DescendantWorks"
         '404':
           description: unknown id
   "/users":

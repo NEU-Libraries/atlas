@@ -40,7 +40,8 @@ module OpenapiSchemas
       Lineage:            lineage,
       ModsVersions:       mods_versions,
       BlobVersions:       blob_versions,
-      BlobAncestry:       blob_ancestry
+      BlobAncestry:       blob_ancestry,
+      DescendantWorks:    descendant_works
     }.merge(compilation_schemas).merge(person_schemas)
   end
   # rubocop:enable Metrics/AbcSize
@@ -338,14 +339,31 @@ module OpenapiSchemas
     {
       type:       :object,
       properties: {
-        contents:   { type: :array, items: compilation_content_digest },
+        contents:   { type: :array, items: work_digest },
         pagination: { '$ref' => '#/components/schemas/Pagination' }
       },
       required:   %w[contents pagination]
     }
   end
 
-  def compilation_content_digest
+  # GET /resources/{id}/descendant_works — the structural subtree flattened to
+  # Work digests (mirrors resources/descendant_works.json.jbuilder). Same
+  # digest + pagination shape as compilation_contents, under a `works` key.
+  def descendant_works
+    {
+      type:       :object,
+      properties: {
+        works:      { type: :array, items: work_digest },
+        pagination: { '$ref' => '#/components/schemas/Pagination' }
+      },
+      required:   %w[works pagination]
+    }
+  end
+
+  # The find_many-style Work digest shared by /compilations/{id}/contents and
+  # /resources/{id}/descendant_works (both resolve containers to Works via the
+  # WorkDigestQuery engine).
+  def work_digest
     {
       type:       :object,
       properties: {

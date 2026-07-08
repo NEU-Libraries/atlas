@@ -99,6 +99,13 @@ Rails.application.routes.draw do
     get '/resources/:id', to: 'resources#show'
     get '/resources/:id/permissions', to: 'resources#permissions'
     get '/resources/:id/history', to: 'audit_events#index', as: 'resource_history'
+    # Every Work beneath a container, at any depth — the structural counterpart
+    # to /compilations/:id/contents (same digest shape and query engine, but the
+    # container set is the resource's own subtree, not a Set recipe). Gated
+    # per-Work and Solr-projected, so a restricted Work never leaks and a deep
+    # subtree never materializes; paginated (page / per_page). ?include_linked=true
+    # ORs in linked members (structural-only by default).
+    get '/resources/:id/descendant_works', to: 'resources#descendant_works', as: 'resource_descendant_works'
     # Current MODS for any Modsable resource, type-agnostic — the polymorphic
     # sibling of /works/:id/mods etc. Lets a caller holding only a NOID (no
     # type) fetch descriptive MODS in one call, instead of resolving the klass

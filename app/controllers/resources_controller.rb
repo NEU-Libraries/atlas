@@ -100,6 +100,32 @@ class ResourcesController < ApplicationController
     @resources = resources.map(&:decorate)
   end
 
+  # Every Work beneath a container, at any depth — flattened, permission-gated,
+  # Solr-projected, paginated. The structural counterpart to
+  # /compilations/:id/contents: same digest shape and query engine
+  # (DescendantWorksQuery generalizes CompilationContentsQuery), but the
+  # container set is the resource's own subtree instead of a Set recipe, and
+  # only structural membership (a_member_of_ssi) counts unless
+  # ?include_linked=true. Gating is per-Work inside the query (Cerberus
+  # gated-discovery parity), so a restricted Work never leaks via the subtree,
+  # and ids are projected from Solr at every step — no filtered_children
+  # materialization even for a 10k-deep collection. authorize! runs before the
+  # 404 (falling back to the Resource class for an unresolvable id) so the
+  # check_authorization hook can't turn a miss into a 500. Unknown id → 404.
+  def descendant_works
+    resource = Resource.find(params[:id])
+    authorize! :read, resource || Resource
+    return head(:not_found) if resource.nil?
+
+    result = DescendantWorksQuery.call(
+      resource: resource, user: @current_user,
+      page: params[:page], per_page: params[:per_page],
+      include_linked: ActiveModel::Type::Boolean.new.cast(params[:include_linked])
+    )
+    @works      = result.digests
+    @pagination = result.pagination
+  end
+
   # Re-project a single resource's Solr doc from its current Postgres/OCFL
   # state. Solr-only (Atlas.index_adapter) — no Postgres write, no
   # optimistic-lock bump, no lifecycle/audit/minting. This is the

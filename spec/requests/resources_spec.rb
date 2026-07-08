@@ -407,4 +407,138 @@ RSpec.describe 'Resources', type: :request do
       end
     end
   end
+
+  path '/resources/{id}/descendant_works' do
+    parameter name: :id, in: :path, type: :string, description: 'NOID of any resource (subtree root)'
+
+    get 'Every Work beneath a resource, flattened (gated, paginated)' do
+      tags 'Resources'
+      produces 'application/json'
+      description <<~DESC
+        Resolves a resource's full descendant subtree to the Works it contains,
+        at any depth — the structural counterpart to
+        `GET /compilations/{id}/contents`. Same digest shape and query engine,
+        but the container set is the resource's own subtree (self +
+        `ancestor_ids_ssim` descendants) instead of a Set recipe.
+
+        Gated per-Work to what the caller may discover (public + the caller's
+        groups; admins see everything; same semantics as Cerberus gated
+        discovery), so a restricted Work never leaks via the subtree. Tombstoned
+        works are dropped. Membership is **structural** (`a_member_of`) only;
+        pass `include_linked=true` to also surface linked members
+        (`a_linked_member_of`). Solr-side pagination via `page` / `per_page`
+        (default 25, capped at 100). Unknown id → 404.
+      DESC
+      parameter name: :page, in: :query, type: :integer, required: false
+      parameter name: :per_page, in: :query, type: :integer, required: false
+      parameter name: :include_linked, in: :query, type: :boolean, required: false,
+                description: 'Include linked members (a_linked_member_of); structural-only by default'
+
+      response '200', 'descendant works (transitively flattened, gated, paginated)' do
+        schema '$ref' => '#/components/schemas/DescendantWorks'
+        let(:id) { community.noid }
+        let(:page) { nil }
+        let(:per_page) { nil }
+        let(:include_linked) { nil }
+        before { work } # materialize community → collection → work
+        run_test! do |response|
+          payload = JSON.parse(response.body)
+          expect(payload['works'].pluck('noid')).to include(work.noid)
+          expect(payload['works'].first).to include('klass' => 'Work')
+          expect(payload['pagination']).to include('page' => 1)
+        end
+      end
+
+      response '404', 'unknown id' do
+        let(:id) { 'does-not-exist' }
+        let(:page) { nil }
+        let(:per_page) { nil }
+        let(:include_linked) { nil }
+        run_test!
+      end
+    end
+  end
+
+  # Gating + structure — driven with an explicit principal matrix (guest /
+  # read-group member), so the per-Work ACL and the structural-vs-linked
+  # distinction are proven directly rather than through the admin-bypass
+  # default. Fixtures mirror the /compilations/{id}/contents contents spec.
+  describe 'GET /resources/:id/descendant_works (gating + structure)', default_auth: false do
+    let(:reader_group) { 'northeastern:drs:test-readers' }
+
+    let!(:guest_user) do
+      User.create!(email: 'guest@example.com', password: SecureRandom.hex(16), role: :guest)
+    end
+    let!(:reader) do
+      User.create!(email: 'reader@example.com', password: SecureRandom.hex(16),
+                   nuid: '000000002', role: :standard, groups: [reader_group])
+    end
+
+    let!(:community)        { Atlas.persister.save(resource: Community.new) }
+    let!(:collection)       { Atlas.persister.save(resource: Collection.new(a_member_of: community.id)) }
+    let!(:nested)           { Atlas.persister.save(resource: Collection.new(a_member_of: collection.id)) }
+    let!(:other_collection) { Atlas.persister.save(resource: Collection.new(a_member_of: community.id)) }
+
+    let!(:work_in_collection) do
+      Atlas.persister.save(resource: Work.new(a_member_of: collection.id, read_groups: ['public']))
+    end
+    let!(:nested_work) do
+      Atlas.persister.save(resource: Work.new(a_member_of: nested.id, read_groups: ['public']))
+    end
+    let!(:private_work) do
+      Atlas.persister.save(resource: Work.new(a_member_of: collection.id, read_groups: [reader_group]))
+    end
+    let!(:tombstoned_work) do
+      Atlas.persister.save(resource: Work.new(a_member_of: collection.id, read_groups: ['public'],
+                                              tombstoned: true))
+    end
+    let!(:stray_work) do
+      Atlas.persister.save(resource: Work.new(a_member_of: other_collection.id, read_groups: ['public']))
+    end
+    let!(:linked_work) do
+      Atlas.persister.save(resource: Work.new(a_member_of:        other_collection.id,
+                                              a_linked_member_of: [collection.id],
+                                              read_groups:        ['public']))
+    end
+
+    def descendant_noids(response)
+      JSON.parse(response.body)['works'].pluck('noid')
+    end
+
+    it 'flattens the subtree transitively, gated to the caller, minus tombstones' do
+      get "/resources/#{collection.noid}/descendant_works", headers: signed_auth_headers(reader.nuid)
+      expect(response).to have_http_status(:ok)
+      expect(descendant_noids(response)).to contain_exactly(
+        work_in_collection.noid, # direct member of the root collection
+        nested_work.noid,        # transitive: under a nested sub-collection
+        private_work.noid        # visible via the reader's group
+      )
+      expect(descendant_noids(response))
+        .not_to include(tombstoned_work.noid, stray_work.noid, linked_work.noid)
+    end
+
+    it 'hides works the caller may not read (guest sees public only)' do
+      get "/resources/#{collection.noid}/descendant_works", headers: signed_auth_headers(nil)
+      expect(response).to have_http_status(:ok)
+      noids = descendant_noids(response)
+      expect(noids).to contain_exactly(work_in_collection.noid, nested_work.noid)
+      expect(noids).not_to include(private_work.noid)
+    end
+
+    it 'is structural by default; ?include_linked=true unions linked members' do
+      get "/resources/#{collection.noid}/descendant_works", headers: signed_auth_headers(nil)
+      expect(descendant_noids(response)).not_to include(linked_work.noid)
+
+      get "/resources/#{collection.noid}/descendant_works?include_linked=true", headers: signed_auth_headers(nil)
+      expect(descendant_noids(response)).to include(linked_work.noid)
+    end
+
+    it 'paginates Solr-side (page/per_page)' do
+      get "/resources/#{collection.noid}/descendant_works?per_page=2&page=1",
+          headers: signed_auth_headers(reader.nuid)
+      payload = response.parsed_body
+      expect(payload['works'].length).to eq(2)
+      expect(payload['pagination']).to eq('total' => 3, 'page' => 1, 'per_page' => 2, 'pages' => 2)
+    end
+  end
 end

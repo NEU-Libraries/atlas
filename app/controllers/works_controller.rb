@@ -22,7 +22,7 @@ class WorksController < ApplicationController
 
   def show
     authorize! :read, Work
-    @work = Work.find(params[:id])&.decorate
+    @work = find_work(params[:id])&.decorate
     return head(:not_found) if @work.nil?
 
     render :show, status: (@work.tombstoned ? :gone : :ok)
@@ -49,7 +49,7 @@ class WorksController < ApplicationController
 
   def mods
     authorize! :read, Work
-    work = Work.find(params[:id])
+    work = find_work(params[:id])
     return head(:not_found) if work.nil? || work.mods.nil?
 
     @work = work.decorate
@@ -59,7 +59,7 @@ class WorksController < ApplicationController
   # order). Built at /complete; 404 until then.
   def mets
     authorize! :read, Work
-    work = Work.find(params[:id])
+    work = find_work(params[:id])
     return head(:not_found) if work.nil? || work.mets.nil?
 
     @work = work
@@ -67,7 +67,9 @@ class WorksController < ApplicationController
 
   def assets
     authorize! :read, Work
-    @work = Work.find(params[:id])
+    @work = find_work(params[:id])
+    return head(:not_found) if @work.nil?
+
     @assets = @work.children
                    .reject { |fs| Classification.metadata?(fs.type) }
                    .flat_map { |fs| Atlas.query.find_members(resource: fs).to_a }
@@ -79,15 +81,16 @@ class WorksController < ApplicationController
   # entry per page-bearing FileSet, position ASC.
   def file_sets
     authorize! :read, Work
-    @work = Work.find(params[:id])
+    @work = find_work(params[:id])
     return head(:not_found) if @work.nil?
 
     @pages = @work.page_file_sets.map { |fs| [fs, page_assets(fs)] }
   end
 
   def update
-    @work = Work.find(params[:id])
+    @work = find_work(params[:id])
     authorize! :update, @work
+    return head(:not_found) if @work.nil?
 
     if params[:binary].present?
       binary_update
@@ -98,7 +101,7 @@ class WorksController < ApplicationController
 
   def update_thumbnails
     with_stale_object_retry do
-      @work = Work.find(params[:id])
+      @work = find_work(params[:id])
       authorize! :update_thumbnails, @work
       return head(:not_found) if @work.nil?
 
@@ -111,7 +114,7 @@ class WorksController < ApplicationController
 
   def update_image_derivatives
     with_stale_object_retry do
-      @work = Work.find(params[:id])
+      @work = find_work(params[:id])
       authorize! :update_image_derivatives, @work
       return head(:not_found) if @work.nil?
 
@@ -131,7 +134,7 @@ class WorksController < ApplicationController
   # validates the two invariants (tier ⊆ Work, and visibility narrows with
   # resolution) and 422s on violation before persisting.
   def update_derivative_permissions
-    @work = Work.find(params[:id])
+    @work = find_work(params[:id])
     authorize! :update_derivative_permissions, @work
     return head(:not_found) if @work.nil?
 
@@ -152,7 +155,7 @@ class WorksController < ApplicationController
   # long PDF is MBs) — it's write-only here, read back only through Solr.
   def update_full_text
     with_stale_object_retry do
-      @work = Work.find(params[:id])
+      @work = find_work(params[:id])
       authorize! :update_full_text, @work
       return head(:not_found) if @work.nil?
 
@@ -165,22 +168,28 @@ class WorksController < ApplicationController
   end
 
   def destroy
-    @work = Work.find(params[:id])
+    @work = find_work(params[:id])
     authorize! :destroy, @work
+    return head(:not_found) if @work.nil?
+
     Atlas.persister.delete(resource: @work)
   end
 
   def tombstone
-    @work = Work.find(params[:id])
+    @work = find_work(params[:id])
     authorize! :tombstone, @work
+    return head(:not_found) if @work.nil?
+
     @work.tombstone(by: @current_user&.nuid)
     @work = Atlas.persister.save(resource: @work).decorate
     audit!(resource: @work, action: 'tombstone', change_type: 'lifecycle')
   end
 
   def restore
-    @work = Work.find(params[:id])
+    @work = find_work(params[:id])
     authorize! :restore, @work
+    return head(:not_found) if @work.nil?
+
     @work.restore
     @work = Atlas.persister.save(resource: @work).decorate
     audit!(resource: @work, action: 'restore', change_type: 'lifecycle')
@@ -188,7 +197,7 @@ class WorksController < ApplicationController
 
   def complete
     with_stale_object_retry do
-      @work = Work.find(params[:id])
+      @work = find_work(params[:id])
       authorize! :complete, @work
       return head(:not_found) if @work.nil?
 
@@ -210,6 +219,18 @@ class WorksController < ApplicationController
   end
 
   private
+
+    # Resolve :id to a Work, or nil if the id is absent OR names a resource of
+    # another type. Valkyrie's `Work.find` is not type-scoped — it returns
+    # whatever resource carries the id — so a hand-edited /works/<community-id>
+    # would otherwise feed a non-Work into the Work serializer (which calls
+    # Work-only methods like derivative_permissions_map) and 500. Collapsing a
+    # wrong-type id to nil keeps the endpoint's type contract: it 404s exactly
+    # like an unknown id, across the whole /works/:id surface.
+    def find_work(id)
+      work = Work.find(id)
+      work if work.is_a?(Work)
+    end
 
     # The submitted tier policy, read straight from the JSON body rather than
     # `params` — ParamsWrapper mirrors the body under a `work` key that would

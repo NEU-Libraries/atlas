@@ -316,4 +316,45 @@ describe WorksController, type: :controller do
       expect(Array(Work.find(work.noid).a_linked_member_of).map(&:to_s)).to include(target.id.to_s)
     end
   end
+
+  # A hand-edited /works/<non-Work-id> must 404, not 500. Valkyrie's
+  # Work.find is not type-scoped, so a Community id resolves to a Community
+  # that would otherwise reach the Work serializer (derivative_permissions_map
+  # etc.) and blow up. The default principal here is the admin fixture — the
+  # case that previously slipped past authorization and 500'd. render_views is
+  # on, so the read cases exercise the real jbuilder path.
+  describe 'non-Work id is a uniform 404 across the /works/:id surface' do
+    let(:community) { CommunityCreator.call }
+
+    it 'GET #show 404s for a non-Work id' do
+      get :show, params: { id: community.noid }, as: :json
+      expect(response).to have_http_status(:not_found)
+    end
+
+    it 'GET #assets 404s for a non-Work id' do
+      get :assets, params: { id: community.noid }, as: :json
+      expect(response).to have_http_status(:not_found)
+    end
+
+    it 'GET #file_sets 404s for a non-Work id' do
+      get :file_sets, params: { id: community.noid }, as: :json
+      expect(response).to have_http_status(:not_found)
+    end
+
+    it 'GET #mods 404s for a non-Work id' do
+      get :mods, params: { id: community.noid }, as: :json
+      expect(response).to have_http_status(:not_found)
+    end
+
+    it 'GET #mets 404s for a non-Work id' do
+      get :mets, params: { id: community.noid }, as: :json
+      expect(response).to have_http_status(:not_found)
+    end
+
+    it 'POST #tombstone 404s for a non-Work id (admin) instead of mutating it' do
+      post :tombstone, params: { id: community.noid }, as: :json
+      expect(response).to have_http_status(:not_found)
+      expect(Community.find(community.noid).tombstoned).to be_falsey
+    end
+  end
 end

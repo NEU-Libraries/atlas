@@ -20,7 +20,7 @@ class CommunitiesController < ApplicationController
 
   def show
     authorize! :read, Community
-    @community = Community.find(params[:id])&.decorate
+    @community = find_community(params[:id])&.decorate
     return head(:not_found) if @community.nil?
 
     render :show, status: (@community.tombstoned ? :gone : :ok)
@@ -41,7 +41,7 @@ class CommunitiesController < ApplicationController
   def mods
     authorize! :read, Community
     # TODO: support raw XML, in addition to JSON and HTML
-    community = Community.find(params[:id])
+    community = find_community(params[:id])
     return head(:not_found) if community.nil? || community.mods.nil?
 
     @community = community.decorate
@@ -49,7 +49,7 @@ class CommunitiesController < ApplicationController
 
   def children
     authorize! :read, Community
-    @community = Community.find(params[:id])&.decorate
+    @community = find_community(params[:id])&.decorate
     return head(:not_found) if @community.nil?
     return render(:show, status: :gone) if @community.tombstoned
 
@@ -58,7 +58,7 @@ class CommunitiesController < ApplicationController
 
   def ancestors
     authorize! :read, Community
-    @community = Community.find(params[:id])&.decorate
+    @community = find_community(params[:id])&.decorate
     return head(:not_found) if @community.nil?
     return render(:show, status: :gone) if @community.tombstoned
 
@@ -66,8 +66,9 @@ class CommunitiesController < ApplicationController
   end
 
   def update
-    @community = Community.find(params[:id])
+    @community = find_community(params[:id])
     authorize! :update, @community
+    return head(:not_found) if @community.nil?
 
     if params[:binary].present?
       binary_update
@@ -78,7 +79,7 @@ class CommunitiesController < ApplicationController
 
   def update_thumbnails
     with_stale_object_retry do
-      @community = Community.find(params[:id])
+      @community = find_community(params[:id])
       authorize! :update_thumbnails, @community
       return head(:not_found) if @community.nil?
 
@@ -90,14 +91,17 @@ class CommunitiesController < ApplicationController
   end
 
   def destroy
-    @community = Community.find(params[:id])
+    @community = find_community(params[:id])
     authorize! :destroy, @community
+    return head(:not_found) if @community.nil?
+
     Atlas.persister.delete(resource: @community)
   end
 
   def tombstone
-    @community = Community.find(params[:id])
+    @community = find_community(params[:id])
     authorize! :tombstone, @community
+    return head(:not_found) if @community.nil?
 
     if @community.live_children?
       render json:   { error: 'cannot tombstone a non-empty community',
@@ -111,8 +115,10 @@ class CommunitiesController < ApplicationController
   end
 
   def restore
-    @community = Community.find(params[:id])
+    @community = find_community(params[:id])
     authorize! :restore, @community
+    return head(:not_found) if @community.nil?
+
     @community.restore
     @community = Atlas.persister.save(resource: @community).decorate
     audit!(resource: @community, action: 'restore', change_type: 'lifecycle')
@@ -126,6 +132,17 @@ class CommunitiesController < ApplicationController
   end
 
   private
+
+    # Resolve :id to a Community, or nil if the id is absent OR names a
+    # resource of another type. Valkyrie's `Community.find` is not
+    # type-scoped, so a hand-edited /communities/<work-id> would otherwise feed
+    # a non-Community into the Community serializer and 500. Collapsing a
+    # wrong-type id to nil keeps the endpoint's type contract: it 404s exactly
+    # like an unknown id. (Mirrors WorksController#find_work.)
+    def find_community(id)
+      community = Community.find(id)
+      community if community.is_a?(Community)
+    end
 
     # Mirror of WorksController's provenance helpers — see that file for
     # the full rationale. Communities are roots, so there's no parent

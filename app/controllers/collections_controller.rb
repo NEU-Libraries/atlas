@@ -21,7 +21,7 @@ class CollectionsController < ApplicationController
 
   def show
     authorize! :read, Collection
-    @collection = Collection.find(params[:id])&.decorate
+    @collection = find_collection(params[:id])&.decorate
     return head(:not_found) if @collection.nil?
 
     render :show, status: (@collection.tombstoned ? :gone : :ok)
@@ -42,7 +42,7 @@ class CollectionsController < ApplicationController
 
   def mods
     authorize! :read, Collection
-    collection = Collection.find(params[:id])
+    collection = find_collection(params[:id])
     return head(:not_found) if collection.nil? || collection.mods.nil?
 
     @collection = collection.decorate
@@ -50,7 +50,7 @@ class CollectionsController < ApplicationController
 
   def children
     authorize! :read, Collection
-    @collection = Collection.find(params[:id])&.decorate
+    @collection = find_collection(params[:id])&.decorate
     return head(:not_found) if @collection.nil?
     return render(:show, status: :gone) if @collection.tombstoned
 
@@ -59,7 +59,7 @@ class CollectionsController < ApplicationController
 
   def ancestors
     authorize! :read, Collection
-    @collection = Collection.find(params[:id])&.decorate
+    @collection = find_collection(params[:id])&.decorate
     return head(:not_found) if @collection.nil?
     return render(:show, status: :gone) if @collection.tombstoned
 
@@ -67,8 +67,9 @@ class CollectionsController < ApplicationController
   end
 
   def update
-    @collection = Collection.find(params[:id])
+    @collection = find_collection(params[:id])
     authorize! :update, @collection
+    return head(:not_found) if @collection.nil?
 
     if params[:binary].present?
       binary_update
@@ -81,7 +82,7 @@ class CollectionsController < ApplicationController
 
   def update_thumbnails
     with_stale_object_retry do
-      @collection = Collection.find(params[:id])
+      @collection = find_collection(params[:id])
       authorize! :update_thumbnails, @collection
       return head(:not_found) if @collection.nil?
 
@@ -93,14 +94,17 @@ class CollectionsController < ApplicationController
   end
 
   def destroy
-    @collection = Collection.find(params[:id])
+    @collection = find_collection(params[:id])
     authorize! :destroy, @collection
+    return head(:not_found) if @collection.nil?
+
     Atlas.persister.delete(resource: @collection)
   end
 
   def tombstone
-    @collection = Collection.find(params[:id])
+    @collection = find_collection(params[:id])
     authorize! :tombstone, @collection
+    return head(:not_found) if @collection.nil?
 
     if @collection.live_children?
       render json:   { error: 'cannot tombstone a non-empty collection',
@@ -114,8 +118,10 @@ class CollectionsController < ApplicationController
   end
 
   def restore
-    @collection = Collection.find(params[:id])
+    @collection = find_collection(params[:id])
     authorize! :restore, @collection
+    return head(:not_found) if @collection.nil?
+
     @collection.restore
     @collection = Atlas.persister.save(resource: @collection).decorate
     audit!(resource: @collection, action: 'restore', change_type: 'lifecycle')
@@ -128,6 +134,17 @@ class CollectionsController < ApplicationController
   end
 
   private
+
+    # Resolve :id to a Collection, or nil if the id is absent OR names a
+    # resource of another type. Valkyrie's `Collection.find` is not
+    # type-scoped, so a hand-edited /collections/<work-id> would otherwise feed
+    # a non-Collection into the Collection serializer and 500. Collapsing a
+    # wrong-type id to nil keeps the endpoint's type contract: it 404s exactly
+    # like an unknown id. (Mirrors WorksController#find_work.)
+    def find_collection(id)
+      collection = Collection.find(id)
+      collection if collection.is_a?(Collection)
+    end
 
     # Mirror of WorksController's provenance helpers — see that file for
     # the full rationale. Collections don't have a parent-default

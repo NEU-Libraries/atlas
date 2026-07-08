@@ -193,4 +193,39 @@ describe CollectionsController, type: :controller do
       expect(Collection.find(collection.noid).parent.noid).to eq(destination.noid)
     end
   end
+
+  # A hand-edited /collections/<non-Collection-id> must 404, not 500 — Valkyrie's
+  # Collection.find is not type-scoped, so a Community id would otherwise reach
+  # the Collection serializer and blow up. Default principal is the admin
+  # fixture (the case that slips past authorization); render_views is on, so the
+  # read cases exercise the real jbuilder path.
+  describe 'non-Collection id is a uniform 404 across the /collections/:id surface' do
+    let(:community) { CommunityCreator.call }
+
+    it 'GET #show 404s for a non-Collection id' do
+      get :show, params: { id: community.noid }, as: :json
+      expect(response).to have_http_status(:not_found)
+    end
+
+    it 'GET #children 404s for a non-Collection id' do
+      get :children, params: { id: community.noid }, as: :json
+      expect(response).to have_http_status(:not_found)
+    end
+
+    it 'GET #ancestors 404s for a non-Collection id' do
+      get :ancestors, params: { id: community.noid }, as: :json
+      expect(response).to have_http_status(:not_found)
+    end
+
+    it 'GET #mods 404s for a non-Collection id' do
+      get :mods, params: { id: community.noid }, as: :json
+      expect(response).to have_http_status(:not_found)
+    end
+
+    it 'POST #tombstone 404s for a non-Collection id (admin) instead of mutating it' do
+      post :tombstone, params: { id: community.noid }, as: :json
+      expect(response).to have_http_status(:not_found)
+      expect(Community.find(community.noid).tombstoned).to be_falsey
+    end
+  end
 end

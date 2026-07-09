@@ -17,6 +17,7 @@ class Label < Enumerations::Base
   value :msword,              name: 'Word Document',       prefix: 'word_doc_'
   value :pdf,                 name: 'PDF',                 prefix: 'pdf_'
   value :text,                name: 'Text Document',       prefix: 'text_'
+  value :structured_text,     name: 'Structured Text',     prefix: 'structured_' # xml/csv/json/tsv — text-encoded but structured
   value :epub,                name: 'EPUB',                prefix: 'epub_'
   value :dataset,             name: 'Dataset',             prefix: 'dataset_'
 

@@ -6,15 +6,23 @@
 # detected mime_type lands in METS and preservation envelopes, so
 # reproducibility across environments matters.
 module MimeHelper
-  # Formats whose classification isn't derivable from the media type
-  # (application/*) are enumerated exactly; everything else falls through
-  # to the media-type table, then Classification.generic.
+  # Exact mime → classification overrides. application/* types can't be
+  # derived from the media type at all. The enumerated text/* subtypes
+  # (csv, xml, tab-separated-values) would otherwise fall through the
+  # media-type table as plain :text, so they're pinned to :structured_text
+  # here — text-encoded but structured/machine-readable, distinct from prose.
+  # Anything unlisted falls through to CLASSIFICATION_BY_MEDIA_TYPE, then
+  # Classification.generic.
   CLASSIFICATION_BY_MIME_TYPE = {
     'application/msword'                                                        => :text,
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document'   => :text,
     'application/pdf'                                                           => :text,
     'application/epub+zip'                                                      => :text,
-    'text/csv'                                                                  => :text,
+    'application/xml'                                                           => :structured_text,
+    'text/xml'                                                                  => :structured_text,
+    'application/json'                                                          => :structured_text,
+    'text/csv'                                                                  => :structured_text,
+    'text/tab-separated-values'                                                 => :structured_text,
     'application/vnd.ms-excel'                                                  => :spreadsheet,
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'         => :spreadsheet,
     'application/vnd.ms-powerpoint'                                             => :presentation,
@@ -37,7 +45,7 @@ module MimeHelper
     'ppt' => :mspowerpoint, 'pptx' => :mspowerpoint, 'pps' => :mspowerpoint, 'ppsx' => :mspowerpoint,
     'pdf' => :pdf,
     'epub' => :epub,
-    'csv' => :text,
+    'xml' => :structured_text, 'json' => :structured_text, 'csv' => :structured_text, 'tsv' => :structured_text,
     'zip' => :zip, 'tar' => :zip
   }.freeze
 
@@ -77,6 +85,7 @@ module MimeHelper
       when Classification.video then Label.video
       when Classification.audio then Label.audio
       when Classification.text then Label.text
+      when Classification.structured_text then Label.structured_text
       end
     end
 end

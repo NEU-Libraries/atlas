@@ -32,8 +32,20 @@ describe MimeHelper do
       expect(assign_classification(fixture('example.mp3'))).to eq(Classification.audio)
     end
 
-    it 'returns an text classification enumeration for a csv file' do
-      expect(assign_classification(fixture('example.csv'))).to eq(Classification.text)
+    it 'returns a structured_text classification enumeration for a csv file' do
+      expect(assign_classification(fixture('example.csv'))).to eq(Classification.structured_text)
+    end
+
+    it 'returns a structured_text classification enumeration for an xml file' do
+      expect(assign_classification(fixture('example.xml'))).to eq(Classification.structured_text)
+    end
+
+    it 'returns a structured_text classification enumeration for a json file' do
+      expect(assign_classification(fixture('example.json'))).to eq(Classification.structured_text)
+    end
+
+    it 'returns a structured_text classification enumeration for a tsv file' do
+      expect(assign_classification(fixture('example.tsv'))).to eq(Classification.structured_text)
     end
 
     it 'returns a text classification enumeration for a pdf file' do
@@ -48,7 +60,7 @@ describe MimeHelper do
       Tempfile.create('RackMultipart') do |tmp|
         tmp.write(File.read(fixture('example.csv')))
         tmp.flush
-        expect(assign_classification(tmp.path, name: 'upload.csv')).to eq(Classification.text)
+        expect(assign_classification(tmp.path, name: 'upload.csv')).to eq(Classification.structured_text)
       end
     end
   end
@@ -61,6 +73,15 @@ describe MimeHelper do
 
     it 'returns the IANA-registered type for csv' do
       expect(mime_type(fixture('example.csv'))).to eq('text/csv')
+    end
+
+    it 'detects xml by content' do
+      expect(mime_type(fixture('example.xml'))).to eq('application/xml')
+    end
+
+    it 'detects json and tsv by the name hint' do
+      expect(mime_type(fixture('example.json'))).to eq('application/json')
+      expect(mime_type(fixture('example.tsv'))).to eq('text/tab-separated-values')
     end
 
     it 'prefers the name hint over the path basename' do
@@ -79,6 +100,12 @@ describe MimeHelper do
 
     it 'labels by classification when the extension has no label' do
       expect(default_label(fixture('example.tif'))).to eq(Label.image_master)
+    end
+
+    it 'labels structured-text formats (xml, csv, json, tsv) as structured_text' do
+      %w[example.xml example.csv example.json example.tsv].each do |f|
+        expect(default_label(fixture(f))).to eq(Label.structured_text)
+      end
     end
 
     it 'takes the extension from the name hint when present' do

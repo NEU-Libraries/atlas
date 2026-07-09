@@ -47,7 +47,7 @@ class BlobCreator < ApplicationService
           original_filename: @original_filename,
           mime_type:         mime_type(@path, name: @original_filename),
           size:              File.size(@path),
-          label:             label&.symbol || '', # TODO: temporary nil fix until we zip unknowns
+          label:             label.symbol, # default_label always resolves (unknowns ground to Label.zip)
           use:               @use
         )
       )

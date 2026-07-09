@@ -86,6 +86,12 @@ module MimeHelper
       when Classification.audio then Label.audio
       when Classification.text then Label.text
       when Classification.structured_text then Label.structured_text
+      # Grounded fallback: anything we couldn't pin to a specific label — above
+      # all the generic/unknown case — is offered as a zip so a download option
+      # always exists. Cerberus keys on Classification.generic to wrap the raw
+      # bytes in a real archive at download time (mild safety for opaque files);
+      # Atlas still preserves and serves the original bytes untouched.
+      else Label.zip
       end
     end
 end

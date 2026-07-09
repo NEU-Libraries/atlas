@@ -108,6 +108,11 @@ describe MimeHelper do
       end
     end
 
+    it 'grounds an unidentifiable (generic) file as a zip download label' do
+      expect(assign_classification(fixture('example.bin'))).to eq(Classification.generic)
+      expect(default_label(fixture('example.bin'))).to eq(Label.zip)
+    end
+
     it 'takes the extension from the name hint when present' do
       Tempfile.create('RackMultipart') do |tmp|
         tmp.write(File.read(fixture('example.pdf')))

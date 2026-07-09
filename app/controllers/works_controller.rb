@@ -70,10 +70,16 @@ class WorksController < ApplicationController
     @work = find_work(params[:id])
     return head(:not_found) if @work.nil?
 
+    # Pair each downloadable member with its FileSet's classification (fs.type)
+    # so the flattened view can surface it per asset — the grouped #file_sets
+    # read still has the FileSet in hand.
     @assets = @work.children
                    .reject { |fs| Classification.metadata?(fs.type) }
-                   .flat_map { |fs| Atlas.query.find_members(resource: fs).to_a }
-                   .select   { |m| Role.downloadable?(m.use) }
+                   .flat_map do |fs|
+                     Atlas.query.find_members(resource: fs).to_a
+                          .select { |m| Role.downloadable?(m.use) }
+                          .map    { |m| [m, fs.type] }
+                   end
   end
 
   # Sibling of #assets that preserves FileSet grouping and order — the read

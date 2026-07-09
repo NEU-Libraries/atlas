@@ -757,6 +757,12 @@ components:
             label:
               type: string
               nullable: true
+            classification:
+              type: string
+              nullable: true
+              description: Classification name of the containing FileSet (Image/PDF/Structured
+                Text/…; "File" = unidentified). Download consumers key on "File" to
+                zip opaque binaries on the fly
             gated:
               type: boolean
               description: 'True if this binary must be authorized rather than downloaded
@@ -790,6 +796,11 @@ components:
             label:
               type: string
               nullable: true
+            classification:
+              type: string
+              nullable: true
+              description: Classification name of the containing FileSet (e.g. Derivative
+                for IIIF tiers)
             gated:
               type: boolean
               description: True if this derivative tier must be authorized rather
@@ -847,6 +858,12 @@ components:
                   label:
                     type: string
                     nullable: true
+                  classification:
+                    type: string
+                    nullable: true
+                    description: Classification name of the containing FileSet (Image/PDF/Structured
+                      Text/…; "File" = unidentified). Download consumers key on "File"
+                      to zip opaque binaries on the fly
                   gated:
                     type: boolean
                     description: 'True if this binary must be authorized rather than
@@ -880,6 +897,11 @@ components:
                   label:
                     type: string
                     nullable: true
+                  classification:
+                    type: string
+                    nullable: true
+                    description: Classification name of the containing FileSet (e.g.
+                      Derivative for IIIF tiers)
                   gated:
                     type: boolean
                     description: True if this derivative tier must be authorized rather

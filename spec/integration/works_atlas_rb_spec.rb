@@ -54,6 +54,13 @@ RSpec.describe 'Works via atlas_rb', :atlas_rb_server do
       blob_entry = assets.find { |a| a['original_filename'] == 'example.bin' }
       expect(blob_entry).not_to be_nil
       expect(blob_entry['size']).to eq(File.size(fixture))
+
+      # Each asset carries its containing FileSet's classification — the signal a
+      # download consumer keys on. example.bin is unidentified => 'File' (generic),
+      # which is what Cerberus branches on to zip opaque downloads on the fly.
+      expect(blob_entry['classification']).to eq(Classification.generic.name)
+      large = assets.find { |a| a['use'] == Role.large_image.name }
+      expect(large).to have_key('classification')
     end
 
     it 'surfaces the per-tier gate (gated / permission) on Delegate entries' do

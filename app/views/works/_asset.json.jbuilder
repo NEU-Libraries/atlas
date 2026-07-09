@@ -15,6 +15,12 @@ when Delegate
   json.label Label.find(asset.label)&.name
 end
 
+# Classification of the containing FileSet (a Classification#name — e.g. 'Image',
+# 'PDF', 'Structured Text', or 'File' for an unidentified binary). Carried onto
+# each asset so a download consumer branches without a separate FileSet lookup —
+# Cerberus keys on 'File' to zip opaque downloads on the fly.
+json.classification classification
+
 # Per-asset read gate (advisory — Cerberus / the IIIF auth layer enforce).
 # `gated` says this asset must be authorized rather than fetched directly
 # (at the IIIF server for a Delegate tier, at Atlas for a held Blob — the

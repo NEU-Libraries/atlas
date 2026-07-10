@@ -57,7 +57,11 @@ class MaintenanceController < ApplicationController
       # seed tree — isolates the standard-vs-staff boundary (e.g. request_change,
       # whose UI control only appears to a non-editor/owner of a work).
       create_fixture_user(name: 'User, Standard', nuid: '000000005',
-                          email: 'standard@northeastern.edu', role: :standard)
+                          email: 'standard@northeastern.edu', role: :standard,
+                          groups: ['northeastern:drs:library:dsg_students'])
+      create_fixture_user(name: 'User, Standard', nuid: '000000005',
+                          email: 'standard@husky.neu.edu', role: :standard,
+                          groups: ['northeastern:drs:all'])
       create_fixture_user(name: 'Doe, Jane', nuid: '000000002', role: :privileged,
                           email: 'dps@northeastern.edu',
                           groups: ['northeastern:drs:repository:staff', 'northeastern:drs:repository:api'])

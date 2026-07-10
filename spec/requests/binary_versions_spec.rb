@@ -83,7 +83,22 @@ RSpec.describe 'Binary version history endpoints', type: :request do
       noid = create_blob
       versions = versions_for(noid)
       expect(versions.length).to eq(1)
+      expect(versions.first['revision']).to eq(1)
       expect(versions.first['actor_nuid']).to eq(editor_nuid)
+    end
+
+    it 'labels revisions with a contiguous 1-based ordinal, seed first' do
+      noid = create_blob
+      replace_blob(noid)
+      replace_blob(noid)
+
+      versions = versions_for(noid)
+      # The revision ordinal is contiguous newest-first (3, 2, 1) with the seed
+      # always revision 1 — derived from position, so it never skips the way the
+      # raw OCFL version_id can (envelope bumps consume OCFL versions).
+      expect(versions.pluck('revision')).to eq([3, 2, 1])
+      expect(versions.last['revision']).to eq(1)
+      expect(versions.pluck('version_id')).to all(match(/\Av\d+\z/))
     end
 
     it 'is admin-gated (guest is forbidden)' do

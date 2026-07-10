@@ -1109,9 +1109,14 @@ components:
           items:
             type: object
             properties:
+              revision:
+                type: integer
+                description: Contiguous 1-based content-revision ordinal (the primary
+                  label); revision 1 is the seed. Never skips, unlike version_id.
               version_id:
                 type: string
-                description: OCFL version label (vN); stable and sortable
+                description: Raw OCFL version label (vN); secondary/debug. Can jump
+                  (v1 → v4) because preservation-envelope bumps consume OCFL versions.
               file_identifier:
                 type: string
                 description: Versioned Valkyrie::ID appended for this revision
@@ -1142,6 +1147,7 @@ components:
                 nullable: true
                 description: Stable original filename (preserved across revisions)
             required:
+            - revision
             - version_id
             - file_identifier
             - created
@@ -1600,10 +1606,13 @@ paths:
       description: |
         Reverse-chronological list of the Blob's retained content revisions —
         the counterpart to `GET /resources/{id}/mods/versions`. Each descriptor
-        carries the OCFL version label, its file identifier, the fixity
-        `digest`/`size` recorded at that version, and actor attribution
-        correlated from the file audit log (`actor_nuid` etc. are null when no
-        event matches, e.g. a back-loaded Blob).
+        carries a contiguous `revision` ordinal (the primary label: revision 1
+        is the seed, and it never skips), the raw OCFL `version_id`
+        (secondary/debug — it can jump, e.g. `v1 → v4`, because
+        preservation-envelope bumps consume OCFL versions), its file
+        identifier, the fixity `digest`/`size` recorded at that version, and
+        actor attribution correlated from the file audit log (`actor_nuid` etc.
+        are null when no event matches, e.g. a back-loaded Blob).
 
         Admin-gated, like the MODS version list, because the descriptors expose
         edit attribution. Unknown id → 404.

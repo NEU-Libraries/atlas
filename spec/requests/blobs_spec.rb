@@ -303,10 +303,13 @@ RSpec.describe 'Files (Blobs)', type: :request do
       description <<~DESC
         Reverse-chronological list of the Blob's retained content revisions —
         the counterpart to `GET /resources/{id}/mods/versions`. Each descriptor
-        carries the OCFL version label, its file identifier, the fixity
-        `digest`/`size` recorded at that version, and actor attribution
-        correlated from the file audit log (`actor_nuid` etc. are null when no
-        event matches, e.g. a back-loaded Blob).
+        carries a contiguous `revision` ordinal (the primary label: revision 1
+        is the seed, and it never skips), the raw OCFL `version_id`
+        (secondary/debug — it can jump, e.g. `v1 → v4`, because
+        preservation-envelope bumps consume OCFL versions), its file
+        identifier, the fixity `digest`/`size` recorded at that version, and
+        actor attribution correlated from the file audit log (`actor_nuid` etc.
+        are null when no event matches, e.g. a back-loaded Blob).
 
         Admin-gated, like the MODS version list, because the descriptors expose
         edit attribution. Unknown id → 404.
@@ -319,6 +322,7 @@ RSpec.describe 'Files (Blobs)', type: :request do
         run_test! do |response|
           body = JSON.parse(response.body)
           expect(body['blob_id']).to eq(blob.noid)
+          expect(body['versions'].first['revision']).to eq(1)
           expect(body['versions'].first['version_id']).to match(/\Av\d+\z/)
           expect(body['versions'].first['digest']).to match(/\Asha512:[0-9a-f]+\z/)
         end

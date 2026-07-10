@@ -599,7 +599,8 @@ module OpenapiSchemas
           items: {
             type:       :object,
             properties: {
-              version_id:        { type: :string, description: 'OCFL version label (vN); stable and sortable' },
+              revision:          { type: :integer, description: 'Contiguous 1-based content-revision ordinal (the primary label); revision 1 is the seed. Never skips, unlike version_id.' },
+              version_id:        { type: :string, description: 'Raw OCFL version label (vN); secondary/debug. Can jump (v1 → v4) because preservation-envelope bumps consume OCFL versions.' },
               file_identifier:   { type: :string, description: 'Versioned Valkyrie::ID appended for this revision' },
               created:           { type: :string, format: 'date-time', description: 'OCFL version creation timestamp (ISO-8601)' },
               actor_nuid:        { type: :string, nullable: true, description: 'NUID that wrote this revision, correlated from the file audit log; null when uncorrelatable' },
@@ -608,7 +609,7 @@ module OpenapiSchemas
               size:              { type: :integer, nullable: true, description: 'Byte size of this revision' },
               original_filename: { type: :string, nullable: true, description: 'Stable original filename (preserved across revisions)' }
             },
-            required:   %w[version_id file_identifier created actor_nuid on_behalf_of_nuid digest size original_filename]
+            required:   %w[revision version_id file_identifier created actor_nuid on_behalf_of_nuid digest size original_filename]
           }
         }
       },

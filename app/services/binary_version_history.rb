@@ -38,11 +38,18 @@ class BinaryVersionHistory
 
   # Reverse-chronological descriptors (newest first), one per retained content
   # revision. Empty when the Blob holds no bytes.
+  #
+  # The 1-based position in file_identifiers IS the contiguous content-revision
+  # ordinal (revision 1 = seed): file_identifiers holds only content writes, so
+  # it never skips the way the OCFL vN label does (envelope bumps consume vNs).
+  # We number in forward order, then reverse to present newest-first.
   def descriptors
     return [] if blob.nil? || blob.file_identifiers.blank?
 
     seed = blob.file_identifiers.first
-    blob.file_identifiers.reverse_each.map { |file_identifier| descriptor_for(file_identifier, seed) }
+    blob.file_identifiers.each_with_index.map do |file_identifier, index|
+      descriptor_for(file_identifier, seed, revision: index + 1)
+    end.reverse
   end
 
   # The stored File handle for the content revision identified by its OCFL
@@ -65,10 +72,11 @@ class BinaryVersionHistory
 
     attr_reader :blob
 
-    def descriptor_for(file_identifier, seed)
+    def descriptor_for(file_identifier, seed, revision:)
       label = version_label(file_identifier)
       event = event_for(file_identifier, seed: seed)
       {
+        revision:          revision,
         version_id:        label,
         file_identifier:   file_identifier.to_s,
         created:           created_for(label),

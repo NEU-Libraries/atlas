@@ -288,8 +288,18 @@ class ApplicationController < ActionController::API
       nuid = payload['sub']
       return render_error(:bad_request, 'cerberus assertion missing sub') if nuid.blank?
 
-      user = User.find_by(nuid: nuid)
-      return render_error(:bad_request, "unknown principal #{nuid}") if user.nil?
+      # A NUID can hold several accounts (staff/student logins share it). An
+      # optional signed `acct` (email) claim names which one is acting — its
+      # stored group set drives authorization; absent, the person's preferred
+      # account is used. `sub` stays the NUID (the grouping thread); the account
+      # selector is additive. A named account that isn't one of this NUID's is a
+      # 400, mirroring the unknown-principal case below.
+      acct = payload['acct'].presence
+      user = User.resolve_account(nuid: nuid, email: acct)
+      if user.nil?
+        return render_error(:bad_request,
+                            acct ? "unknown account #{acct} for #{nuid}" : "unknown principal #{nuid}")
+      end
       return render_error(:unauthorized, ':anonymous cannot authenticate') if user.anonymous?
       return render_error(:unauthorized, 'cerberus assertion must not name the :system fixture') if user.system?
 

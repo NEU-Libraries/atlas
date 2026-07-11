@@ -41,6 +41,38 @@ class User < ApplicationRecord
                     infix: "%#{pattern}%", prefix: "#{pattern}%")
   end
 
+  # Every account sharing a NUID (a person's staff/student logins), oldest
+  # first — the stable order the resolve fallback and the accounts listing use.
+  def self.accounts_for(nuid)
+    where(nuid: nuid).order(:created_at, :id)
+  end
+
+  # Resolve one account for a NUID. A NUID can hold several accounts (email is
+  # the account key); this picks which one is acting. An explicit email selects
+  # it exactly ((nuid, email) must both match). Otherwise the person's preferred
+  # account wins, falling back to the oldest — so a single-account NUID resolves
+  # exactly as a bare find_by(nuid:) always did. Nil when the NUID has no
+  # account (or the named email isn't one of its accounts).
+  def self.resolve_account(nuid:, email: nil)
+    return find_by(nuid: nuid, email: email) if email.present?
+
+    accounts_for(nuid).find_by(preferred: true) || accounts_for(nuid).first
+  end
+
+  # Make this the preferred (default) account for its NUID, demoting the others.
+  # Done in one transaction so the partial unique index (one preferred per NUID)
+  # never sees two winners mid-flight. A preference, not a grant — unaudited.
+  def make_preferred!
+    self.class.transaction do
+      # Bulk-demote the siblings in one statement — only a boolean flag flips,
+      # no validations or callbacks are relevant, and it must land before the
+      # promote so the partial unique index never sees two winners.
+      self.class.where(nuid: nuid).where.not(id: id)
+          .update_all(preferred: false) # rubocop:disable Rails/SkipsModelValidations
+      update!(preferred: true)
+    end
+  end
+
   def first_name
     parsed_name.given
   end

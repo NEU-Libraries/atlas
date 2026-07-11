@@ -231,6 +231,44 @@ RSpec.describe 'Auth matrix', type: :request, default_auth: false do
       end
     end
 
+    # A NUID can hold several accounts (staff/student logins). An optional
+    # signed `acct` (email) claim names which one is acting; `sub` stays the
+    # NUID. Absent, the preferred account wins, then the oldest.
+    describe 'multi-account resolution via a signed `acct` claim' do
+      let(:shared_nuid) { '000000055' }
+      let!(:staff) do
+        User.create!(email: 'p@northeastern.edu', nuid: shared_nuid, name: 'P',
+                     password: SecureRandom.hex(16), role: :standard, groups: ['g:staff'])
+      end
+      let!(:student) do
+        User.create!(email: 'p@husky.neu.edu', nuid: shared_nuid, name: 'P',
+                     password: SecureRandom.hex(16), role: :standard, groups: ['g:student'])
+      end
+
+      it 'acts as the account named by `acct` — its group set, not another\'s' do
+        get '/user', headers: bearer(assertion(sub: shared_nuid, acct: 'p@husky.neu.edu'))
+        expect(response).to have_http_status(:ok)
+        expect(response.parsed_body['email']).to  eq('p@husky.neu.edu')
+        expect(response.parsed_body['groups']).to eq(['g:student'])
+      end
+
+      it 'resolves the preferred account when no `acct` claim is present' do
+        student.make_preferred!
+        get '/user', headers: bearer(assertion(sub: shared_nuid))
+        expect(response.parsed_body['email']).to eq('p@husky.neu.edu')
+      end
+
+      it 'falls back to the oldest account when none is preferred and no `acct` is given' do
+        get '/user', headers: bearer(assertion(sub: shared_nuid))
+        expect(response.parsed_body['email']).to eq('p@northeastern.edu')
+      end
+
+      it 'returns 400 when `acct` names an account that is not one of the NUID\'s' do
+        get '/user', headers: bearer(assertion(sub: shared_nuid, acct: 'stranger@x.edu'))
+        expect(response).to have_http_status(:bad_request)
+      end
+    end
+
     context 'when no keyset is configured' do
       before do
         allow(Rails.application.credentials).to receive(:cerberus_signing_keys).and_return(nil)

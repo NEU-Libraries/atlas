@@ -34,6 +34,7 @@ module OpenapiSchemas
       ProvisionedUser:    provisioned_user,
       UserDirectoryEntry: user_directory_entry,
       UserDirectory:      user_directory,
+      UserAccounts:       user_accounts,
       Permissions:        permissions,
       ResourceRef:        resource_ref,
       ResourceDigests:    resource_digests,
@@ -396,29 +397,64 @@ module OpenapiSchemas
   def user
     {
       type:                 :object,
-      description:          'Devise/AR User record serialized via to_json. Fields vary; commonly includes id, email, name, role.',
+      description:          'Devise/AR User record serialized via to_json. Fields vary; commonly includes id, nuid, email, name, role, groups, affiliation, preferred.',
       properties:           {
-        id:    { type: :integer },
-        email: { type: :string, nullable: true },
-        name:  { type: :string, nullable: true },
-        role:  { type: :string, nullable: true }
+        id:          { type: :integer },
+        nuid:        { type: :string, nullable: true },
+        email:       { type: :string, nullable: true },
+        name:        { type: :string, nullable: true },
+        role:        { type: :string, nullable: true },
+        affiliation: { type: :string, nullable: true, description: 'This login\'s unscoped-affiliation, a human label for the account' },
+        preferred:   { type: :boolean, description: 'Whether this is the default account for its NUID' }
       },
       additionalProperties: true
     }
   end
 
-  # PUT /users/by_nuid/{nuid} — strict shape pinned to the response partial
-  # at app/views/users/_user.json.jbuilder. Distinct from the permissive
-  # `User` schema above, which documents the AR `to_json` output of GET /user.
+  # PUT /users/by_email/{email} (and the by_nuid shim) — strict shape pinned to
+  # the response partial at app/views/users/_user.json.jbuilder. Distinct from
+  # the permissive `User` schema above, which documents the AR `to_json` output
+  # of GET /user.
   def provisioned_user
     wrapped(:user, {
-              id:     { type: :integer },
-              nuid:   { type: :string },
-              name:   { type: :string, nullable: true },
-              email:  { type: :string, nullable: true },
-              role:   { type: :string },
-              groups: { type: :array, items: { type: :string } }
+              id:          { type: :integer },
+              nuid:        { type: :string, nullable: true },
+              name:        { type: :string, nullable: true },
+              email:       { type: :string, nullable: true },
+              role:        { type: :string },
+              groups:      { type: :array, items: { type: :string } },
+              affiliation: { type: :string, nullable: true },
+              preferred:   { type: :boolean }
             })
+  end
+
+  # GET /users/by_nuid/{nuid}/accounts — every account sharing a NUID, pinned
+  # to users/accounts.json.jbuilder. Unlike the minimal directory entry this
+  # discloses each account's email, affiliation, role, groups, and preferred
+  # flag (self/admin/system-gated).
+  def user_accounts
+    {
+      type:       :object,
+      properties: {
+        nuid:     { type: :string },
+        accounts: {
+          type:  :array,
+          items: {
+            type:       :object,
+            properties: {
+              email:       { type: :string },
+              name:        { type: :string, nullable: true },
+              affiliation: { type: :string, nullable: true },
+              role:        { type: :string },
+              groups:      { type: :array, items: { type: :string } },
+              preferred:   { type: :boolean }
+            },
+            required:   %w[email name affiliation role groups preferred]
+          }
+        }
+      },
+      required:   %w[nuid accounts]
+    }
   end
 
   # GET /users/by_nuid/{nuid} (and each GET /users item) — minimal-

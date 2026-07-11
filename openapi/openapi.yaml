@@ -930,10 +930,13 @@ components:
     User:
       type: object
       description: Devise/AR User record serialized via to_json. Fields vary; commonly
-        includes id, email, name, role.
+        includes id, nuid, email, name, role, groups, affiliation, preferred.
       properties:
         id:
           type: integer
+        nuid:
+          type: string
+          nullable: true
         email:
           type: string
           nullable: true
@@ -943,6 +946,13 @@ components:
         role:
           type: string
           nullable: true
+        affiliation:
+          type: string
+          nullable: true
+          description: This login's unscoped-affiliation, a human label for the account
+        preferred:
+          type: boolean
+          description: Whether this is the default account for its NUID
       additionalProperties: true
     ProvisionedUser:
       type: object
@@ -954,6 +964,7 @@ components:
               type: integer
             nuid:
               type: string
+              nullable: true
             name:
               type: string
               nullable: true
@@ -966,6 +977,11 @@ components:
               type: array
               items:
                 type: string
+            affiliation:
+              type: string
+              nullable: true
+            preferred:
+              type: boolean
           required:
           - id
           - nuid
@@ -973,6 +989,8 @@ components:
           - email
           - role
           - groups
+          - affiliation
+          - preferred
       required:
       - user
     UserDirectoryEntry:
@@ -990,6 +1008,42 @@ components:
       type: array
       items:
         "$ref": "#/components/schemas/UserDirectoryEntry"
+    UserAccounts:
+      type: object
+      properties:
+        nuid:
+          type: string
+        accounts:
+          type: array
+          items:
+            type: object
+            properties:
+              email:
+                type: string
+              name:
+                type: string
+                nullable: true
+              affiliation:
+                type: string
+                nullable: true
+              role:
+                type: string
+              groups:
+                type: array
+                items:
+                  type: string
+              preferred:
+                type: boolean
+            required:
+            - email
+            - name
+            - affiliation
+            - role
+            - groups
+            - preferred
+      required:
+      - nuid
+      - accounts
     Permissions:
       type: object
       properties:
@@ -3596,6 +3650,63 @@ paths:
                 "$ref": "#/components/schemas/DescendantWorks"
         '404':
           description: unknown id
+  "/users/by_nuid/{nuid}/accounts":
+    get:
+      summary: List the accounts sharing a NUID
+      tags:
+      - User
+      description: |
+        Every account sharing this NUID (a person's staff/student logins), each
+        with email, affiliation label, role, stored group set, and the
+        preferred flag. Discloses group sets, so it is limited to the person
+        themselves, an admin, or the system principal; others receive 403.
+      parameters:
+      - name: nuid
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: accounts listed
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/UserAccounts"
+  "/users/by_nuid/{nuid}/preferred_account":
+    put:
+      summary: Set the preferred (default) account for a NUID
+      tags:
+      - User
+      description: |
+        Set the person's default account (drives the login choice when no
+        account is named). Same self/admin/system scope as the accounts list.
+        An email that is not one of this NUID's accounts → 404.
+      parameters:
+      - name: nuid
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: preferred account set
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProvisionedUser"
+        '404':
+          description: email is not one of this NUID's accounts
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+              required:
+              - email
   "/users":
     get:
       summary: Search the user directory
@@ -3713,7 +3824,17 @@ paths:
       - User
       description: |
         Returns the user resolved from the request auth context. With no
-        valid Bearer/NUID, falls through to the guest user record.
+        valid Bearer/NUID, falls through to the guest user record. An optional
+        `email` selects a specific one of the caller's other accounts under the
+        same NUID (the switch flow); a foreign account is 403.
+      parameters:
+      - name: email
+        in: query
+        required: false
+        description: Read a specific account under the caller's NUID (must be one
+          of theirs).
+        schema:
+          type: string
       responses:
         '200':
           description: user returned
@@ -3768,6 +3889,10 @@ paths:
               properties:
                 nuid:
                   type: string
+                email:
+                  type: string
+                  description: Optional — disambiguate which account under the NUID
+                    when it holds several.
               required:
               - nuid
     delete:
@@ -3807,8 +3932,69 @@ paths:
               properties:
                 nuid:
                   type: string
+                email:
+                  type: string
+                  description: Optional — disambiguate which account under the NUID
+                    when it holds several.
               required:
               - nuid
+  "/users/by_email/{email}":
+    put:
+      summary: Find-or-create a user by email and replace their groups (system-only)
+      tags:
+      - User
+      description: |
+        System-only endpoint used by Cerberus on SSO callback. Email is the
+        account key, so a person's staff and student logins (same NUID,
+        different email) provision as distinct accounts instead of collapsing
+        on NUID. Idempotent on email; replaces (not merges) the supplied groups.
+        Requires the system Bearer token; non-system callers receive 403.
+      security:
+      - BearerAuth: []
+      parameters:
+      - name: email
+        in: path
+        description: The account key (email).
+        required: true
+        schema:
+          type: string
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          type: string
+      - name: User
+        in: header
+        required: false
+        description: Acting principal, e.g. "NUID 000000000" for the system user
+        schema:
+          type: string
+      responses:
+        '200':
+          description: user upserted
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProvisionedUser"
+        '403':
+          description: caller is not the system user
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nuid:
+                  type: string
+                groups:
+                  type: array
+                  items:
+                    type: string
+                name:
+                  type: string
+                affiliation:
+                  type: string
+                  description: unscoped-affiliation, a human account label
   "/works":
     get:
       summary: List works

@@ -63,4 +63,56 @@ RSpec.describe User do
       expect(privileged).to be_privileged
     end
   end
+
+  # Multiple accounts per NUID (a person's staff/student logins share the NUID
+  # but each has its own email + group set).
+  describe 'accounts per NUID' do
+    let(:nuid) { '000000005' }
+    let!(:staff) do
+      described_class.create!(email: 'p@northeastern.edu', nuid: nuid, name: 'P',
+                              password: SecureRandom.hex(16), role: :standard,
+                              affiliation: 'staff', groups: ['g:staff'])
+    end
+    let!(:student) do
+      described_class.create!(email: 'p@husky.neu.edu', nuid: nuid, name: 'P',
+                              password: SecureRandom.hex(16), role: :standard,
+                              affiliation: 'student', groups: ['g:student'])
+    end
+
+    describe '.accounts_for' do
+      it 'returns every account sharing the NUID, oldest first' do
+        expect(described_class.accounts_for(nuid).to_a).to eq([staff, student])
+      end
+    end
+
+    describe '.resolve_account' do
+      it 'selects the exact account when an email is given' do
+        expect(described_class.resolve_account(nuid: nuid, email: 'p@husky.neu.edu')).to eq(student)
+      end
+
+      it 'returns nil when the email is not one of the NUID\'s accounts' do
+        expect(described_class.resolve_account(nuid: nuid, email: 'stranger@x.edu')).to be_nil
+      end
+
+      it 'falls back to the preferred account when no email is given' do
+        student.make_preferred!
+        expect(described_class.resolve_account(nuid: nuid)).to eq(student)
+      end
+
+      it 'falls back to the oldest account when none is preferred' do
+        expect(described_class.resolve_account(nuid: nuid)).to eq(staff)
+      end
+    end
+
+    describe '#make_preferred!' do
+      it 'marks one account preferred and demotes the others (one winner per NUID)' do
+        staff.make_preferred!
+        student.make_preferred!
+
+        expect(staff.reload.preferred).to be(false)
+        expect(student.reload.preferred).to be(true)
+        expect(described_class.where(nuid: nuid, preferred: true).count).to eq(1)
+      end
+    end
+  end
 end

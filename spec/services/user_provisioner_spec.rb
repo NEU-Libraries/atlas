@@ -3,29 +3,31 @@
 require 'rails_helper'
 
 RSpec.describe UserProvisioner do
-  describe '.call when no User exists for the NUID' do
-    it 'creates a new User with the supplied attributes' do
+  describe '.call when no account exists for the email' do
+    it 'creates a new account keyed on email' do
       user = described_class.call(
-        nuid:   '001234567',
-        groups: ['northeastern:staff', 'drs:editors'],
-        email:  'jane@example.edu',
-        name:   'Jane Doe'
+        email:       'jane@example.edu',
+        nuid:        '001234567',
+        groups:      ['northeastern:staff', 'drs:editors'],
+        name:        'Jane Doe',
+        affiliation: 'staff'
       )
 
       expect(user).to be_persisted
-      expect(user.nuid).to eq('001234567')
       expect(user.email).to eq('jane@example.edu')
+      expect(user.nuid).to eq('001234567')
       expect(user.name).to eq('Jane Doe')
+      expect(user.affiliation).to eq('staff')
       expect(user.role).to eq('standard')
       expect(user.groups).to eq(['northeastern:staff', 'drs:editors'])
     end
   end
 
-  describe '.call when a User already exists for the NUID' do
+  describe '.call when an account already exists for the email' do
     let!(:existing) do
       User.create!(
+        email:    'jane@example.edu',
         nuid:     '001234567',
-        email:    'old@example.edu',
         name:     'Old Name',
         password: SecureRandom.hex(16),
         role:     :standard,
@@ -33,59 +35,41 @@ RSpec.describe UserProvisioner do
       )
     end
 
-    it 'returns the same record (idempotent on NUID)' do
-      user = described_class.call(nuid: '001234567', groups: [])
+    it 'returns the same record (idempotent on email)' do
+      user = described_class.call(email: 'jane@example.edu', groups: [])
       expect(user.id).to eq(existing.id)
     end
 
     it 'replaces (does not merge) the groups array' do
-      user = described_class.call(
-        nuid:   '001234567',
-        groups: ['fresh:group']
-      )
+      user = described_class.call(email: 'jane@example.edu', groups: ['fresh:group'])
       expect(user.groups).to eq(['fresh:group'])
       expect(user.groups).not_to include('stale:group')
     end
 
-    it 'updates email and name when supplied' do
-      user = described_class.call(
-        nuid:   '001234567',
-        groups: [],
-        email:  'new@example.edu',
-        name:   'New Name'
-      )
-      expect(user.email).to eq('new@example.edu')
-      expect(user.name).to eq('New Name')
-    end
+    it 'updates nuid/name/affiliation when supplied, leaves them otherwise' do
+      described_class.call(email: 'jane@example.edu', groups: [], name: 'New Name', affiliation: 'staff')
+      expect(existing.reload.name).to eq('New Name')
+      expect(existing.affiliation).to eq('staff')
 
-    it 'leaves email and name untouched when not supplied' do
-      user = described_class.call(nuid: '001234567', groups: [])
-      expect(user.email).to eq('old@example.edu')
-      expect(user.name).to eq('Old Name')
+      described_class.call(email: 'jane@example.edu', groups: [])
+      expect(existing.reload.name).to eq('New Name') # untouched when omitted
     end
   end
 
-  describe '.call with a duplicate-email collision' do
-    let!(:taken) do
-      User.create!(
-        nuid:     '999999999',
-        email:    'taken@example.edu',
-        password: SecureRandom.hex(16),
-        role:     :standard
-      )
-    end
+  # The core of the account-switching feature: two logins (staff + student)
+  # share one NUID but present a different email each, so keying on email keeps
+  # them as distinct accounts instead of collapsing (last-write-wins) on NUID.
+  describe '.call with two emails sharing a NUID' do
+    it 'creates two distinct accounts under one NUID instead of overwriting' do
+      staff = described_class.call(email: 'p@northeastern.edu', nuid: '000000005',
+                                   groups: ['g:staff'], affiliation: 'staff')
+      student = described_class.call(email: 'p@husky.neu.edu', nuid: '000000005',
+                                     groups: ['g:student'], affiliation: 'student')
 
-    it 'rolls back without creating a partial record' do
-      expect do
-        described_class.call(
-          nuid:   '001234567',
-          groups: ['x'],
-          email:  'taken@example.edu',
-          name:   'Collision'
-        )
-      end.to raise_error(ActiveRecord::RecordInvalid)
-
-      expect(User.find_by(nuid: '001234567')).to be_nil
+      expect(staff.id).not_to eq(student.id)
+      expect(User.where(nuid: '000000005').count).to eq(2)
+      expect(staff.groups).to eq(['g:staff'])
+      expect(student.groups).to eq(['g:student'])
     end
   end
 end

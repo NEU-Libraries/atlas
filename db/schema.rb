@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.0].define(version: 2026_06_11_120000) do
+ActiveRecord::Schema[7.0].define(version: 2026_07_10_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
   enable_extension "uuid-ossp"
@@ -140,8 +140,12 @@ ActiveRecord::Schema[7.0].define(version: 2026_06_11_120000) do
     t.string "jti", null: false
     t.text "groups"
     t.integer "role", default: 2
+    t.string "affiliation"
+    t.boolean "preferred", default: false, null: false
     t.index ["email"], name: "index_users_on_email", unique: true
     t.index ["jti"], name: "index_users_on_jti", unique: true
+    t.index ["nuid"], name: "index_users_on_nuid"
+    t.index ["nuid"], name: "index_users_on_preferred_nuid", unique: true, where: "preferred"
     t.index ["reset_password_token"], name: "index_users_on_reset_password_token", unique: true
   end
 

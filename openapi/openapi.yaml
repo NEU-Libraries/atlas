@@ -757,6 +757,12 @@ components:
             label:
               type: string
               nullable: true
+            role:
+              type: string
+              nullable: true
+              description: Stable machine token for the asset role — the Role key
+                (e.g. service_file, small_image, original_file). Match on this, not
+                the human `use` label
             classification:
               type: string
               nullable: true
@@ -790,12 +796,20 @@ components:
             use:
               type: string
               nullable: true
+              description: Human display label for the role (e.g. "Service File");
+                match on `role` for a stable token
             uri:
               type: string
               nullable: true
             label:
               type: string
               nullable: true
+            role:
+              type: string
+              nullable: true
+              description: Stable machine token for the asset role — the Role key
+                (e.g. service_file, small_image). Match on this, not the human `use`
+                label
             classification:
               type: string
               nullable: true
@@ -858,6 +872,12 @@ components:
                   label:
                     type: string
                     nullable: true
+                  role:
+                    type: string
+                    nullable: true
+                    description: Stable machine token for the asset role — the Role
+                      key (e.g. service_file, small_image, original_file). Match on
+                      this, not the human `use` label
                   classification:
                     type: string
                     nullable: true
@@ -891,12 +911,20 @@ components:
                   use:
                     type: string
                     nullable: true
+                    description: Human display label for the role (e.g. "Service File");
+                      match on `role` for a stable token
                   uri:
                     type: string
                     nullable: true
                   label:
                     type: string
                     nullable: true
+                  role:
+                    type: string
+                    nullable: true
+                    description: Stable machine token for the asset role — the Role
+                      key (e.g. service_file, small_image). Match on this, not the
+                      human `use` label
                   classification:
                     type: string
                     nullable: true

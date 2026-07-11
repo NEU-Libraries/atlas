@@ -377,6 +377,10 @@ RSpec.describe 'Works', type: :request do
           uses = assets.pluck('use').compact
           expect(uses).to include(Role.service_file.name)
           expect(uses).not_to include(Role.thumbnail_image.name)
+          # `role` is the stable token Cerberus matches on — the Role key, not
+          # the human `use` label. Its serialization is decoupled from wording.
+          service = assets.find { |a| a['use'] == Role.service_file.name }
+          expect(service['role']).to eq('service_file')
         end
       end
 

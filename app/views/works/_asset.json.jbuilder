@@ -15,6 +15,13 @@ when Delegate
   json.label Label.find(asset.label)&.name
 end
 
+# Stable machine token for the asset's role within its FileSet — the Role key
+# (e.g. 'service_file', 'small_image', 'original_file'), reverse-derived from the
+# stored human `use` label. Cerberus role-gates on this: the deep-zoom viewer
+# keys on 'service_file', the S/M/L download renditions on the *_image tiers. A
+# display label is not a stable key, so match on `role`, not `use`.
+json.role Role.find_by(name: asset.use)&.to_s
+
 # Classification of the containing FileSet (a Classification#name — e.g. 'Image',
 # 'PDF', 'Structured Text', or 'File' for an unidentified binary). Carried onto
 # each asset so a download consumer branches without a separate FileSet lookup —

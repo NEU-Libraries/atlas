@@ -33,21 +33,23 @@ class Ability
   # group-ACL block-form rules to a single :update declaration per resource
   # class.
   #
-  # :reparent and :link_member are intentionally NOT aliased here and are NOT
-  # granted to any role except :admin (which carries them via `manage :all`).
-  # Re-parenting a node and linking a Work into additional Collections are
-  # structural mutations of the content graph; the matching Cerberus UI is
-  # admin-only, and Atlas is the real boundary, so edit-rights alone do not
-  # grant either. Non-admins get a clean 403.
+  # :reparent and :link_member are intentionally NOT aliased here, and
+  # non-admin HUMAN roles get neither via edit rights (group ACL below) —
+  # both are structural mutations of the content graph; the matching
+  # Cerberus UI is admin-only, and Atlas is the real boundary, so edit-rights
+  # alone do not grant either. :system is the one narrow non-admin exception:
+  # see its scoped `:link_member` grant below (showcase publishing on a
+  # depositor's behalf) — :reparent still belongs to :admin alone.
   UPDATE_ALIASES = %i[update_thumbnails update_image_derivatives update_derivative_permissions
                       update_iiif_service update_full_text complete].freeze
 
-  def initialize(user)
+  def initialize(user, on_behalf_of: nil)
     # @current_user is never nil under require_auth — at worst it
     # falls through to the :guest fixture. Guard anyway so Ability can be
     # constructed in isolation (specs, console) and so a missing guest
     # row in the test DB doesn't crash the controller.
     user ||= User.find_by(role: :guest)
+    @on_behalf_of = on_behalf_of
 
     alias_action(*UPDATE_ALIASES, to: :update)
 
@@ -94,6 +96,20 @@ class Ability
         # live on the :system tier; admin reaches them via manage :all. Reads
         # stay on the `can :read, Resource` floor above (Person < Resource).
         can %i[create update], Person
+
+        # Showcase publishing (Cerberus's "Publish to my community" deposit
+        # branch): :system links a freshly-created Work into the depositor's
+        # featured showcase Collection on their behalf, attributed downstream
+        # via the on_behalf_of NUID (see enforce_on_behalf_of_gate). Scoped on
+        # both sides so a Cerberus bug can't turn into more than "linked the
+        # wrong work into a showcase" — :system still cannot mutate Collection
+        # metadata, tombstone, or touch a non-featured Collection, and can
+        # only link a Work owned by the asserted on_behalf_of target, never an
+        # arbitrary (or private) Work.
+        can :link_member, Collection, &:featured
+        can :link_member, Work do |work|
+          @on_behalf_of.present? && work.depositor == @on_behalf_of
+        end
       when :guest
         # Read floor only. Devise /user shape lets guests fetch their own
         # session info — no resource-modifying ability.

@@ -915,12 +915,15 @@ RSpec.describe 'Works', type: :request do
       produces 'application/json'
       description <<~DESC
         Adds the Work as a linked member of the target Collection — placement
-        only, never a permission change. Admin-only: linking a Work into
-        additional Collections is a structural mutation of the content graph,
-        so edit rights are not sufficient. Rejects a non-Collection target, a
-        tombstoned work/target, and a target that is already the Work's
-        structural home, with a 422. Returns the updated
-        list of linked collection NOIDs.
+        only, never a permission change. Admin-only for edit-rights holders:
+        linking a Work into additional Collections is a structural mutation of
+        the content graph, so edit rights are not sufficient. The :system
+        principal has one narrow exception (Cerberus's "Publish to my
+        community" deposit flow): given an `On-Behalf-Of` header naming the
+        Work's own depositor, it may link that Work into a *featured* showcase
+        Collection only. Rejects a non-Collection target, a tombstoned
+        work/target, and a target that is already the Work's structural home,
+        with a 422. Returns the updated list of linked collection NOIDs.
       DESC
       parameter name: :body, in: :body, schema: {
         type:       :object,
@@ -960,8 +963,9 @@ RSpec.describe 'Works', type: :request do
       produces 'application/json'
       description <<~DESC
         Removes a linked membership (idempotent — removing an absent link is a
-        no-op). Admin-only, same as the add. Returns the updated list of
-        linked collection NOIDs. Permissions are never changed.
+        no-op). Same authorization as the add (admin, or :system scoped to its
+        own on_behalf_of depositor plus a featured Collection). Returns the
+        updated list of linked collection NOIDs. Permissions are never changed.
       DESC
 
       response '200', 'work unlinked from the collection' do

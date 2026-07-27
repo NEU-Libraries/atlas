@@ -310,8 +310,9 @@ RSpec.describe 'Auth matrix', type: :request, default_auth: false do
 
   describe 'On-Behalf-Of header is rejected off the assertion path' do
     # Acting-as now rides a signed `obo` claim (covered in the assertion block).
-    # A bare On-Behalf-Of *header* has no legitimate path left, so it is rejected
-    # everywhere except an admin operator on the verified-assertion path.
+    # A bare On-Behalf-Of *header* has no legitimate path left except an admin
+    # operator on the verified-assertion path, and :system on the system_token
+    # path (showcase publishing — covered in its own describe block below).
     let(:obo) { { 'On-Behalf-Of' => 'NUID 900000001' } }
 
     it 'rejects a guest (no token) presenting On-Behalf-Of (403)' do
@@ -320,9 +321,73 @@ RSpec.describe 'Auth matrix', type: :request, default_auth: false do
       expect(response.parsed_body['error']).to match(/On-Behalf-Of requires an admin operator/)
     end
 
-    it 'rejects the :system principal presenting On-Behalf-Of (403)' do
+    it 'no longer rejects the :system principal presenting On-Behalf-Of at the gate' do
+      # The system_token path is a backend-to-backend credential; the gate now
+      # trusts it the same way it already trusts the `User: NUID` header there.
+      # Nothing on this read action *uses* @on_behalf_of, so it simply falls
+      # through to the normal :system read-floor 200 rather than 403ing at the
+      # gate itself.
       get '/communities',
           headers: auth_headers(token: system_token, nuid: system_user.nuid).merge(obo)
+      expect(response).to have_http_status(:ok)
+    end
+  end
+
+  describe 'showcase publishing: :system scoped :link_member (system_token + On-Behalf-Of)' do
+    let(:destination) { CollectionCreator.call(parent_id: community.noid, featured: true) }
+    let(:plain_destination) { CollectionCreator.call(parent_id: community.noid) }
+    let(:depositor_nuid) { '000000123' }
+    let(:work) { WorkCreator.call(parent_id: collection.noid, depositor: depositor_nuid) }
+
+    def system_headers(on_behalf_of: nil)
+      h = auth_headers(token: system_token, nuid: system_user.nuid)
+      h['On-Behalf-Of'] = "NUID #{on_behalf_of}" if on_behalf_of
+      h.merge('Content-Type' => 'application/json')
+    end
+
+    it 'links the Work into the depositor-owned featured showcase' do
+      post "/works/#{work.noid}/linked_members",
+           params:  { collection_id: destination.noid }.to_json,
+           headers: system_headers(on_behalf_of: depositor_nuid)
+      expect(response).to have_http_status(:ok)
+      expect(response.parsed_body).to include(destination.noid)
+    end
+
+    it 'attributes the resulting AuditEvent to the depositor, not to :system' do
+      post "/works/#{work.noid}/linked_members",
+           params:  { collection_id: destination.noid }.to_json,
+           headers: system_headers(on_behalf_of: depositor_nuid)
+      expect(response).to have_http_status(:ok)
+
+      event = AuditEvent.where(action: 'link_member').order(:created_at).last
+      expect(event.actor_nuid).to        eq(system_user.nuid)
+      expect(event.on_behalf_of_nuid).to eq(depositor_nuid)
+    end
+
+    it 'rejects with no On-Behalf-Of at all (403)' do
+      post "/works/#{work.noid}/linked_members",
+           params:  { collection_id: destination.noid }.to_json,
+           headers: system_headers
+      expect(response).to have_http_status(:forbidden)
+      expect(response.parsed_body).to include('action' => 'link_member')
+    end
+
+    it 'rejects when the on_behalf_of NUID does not own the Work (403)' do
+      post "/works/#{work.noid}/linked_members",
+           params:  { collection_id: destination.noid }.to_json,
+           headers: system_headers(on_behalf_of: '000000999')
+      expect(response).to have_http_status(:forbidden)
+    end
+
+    it 'rejects a non-featured target Collection even with a matching on_behalf_of (403)' do
+      post "/works/#{work.noid}/linked_members",
+           params:  { collection_id: plain_destination.noid }.to_json,
+           headers: system_headers(on_behalf_of: depositor_nuid)
+      expect(response).to have_http_status(:forbidden)
+    end
+
+    it 'still rejects :system on unrelated Work mutations, even with a matching on_behalf_of' do
+      post "/works/#{work.noid}/tombstone", headers: system_headers(on_behalf_of: depositor_nuid)
       expect(response).to have_http_status(:forbidden)
     end
   end

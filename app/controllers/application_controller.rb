@@ -119,7 +119,7 @@ class ApplicationController < ActionController::API
     # auth shape is Bearer + NUID header (require_auth above) which sets
     # @current_user; override the CanCan helper to source from it.
     def current_ability
-      @current_ability ||= Ability.new(@current_user)
+      @current_ability ||= Ability.new(@current_user, on_behalf_of: @on_behalf_of)
     end
 
     # Endpoints that legitimately skip authorization. None today —
@@ -180,7 +180,8 @@ class ApplicationController < ActionController::API
     #   cerberus assertion for :system/:anon → 401 ; unknown sub → 400
     #   assertion + signed `obo`, admin sub  → operator, acting as obo target
     #   assertion + signed `obo`, non-admin  → 403
-    #   On-Behalf-Of *header* (any path)     → ignored (assertion) / 403 (else)
+    #   system_token + On-Behalf-Of header   → trusted (showcase-publishing attribution)
+    #   On-Behalf-Of *header* (any other path) → 403
     #   any other token                      → 401
     #
     # The system/JWT split closes the leaked-token footgun: a stolen system
@@ -208,7 +209,7 @@ class ApplicationController < ActionController::API
     end
 
     # Acting-as authorization: the operator authorizes the request, the target
-    # is only an attribution stamp and needs no rights — so acting-as is
+    # is only an attribution stamp and needs no rights — so HUMAN acting-as is
     # restricted to admin operators, and only on the assertion path.
     # The proxy_uploader-null-under-impersonation rule and the two-principal
     # AuditEvent both hang off @on_behalf_of downstream.
@@ -216,12 +217,20 @@ class ApplicationController < ActionController::API
     # Acting-as rides a SIGNED `obo` claim: the target is inside the signature,
     # so it can't be forged onto a stolen assertion (resolve_cerberus_assertion
     # sources @on_behalf_of from the verified claim only, never a header). The
-    # JWT-direct, system, and guest paths have no operator/target split, so a
-    # stray `On-Behalf-Of` header is rejected there even for an admin —
-    # @auth_source is :assertion only for the signed-claim path.
+    # JWT-direct and guest paths have no operator/target split, so a stray
+    # `On-Behalf-Of` header is rejected there even for an admin — @auth_source
+    # is :assertion only for the signed-claim path.
+    #
+    # :system is the other exception, trusted via a plain header rather than a
+    # signed claim: the system_token path is a backend-to-backend credential
+    # that only Cerberus holds (never a human), so a caller who can present it
+    # is already as trusted as the `User: NUID` header on that same path — see
+    # resolve_system_user. The on_behalf_of NUID carried here is what scopes
+    # :system's `:link_member` grant (Ability) to the depositor's own Work.
     def enforce_on_behalf_of_gate
       return if @on_behalf_of.blank?
       return if @current_user&.admin? && @auth_source == :assertion
+      return if @current_user&.system?
 
       render_error(:forbidden, 'On-Behalf-Of requires an admin operator')
     end

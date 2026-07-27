@@ -100,6 +100,40 @@ RSpec.describe Ability do
     it { is_expected.not_to be_able_to(:destroy,    Work.new) }
     it { is_expected.not_to be_able_to(:reset,      :maintenance) }
     it { is_expected.not_to be_able_to(:read,       AuditEvent) }
+
+    # Showcase publishing: :link_member on a featured Collection is granted
+    # unconditionally (the Collection-side scope), but the Work-side grant
+    # requires an on_behalf_of target matching the Work's depositor — absent
+    # here, so even a featured Collection doesn't unlock it.
+    it { is_expected.to     be_able_to(:link_member, Collection.new(featured: true)) }
+    it { is_expected.not_to be_able_to(:link_member, Collection.new(featured: false)) }
+    it { is_expected.not_to be_able_to(:link_member, Work.new(depositor: '000000123')) }
+  end
+
+  describe 'the :system principal, scoped to an on_behalf_of target (showcase publishing)' do
+    let(:user)          { build_user(role: :system, nuid: '000000000') }
+    let(:depositor_nuid) { '000000123' }
+    subject { described_class.new(user, on_behalf_of: depositor_nuid) }
+
+    it 'grants :link_member on a Work owned by the on_behalf_of target' do
+      expect(subject).to be_able_to(:link_member, Work.new(depositor: depositor_nuid))
+    end
+
+    it 'denies :link_member on a Work owned by someone else' do
+      expect(subject).not_to be_able_to(:link_member, Work.new(depositor: '000000999'))
+    end
+
+    it 'still requires the target Collection to be featured' do
+      expect(subject).to     be_able_to(:link_member, Collection.new(featured: true))
+      expect(subject).not_to be_able_to(:link_member, Collection.new(featured: false))
+    end
+
+    it 'grants no other structural mutation on the owned Work' do
+      own_work = Work.new(depositor: depositor_nuid)
+      expect(subject).not_to be_able_to(:update, own_work)
+      expect(subject).not_to be_able_to(:reparent,  own_work)
+      expect(subject).not_to be_able_to(:destroy,   own_work)
+    end
   end
 
   # :standard, :loader, :privileged collapse to identical Atlas-wire surfaces.

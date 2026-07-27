@@ -12,6 +12,10 @@ require 'rails_helper'
 # AtlasRb::LinkedMemberError (carrying #code) and an authorization 403 — the
 # write paths are admin-only — raises AtlasRb::ForbiddenError, instead of the
 # swallowed nil / parsed-hash of 1.2.0.
+#
+# 1.9.1 adds a second, narrower write path alongside the admin-only one above:
+# AtlasRb::System::Work.add_linked_member (showcase publishing on a depositor's
+# behalf), covered in its own describe block below.
 RSpec.describe 'Linked membership via atlas_rb', :atlas_rb_server do
   # Admin (wildcard) — linked-member writes are admin-only, so the happy-path
   # calls run as admin.
@@ -81,5 +85,51 @@ RSpec.describe 'Linked membership via atlas_rb', :atlas_rb_server do
 
     # Refused: nothing linked, run as admin to confirm.
     expect(AtlasRb::Work.linked_members(work.noid, nuid: admin_nuid)).to eq([])
+  end
+
+  # Showcase publishing (Cerberus's "Publish to my community" deposit branch):
+  # AtlasRb::System::Work.add_linked_member, the :system-only companion to the
+  # human-facing calls above. System path (like account_switching_atlas_rb_spec):
+  # atlas_rb's system_connection and the server's require_auth share one
+  # credentials object in-process, so pointing both at the same secret
+  # authenticates as :system.
+  describe 'AtlasRb::System::Work.add_linked_member' do
+    let(:system_secret) { 'test-system-token' }
+    let!(:system_user) do
+      User.find_by(nuid: AtlasRb::System::NUID) ||
+        User.create!(email: 'system-linked@example.invalid', password: SecureRandom.hex(16),
+                     nuid: AtlasRb::System::NUID, name: 'User, System', role: :system)
+    end
+    before do
+      allow(Rails.application.credentials).to receive(:system_token).and_return(system_secret)
+      allow(Rails.application.credentials).to receive(:atlas_system_token).and_return(system_secret)
+    end
+
+    let(:depositor_nuid) { '000000123' }
+    let(:showcase)  { CollectionCreator.call(parent_id: community.noid, featured: true) }
+    let(:own_work)  { WorkCreator.call(parent_id: home.noid, depositor: depositor_nuid) }
+
+    it 'links a depositor-owned Work into a featured showcase, attributing the AuditEvent to the depositor' do
+      result = AtlasRb::System::Work.add_linked_member(own_work.noid, showcase.noid, on_behalf_of: depositor_nuid)
+      expect(result).to include(showcase.noid)
+
+      event = AuditEvent.where(action: 'link_member', resource_id: own_work.id.to_s).last
+      expect(event.actor_nuid).to        eq(AtlasRb::System::NUID)
+      expect(event.on_behalf_of_nuid).to eq(depositor_nuid)
+    end
+
+    it 'raises AtlasRb::ForbiddenError when on_behalf_of does not own the Work' do
+      expect do
+        AtlasRb::System::Work.add_linked_member(own_work.noid, showcase.noid, on_behalf_of: '000000999')
+      end.to raise_error(AtlasRb::ForbiddenError)
+
+      expect(AtlasRb::Work.linked_members(own_work.noid, nuid: admin_nuid)).to eq([])
+    end
+
+    it 'raises AtlasRb::ForbiddenError when the target Collection is not featured' do
+      expect do
+        AtlasRb::System::Work.add_linked_member(own_work.noid, other.noid, on_behalf_of: depositor_nuid)
+      end.to raise_error(AtlasRb::ForbiddenError)
+    end
   end
 end

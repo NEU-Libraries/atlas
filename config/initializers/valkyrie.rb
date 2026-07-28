@@ -44,7 +44,8 @@ Rails.application.config.to_prepare do
           PersonIndexer,
           FeaturedIndexer,
           PersonalRootIndexer,
-          SystemContainerIndexer
+          SystemContainerIndexer,
+          EmbargoIndexer
         )
       ),
       :index_solr
@@ -67,7 +68,8 @@ Rails.application.config.to_prepare do
           PersonIndexer,
           FeaturedIndexer,
           PersonalRootIndexer,
-          SystemContainerIndexer
+          SystemContainerIndexer,
+          EmbargoIndexer
         )
       ),
       :test_solr

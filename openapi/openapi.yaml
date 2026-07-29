@@ -3882,6 +3882,11 @@ paths:
         against Atlas (Authorization: Bearer …) from scripts. Tokens carry a
         1-week TTL. Requires the system Bearer token; non-system callers
         receive 403. An unknown NUID returns 404. Emits a mint_token audit row.
+        An optional `read_only: true` mints a token that can only reach
+        read-shaped actions (:read, :preview, :read_versions) regardless of
+        the underlying user's own permissions — the shape to hand to a
+        non-human caller (e.g. an MCP client) that must never be able to
+        mutate the repository.
       security:
       - BearerAuth: []
       parameters:
@@ -3898,7 +3903,7 @@ paths:
           type: string
       responses:
         '200':
-          description: token minted
+          description: read-only token minted
           content:
             application/json:
               schema:
@@ -3922,6 +3927,10 @@ paths:
                   type: string
                   description: Optional — disambiguate which account under the NUID
                     when it holds several.
+                read_only:
+                  type: boolean
+                  description: Optional — mint a token restricted to read-shaped actions
+                    only.
               required:
               - nuid
     delete:

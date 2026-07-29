@@ -517,11 +517,10 @@ RSpec.describe 'Auth matrix', type: :request, default_auth: false do
     end
 
     describe 'PATCH /works/:id/parent' do
-      it 'denies the delegate with 403 — the devolved grant is container-scoped (Collection/Community only)' do
+      it 'permits the delegate — the devolved grant covers Work too, even with no Cerberus caller yet' do
         patch "/works/#{work.noid}/parent",
               params: { parent_id: destination.noid }.to_json, headers: json_headers(delegate.nuid)
-        expect(response).to have_http_status(:forbidden)
-        expect(response.parsed_body).to include('action' => 'reparent')
+        expect(response).to have_http_status(:ok)
       end
 
       it 'denies an edit-rights staff principal with 403' do
@@ -529,6 +528,12 @@ RSpec.describe 'Auth matrix', type: :request, default_auth: false do
               params: { parent_id: destination.noid }.to_json, headers: json_headers(staff.nuid)
         expect(response).to have_http_status(:forbidden)
         expect(response.parsed_body).to include('action' => 'reparent')
+      end
+
+      it 'denies the-group-without-:privileged with 403' do
+        patch "/works/#{work.noid}/parent",
+              params: { parent_id: destination.noid }.to_json, headers: json_headers(delegate_wrong_role.nuid)
+        expect(response).to have_http_status(:forbidden)
       end
 
       it 'permits the :admin principal' do

@@ -22,10 +22,12 @@ class AuditEventsController < ApplicationController
   # travel in the body (self-describing) rather than inferred from headers,
   # because an `impersonation_ended` emit fires as the session is torn down.
   #
-  # Admin-gated: only :admin carries `:create AuditEvent` (via `manage :all`);
-  # every other principal — :system, :guest, standard humans — is denied 403.
-  # The endpoint authenticates as the admin (cerberus token + `User:` header),
-  # which is also what `enforce_on_behalf_of_gate` would require.
+  # Admin-gated: :admin carries `:create AuditEvent` via `manage :all`, and the
+  # devolved-admin tier carries it via Ability#apply_admin_delegate_abilities
+  # (both impersonation modes call this before establishing a session — Atlas
+  # trusts Cerberus's own admin-only gate on acting-as to decide which mode a
+  # delegate may reach). Every other principal — :system, :guest, standard
+  # humans — is denied 403.
   def create
     authorize! :create, AuditEvent
 

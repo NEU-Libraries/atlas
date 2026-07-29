@@ -40,8 +40,10 @@ class Ability
   # alone do not grant either. :system is one narrow non-admin exception: see
   # its scoped `:link_member` grant below (showcase publishing on a
   # depositor's behalf). The devolved-admin tier (apply_admin_delegate_abilities)
-  # is the other: it gets an unconditional `:reparent` on Collection/Community
-  # (not via this alias list, and not via edit rights) — see that method.
+  # is the other: it gets an unconditional `:reparent` on Work/Collection/
+  # Community — all three, since this ability never distinguished resource
+  # types to begin with — (not via this alias list, and not via edit rights)
+  # — see that method.
   UPDATE_ALIASES = %i[update_thumbnails update_image_derivatives update_derivative_permissions
                       update_iiif_service update_full_text complete].freeze
 
@@ -192,9 +194,11 @@ class Ability
     # the manage :all wildcard, so this method only needs to cover the
     # narrower delegate case. Each grant here is a deliberate, named carve-out
     # below :admin's wildcard, not a role/group promotion:
-    #  - :reparent on Collection/Community only (not Work — matches the
-    #    "move containers" scope of the Cerberus UI this unblocks) —
-    #    unconditional, system-wide, not scoped to the delegate's own
+    #  - :reparent on Work/Collection/Community, all three — this Ability
+    #    never distinguished resource types for :reparent to begin with, so
+    #    the grant covers everything Reparentable exposes rather than being
+    #    narrowed to whatever subset a caller's UI currently surfaces.
+    #    Unconditional, system-wide, not scoped to the delegate's own
     #    edit_groups (see UPDATE_ALIASES comment above for why :reparent
     #    otherwise stays admin-only).
     #  - :create AuditEvent — unblocks Cerberus's impersonation session-start
@@ -209,7 +213,7 @@ class Ability
     def apply_admin_delegate_abilities(user)
       return unless user.role.to_s == 'privileged' && Array(user.groups).include?(Permissions::ADMIN_GROUP)
 
-      can :reparent, [Collection, Community]
+      can :reparent, [Work, Collection, Community]
       can :create, AuditEvent
       can :read_versions, Blob
     end

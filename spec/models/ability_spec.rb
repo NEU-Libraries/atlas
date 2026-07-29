@@ -176,24 +176,22 @@ RSpec.describe Ability do
   # (apply_admin_delegate_abilities). Neither the role nor the group alone is
   # sufficient — the two negative-control describe blocks below cover each
   # half independently. Grants are unconditional (system-wide), not scoped to
-  # edit_users/edit_groups, and deliberately narrow: only :reparent on
-  # Collection/Community (not Work), :create AuditEvent, and :read_versions
-  # on Blob — not the full :admin wildcard and not :link_member or the
-  # generic :read on AuditEvent.
+  # edit_users/edit_groups, and deliberately narrow: :reparent on Work,
+  # Collection, and Community, :create AuditEvent, and :read_versions on
+  # Blob — not the full :admin wildcard and not :link_member or the generic
+  # :read on AuditEvent.
   describe 'the devolved-admin tier (:privileged + Permissions::ADMIN_GROUP)' do
     let(:user) { build_user(role: :privileged, nuid: '000000002', groups: [Permissions::ADMIN_GROUP]) }
     subject { described_class.new(user) }
 
+    let(:stranger_work)       { Work.new(edit_users: ['000000999'], edit_groups: ['somebody:else']) }
     let(:stranger_collection) { Collection.new(edit_users: ['000000999'], edit_groups: ['somebody:else']) }
     let(:stranger_community)  { Community.new(edit_users: ['000000999'], edit_groups: ['somebody:else']) }
 
-    it 'grants :reparent on Collection and Community, unconditionally (not scoped to edit rights)' do
+    it 'grants :reparent on Work, Collection, and Community, unconditionally (not scoped to edit rights)' do
+      expect(subject).to be_able_to(:reparent, stranger_work)
       expect(subject).to be_able_to(:reparent, stranger_collection)
       expect(subject).to be_able_to(:reparent, stranger_community)
-    end
-
-    it 'does NOT grant :reparent on a Work — the devolved grant is container-scoped' do
-      expect(subject).not_to be_able_to(:reparent, Work.new)
     end
 
     it 'grants :create AuditEvent (unblocks the impersonation session-start audit write)' do

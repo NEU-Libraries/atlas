@@ -19,14 +19,28 @@ module Users
     # Mint a personal-access JWT for a real person. System-gated (mint_token →
     # :system only) because minting for an arbitrary NUID is "become anyone" —
     # Cerberus calls this post-SSO and hands the token back to the librarian.
+    #
+    # An optional `read_only` flag rides into the token as a custom claim
+    # (see ApplicationController#resolve_jwt_user / #authorize!) — this is
+    # the shape handed to non-human callers (e.g. an MCP client) that should
+    # never be able to mutate the repository, independent of what the
+    # underlying person could otherwise do. Warden::JWTAuth::UserEncoder has
+    # no per-call custom-claims hook (its third positional arg is `aud`), so
+    # the payload is built by hand from the same PayloadUserHelper/TokenEncoder
+    # UserEncoder uses internally, with `read_only` merged in only for this
+    # one mint — unlike overriding User#jwt_payload, this can't leak onto a
+    # different token minted for the same user without the flag.
     def nuid
       authorize! :mint_token, User
 
       user = User.resolve_account(nuid: params[:nuid], email: params[:email])
       return head(:not_found) if user.blank?
 
-      token = Warden::JWTAuth::UserEncoder.new.call(user, :user, nil)[0]
-      audit_token_event('mint_token', user)
+      read_only = params[:read_only] == true
+      payload = Warden::JWTAuth::PayloadUserHelper.payload_for_user(user, :user).merge('aud' => nil)
+      payload['read_only'] = true if read_only
+      token = Warden::JWTAuth::TokenEncoder.new.call(payload)
+      audit_token_event('mint_token', user, read_only: read_only)
       render json: { token: token }.to_json
     end
 
@@ -67,13 +81,13 @@ module Users
       # Token lifecycle is a credential grant/revoke on a user — the same shape
       # `permissions` already serves for role/grant mutations (target NUID in
       # payload, no repository resource). Actor is the :system operator.
-      def audit_token_event(action, user)
+      def audit_token_event(action, user, **extra_payload)
         AuditEventWriter.record(
           actor_nuid:   @current_user.nuid,
           action:       action,
           change_type:  'permissions',
           event_source: 'controller',
-          payload:      { target_nuid: user.nuid }
+          payload:      { target_nuid: user.nuid }.merge(extra_payload)
         )
       end
   end

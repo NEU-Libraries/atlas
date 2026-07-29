@@ -11,6 +11,13 @@ class ApplicationController < ActionController::API
   CERBERUS_ISSUER   = 'cerberus'
   CERBERUS_AUDIENCE = 'atlas'
 
+  # The only CanCan actions a `read_only`-scoped personal JWT (see
+  # Users::TokensController#nuid) may ever reach — a fail-closed floor
+  # beneath the resolved user's real Ability, checked in #authorize! below.
+  # A new write-shaped action added anywhere is blocked by default; it need
+  # not be enumerated here.
+  READ_ONLY_TOKEN_ACTIONS = %i[read preview read_versions].freeze
+
   before_action :require_auth
 
   # Strict mode: any controller action that forgets to call `authorize!`
@@ -120,6 +127,19 @@ class ApplicationController < ActionController::API
     # @current_user; override the CanCan helper to source from it.
     def current_ability
       @current_ability ||= Ability.new(@current_user, on_behalf_of: @on_behalf_of)
+    end
+
+    # Read-only token floor: raises the same CanCan::AccessDenied a normal
+    # Ability denial would, so it composes with the rescue_from above and
+    # with check_authorization's forgotten-authorize! guard — no separate
+    # rescue path. Layered in front of the real check rather than inside
+    # Ability so it can't be bypassed by any grant, present or future.
+    def authorize!(action, subject, *args)
+      if @token_read_only && READ_ONLY_TOKEN_ACTIONS.exclude?(action)
+        raise CanCan::AccessDenied.new('read-only token cannot perform this action', action, subject)
+      end
+
+      super
     end
 
     # Endpoints that legitimately skip authorization. None today —
@@ -260,11 +280,23 @@ class ApplicationController < ActionController::API
     # The :system/:anonymous bookends are non-human and must never be reachable
     # via a personal token, so they are rejected even if a token somehow encodes
     # them (mint is gated to real persons, but this is the wire backstop).
+    #
+    # A token minted with the `read_only` custom claim (see
+    # Users::TokensController#nuid) sets @token_read_only, which #authorize!
+    # below uses to allowlist a handful of read-shaped actions and reject
+    # everything else — a structural write-floor independent of whatever the
+    # resolved user's own Ability grants. Re-decoding here is safe: the
+    # warden call above already verified signature + revocation + expiry via
+    # this same TokenDecoder, so this is just reading a claim off a token
+    # already proven authentic.
     def resolve_jwt_user
       user = request.env['warden']&.authenticate(:jwt, scope: :user)
       return if user.nil? || user.system? || user.anonymous?
 
       @current_user = user
+      payload = Warden::JWTAuth::TokenDecoder.new.call(@token)
+      @token_read_only = payload['read_only'] == true
+      true
     end
 
     # Route-only peek: is the bearer a JWT *claiming* to be a Cerberus assertion?

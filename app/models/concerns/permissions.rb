@@ -9,6 +9,10 @@ module Permissions
   extend ActiveSupport::Concern
 
   STAFF_EDIT_GROUP = 'northeastern:drs:repository:staff'
+  # Devolved-admin tier gate (Ability#apply_admin_delegate_abilities): the
+  # group half of the :privileged-role + group pair that grants scoped
+  # admin-adjacent capabilities below the full :admin role's wildcard.
+  ADMIN_GROUP      = 'northeastern:drs:repository:admin'
 
   # The ACL keys an audit `permissions` event records (before/after). The
   # canonical home for the snapshot shape, shared by the controller edit path

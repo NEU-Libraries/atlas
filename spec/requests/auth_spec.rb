@@ -466,6 +466,19 @@ RSpec.describe 'Auth matrix', type: :request, default_auth: false do
       User.create!(email: 'admin-auth@example.invalid', password: SecureRandom.hex(16),
                    nuid: '000000004', name: 'User, Admin', role: :admin)
     end
+    # Devolved-admin tier: :privileged role + Permissions::ADMIN_GROUP, jointly.
+    # `staff` above is the role-without-group negative control; `delegate_wrong_role`
+    # below is the group-without-role negative control.
+    let!(:delegate) do
+      User.create!(email: 'delegate@example.invalid', password: SecureRandom.hex(16),
+                   nuid: '000000042', name: 'Williams, Delegate', role: :privileged,
+                   groups: [Permissions::ADMIN_GROUP])
+    end
+    let!(:delegate_wrong_role) do
+      User.create!(email: 'delegate-wrong-role@example.invalid', password: SecureRandom.hex(16),
+                   nuid: '000000043', name: 'Standard, Delegate', role: :standard,
+                   groups: [Permissions::ADMIN_GROUP])
+    end
 
     let(:destination) { CollectionCreator.call(parent_id: community.noid) }
     let(:work)        { WorkCreator.call(parent_id: collection.noid) }
@@ -474,7 +487,43 @@ RSpec.describe 'Auth matrix', type: :request, default_auth: false do
       signed_auth_headers(nuid).merge('Content-Type' => 'application/json')
     end
 
+    describe 'PATCH /collections/:id/parent (devolved-admin tier)' do
+      it 'permits the delegate (:privileged + ADMIN_GROUP)' do
+        patch "/collections/#{collection.noid}/parent",
+              params: { parent_id: destination.noid }.to_json, headers: json_headers(delegate.nuid)
+        expect(response).to have_http_status(:ok)
+      end
+
+      it 'denies :privileged-without-the-group (staff) with 403' do
+        patch "/collections/#{collection.noid}/parent",
+              params: { parent_id: destination.noid }.to_json, headers: json_headers(staff.nuid)
+        expect(response).to have_http_status(:forbidden)
+      end
+
+      it 'denies the-group-without-:privileged with 403' do
+        patch "/collections/#{collection.noid}/parent",
+              params: { parent_id: destination.noid }.to_json, headers: json_headers(delegate_wrong_role.nuid)
+        expect(response).to have_http_status(:forbidden)
+      end
+    end
+
+    describe 'PATCH /communities/:id/parent (devolved-admin tier)' do
+      it 'permits the delegate to move a community to the top of the tree' do
+        movable_community = CommunityCreator.call
+        patch "/communities/#{movable_community.noid}/parent",
+              params: { parent_id: nil }.to_json, headers: json_headers(delegate.nuid)
+        expect(response).to have_http_status(:ok)
+      end
+    end
+
     describe 'PATCH /works/:id/parent' do
+      it 'denies the delegate with 403 — the devolved grant is container-scoped (Collection/Community only)' do
+        patch "/works/#{work.noid}/parent",
+              params: { parent_id: destination.noid }.to_json, headers: json_headers(delegate.nuid)
+        expect(response).to have_http_status(:forbidden)
+        expect(response.parsed_body).to include('action' => 'reparent')
+      end
+
       it 'denies an edit-rights staff principal with 403' do
         patch "/works/#{work.noid}/parent",
               params: { parent_id: destination.noid }.to_json, headers: json_headers(staff.nuid)
@@ -490,6 +539,13 @@ RSpec.describe 'Auth matrix', type: :request, default_auth: false do
     end
 
     describe 'POST /works/:id/linked_members' do
+      it 'denies the delegate with 403 — the devolved grant does not include :link_member' do
+        post "/works/#{work.noid}/linked_members",
+             params: { collection_id: destination.noid }.to_json, headers: json_headers(delegate.nuid)
+        expect(response).to have_http_status(:forbidden)
+        expect(response.parsed_body).to include('action' => 'link_member')
+      end
+
       it 'denies an edit-rights staff principal with 403' do
         post "/works/#{work.noid}/linked_members",
              params: { collection_id: destination.noid }.to_json, headers: json_headers(staff.nuid)

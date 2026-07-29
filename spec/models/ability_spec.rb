@@ -172,6 +172,71 @@ RSpec.describe Ability do
     end
   end
 
+  # Devolved-admin tier: :privileged role + Permissions::ADMIN_GROUP, jointly
+  # (apply_admin_delegate_abilities). Neither the role nor the group alone is
+  # sufficient — the two negative-control describe blocks below cover each
+  # half independently. Grants are unconditional (system-wide), not scoped to
+  # edit_users/edit_groups, and deliberately narrow: only :reparent on
+  # Collection/Community (not Work), :create AuditEvent, and :read_versions
+  # on Blob — not the full :admin wildcard and not :link_member or the
+  # generic :read on AuditEvent.
+  describe 'the devolved-admin tier (:privileged + Permissions::ADMIN_GROUP)' do
+    let(:user) { build_user(role: :privileged, nuid: '000000002', groups: [Permissions::ADMIN_GROUP]) }
+    subject { described_class.new(user) }
+
+    let(:stranger_collection) { Collection.new(edit_users: ['000000999'], edit_groups: ['somebody:else']) }
+    let(:stranger_community)  { Community.new(edit_users: ['000000999'], edit_groups: ['somebody:else']) }
+
+    it 'grants :reparent on Collection and Community, unconditionally (not scoped to edit rights)' do
+      expect(subject).to be_able_to(:reparent, stranger_collection)
+      expect(subject).to be_able_to(:reparent, stranger_community)
+    end
+
+    it 'does NOT grant :reparent on a Work — the devolved grant is container-scoped' do
+      expect(subject).not_to be_able_to(:reparent, Work.new)
+    end
+
+    it 'grants :create AuditEvent (unblocks the impersonation session-start audit write)' do
+      expect(subject).to be_able_to(:create, AuditEvent)
+    end
+
+    it 'grants :read_versions on Blob without opening the generic audit-history read' do
+      expect(subject).to     be_able_to(:read_versions, Blob)
+      expect(subject).not_to be_able_to(:read, AuditEvent)
+    end
+
+    it 'grants none of the other admin-only structural mutations' do
+      expect(subject).not_to be_able_to(:link_member, Work.new)
+      expect(subject).not_to be_able_to(:link_member, stranger_collection)
+      expect(subject).not_to be_able_to(:destroy,     Work.new)
+      expect(subject).not_to be_able_to(:manage,      :all)
+    end
+  end
+
+  describe 'devolved-admin tier negative control: :privileged role without the admin group' do
+    let(:user) { build_user(role: :privileged, nuid: '000000006', groups: [Permissions::STAFF_EDIT_GROUP]) }
+    subject { described_class.new(user) }
+
+    it 'denies :reparent, :create AuditEvent, and :read_versions Blob' do
+      expect(subject).not_to be_able_to(:reparent,      Collection.new)
+      expect(subject).not_to be_able_to(:reparent,      Community.new)
+      expect(subject).not_to be_able_to(:create,        AuditEvent)
+      expect(subject).not_to be_able_to(:read_versions, Blob)
+    end
+  end
+
+  describe 'devolved-admin tier negative control: the admin group without the :privileged role' do
+    %i[standard loader].each do |role_sym|
+      it "denies :reparent for :#{role_sym} + the admin group" do
+        user = build_user(role: role_sym, nuid: SecureRandom.hex(5), groups: [Permissions::ADMIN_GROUP])
+        ability = described_class.new(user)
+        expect(ability).not_to be_able_to(:reparent,      Collection.new)
+        expect(ability).not_to be_able_to(:create,        AuditEvent)
+        expect(ability).not_to be_able_to(:read_versions, Blob)
+      end
+    end
+  end
+
   describe 'group ACL block form' do
     let(:user) do
       build_user(role: :standard, nuid: '000000777',

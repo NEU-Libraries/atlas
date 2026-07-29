@@ -4,12 +4,14 @@
 # controller exposes `PATCH /<type>/:id/parent` whose body is `{ parent_id }`
 # (or no parent_id / null for moving a Community to the top of the tree).
 #
-# Authorization is admin-only and checked two-sided (CanCanCan :reparent on
-# both the moved node AND the destination). :reparent is granted to no role
-# except :admin (via `manage :all`) — moving structure is an admin operation
-# matching the admin-only Cerberus surface; edit-rights does not imply it. The
-# structural validation (type, cycle, tombstone) lives in Reparenter and
-# surfaces as a 422 via ApplicationController's rescue_from.
+# Authorization is checked two-sided (CanCanCan :reparent on both the moved
+# node AND the destination). :reparent is granted to :admin (via `manage
+# :all`) and, for Collection/Community only, to the devolved-admin tier (see
+# Ability#apply_admin_delegate_abilities) — moving structure is an admin(-
+# adjacent) operation matching the Cerberus surface; edit-rights does not
+# imply it for anyone else. The structural validation (type, cycle,
+# tombstone) lives in Reparenter and surfaces as a 422 via
+# ApplicationController's rescue_from.
 module Reparentable
   extend ActiveSupport::Concern
 

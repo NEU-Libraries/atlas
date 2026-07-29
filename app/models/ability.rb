@@ -37,9 +37,11 @@ class Ability
   # non-admin HUMAN roles get neither via edit rights (group ACL below) —
   # both are structural mutations of the content graph; the matching
   # Cerberus UI is admin-only, and Atlas is the real boundary, so edit-rights
-  # alone do not grant either. :system is the one narrow non-admin exception:
-  # see its scoped `:link_member` grant below (showcase publishing on a
-  # depositor's behalf) — :reparent still belongs to :admin alone.
+  # alone do not grant either. :system is one narrow non-admin exception: see
+  # its scoped `:link_member` grant below (showcase publishing on a
+  # depositor's behalf). The devolved-admin tier (apply_admin_delegate_abilities)
+  # is the other: it gets an unconditional `:reparent` on Collection/Community
+  # (not via this alias list, and not via edit rights) — see that method.
   UPDATE_ALIASES = %i[update_thumbnails update_image_derivatives update_derivative_permissions
                       update_iiif_service update_full_text complete].freeze
 
@@ -67,6 +69,7 @@ class Ability
     apply_role_abilities(user)
     apply_group_abilities(user)
     apply_compilation_abilities(user)
+    apply_admin_delegate_abilities(user)
   end
 
   private
@@ -181,6 +184,34 @@ class Ability
       can %i[update destroy], Compilation do |comp|
         comp.depositor == user.nuid || group_acl_grants?(comp, user)
       end
+    end
+
+    # Devolved-admin tier: :privileged role + Permissions::ADMIN_GROUP,
+    # jointly (neither alone is sufficient — mirrors User#admin_delegate?'s
+    # Cerberus-side counterpart). :admin already passes everything below via
+    # the manage :all wildcard, so this method only needs to cover the
+    # narrower delegate case. Each grant here is a deliberate, named carve-out
+    # below :admin's wildcard, not a role/group promotion:
+    #  - :reparent on Collection/Community only (not Work — matches the
+    #    "move containers" scope of the Cerberus UI this unblocks) —
+    #    unconditional, system-wide, not scoped to the delegate's own
+    #    edit_groups (see UPDATE_ALIASES comment above for why :reparent
+    #    otherwise stays admin-only).
+    #  - :create AuditEvent — unblocks Cerberus's impersonation session-start
+    #    audit write (view-as and acting-as both call it before establishing
+    #    a session). Unscoped rather than instance-conditioned on `mode`
+    #    because POST /audit_events has exactly one caller system-wide;
+    #    Cerberus's own act-as gate (admin-only, independent of Atlas) is
+    #    what actually prevents a delegate from reaching acting-as.
+    #  - :read_versions on Blob — a narrower verb than the generic
+    #    `:read, AuditEvent` (audit-history tab) so this grant can't be
+    #    mistaken for opening that surface; see BlobsController#versions.
+    def apply_admin_delegate_abilities(user)
+      return unless user.role.to_s == 'privileged' && Array(user.groups).include?(Permissions::ADMIN_GROUP)
+
+      can :reparent, [Collection, Community]
+      can :create, AuditEvent
+      can :read_versions, Blob
     end
 
     # Per-row Set visibility: public, owned, read-group match, or any edit

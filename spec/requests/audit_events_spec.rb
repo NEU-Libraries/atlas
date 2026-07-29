@@ -159,5 +159,43 @@ RSpec.describe 'Audit history endpoint', type: :request do
       end.not_to change(AuditEvent, :count)
       expect(response).to have_http_status(:forbidden)
     end
+
+    # Devolved-admin tier: :privileged role + Permissions::ADMIN_GROUP, jointly.
+    # Unblocks Cerberus's impersonation session-start audit write for both
+    # view-as and acting-as modes — Atlas trusts Cerberus's own admin-only
+    # gate on acting-as to decide which mode a delegate may actually reach.
+    describe 'devolved-admin tier' do
+      let!(:delegate) do
+        User.create!(email: 'delegate-audit@example.invalid', password: SecureRandom.hex(16),
+                     nuid: '000000042', name: 'Williams, Delegate', role: :privileged,
+                     groups: [Permissions::ADMIN_GROUP])
+      end
+      let!(:staff_no_group) do
+        User.create!(email: 'staff-no-group-audit@example.invalid', password: SecureRandom.hex(16),
+                     nuid: '000000043', name: 'Roe, Sam', role: :privileged,
+                     groups: [Permissions::STAFF_EDIT_GROUP])
+      end
+      let(:delegate_headers) { signed_auth_headers(delegate.nuid).merge('Content-Type' => 'application/json') }
+
+      it 'permits the delegate to emit a view_as session-start event' do
+        expect do
+          post '/audit_events', params: emit_body.merge(mode: 'view_as').to_json, headers: delegate_headers
+        end.to change(AuditEvent, :count).by(1)
+        expect(response).to have_http_status(:created)
+      end
+
+      it 'denies :privileged-without-the-group with 403' do
+        headers = signed_auth_headers(staff_no_group.nuid).merge('Content-Type' => 'application/json')
+        expect do
+          post '/audit_events', params: emit_body.to_json, headers: headers
+        end.not_to change(AuditEvent, :count)
+        expect(response).to have_http_status(:forbidden)
+      end
+
+      it 'does not broaden the generic audit-history index (:create != :read AuditEvent)' do
+        get "/resources/#{resource_id}/history", headers: signed_auth_headers(delegate.nuid)
+        expect(response).to have_http_status(:forbidden)
+      end
+    end
   end
 end

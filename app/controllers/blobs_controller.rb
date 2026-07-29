@@ -64,11 +64,14 @@ class BlobsController < ApplicationController
   # Reverse-chronological list of the Blob's retained content revisions. Each
   # descriptor carries the OCFL version label, its file identifier, fixity
   # digest, size, and actor attribution correlated from the file audit ledger.
-  # Admin-gated like the MODS version list (it exposes edit attribution).
-  # Unknown id → 404 (a Blob is a concrete resource, unlike the type-agnostic
-  # MODS list which tolerates an unresolvable id).
+  # Admin-gated like the MODS version list (it exposes edit attribution) —
+  # via the dedicated :read_versions verb (not the generic `:read, AuditEvent`
+  # the audit-history tab uses), so the devolved-admin tier can see this
+  # without also opening the generic audit-history index. Unknown id → 404
+  # (a Blob is a concrete resource, unlike the type-agnostic MODS list which
+  # tolerates an unresolvable id).
   def versions
-    authorize! :read, AuditEvent
+    authorize! :read_versions, Blob
     @blob = Blob.find(params[:id])
     return head(:not_found) if @blob.nil?
 

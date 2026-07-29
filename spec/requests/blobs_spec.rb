@@ -312,7 +312,8 @@ RSpec.describe 'Files (Blobs)', type: :request do
         are null when no event matches, e.g. a back-loaded Blob).
 
         Admin-gated, like the MODS version list, because the descriptors expose
-        edit attribution. Unknown id → 404.
+        edit attribution (the devolved-admin tier — :privileged role + the
+        repository:admin group — can also reach this). Unknown id → 404.
       DESC
 
       response '200', 'versions listed (newest first)' do
@@ -332,6 +333,38 @@ RSpec.describe 'Files (Blobs)', type: :request do
         let(:id) { 'does-not-exist' }
         run_test!
       end
+    end
+  end
+
+  # Plain (non-rswag) coverage of the devolved-admin tier's :read_versions
+  # grant — kept separate from the schema-driven path block above since it
+  # asserts role/group combinations, not response shape.
+  describe 'GET /files/:id/versions — devolved-admin tier', type: :request do
+    let(:blob) { BlobCreator.call(work_id: work.noid, original_filename: 'example.bin', path: fixture.to_s) }
+    let!(:delegate) do
+      User.create!(email: 'delegate-versions@example.invalid', password: SecureRandom.hex(16),
+                   nuid: '000000042', name: 'Williams, Delegate', role: :privileged,
+                   groups: [Permissions::ADMIN_GROUP])
+    end
+    let!(:staff_no_group) do
+      User.create!(email: 'staff-no-group@example.invalid', password: SecureRandom.hex(16),
+                   nuid: '000000043', name: 'Roe, Sam', role: :privileged,
+                   groups: [Permissions::STAFF_EDIT_GROUP])
+    end
+
+    it 'permits the delegate (:privileged + ADMIN_GROUP)' do
+      get "/files/#{blob.noid}/versions", headers: signed_auth_headers(delegate.nuid)
+      expect(response).to have_http_status(:ok)
+    end
+
+    it 'denies :privileged-without-the-group with 403' do
+      get "/files/#{blob.noid}/versions", headers: signed_auth_headers(staff_no_group.nuid)
+      expect(response).to have_http_status(:forbidden)
+    end
+
+    it 'does not leak into the generic audit-history index (:read_versions != :read AuditEvent)' do
+      get "/resources/#{work.noid}/history", headers: signed_auth_headers(delegate.nuid)
+      expect(response).to have_http_status(:forbidden)
     end
   end
 

@@ -1697,7 +1697,8 @@ paths:
         are null when no event matches, e.g. a back-loaded Blob).
 
         Admin-gated, like the MODS version list, because the descriptors expose
-        edit attribution. Unknown id → 404.
+        edit attribution (the devolved-admin tier — :privileged role + the
+        repository:admin group — can also reach this). Unknown id → 404.
       responses:
         '200':
           description: versions listed (newest first)

@@ -124,6 +124,80 @@ RSpec.describe 'Auth matrix', type: :request, default_auth: false do
     end
   end
 
+  describe 'read_only token scope' do
+    let!(:admin) do
+      User.create!(email: 'admin-readonly@example.invalid', password: SecureRandom.hex(16),
+                   nuid: '000000006', name: 'User, Admin', role: :admin)
+    end
+    let(:work) { WorkCreator.call(parent_id: collection.noid) }
+
+    # Minted for an admin throughout: admin's real Ability grants everything
+    # via `manage :all`, so a 403 here proves the read_only floor is
+    # independent of the resolved user's own permissions, not just a
+    # coincidence of a low-privilege fixture.
+    #
+    # Mirrors Users::TokensController#nuid's hand-built payload rather than
+    # UserEncoder (whose third positional arg is `aud`, not custom claims).
+    def mint(user, read_only: false)
+      payload = Warden::JWTAuth::PayloadUserHelper.payload_for_user(user, :user).merge('aud' => nil)
+      payload['read_only'] = true if read_only
+      Warden::JWTAuth::TokenEncoder.new.call(payload)
+    end
+
+    def bearer(token)
+      { 'Authorization' => "Bearer #{token}" }
+    end
+
+    def json(token)
+      bearer(token).merge('Content-Type' => 'application/json')
+    end
+
+    it 'allows :read — GET /works/:id' do
+      get "/works/#{work.noid}", headers: bearer(mint(admin, read_only: true))
+      expect(response).to have_http_status(:ok)
+    end
+
+    it 'allows :read on the User resource — GET /user' do
+      get '/user', headers: bearer(mint(admin, read_only: true))
+      expect(response).to have_http_status(:ok)
+    end
+
+    it 'allows a read-shaped POST — POST /resources/find_many' do
+      post '/resources/find_many', params:  { ids: [work.noid] }.to_json,
+                                   headers: json(mint(admin, read_only: true))
+      expect(response).to have_http_status(:ok)
+    end
+
+    it 'blocks :create even for an admin — POST /works (403)' do
+      post '/works', params:  { collection_id: collection.noid }.to_json,
+                     headers: json(mint(admin, read_only: true))
+      expect(response).to have_http_status(:forbidden)
+    end
+
+    it 'blocks :update even for an admin — PATCH /works/:id (403)' do
+      patch "/works/#{work.noid}", params:  { title: ['Renamed'] }.to_json,
+                                   headers: json(mint(admin, read_only: true))
+      expect(response).to have_http_status(:forbidden)
+    end
+
+    it 'blocks :destroy even for an admin — DELETE /works/:id (403)' do
+      delete "/works/#{work.noid}", headers: bearer(mint(admin, read_only: true))
+      expect(response).to have_http_status(:forbidden)
+    end
+
+    it 'blocks :reparent even for an admin — PATCH /works/:id/parent (403)' do
+      patch "/works/#{work.noid}/parent", params:  { parent_id: collection.noid }.to_json,
+                                          headers: json(mint(admin, read_only: true))
+      expect(response).to have_http_status(:forbidden)
+    end
+
+    it 'does not restrict a token minted without read_only' do
+      post '/works', params:  { collection_id: collection.noid }.to_json,
+                     headers: json(mint(admin))
+      expect(response).to have_http_status(:ok)
+    end
+  end
+
   describe 'Cerberus signed-assertion path' do
     let(:signing_key) { OpenSSL::PKey::EC.generate('prime256v1') }
     let(:kid)         { 'cerberus-test' }

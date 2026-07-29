@@ -59,6 +59,11 @@ RSpec.describe 'User', type: :request, default_auth: false do
         against Atlas (Authorization: Bearer …) from scripts. Tokens carry a
         1-week TTL. Requires the system Bearer token; non-system callers
         receive 403. An unknown NUID returns 404. Emits a mint_token audit row.
+        An optional `read_only: true` mints a token that can only reach
+        read-shaped actions (:read, :preview, :read_versions) regardless of
+        the underlying user's own permissions — the shape to hand to a
+        non-human caller (e.g. an MCP client) that must never be able to
+        mutate the repository.
       D
       security [{ BearerAuth: [] }]
       parameter name: :Authorization, in: :header, type: :string, required: false
@@ -67,8 +72,9 @@ RSpec.describe 'User', type: :request, default_auth: false do
       parameter name: :body, in: :body, schema: {
         type:       :object,
         properties: {
-          nuid:  { type: :string },
-          email: { type: :string, description: 'Optional — disambiguate which account under the NUID when it holds several.' }
+          nuid:      { type: :string },
+          email:     { type: :string, description: 'Optional — disambiguate which account under the NUID when it holds several.' },
+          read_only: { type: :boolean, description: 'Optional — mint a token restricted to read-shaped actions only.' }
         },
         required:   %w[nuid]
       }
@@ -78,6 +84,16 @@ RSpec.describe 'User', type: :request, default_auth: false do
         let(:body) { { nuid: target.nuid } }
         run_test! do |response|
           expect(JSON.parse(response.body)['token']).to be_present
+        end
+      end
+
+      response '200', 'read-only token minted' do
+        schema type: :object, properties: { token: { type: :string } }, required: %w[token]
+        let(:body) { { nuid: target.nuid, read_only: true } }
+        run_test! do |response|
+          token = JSON.parse(response.body)['token']
+          payload = Warden::JWTAuth::TokenDecoder.new.call(token)
+          expect(payload['read_only']).to be(true)
         end
       end
 

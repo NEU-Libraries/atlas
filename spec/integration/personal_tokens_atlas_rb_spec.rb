@@ -6,9 +6,12 @@ require 'rails_helper'
 # (AtlasRb::System::Token) through the live server — the "My DRS → Programmatic
 # access" cycle Cerberus drives post-SSO: mint a 1-week JWT for a real person,
 # prove it authenticates that person in BYO-JWT mode, then revoke and prove the
-# same token is dead. Both endpoints are :system-gated, so the binding runs on
-# the system connection (system token + `User: NUID` header), never the
-# ambient-user relay path.
+# same token is dead. Also covers `read_only:` minting — the shape handed to a
+# non-human caller (e.g. an Atlas MCP client) — proving the resulting token
+# still authenticates but is blocked on a write regardless of the target
+# user's own permissions. Both endpoints are :system-gated, so the binding
+# runs on the system connection (system token + `User: NUID` header), never
+# the ambient-user relay path.
 RSpec.describe 'Personal-access token lifecycle via atlas_rb', :atlas_rb_server do
   # atlas_rb's system_connection reads its bearer from
   # credentials.atlas_system_token; the server validates it against
@@ -80,6 +83,30 @@ RSpec.describe 'Personal-access token lifecycle via atlas_rb', :atlas_rb_server 
     end
     with_jwt(old) do
       expect(AtlasRb::Authentication.login('x')['nuid']).to be_nil
+    end
+  end
+
+  it 'mints a read_only token that authenticates but is blocked on a write' do
+    token = AtlasRb::System::Token.mint(nuid: librarian.nuid, read_only: true)
+    expect(token).to be_a(String).and be_present
+
+    with_jwt(token) do
+      me = AtlasRb::Authentication.login('999999999')
+      expect(me['nuid']).to eq(librarian.nuid) # read-shaped call still works
+
+      # librarian's own Ability grants :create, Community — the read_only
+      # floor blocks it anyway (no "community" key in the 403 envelope),
+      # proving the restriction is independent of the resolved user's real
+      # permissions.
+      expect(AtlasRb::Community.create(nil)).to be_nil
+    end
+  end
+
+  it 'mint without read_only is unaffected (full privilege, as before)' do
+    token = AtlasRb::System::Token.mint(nuid: librarian.nuid)
+
+    with_jwt(token) do
+      expect(AtlasRb::Community.create(nil)).to be_present
     end
   end
 

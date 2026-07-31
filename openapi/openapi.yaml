@@ -4186,8 +4186,8 @@ paths:
         `422 visibility_exceeds_parent` (widen the parent instead). And a group
         grant may only be removed by a member of that group — admin and the
         devolved-admin tier excepted; a grant the caller cannot remove is
-        preserved rather than rejected, so the response may carry group lists
-        the request omitted.
+        preserved rather than rejected, so the stored ACL may retain groups the
+        request omitted. Read it back with `GET /resources/{id}/permissions`.
 
         Programmatic Delegate writes (thumbnail-family URIs, sized image
         derivatives) no longer ride this endpoint — see the dedicated

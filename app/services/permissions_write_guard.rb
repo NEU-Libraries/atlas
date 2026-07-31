@@ -6,12 +6,12 @@
 # user:
 #
 #   1. **Containment.** A resource may be no more visible than its container.
-#      The invariant is established at create (the Creators copy
-#      parent.permissions) but nothing maintained it on the edit path, so a Work
-#      could be set `read: ['public']` inside a restricted Collection — a real
-#      disclosure, since gated discovery filters on the resource's own read
-#      groups with no ancestry term. Refused with a 422 rather than silently
-#      clamped: the caller asked for an audience it may not have.
+#      The Creators establish the invariant by copying parent.permissions; this
+#      keeps it true across edits, which matters because gated discovery filters
+#      on the resource's own read groups with no ancestry term — a public Work
+#      inside a restricted Collection is discoverable and downloadable by anyone
+#      while its parent 403s. Refused with a 422 rather than silently clamped:
+#      the caller asked for an audience it may not have.
 #
 #   2. **Grant removal.** A group grant may only be removed by a member of that
 #      group; admins and the devolved-admin tier are exempt. Preserved grants

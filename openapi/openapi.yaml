@@ -1791,13 +1791,22 @@ paths:
       tags:
       - Collections
       description: |
-        Creates a Collection as a child of the given Community.
+        Creates a Collection as a child of the given Community or Collection.
+
+        The caller must hold edit rights on that parent — a Grouper edit
+        grant, or ownership of it (its `depositor`). Otherwise `403`.
+        `parent_id` is required: a blank or unresolvable one is `404`.
 
         Optional `depositor` is the NUID to stamp as the intellectual
         owner — the same anonymous-batch configuration shape that
         `WorksController#create` supports for inheriting Work-level
         depositors.
-      parameters: []
+      parameters:
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          type: string
       responses:
         '200':
           description: create with explicit depositor stamps the resource
@@ -1805,6 +1814,10 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Collection"
+        '403':
+          description: caller holds no edit rights on the parent
+        '404':
+          description: parent_id missing or unresolvable
       requestBody:
         content:
           application/json:
@@ -1813,7 +1826,7 @@ paths:
               properties:
                 parent_id:
                   type: string
-                  description: NOID of the parent Community
+                  description: NOID of the parent Community or Collection
                 depositor:
                   type: string
                   description: NUID to stamp as the Collection depositor (optional)
@@ -2087,10 +2100,19 @@ paths:
       - Communities
       description: |
         Creates a Community. `parent_id` is optional — top-level
-        communities have no parent. Optional `depositor` is the NUID to
-        stamp as the intellectual owner (mirrors the same surface on
-        Collection/Work creates).
-      parameters: []
+        communities have no parent, and are the one create Atlas allows
+        without a container. When `parent_id` IS given the caller must hold
+        edit rights on that Community (Grouper edit grant, or ownership of
+        it), otherwise `403`; a given-but-unresolvable one is `404`.
+
+        Optional `depositor` is the NUID to stamp as the intellectual
+        owner (mirrors the same surface on Collection/Work creates).
+      parameters:
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          type: string
       responses:
         '200':
           description: create with explicit depositor stamps the resource
@@ -2098,6 +2120,10 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Community"
+        '403':
+          description: caller holds no edit rights on the parent Community
+        '404':
+          description: parent_id given but unresolvable
       requestBody:
         content:
           application/json:
@@ -4065,6 +4091,11 @@ paths:
       description: |
         Creates a new Work as a child of the given Collection.
 
+        The caller must hold edit rights on that Collection — a Grouper edit
+        grant, or ownership of it (its `depositor`, which is what makes a
+        deposit into one's own workspace work). Otherwise `403`.
+        `collection_id` is required: a blank or unresolvable one is `404`.
+
         Idempotent on the optional `Idempotency-Key` header: a repeat
         request from the same caller with the same key returns the
         originally-created Work instead of creating a new one. If the
@@ -4075,6 +4106,11 @@ paths:
         in: header
         required: false
         description: Client-supplied UUID; repeats return the existing resource.
+        schema:
+          type: string
+      - name: Authorization
+        in: header
+        required: false
         schema:
           type: string
       responses:
@@ -4090,6 +4126,10 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Work"
+        '403':
+          description: caller holds no edit rights on the parent Collection
+        '404':
+          description: collection_id missing or unresolvable
       requestBody:
         content:
           application/json:
@@ -4099,6 +4139,9 @@ paths:
                 collection_id:
                   type: string
                   description: NOID of the parent Collection
+                depositor:
+                  type: string
+                  description: NUID to stamp as the Work depositor (optional)
               required:
               - collection_id
   "/works/{id}":
@@ -4137,6 +4180,14 @@ paths:
         lives in the client, e.g. Cerberus, not Atlas). `metadata[permissions]`
         adjusts the ACL. Any `metadata[title]` / `metadata[description]` keys are
         ignored.
+
+        Two rules bound an ACL write. A resource may be no more visible than its
+        container, so a read audience wider than the parent's is refused with
+        `422 visibility_exceeds_parent` (widen the parent instead). And a group
+        grant may only be removed by a member of that group — admin and the
+        devolved-admin tier excepted; a grant the caller cannot remove is
+        preserved rather than rejected, so the response may carry group lists
+        the request omitted.
 
         Programmatic Delegate writes (thumbnail-family URIs, sized image
         derivatives) no longer ride this endpoint — see the dedicated

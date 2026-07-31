@@ -77,6 +77,11 @@ RSpec.describe 'Works', type: :request do
       description <<~DESC
         Creates a new Work as a child of the given Collection.
 
+        The caller must hold edit rights on that Collection — a Grouper edit
+        grant, or ownership of it (its `depositor`, which is what makes a
+        deposit into one's own workspace work). Otherwise `403`.
+        `collection_id` is required: a blank or unresolvable one is `404`.
+
         Idempotent on the optional `Idempotency-Key` header: a repeat
         request from the same caller with the same key returns the
         originally-created Work instead of creating a new one. If the
@@ -86,12 +91,14 @@ RSpec.describe 'Works', type: :request do
       parameter name: :body, in: :body, schema: {
         type:       :object,
         properties: {
-          collection_id: { type: :string, description: 'NOID of the parent Collection' }
+          collection_id: { type: :string, description: 'NOID of the parent Collection' },
+          depositor:     { type: :string, description: 'NUID to stamp as the Work depositor (optional)' }
         },
         required:   %w[collection_id]
       }
       parameter name: :'Idempotency-Key', in: :header, type: :string, required: false,
                 description: 'Client-supplied UUID; repeats return the existing resource.'
+      parameter name: :Authorization, in: :header, type: :string, required: false
 
       response '200', 'work created' do
         let(:body) { { collection_id: collection.noid } }
@@ -129,6 +136,24 @@ RSpec.describe 'Works', type: :request do
           w
         end
         schema '$ref' => '#/components/schemas/Work'
+        run_test!
+      end
+
+      response '403', 'caller holds no edit rights on the parent Collection' do
+        let!(:outsider) do
+          User.create!(email: 'outsider-work@example.invalid', password: SecureRandom.hex(16),
+                       nuid: '009999997', name: 'Outsider, Ola', role: :standard,
+                       groups: ['northeastern:drs:library:dsg_students'])
+        end
+        let(:body)              { { collection_id: collection.noid } }
+        let(:'Idempotency-Key') { nil }
+        let(:Authorization)     { "Bearer #{DefaultAuthHeaders.assertion_for('009999997')}" }
+        run_test!
+      end
+
+      response '404', 'collection_id missing or unresolvable' do
+        let(:body)              { { collection_id: '' } }
+        let(:'Idempotency-Key') { nil }
         run_test!
       end
     end
@@ -222,6 +247,14 @@ RSpec.describe 'Works', type: :request do
         lives in the client, e.g. Cerberus, not Atlas). `metadata[permissions]`
         adjusts the ACL. Any `metadata[title]` / `metadata[description]` keys are
         ignored.
+
+        Two rules bound an ACL write. A resource may be no more visible than its
+        container, so a read audience wider than the parent's is refused with
+        `422 visibility_exceeds_parent` (widen the parent instead). And a group
+        grant may only be removed by a member of that group — admin and the
+        devolved-admin tier excepted; a grant the caller cannot remove is
+        preserved rather than rejected, so the response may carry group lists
+        the request omitted.
 
         Programmatic Delegate writes (thumbnail-family URIs, sized image
         derivatives) no longer ride this endpoint — see the dedicated
@@ -1079,6 +1112,10 @@ RSpec.describe 'Works', type: :request do
   # An ACL-only metadata PATCH must preserve provenance — see collections_spec
   # / permissions_spec for the full rationale.
   describe 'PATCH /works/:id with ACL-only metadata preserves provenance' do
+    # Public root: the PATCH below grants a public read, which the containment
+    # rule allows only under a public container.
+    let(:community) { public_community! }
+
     it 'leaves depositor/proxy_uploader intact when metadata[permissions] omits them' do
       work = WorkCreator.call(
         parent_id:      collection.noid,

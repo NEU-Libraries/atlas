@@ -23,9 +23,13 @@ RSpec.describe 'Communities', type: :request do
       produces 'application/json'
       description <<~DESC
         Creates a Community. `parent_id` is optional — top-level
-        communities have no parent. Optional `depositor` is the NUID to
-        stamp as the intellectual owner (mirrors the same surface on
-        Collection/Work creates).
+        communities have no parent, and are the one create Atlas allows
+        without a container. When `parent_id` IS given the caller must hold
+        edit rights on that Community (Grouper edit grant, or ownership of
+        it), otherwise `403`; a given-but-unresolvable one is `404`.
+
+        Optional `depositor` is the NUID to stamp as the intellectual
+        owner (mirrors the same surface on Collection/Work creates).
       DESC
       parameter name: :body, in: :body, schema: {
         type:       :object,
@@ -34,6 +38,7 @@ RSpec.describe 'Communities', type: :request do
           depositor: { type: :string, description: 'NUID to stamp as the Community depositor (optional)' }
         }
       }
+      parameter name: :Authorization, in: :header, type: :string, required: false
 
       response '200', 'community created' do
         let(:body) { {} }
@@ -48,6 +53,23 @@ RSpec.describe 'Communities', type: :request do
           json = JSON.parse(response.body).fetch('community')
           expect(json['depositor']).to eq('900000001')
         end
+      end
+
+      response '403', 'caller holds no edit rights on the parent Community' do
+        let!(:outsider) do
+          User.create!(email: 'outsider-comm@example.invalid', password: SecureRandom.hex(16),
+                       nuid: '009999996', name: 'Outsider, Ola', role: :standard,
+                       groups: ['northeastern:drs:library:dsg_students'])
+        end
+        let(:parent)        { CommunityCreator.call }
+        let(:body)          { { parent_id: parent.noid } }
+        let(:Authorization) { "Bearer #{DefaultAuthHeaders.assertion_for('009999996')}" }
+        run_test!
+      end
+
+      response '404', 'parent_id given but unresolvable' do
+        let(:body) { { parent_id: 'nope404' } }
+        run_test!
       end
     end
   end

@@ -24,7 +24,11 @@ RSpec.describe 'Collections', type: :request do
       consumes 'application/json'
       produces 'application/json'
       description <<~DESC
-        Creates a Collection as a child of the given Community.
+        Creates a Collection as a child of the given Community or Collection.
+
+        The caller must hold edit rights on that parent — a Grouper edit
+        grant, or ownership of it (its `depositor`). Otherwise `403`.
+        `parent_id` is required: a blank or unresolvable one is `404`.
 
         Optional `depositor` is the NUID to stamp as the intellectual
         owner — the same anonymous-batch configuration shape that
@@ -34,12 +38,13 @@ RSpec.describe 'Collections', type: :request do
       parameter name: :body, in: :body, schema: {
         type:       :object,
         properties: {
-          parent_id: { type: :string, description: 'NOID of the parent Community' },
+          parent_id: { type: :string, description: 'NOID of the parent Community or Collection' },
           depositor: { type: :string, description: 'NUID to stamp as the Collection depositor (optional)' },
           featured:  { type: :boolean, description: 'Mark as a genre-showcase ("Featured") Collection (optional)' }
         },
         required:   %w[parent_id]
       }
+      parameter name: :Authorization, in: :header, type: :string, required: false
 
       response '200', 'collection created' do
         let(:body) { { parent_id: community.noid } }
@@ -65,6 +70,22 @@ RSpec.describe 'Collections', type: :request do
           json = JSON.parse(response.body).fetch('collection')
           expect(json['depositor']).to eq('900000001')
         end
+      end
+
+      response '403', 'caller holds no edit rights on the parent' do
+        let!(:outsider) do
+          User.create!(email: 'outsider@example.invalid', password: SecureRandom.hex(16),
+                       nuid: '009999998', name: 'Outsider, Ola', role: :standard,
+                       groups: ['northeastern:drs:library:dsg_students'])
+        end
+        let(:body)          { { parent_id: community.noid } }
+        let(:Authorization) { "Bearer #{DefaultAuthHeaders.assertion_for('009999998')}" }
+        run_test!
+      end
+
+      response '404', 'parent_id missing or unresolvable' do
+        let(:body) { { parent_id: '' } }
+        run_test!
       end
     end
   end
@@ -361,6 +382,10 @@ RSpec.describe 'Collections', type: :request do
   # them. Plain RSpec example (not rswag) since the multipart nested-params
   # shape is awkward to document via parameter declarations.
   describe 'PATCH /collections/:id with ACL-only metadata preserves provenance' do
+    # Public parent: the PATCH below grants a public read, which the containment
+    # rule allows only under a public container.
+    let(:community) { public_community! }
+
     it 'leaves depositor/proxy_uploader intact when metadata[permissions] omits them' do
       collection = CollectionCreator.call(
         parent_id:      community.noid,

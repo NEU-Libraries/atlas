@@ -489,6 +489,9 @@ RSpec.describe 'Auth matrix', type: :request, default_auth: false do
     end
 
     it 'permits non-system principals on POST /works' do
+      # A create is parent-scoped, so a human principal needs edit rights on the
+      # destination: the staff group every Creator stamps onto new resources.
+      privileged.update!(groups: [Permissions::STAFF_EDIT_GROUP])
       post '/works',
            params:  { collection_id: collection.noid }.to_json,
            headers: signed_auth_headers(privileged.nuid).merge('Content-Type' => 'application/json')
@@ -524,7 +527,7 @@ RSpec.describe 'Auth matrix', type: :request, default_auth: false do
     end
   end
 
-  describe 'admin-only structural mutations (re-parent + linked members)' do
+  describe 'admin-only structural mutations (re-parent + linked members + restore)' do
     # An edit-rights staff principal: in the default STAFF_EDIT_GROUP that
     # every Creator stamps onto new resources, so this user holds edit rights
     # on the Work, the source collection, and the destination. Under the old
@@ -650,6 +653,40 @@ RSpec.describe 'Auth matrix', type: :request, default_auth: false do
 
       it 'permits the :admin principal' do
         delete "/works/#{work.noid}/linked_members/#{destination.noid}", headers: json_headers(admin.nuid)
+        expect(response).to have_http_status(:ok)
+      end
+    end
+
+    # Reversing a withdrawal joined this tier: :tombstone still rides edit
+    # rights, but :restore is an operator action. `staff` holds edit rights on
+    # the Work via STAFF_EDIT_GROUP and could restore it before, so these
+    # examples pin a deliberate narrowing rather than a new denial.
+    describe 'POST /works/:id/restore' do
+      before do
+        work.tombstone(by: admin.nuid)
+        Atlas.persister.save(resource: work)
+      end
+
+      it 'denies an edit-rights staff principal with 403' do
+        post "/works/#{work.noid}/restore", headers: json_headers(staff.nuid)
+        expect(response).to have_http_status(:forbidden)
+        expect(response.parsed_body).to include('action' => 'restore')
+        expect(Work.find(work.noid).tombstoned).to be(true)
+      end
+
+      it 'permits the delegate (:privileged + ADMIN_GROUP)' do
+        post "/works/#{work.noid}/restore", headers: json_headers(delegate.nuid)
+        expect(response).to have_http_status(:ok)
+        expect(Work.find(work.noid).tombstoned).to be(false)
+      end
+
+      it 'denies the-group-without-:privileged with 403' do
+        post "/works/#{work.noid}/restore", headers: json_headers(delegate_wrong_role.nuid)
+        expect(response).to have_http_status(:forbidden)
+      end
+
+      it 'permits the :admin principal' do
+        post "/works/#{work.noid}/restore", headers: json_headers(admin.nuid)
         expect(response).to have_http_status(:ok)
       end
     end

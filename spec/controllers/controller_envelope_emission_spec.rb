@@ -30,7 +30,9 @@ RSpec.describe 'Controller envelope emission' do
   describe WorksController, type: :controller do
     render_views
 
-    let(:community)  { CommunityCreator.call }
+    # Public root: the metadata_update examples below grant a public read, which
+    # the containment rule allows only under a public container.
+    let(:community)  { public_community! }
     let(:collection) { CollectionCreator.call(parent_id: community.noid) }
     let(:work)       { WorkCreator.call(parent_id: collection.noid) }
 
@@ -59,7 +61,7 @@ RSpec.describe 'Controller envelope emission' do
   describe CollectionsController, type: :controller do
     render_views
 
-    let(:community)  { CommunityCreator.call }
+    let(:community)  { public_community! }
     let(:collection) { CollectionCreator.call(parent_id: community.noid) }
 
     it 'metadata_update bumps the Collection envelope head' do

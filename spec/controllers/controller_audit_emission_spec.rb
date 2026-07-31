@@ -17,7 +17,9 @@ RSpec.describe 'Controller audit emission' do
   describe WorksController, type: :controller do
     render_views
 
-    let(:community)  { CommunityCreator.call }
+    # Public root: the permissions example below grants a public read, which the
+    # containment rule allows only under a public container.
+    let(:community)  { public_community! }
     let(:collection) { CollectionCreator.call(parent_id: community.noid) }
     let(:work)       { WorkCreator.call(parent_id: collection.noid) }
 
@@ -37,11 +39,12 @@ RSpec.describe 'Controller audit emission' do
 
     it 'suppresses a no-op permissions write whose effective ACL is unchanged (Fix B)' do
       work # force creation up front (no actor on the WorkCreator let -> no events)
-      # The Work inherits { read: [], edit: [staff] }; re-submitting the same
-      # effective ACL (the setter re-prepends staff) changes nothing.
+      # The Work inherits { read: [public], edit: [staff] } from the tree;
+      # re-submitting the same effective ACL (the setter re-prepends staff)
+      # changes nothing.
       expect do
         patch :update,
-              params: { id: work.noid, metadata: { permissions: { read: [], edit: [], edit_users: [] } } },
+              params: { id: work.noid, metadata: { permissions: { read: ['public'], edit: [], edit_users: [] } } },
               as:     :json
       end.not_to change { AuditEvent.for_resource(work.id).count }
 

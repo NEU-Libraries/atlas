@@ -56,11 +56,20 @@ module Auditable
     # request carried a permissions key (captured BEFORE reassignment so the
     # permissions audit row can record before/after and so a no-op write can be
     # detected), otherwise nil.
+    #
+    # This is the single funnel every resource type's ACL write passes through,
+    # and the only place carrying both the acting user and the pre-edit state,
+    # so it is where PermissionsWriteGuard's rules apply — containment against
+    # the parent, and grant removal restricted to members of the group.
     def apply_metadata_params(resource, metadata)
       # custom noid is a test-only affordance
       resource.alternate_ids = metadata['noid'] if Rails.env.test? && metadata['noid'].present?
-      before_acl = resource.audited_acl if metadata['permissions'].present?
-      resource.permissions = metadata['permissions'] if metadata['permissions'].present?
+      return nil if metadata['permissions'].blank?
+
+      before_acl = resource.audited_acl
+      resource.permissions = PermissionsWriteGuard.call(resource: resource,
+                                                        incoming: metadata['permissions'],
+                                                        actor:    @current_user)
       before_acl
     end
 

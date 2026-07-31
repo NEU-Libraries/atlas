@@ -239,7 +239,9 @@ describe WorksController, type: :controller do
   # silent retry could clobber a concurrent caller's genuinely different
   # intent. They still get the structured 409 envelope.
   describe 'StaleObjectError handling on retry-unsafe actions' do
-    let(:community)  { CommunityCreator.call }
+    # Public root so the PATCH below reaches the save (and the stubbed
+    # conflict) rather than being refused by the containment rule.
+    let(:community)  { public_community! }
     let(:collection) { CollectionCreator.call(parent_id: community.noid) }
     let(:work)       { WorkCreator.call(parent_id: collection.noid) }
 

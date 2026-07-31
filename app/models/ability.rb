@@ -217,9 +217,9 @@ class Ability
       end
     end
 
-    # Devolved-admin tier: :privileged role + Permissions::ADMIN_GROUP,
-    # jointly (neither alone is sufficient — mirrors User#admin_delegate?'s
-    # Cerberus-side counterpart). :admin already passes everything below via
+    # Devolved-admin tier, keyed on User#admin_delegate? (:privileged role +
+    # Permissions::ADMIN_GROUP, jointly — neither alone is sufficient).
+    # :admin already passes everything below via
     # the manage :all wildcard, so this method only needs to cover the
     # narrower delegate case. Each grant here is a deliberate, named carve-out
     # below :admin's wildcard, not a role/group promotion:

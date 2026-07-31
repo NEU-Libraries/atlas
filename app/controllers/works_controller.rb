@@ -29,18 +29,21 @@ class WorksController < ApplicationController
   end
 
   # A Work always has a parent Collection, so a blank or unresolvable
-  # collection_id is a 404. Authorization is fully resolved before the
-  # idempotency replay so a caller who may not write into this container never
-  # gets a resource back, whether or not the key has been seen.
+  # collection_id is a 404. The container check runs only on the branch that
+  # actually creates: a replay writes nothing and can only return a resource
+  # this same caller already created (keys are scoped per user), so making it
+  # depend on the parent still being there would add a failure mode to the
+  # retry path bulk deposit relies on.
   def create
     authorize! :create, Work
-    parent = authorized_create_parent(params[:collection_id])
-    return head(:not_found) if parent.nil?
 
     if (record = find_idempotency_record(Work))
       @work = Work.find(record.resource_noid)&.decorate
       return render_idempotent_resource(@work)
     end
+
+    parent = authorized_create_parent(params[:collection_id])
+    return head(:not_found) if parent.nil?
 
     # TODO: XML
     @work = WorkCreator.call(

@@ -94,11 +94,11 @@ RSpec.describe 'Personal-access token lifecycle via atlas_rb', :atlas_rb_server 
       me = AtlasRb::Authentication.login('999999999')
       expect(me['nuid']).to eq(librarian.nuid) # read-shaped call still works
 
-      # librarian's own Ability grants :create, Community — the read_only
-      # floor blocks it anyway (no "community" key in the 403 envelope),
-      # proving the restriction is independent of the resolved user's real
-      # permissions.
-      expect(AtlasRb::Community.create(nil)).to be_nil
+      # librarian's own Ability grants :create, Community — the read_only floor
+      # blocks it anyway, proving the restriction is independent of the resolved
+      # user's real permissions. atlas_rb translates a refusal on the create
+      # paths into a typed error rather than a nil unwrap.
+      expect { AtlasRb::Community.create(nil) }.to raise_error(AtlasRb::ForbiddenError)
     end
   end
 

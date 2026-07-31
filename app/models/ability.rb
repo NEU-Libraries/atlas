@@ -23,6 +23,14 @@
 #    DOES depend on resource state. The group-ACL block-form rules below need
 #    a concrete resource to read edit_users / edit_groups from; bare class
 #    checks would silently pass for users who don't have ACL access.
+#
+# Creating a resource takes BOTH checks: `:create` on the class answers "may
+# this principal author this type at all" (a role question — :system may author
+# containers but never Works), and `:create_child` on the resolved PARENT
+# answers "may they write into this container" (an ACL question). The child has
+# no state to inspect yet, but the container it lands in does, and writing into
+# a container you don't control is the same class of structural mutation as
+# :reparent. See ParentScopedCreate for the controller half.
 class Ability
   include CanCan::Ability
 
@@ -44,6 +52,10 @@ class Ability
   # Community — all three, since this ability never distinguished resource
   # types to begin with — (not via this alias list, and not via edit rights)
   # — see that method.
+  #
+  # :restore is withheld on the same reasoning even though its counterpart
+  # :tombstone rides edit rights: reversing a withdrawal is an operator action,
+  # so it lives with :reparent on the delegate tier.
   UPDATE_ALIASES = %i[update_thumbnails update_image_derivatives update_derivative_permissions
                       update_iiif_service update_full_text complete].freeze
 
@@ -89,12 +101,19 @@ class Ability
         can :read,       User
         can :create,     Community
         can :create,     Collection
+        # The container half of the seed carve-out: :create above says which
+        # types :system may author, this says which containers it may write
+        # into — unconditionally, since the seed bootstraps a tree it has no
+        # ACL foothold in. The pair is what keeps Works out of reach: a Work
+        # create still fails the class-level `:create, Work` check even though
+        # its parent Collection passes here.
+        can :create_child, [Community, Collection]
         # Operational Solr re-projection (POST /resources/:id/reindex[_subtree]).
         # Side-effect-free (no Postgres write, no lifecycle/audit) — re-derives
         # the Solr doc after an indexer ships/changes. An operational action,
         # never a user one, so it lives here on the :system tier (admin reaches
         # it via the manage :all wildcard, like :reparent).
-        can :reindex,    Resource
+        can :reindex, Resource
         # Person curation — create + edit authority fields + manage affiliations
         # (affiliation add/remove ride :update). Name authority and affiliations
         # are operational/curatorial, not a self-service user action, so they
@@ -130,8 +149,10 @@ class Ability
         can :read,    User
         can :preview, Resource
 
-        # Container + Work creation. Group ACLs gate per-instance updates;
-        # creates are class-level (no resource to inspect yet).
+        # Container + Work creation — the type half only. Which container the
+        # child may land in is decided per-instance by the `:create_child` rule
+        # in apply_group_abilities. A parentless Community (top of tree) has no
+        # container to consult, so this class check is the whole gate there.
         can :create, Work
         can :create, Community
         can :create, Collection
@@ -161,9 +182,17 @@ class Ability
       return if user.guest?      # read floor only
 
       [Work, Collection, Community].each do |klass|
-        can %i[update tombstone restore], klass do |resource|
-          group_acl_grants?(resource, user)
+        can %i[update tombstone], klass do |resource|
+          edit_grants?(resource, user)
         end
+      end
+
+      # Parent-scoped create: the subject is the CONTAINER the new child lands
+      # in, never the child. A Work is never a container of Works/Collections,
+      # so only these two types can be the subject. FileSet/Blob creation hangs
+      # off a Work and is deliberately not gated here (see the role branch).
+      can :create_child, [Collection, Community] do |parent|
+        edit_grants?(parent, user)
       end
     end
 
@@ -184,7 +213,7 @@ class Ability
       return if user.guest?
 
       can %i[update destroy], Compilation do |comp|
-        comp.depositor == user.nuid || group_acl_grants?(comp, user)
+        edit_grants?(comp, user)
       end
     end
 
@@ -210,10 +239,14 @@ class Ability
     #  - :read_versions on Blob — a narrower verb than the generic
     #    `:read, AuditEvent` (audit-history tab) so this grant can't be
     #    mistaken for opening that surface; see BlobsController#versions.
+    #  - :restore on Work/Collection/Community — reversing a tombstone is an
+    #    operator action, not an owner or curator one, so it sits beside
+    #    :reparent here rather than riding edit rights like :tombstone does.
     def apply_admin_delegate_abilities(user)
-      return unless user.role.to_s == 'privileged' && Array(user.groups).include?(Permissions::ADMIN_GROUP)
+      return unless user.admin_delegate?
 
       can :reparent, [Work, Collection, Community]
+      can :restore,  [Work, Collection, Community]
       can :create, AuditEvent
       can :read_versions, Blob
     end
@@ -235,5 +268,20 @@ class Ability
 
       Array(resource.edit_users).include?(user.nuid) ||
         (Array(resource.edit_groups) & Array(user.groups)).any?
+    end
+
+    # Edit-equivalent grant: an ACL match OR ownership. Ownership has to count
+    # separately because it is not represented in the ACL — a personal root and
+    # everything beneath it carries `edit: [repository:staff]` with the owner
+    # recorded only as `depositor`, so a non-staff owner would otherwise be
+    # locked out of their own workspace. A depositor may therefore edit,
+    # withdraw, and deposit into their own resource independent of Grouper
+    # membership; :restore is deliberately NOT one of those verbs (operator
+    # only — see apply_admin_delegate_abilities).
+    def edit_grants?(resource, user)
+      return false if resource.nil?
+
+      group_acl_grants?(resource, user) ||
+        (resource.depositor.present? && resource.depositor == user.nuid)
     end
 end

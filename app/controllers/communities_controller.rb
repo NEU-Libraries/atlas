@@ -1,12 +1,14 @@
 # frozen_string_literal: true
 
 # Communities
+# rubocop:disable Metrics/ClassLength
 class CommunitiesController < ApplicationController
   include LazyPagination
   include DelegateUris
   include StaleObjectRetry
   include Reparentable
   include Auditable
+  include ParentScopedCreate
 
   # Container creation is intentionally left open to :system so the seed task
   # can bootstrap Communities + Collections. The :system carve-out for :create
@@ -26,11 +28,16 @@ class CommunitiesController < ApplicationController
     render :show, status: (@community.tombstoned ? :gone : :ok)
   end
 
+  # A Community may legitimately be parentless (top of tree), so a blank
+  # parent_id creates a root; a given-but-unresolvable one is still a 404.
   def create
     authorize! :create, Community
+    parent = authorized_create_parent(params[:parent_id])
+    return head(:not_found) if parent.nil? && params[:parent_id].present?
+
     # TODO: XML
     @community = CommunityCreator.call(
-      parent_id:         params[:parent_id],
+      parent_id:         parent&.noid,
       proxy_uploader:    proxy_uploader_nuid,
       depositor:         depositor_nuid,
       actor_nuid:        @current_user&.nuid,
@@ -173,3 +180,4 @@ class CommunitiesController < ApplicationController
       @community = audited_metadata_update(@community)
     end
 end
+# rubocop:enable Metrics/ClassLength

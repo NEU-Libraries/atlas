@@ -64,6 +64,29 @@ RSpec.describe User do
     end
   end
 
+  # The devolved-admin tier is the conjunction of a role and a group; each half
+  # alone must not qualify.
+  describe '#admin_delegate?' do
+    def user_with(role:, groups:)
+      described_class.new(role: role, groups: groups)
+    end
+
+    it 'is true for :privileged carrying the admin group' do
+      expect(user_with(role: :privileged, groups: [Permissions::ADMIN_GROUP])).to be_admin_delegate
+    end
+
+    it 'is false for :privileged without the group' do
+      expect(user_with(role: :privileged, groups: [Permissions::STAFF_EDIT_GROUP])).not_to be_admin_delegate
+      expect(user_with(role: :privileged, groups: [])).not_to be_admin_delegate
+    end
+
+    it 'is false for the group without the :privileged role' do
+      %i[standard loader admin].each do |role|
+        expect(user_with(role: role, groups: [Permissions::ADMIN_GROUP])).not_to be_admin_delegate
+      end
+    end
+  end
+
   # Multiple accounts per NUID (a person's staff/student logins share the NUID
   # but each has its own email + group set).
   describe 'accounts per NUID' do

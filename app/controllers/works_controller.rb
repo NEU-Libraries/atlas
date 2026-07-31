@@ -3,9 +3,8 @@
 # Works
 # rubocop:disable Metrics/ClassLength
 # Slightly over the class-length bar because of the depositor-resolution
-# helpers (proxy_uploader_nuid, depositor_nuid, parent_collection_for_depositor).
-# Extracting them to a separate object would overweight the indirection vs.
-# the work they do.
+# helpers (proxy_uploader_nuid, depositor_nuid). Extracting them to a separate
+# object would overweight the indirection vs. the work they do.
 class WorksController < ApplicationController
   include LazyPagination
   include IdempotentCreate
@@ -14,6 +13,7 @@ class WorksController < ApplicationController
   include Reparentable
   include LinkedMembers
   include Auditable
+  include ParentScopedCreate
 
   def index
     authorize! :read, Work
@@ -28,8 +28,14 @@ class WorksController < ApplicationController
     render :show, status: (@work.tombstoned ? :gone : :ok)
   end
 
+  # A Work always has a parent Collection, so a blank or unresolvable
+  # collection_id is a 404. Authorization is fully resolved before the
+  # idempotency replay so a caller who may not write into this container never
+  # gets a resource back, whether or not the key has been seen.
   def create
     authorize! :create, Work
+    parent = authorized_create_parent(params[:collection_id])
+    return head(:not_found) if parent.nil?
 
     if (record = find_idempotency_record(Work))
       @work = Work.find(record.resource_noid)&.decorate
@@ -38,9 +44,9 @@ class WorksController < ApplicationController
 
     # TODO: XML
     @work = WorkCreator.call(
-      parent_id:         params[:collection_id],
+      parent_id:         parent.noid,
       proxy_uploader:    proxy_uploader_nuid,
-      depositor:         depositor_nuid,
+      depositor:         depositor_nuid(parent),
       actor_nuid:        @current_user&.nuid,
       on_behalf_of_nuid: @on_behalf_of
     )
@@ -284,20 +290,12 @@ class WorksController < ApplicationController
     #      shape — points the collection at the :anonymous user and
     #      every Work inherits).
     #   4. proxy_uploader (self-deposit fallback).
-    def depositor_nuid
+    def depositor_nuid(parent)
       return params[:depositor] if params[:depositor].present?
       return @on_behalf_of      if @on_behalf_of.present?
-
-      collection = parent_collection_for_depositor
-      return collection.depositor if collection&.depositor.present?
+      return parent.depositor   if parent&.depositor.present?
 
       proxy_uploader_nuid
-    end
-
-    def parent_collection_for_depositor
-      return nil if params[:collection_id].blank?
-
-      Collection.find(params[:collection_id])
     end
 
     def binary_update

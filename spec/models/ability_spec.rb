@@ -82,6 +82,10 @@ RSpec.describe Ability do
     it { is_expected.to     be_able_to(:read,       Resource) }
     it { is_expected.to     be_able_to(:create,     Community) }
     it { is_expected.to     be_able_to(:create,     Collection) }
+    # Unconditional container half of the seed carve-out — the seed bootstraps a
+    # tree it holds no ACL foothold in.
+    it { is_expected.to     be_able_to(:create_child, Community.new) }
+    it { is_expected.to     be_able_to(:create_child, Collection.new) }
     # Operational Solr re-projection is a :system-tier action.
     it { is_expected.to     be_able_to(:reindex,    Resource) }
     # Person curation (create/edit authority + manage affiliations) is :system + admin.
@@ -89,7 +93,10 @@ RSpec.describe Ability do
     it { is_expected.to     be_able_to(:update,     Person.new) }
 
     # The rule the piece-2 reject_system_principal sprinkle encoded by hand:
-    # :system cannot author Works or mutate any container resource.
+    # :system cannot author Works or mutate any container resource. Note the
+    # :create_child grant above does NOT open Work creation — a Work create
+    # still fails this class-level check even though its parent Collection
+    # passes the container check.
     it { is_expected.not_to be_able_to(:create,     Work) }
     it { is_expected.not_to be_able_to(:create,     Compilation) }
     it { is_expected.not_to be_able_to(:read,       Compilation.new(read_groups: ['public'])) }
@@ -157,6 +164,12 @@ RSpec.describe Ability do
       it { is_expected.to     be_able_to(:update,  Blob) }
       it { is_expected.to     be_able_to(:preview, Resource) }
 
+      # The class-level :create grants above are only the type half — writing
+      # into a specific container still needs an ACL/ownership match, which this
+      # groupless principal has on none of them.
+      it { is_expected.not_to be_able_to(:create_child, Collection.new) }
+      it { is_expected.not_to be_able_to(:create_child, Community.new) }
+
       # Reindex is operational (:system / admin only), not a user action.
       it { is_expected.not_to be_able_to(:reindex,    Resource) }
       # Person curation is :system + admin — a standard human cannot.
@@ -194,6 +207,12 @@ RSpec.describe Ability do
       expect(subject).to be_able_to(:reparent, stranger_community)
     end
 
+    it 'grants :restore on all three types, unconditionally — the operator lifecycle verb' do
+      expect(subject).to be_able_to(:restore, stranger_work)
+      expect(subject).to be_able_to(:restore, stranger_collection)
+      expect(subject).to be_able_to(:restore, stranger_community)
+    end
+
     it 'grants :create AuditEvent (unblocks the impersonation session-start audit write)' do
       expect(subject).to be_able_to(:create, AuditEvent)
     end
@@ -215,9 +234,10 @@ RSpec.describe Ability do
     let(:user) { build_user(role: :privileged, nuid: '000000006', groups: [Permissions::STAFF_EDIT_GROUP]) }
     subject { described_class.new(user) }
 
-    it 'denies :reparent, :create AuditEvent, and :read_versions Blob' do
+    it 'denies :reparent, :restore, :create AuditEvent, and :read_versions Blob' do
       expect(subject).not_to be_able_to(:reparent,      Collection.new)
       expect(subject).not_to be_able_to(:reparent,      Community.new)
+      expect(subject).not_to be_able_to(:restore,       Collection.new(edit_groups: [Permissions::STAFF_EDIT_GROUP]))
       expect(subject).not_to be_able_to(:create,        AuditEvent)
       expect(subject).not_to be_able_to(:read_versions, Blob)
     end
@@ -258,16 +278,22 @@ RSpec.describe Ability do
       expect(subject).not_to be_able_to(:restore,   other_users_work)
     end
 
-    it 'grants :update / :tombstone / :restore when the user is in edit_users' do
+    it 'grants :update / :tombstone when the user is in edit_users' do
       expect(subject).to be_able_to(:update,    work_via_edit_user)
       expect(subject).to be_able_to(:tombstone, work_via_edit_user)
-      expect(subject).to be_able_to(:restore,   work_via_edit_user)
     end
 
-    it 'grants :update / :tombstone / :restore when the user shares an edit_group' do
+    it 'grants :update / :tombstone when the user shares an edit_group' do
       expect(subject).to be_able_to(:update,    work_via_edit_group)
       expect(subject).to be_able_to(:tombstone, work_via_edit_group)
-      expect(subject).to be_able_to(:restore,   work_via_edit_group)
+    end
+
+    # Reversing a withdrawal is an operator action, so edit rights carry
+    # :tombstone but deliberately NOT :restore — that now lives on :admin and
+    # the devolved-admin tier only.
+    it 'does NOT grant :restore to an edit-rights holder' do
+      expect(subject).not_to be_able_to(:restore, work_via_edit_user)
+      expect(subject).not_to be_able_to(:restore, work_via_edit_group)
     end
 
     it 'aliases :update_thumbnails / :update_image_derivatives / :update_derivative_permissions / :complete to :update' do
@@ -295,6 +321,71 @@ RSpec.describe Ability do
 
       expect(subject).to be_able_to(:update,    collection)
       expect(subject).to be_able_to(:tombstone, community)
+    end
+  end
+
+  # Ownership is not represented in the ACL: a personal root and everything
+  # under it carries `edit: [repository:staff]` with the owner recorded only as
+  # `depositor`, so a non-staff owner has no edit-group foothold on their own
+  # workspace. The depositor clause is what keeps them able to work in it.
+  describe 'depositor as an edit-equivalent grant' do
+    let(:user) { build_user(role: :standard, nuid: '000000555') }
+    subject { described_class.new(user) }
+
+    let(:own_work)       { Work.new(depositor: user.nuid, edit_users: [], edit_groups: [Permissions::STAFF_EDIT_GROUP]) }
+    let(:own_collection) { Collection.new(depositor: user.nuid, edit_groups: [Permissions::STAFF_EDIT_GROUP]) }
+    let(:stranger_work)  { Work.new(depositor: '000000999', edit_groups: [Permissions::STAFF_EDIT_GROUP]) }
+
+    it 'grants :update and :tombstone on the depositor’s own resource' do
+      expect(subject).to be_able_to(:update,    own_work)
+      expect(subject).to be_able_to(:tombstone, own_work)
+    end
+
+    it 'grants :create_child on a container the depositor owns (deposit into your own workspace)' do
+      expect(subject).to be_able_to(:create_child, own_collection)
+    end
+
+    it 'grants nothing on someone else’s resource' do
+      expect(subject).not_to be_able_to(:update,       stranger_work)
+      expect(subject).not_to be_able_to(:tombstone,    stranger_work)
+      expect(subject).not_to be_able_to(:create_child, Collection.new(depositor: '000000999'))
+    end
+
+    it 'does NOT extend to :restore' do
+      expect(subject).not_to be_able_to(:restore, own_work)
+    end
+
+    # Both nil must not read as a match — an unstamped resource does not belong
+    # to a user whose nuid happens to be blank.
+    it 'does not match a resource with no depositor' do
+      expect(described_class.new(build_user(role: :standard, nuid: '000000556')))
+        .not_to be_able_to(:update, Work.new)
+    end
+  end
+
+  # Parent-scoped create: the subject is the container the child lands in, and
+  # the class-level :create check is the separate "may this principal author
+  # this type" half (covered in the role blocks above).
+  describe ':create_child on the destination container' do
+    let(:user) do
+      build_user(role: :standard, nuid: '000000557', groups: ['northeastern:drs:dataset-editors'])
+    end
+    subject { described_class.new(user) }
+
+    it 'grants on a container the user can edit, via group or edit_users' do
+      expect(subject).to be_able_to(:create_child, Collection.new(edit_groups: user.groups))
+      expect(subject).to be_able_to(:create_child, Community.new(edit_users: [user.nuid]))
+    end
+
+    it 'denies on a container the user cannot edit — including one they cannot read' do
+      expect(subject).not_to be_able_to(:create_child, Collection.new(edit_groups: ['somebody:else']))
+      expect(subject).not_to be_able_to(:create_child,
+                                        Collection.new(read_groups: ['northeastern:drs:library:archives'],
+                                                       edit_groups: ['northeastern:drs:library:archives']))
+    end
+
+    it 'is not granted on a Work — a Work is never a container of Works or Collections' do
+      expect(subject).not_to be_able_to(:create_child, Work.new(edit_groups: user.groups))
     end
   end
 

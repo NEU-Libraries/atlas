@@ -73,6 +73,15 @@ class User < ApplicationRecord
     end
   end
 
+  # The devolved-admin tier: the :privileged role AND Permissions::ADMIN_GROUP,
+  # jointly — neither half alone is sufficient. Mirrors Cerberus's
+  # User#admin_delegate?. Read by Ability (for the scoped admin-adjacent grants
+  # that sit below :admin's wildcard) and by the controller-side ACL rules that
+  # exempt operators from the grant-removal restriction.
+  def admin_delegate?
+    privileged? && Array(groups).include?(Permissions::ADMIN_GROUP)
+  end
+
   def first_name
     parsed_name.given
   end

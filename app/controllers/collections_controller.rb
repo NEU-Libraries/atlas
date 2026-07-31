@@ -8,6 +8,7 @@ class CollectionsController < ApplicationController
   include StaleObjectRetry
   include Reparentable
   include Auditable
+  include ParentScopedCreate
 
   # Container creation is intentionally left open to :system so the seed task
   # can bootstrap Communities + Collections. The :system carve-out for :create
@@ -27,11 +28,16 @@ class CollectionsController < ApplicationController
     render :show, status: (@collection.tombstoned ? :gone : :ok)
   end
 
+  # A Collection always has a parent, so a blank or unresolvable parent_id is
+  # a 404 rather than a create with no home.
   def create
     authorize! :create, Collection
+    parent = authorized_create_parent(params[:parent_id])
+    return head(:not_found) if parent.nil?
+
     # TODO: XML
     @collection = CollectionCreator.call(
-      parent_id:         params[:parent_id],
+      parent_id:         parent.noid,
       featured:          featured_param,
       proxy_uploader:    proxy_uploader_nuid,
       depositor:         depositor_nuid,

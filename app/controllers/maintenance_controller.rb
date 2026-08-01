@@ -72,7 +72,8 @@ class MaintenanceController < ApplicationController
                           email: 'marcom-loader@northeastern.edu',
                           groups: ['northeastern:drs:repository:loaders:marcom'])
       create_fixture_user(name: 'User, Admin', nuid: '000000004',
-                          email: 'drs-admin@northeastern.edu', role: :admin)
+                          email: 'drs-admin@northeastern.edu', role: :admin,
+                          groups: ['northeastern:drs:repository:admin'])
     end
 
     def create_fixture_user(**attrs)

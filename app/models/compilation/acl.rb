@@ -47,10 +47,15 @@ class Compilation
       }
     end
 
-    # Same key set as the resource concern's audited slice, so `permissions`
-    # audit rows for Compilations read identically to resource rows.
+    # The grant keys of the resource concern's audited slice, so `permissions`
+    # audit rows for Compilations read like resource rows. Local rather than
+    # borrowed: that constant also carries :embargo, which Compilations don't
+    # have, and slicing a key that is never present is a claim this mirror
+    # can't honour.
+    AUDITED_KEYS = %i[read edit edit_users].freeze
+
     def audited_acl
-      permissions.slice(*::Permissions::AUDITED_ACL_KEYS)
+      permissions.slice(*AUDITED_KEYS)
     end
 
     # ACL slice only — replaces all three grant lists. Accepts symbol- or

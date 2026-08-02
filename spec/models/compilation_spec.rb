@@ -156,11 +156,18 @@ RSpec.describe Compilation do
       expect(compilation.edit_users).to eq(['000000001'])
     end
 
-    it 'audited_acl matches the resource concern key set' do
+    it 'audited_acl carries the grant keys of the resource concern slice' do
       compilation.publicize
       acl = compilation.audited_acl
-      expect(acl.keys).to match_array(Permissions::AUDITED_ACL_KEYS)
+      expect(acl.keys).to match_array(Compilation::ACL::AUDITED_KEYS)
       expect(acl[:read]).to eq(['public'])
+    end
+
+    # The resource slice audits embargo; Compilations have no embargo
+    # attribute, so their rows are the grant keys only.
+    it 'audited_acl omits the embargo key the resource slice carries' do
+      expect(Permissions::AUDITED_ACL_KEYS - Compilation::ACL::AUDITED_KEYS).to eq([:embargo])
+      expect(compilation.audited_acl).not_to have_key(:embargo)
     end
   end
 end

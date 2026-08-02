@@ -39,10 +39,15 @@ RSpec.describe 'Resources', type: :request do
       tags 'Resources'
       produces 'application/json'
 
+      # Wire contract: a resource with no embargo reports null, even though the
+      # attribute itself may be holding the setter's '' — clients read one shape
+      # for "no embargo", not two.
       response '200', 'permissions returned' do
         let(:id) { work.noid }
         schema '$ref' => '#/components/schemas/Permissions'
-        run_test!
+        run_test! do |response|
+          expect(response.parsed_body.dig('resource', 'embargo')).to be_nil
+        end
       end
     end
   end

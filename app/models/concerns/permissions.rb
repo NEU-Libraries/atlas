@@ -16,10 +16,12 @@ module Permissions
 
   # The ACL keys an audit `permissions` event records (before/after). The
   # canonical home for the snapshot shape, shared by the controller edit path
-  # (Auditable) and the create-time grant emission (the creators). Embargo and
-  # the provenance slots (depositor / proxy_uploader) are intentionally
-  # excluded — they carry their own ledger / are not part of the rights diff.
-  AUDITED_ACL_KEYS = %i[read edit edit_users].freeze
+  # (Auditable) and the create-time grant emission (the creators). Embargo
+  # belongs here because it is a rights decision a human makes and revises —
+  # it withholds downloads and then lifts itself on a chosen date, and nothing
+  # else records who moved it. The provenance slots (depositor /
+  # proxy_uploader) stay out: write-once, not part of a rights diff.
+  AUDITED_ACL_KEYS = %i[read edit edit_users embargo].freeze
 
   included do
     attribute :embargo_release_date, Valkyrie::Types::DateTime.optional
@@ -73,9 +75,15 @@ module Permissions
   # the on-disk projection. v2 splits depositor from edit_users (v1
   # aliased them); the schema bump is captured in
   # Preservable::ENVELOPE_SCHEMA_VERSION.
+  #
+  # `presence` on the embargo collapses the two shapes "no embargo" can take
+  # into one: the setter normalizes a blank date to '', but a resource never
+  # put through the setter (a root Community) still holds nil. Without this,
+  # the audited slice would read that nil -> '' step as a change and emit a
+  # `permissions` event in which nothing moved.
   def permissions
     {
-      embargo:        embargo_release_date&.to_s,
+      embargo:        embargo_release_date.presence&.to_s,
       depositor:      depositor,
       proxy_uploader: proxy_uploader,
       edit_users:     edit_users,

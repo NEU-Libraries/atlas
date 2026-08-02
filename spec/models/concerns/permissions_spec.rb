@@ -42,6 +42,47 @@ RSpec.describe Permissions do
       expect(collection.permissions[:type]).to eq('Collection')
       expect(work.permissions[:type]).to eq('Work')
     end
+
+    # "No embargo" reaches the getter two ways: nil on a resource never put
+    # through the setter (a root Community), and '' from the setter's blank
+    # normalization. Both must read as no embargo, or the first save of a
+    # blank field looks like a change to everything comparing this hash.
+    it 'reports both nil and the empty-string release date as no embargo' do
+      work.embargo_release_date = nil
+      expect(work.permissions[:embargo]).to be_nil
+
+      work.embargo_release_date = ''
+      expect(work.permissions[:embargo]).to be_nil
+    end
+
+    it 'serializes a set release date as a string' do
+      work.embargo_release_date = DateTime.parse('2027-12-31')
+      expect(work.permissions[:embargo]).to start_with('2027-12-31')
+    end
+  end
+
+  describe '#audited_acl' do
+    it 'carries the embargo alongside the grant keys' do
+      expect(work.audited_acl.keys).to match_array(Permissions::AUDITED_ACL_KEYS)
+      expect(Permissions::AUDITED_ACL_KEYS).to include(:embargo)
+    end
+
+    it 'compares equal across the nil -> empty-string blank transition' do
+      work.embargo_release_date = nil
+      before = work.audited_acl
+
+      work.permissions = work.permissions.merge(embargo: nil)
+      expect(work.embargo_release_date).to eq('') # the setter's blank shape
+      expect(work.audited_acl).to eq(before)
+    end
+
+    it 'differs once a release date is set' do
+      before = work.audited_acl
+      work.permissions = work.permissions.merge(embargo: '2027-12-31')
+
+      expect(work.audited_acl).not_to eq(before)
+      expect(work.audited_acl[:embargo]).to start_with('2027-12-31')
+    end
   end
 
   describe '#permissions=' do

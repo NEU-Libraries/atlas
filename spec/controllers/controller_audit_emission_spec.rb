@@ -52,6 +52,57 @@ RSpec.describe 'Controller audit emission' do
       expect(AuditEvent.for_resource(work.id).where(change_type: 'permissions')).to be_empty
     end
 
+    # Embargo rides the same audited slice as the grants, so set / change /
+    # clear each leave a row — nothing else in Atlas records that the release
+    # date moved, or who moved it.
+    describe 'embargo transitions' do
+      def patch_embargo(date, **overrides)
+        acl = { read: ['public'], edit: [], edit_users: [], embargo: date }.merge(overrides)
+        patch :update, params: { id: work.noid, metadata: { permissions: acl } }, as: :json
+      end
+
+      def permissions_rows
+        AuditEvent.for_resource(work.id).where(change_type: 'permissions').order(:created_at)
+      end
+
+      it 'records setting, changing, and clearing the release date' do
+        patch_embargo('2027-12-31')
+        patch_embargo('2028-06-30')
+        patch_embargo('')
+
+        moves = permissions_rows.map { |row| row.payload.values_at('before', 'after').pluck('embargo') }
+        expect(moves.length).to eq(3)
+        expect(moves[0][0]).to be_nil
+        expect(moves[0][1]).to start_with('2027-12-31')
+        expect(moves[1][0]).to start_with('2027-12-31')
+        expect(moves[1][1]).to start_with('2028-06-30')
+        expect(moves[2][0]).to start_with('2028-06-30')
+        expect(moves[2][1]).to be_nil
+      end
+
+      it 'leaves the grant keys untouched when only the embargo moved' do
+        patch_embargo('2027-12-31')
+
+        row     = permissions_rows.first
+        changed = row.payload['after'].reject { |key, value| row.payload['before'][key] == value }
+        expect(changed.keys).to eq(['embargo'])
+      end
+
+      it 'folds a simultaneous grant change into one event, not two' do
+        expect { patch_embargo('2027-12-31', edit_users: ['000000009']) }
+          .to change { permissions_rows.count }.by(1)
+
+        row = permissions_rows.last
+        expect(row.payload.dig('after', 'edit_users')).to include('000000009')
+        expect(row.payload.dig('after', 'embargo')).to    start_with('2027-12-31')
+      end
+
+      it 'still suppresses a re-save that leaves the release date alone' do
+        patch_embargo('2027-12-31')
+        expect { patch_embargo('2027-12-31') }.not_to change { permissions_rows.count }
+      end
+    end
+
     it 'binary_update writes a metadata row sourced from MODS' do
       patch :update,
             params: { id:     work.noid,
@@ -131,6 +182,25 @@ RSpec.describe 'Controller audit emission' do
       expect(rows.where(change_type: 'metadata').count).to eq(1)
       expect(rows.where(change_type: 'lifecycle').pluck(:action)).to contain_exactly('tombstone', 'restore')
       expect(rows.pluck(:resource_type).uniq).to eq(['Community'])
+    end
+
+    # A root Community is created without passing through Permissions#permissions=
+    # (there is no parent ACL to copy), so its embargo attribute is still nil when
+    # the Permissions tab is first saved — where the setter's blank normalization
+    # turns it into ''. That step is not a rights change and must emit nothing.
+    it 'writes no permissions row when a root Community first saves a blank embargo' do
+      community.edit_groups = [Permissions::STAFF_EDIT_GROUP]
+      Atlas.persister.save(resource: community)
+      expect(community.embargo_release_date).to be_nil
+
+      expect do
+        patch :update,
+              params: { id:       community.noid,
+                        metadata: { permissions: { read: [], edit: [Permissions::STAFF_EDIT_GROUP], edit_users: [] } } },
+              as:     :json
+      end.not_to change { AuditEvent.for_resource(community.id).where(change_type: 'permissions').count }
+
+      expect(response).to have_http_status(:ok)
     end
   end
 

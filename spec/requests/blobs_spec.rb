@@ -162,6 +162,11 @@ RSpec.describe 'Files (Blobs)', type: :request do
         Uber-basic versioning: posts a new binary, appends its file identifier
         to the Blob (NOID preserved, prior bytes retained by OCFL).
 
+        `size`, `mime_type` and `digest` are re-derived from the new bytes, so a
+        consumer can set Content-Length and serve Range requests from the
+        response. `original_filename` and `label` describe the deposit and do
+        not change — use a fresh upload for a different filename.
+
         Idempotent on the optional `Idempotency-Key` header: a double-submit of
         the replace form with the same key returns the existing Blob instead of
         minting a second OCFL version.
@@ -182,13 +187,25 @@ RSpec.describe 'Files (Blobs)', type: :request do
       response '200', 'revision appended' do
         let(:blob)            { BlobCreator.call(work_id: work.noid, original_filename: 'example.bin', path: fixture.to_s) }
         let(:id)              { blob.noid }
-        let(:binary)          { Rack::Test::UploadedFile.new(fixture) }
+        let(:replacement)     { Rails.root.join('spec/fixtures/files/example.tif') }
+        let(:binary)          { Rack::Test::UploadedFile.new(replacement) }
         let(:expected_digest) { nil }
         let(:'Idempotency-Key') { nil }
         schema '$ref' => '#/components/schemas/Blob'
         run_test! do |response|
-          expect(JSON.parse(response.body).dig('blob', 'digest')).to match(/\Asha512:[0-9a-f]+\z/)
+          body = JSON.parse(response.body)
+          expect(body.dig('blob', 'digest')).to match(/\Asha512:[0-9a-f]+\z/)
+          expect(body.dig('blob', 'size')).to eq(File.size(replacement))
+          expect(body.dig('blob', 'mime_type')).to eq('image/tiff')
         end
+      end
+
+      response '404', 'file not found' do
+        let(:id)                { 'doesnotexist' }
+        let(:binary)            { Rack::Test::UploadedFile.new(fixture) }
+        let(:expected_digest)   { nil }
+        let(:'Idempotency-Key') { nil }
+        run_test!
       end
     end
 

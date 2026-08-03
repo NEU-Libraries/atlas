@@ -1567,6 +1567,11 @@ paths:
         Uber-basic versioning: posts a new binary, appends its file identifier
         to the Blob (NOID preserved, prior bytes retained by OCFL).
 
+        `size`, `mime_type` and `digest` are re-derived from the new bytes, so a
+        consumer can set Content-Length and serve Range requests from the
+        response. `original_filename` and `label` describe the deposit and do
+        not change — use a fresh upload for a different filename.
+
         Idempotent on the optional `Idempotency-Key` header: a double-submit of
         the replace form with the same key returns the existing Blob instead of
         minting a second OCFL version.
@@ -1602,6 +1607,8 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Blob"
+        '404':
+          description: file not found
     delete:
       summary: Destroy a file
       tags:

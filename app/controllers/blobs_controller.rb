@@ -4,6 +4,7 @@
 class BlobsController < ApplicationController
   include LazyPagination
   include FileHelper
+  include MimeHelper
   include IdempotentCreate
   include Auditable
 
@@ -41,10 +42,11 @@ class BlobsController < ApplicationController
   end
 
   # Append a new revision. Uber-basic versioning: post a new binary, append
-  # its file identifier to the Blob (NOID preserved), refresh the head digest.
-  # Idempotent on the Idempotency-Key header (same semantics as create): a
-  # double-submit of the replace form with the same key returns the existing
-  # Blob instead of minting a second OCFL version.
+  # its file identifier to the Blob (NOID preserved), refresh the head-revision
+  # facts (see #refresh_head_facts). Idempotent on the Idempotency-Key header
+  # (same semantics as create): a double-submit of the replace form with the
+  # same key returns the existing Blob instead of minting a second OCFL version.
+  # Unknown id → 404.
   def update
     authorize! :update, Blob
 
@@ -54,9 +56,11 @@ class BlobsController < ApplicationController
     end
 
     blob = Blob.find(params[:id])
+    return head(:not_found) if blob.nil?
+
     path = params[:binary].tempfile.path.presence || params[:binary].path
     verify_digest!(path, params[:expected_digest])
-    @blob = append_revision(blob, create_file(path, blob).version_id)
+    @blob = append_revision(blob, create_file(path, blob).version_id, source_path: path)
     record_idempotency_key!(@blob.noid, Blob)
   end
 
@@ -110,8 +114,9 @@ class BlobsController < ApplicationController
     file = BinaryVersionHistory.find_file(blob: blob, version_id: params[:version_id])
     return head(:not_found) if file.nil?
 
-    @blob = append_revision(blob, create_file(file.disk_path.to_s, blob, blob.original_filename).version_id,
-                            rolled_back_from: params[:version_id])
+    source_path = file.disk_path.to_s
+    @blob = append_revision(blob, create_file(source_path, blob, blob.original_filename).version_id,
+                            source_path: source_path, rolled_back_from: params[:version_id])
     render :update
   end
 
@@ -260,20 +265,42 @@ class BlobsController < ApplicationController
     end
 
     # Append a freshly-uploaded revision's versioned file identifier to the
-    # Blob, refresh the denormalized head digest, persist, and emit the
+    # Blob, refresh the denormalized head-revision facts, persist, and emit the
     # replace_file provenance row. version_id is stored as a plain string so
     # BinaryVersionHistory can correlate it back exactly; rolled_back_from, when
     # present, records which version this revision reinstated. Shared by the
     # PATCH (#update) and rollback (#rollback) paths, which differ only in where
-    # the new bytes came from. Returns the saved Blob.
-    def append_revision(blob, version_id, rolled_back_from: nil)
+    # the new bytes came from — source_path is those bytes on disk. Returns the
+    # saved Blob.
+    def append_revision(blob, version_id, source_path:, rolled_back_from: nil)
       blob.file_identifiers += [version_id]
-      blob.digest = recorded_digest(version_id)
+      refresh_head_facts(blob, version_id, source_path)
       saved = Atlas.persister.save(resource: blob)
       payload = { blob_noid: saved.noid, version_id: version_id.to_s }
       payload[:rolled_back_from] = rolled_back_from if rolled_back_from
       audit_file!(action: 'replace_file', resource: parent_work_of(saved), payload: payload)
       saved
+    end
+
+    # digest, size and mime_type describe the bytes that are *currently* head,
+    # so a new revision has to re-derive all three from those bytes — they are a
+    # read-path cache over the storage layer, and a stale size is what a
+    # consumer sets Content-Length and its Range arithmetic from (a replaced
+    # audio file would then truncate mid-stream).
+    #
+    # The MIME name hint is the deposited original_filename, not the replacing
+    # upload's own name, which is often a staged temp path: Marcel needs a real
+    # extension for formats with weak magic bytes, and `up.tmp` makes it answer
+    # application/octet-stream where `data.csv` answers text/csv. Magic bytes
+    # still win over the hint, so a genuine format change is still detected.
+    #
+    # original_filename, use and label stay as deposited. label especially:
+    # re-deriving it from bytes would relabel any replaced derivative tier
+    # (Small Image, Medium Image) back to Master Image.
+    def refresh_head_facts(blob, version_id, source_path)
+      blob.digest    = recorded_digest(version_id)
+      blob.size      = ::File.size(source_path)
+      blob.mime_type = mime_type(source_path, name: blob.original_filename)
     end
 
     # File events carry change_type 'file', which is resource-scoped — but

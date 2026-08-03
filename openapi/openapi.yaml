@@ -3071,7 +3071,8 @@ paths:
         already-attached Blob without re-uploading the bytes (410 + tombstone
         payload if the FileSet was tombstoned in the interim). Retains the v1
         `original_filename`, and verifies an optional `expected_digest`
-        (`"<algorithm>:<hexvalue>"`), 422 on mismatch.
+        (`"<algorithm>:<hexvalue>"`), 422 on mismatch. An id that resolves to no
+        FileSet is a 404.
       parameters:
       - name: Idempotency-Key
         in: header
@@ -3109,6 +3110,8 @@ paths:
                 "$ref": "#/components/schemas/FileSet"
         '422':
           description: verify-on-ingest rejects a digest mismatch
+        '404':
+          description: file set not found
     delete:
       summary: Destroy a file set
       tags:

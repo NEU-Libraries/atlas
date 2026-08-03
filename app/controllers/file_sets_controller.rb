@@ -53,7 +53,7 @@ class FileSetsController < ApplicationController
   # slot. Idempotent on the Idempotency-Key header (same semantics as create:
   # a replay returns the FileSet with its already-attached Blob, no recopy),
   # carries through the v1 original_filename, and honors verify-on-ingest via
-  # expected_digest.
+  # expected_digest. Unknown id → 404.
   def update
     authorize! :update, FileSet
 
@@ -61,6 +61,8 @@ class FileSetsController < ApplicationController
       @file_set = FileSet.find(record.resource_noid)
       return render_idempotent_resource(@file_set, view: :update)
     end
+
+    return head(:not_found) if FileSet.find(params[:id]).nil?
 
     file = params[:binary]
     BlobCreator.call(

@@ -141,7 +141,8 @@ RSpec.describe 'FileSets', type: :request do
         already-attached Blob without re-uploading the bytes (410 + tombstone
         payload if the FileSet was tombstoned in the interim). Retains the v1
         `original_filename`, and verifies an optional `expected_digest`
-        (`"<algorithm>:<hexvalue>"`), 422 on mismatch.
+        (`"<algorithm>:<hexvalue>"`), 422 on mismatch. An id that resolves to no
+        FileSet is a 404.
       DESC
       parameter name: :binary,            in: :formData, required: true
       parameter name: :original_filename, in: :formData, required: false
@@ -206,6 +207,15 @@ RSpec.describe 'FileSets', type: :request do
           # No content Blob landed (the FileSet's METS metadata Blob is unrelated setup).
           expect(FileSet.find(file_set.noid).content_files).to be_empty
         end
+      end
+
+      response '404', 'file set not found' do
+        let(:id)                { 'doesnotexist' }
+        let(:binary)            { Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/example.bin')) }
+        let(:original_filename) { nil }
+        let(:expected_digest)   { nil }
+        let(:'Idempotency-Key') { nil }
+        run_test!
       end
     end
 

@@ -73,6 +73,13 @@ describe FileSetsController, type: :controller do
       expect(response).to have_http_status(:success)
       # TODO: - check file set children count
     end
+
+    context 'when the file set does not exist' do
+      it 'returns 404' do
+        patch :update, params: { id: 'bogus-noid', binary: Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/work-mods.xml')) }, as: :json
+        expect(response).to have_http_status(:not_found)
+      end
+    end
   end
 
   describe 'DELETE #destroy' do

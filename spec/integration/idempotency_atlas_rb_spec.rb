@@ -114,6 +114,54 @@ RSpec.describe 'Idempotency + in_progress bindings via atlas_rb', :atlas_rb_serv
     end
   end
 
+  # The XML batch loader's shape: one manifest row carries one key, and passes
+  # it to the Work it creates and again to that Work's Blob. The key lookup is
+  # scoped by resource class, so both are legal — but while the unique index
+  # covered only (user, key), the Blob's key could neither replay nor record.
+  # It 422'd *after* the Blob had been persisted, so the job died before
+  # Work.complete and every batch-created Work stayed in_progress forever,
+  # which the edit filter reads as "not editable".
+  describe 'one key across a Work and its Blob (the batch-loader sequence)' do
+    let(:fixture) { Rails.root.join('spec/fixtures/files/example.bin').to_s }
+
+    it 'creates both and leaves the Work completable' do
+      key  = SecureRandom.uuid
+      work = AtlasRb::Work.create(collection.noid, idempotency_key: key, nuid: admin_nuid)
+
+      blob = AtlasRb::Blob.create(work['id'], fixture, 'example.bin',
+                                  idempotency_key: key, nuid: admin_nuid)
+      AtlasRb::Work.complete(work['id'], nuid: admin_nuid)
+
+      expect(blob['id']).to be_present
+      expect(AtlasRb::Work.find(work['id'], nuid: admin_nuid)['in_progress']).to be false
+    end
+
+    it 'records a row per class, so each replays independently' do
+      key  = SecureRandom.uuid
+      work = AtlasRb::Work.create(collection.noid, idempotency_key: key, nuid: admin_nuid)
+      blob = AtlasRb::Blob.create(work['id'], fixture, 'example.bin',
+                                  idempotency_key: key, nuid: admin_nuid)
+
+      work_replay = AtlasRb::Work.create(collection.noid, idempotency_key: key, nuid: admin_nuid)
+      blob_replay = AtlasRb::Blob.create(work['id'], fixture, 'example.bin',
+                                         idempotency_key: key, nuid: admin_nuid)
+
+      expect(work_replay['id']).to eq(work['id'])
+      expect(blob_replay['id']).to eq(blob['id'])
+      expect(IdempotencyKey.where(key: key).pluck(:resource_type)).to contain_exactly('Work', 'Blob')
+    end
+
+    it 'reaches a FileSet under the same key too' do
+      key  = SecureRandom.uuid
+      work = AtlasRb::Work.create(collection.noid, idempotency_key: key, nuid: admin_nuid)
+
+      file_set = AtlasRb::FileSet.create(work['id'], 'image', idempotency_key: key, nuid: admin_nuid)
+
+      expect(file_set['id']).to be_present
+      expect(IdempotencyKey.where(key: key).pluck(:resource_type)).to contain_exactly('Work', 'FileSet')
+    end
+  end
+
   describe 'AtlasRb::Work.complete' do
     it 'marks a freshly-created Work as in_progress: true by default' do
       created = AtlasRb::Work.create(collection.noid, nuid: admin_nuid)

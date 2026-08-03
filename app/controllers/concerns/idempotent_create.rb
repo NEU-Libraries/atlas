@@ -27,6 +27,12 @@ module IdempotentCreate
     # Returns the IdempotencyKey row for the (current user, header)
     # pair scoped to the given resource class, or nil if no replay
     # applies (no header, no auth context, or no matching record).
+    #
+    # Scoping by class is what lets one batch-load row use one key for the
+    # Work it creates and again for that Work's Blob — two operations, so two
+    # records. The scope is per class, not per action, so a caller that sent
+    # one key to both POST /files and PATCH /files/:id would still see the
+    # second treated as a replay of the first.
     def find_idempotency_record(resource_class)
       key = request.headers['Idempotency-Key']
       return if key.blank? || @current_user.nil?
@@ -53,6 +59,13 @@ module IdempotentCreate
     # header or no auth context. Concurrent retries that lose the
     # uniqueness race log a warning and continue — the resource we just
     # created is the duplicate in that case.
+    #
+    # Bookkeeping never fails the request: the resource is already persisted
+    # in Postgres, Solr and OCFL by the time we get here, so raising would
+    # report a create that did in fact land as an error, and the caller would
+    # retry it into a second copy. A transaction would not help — the Solr and
+    # OCFL writes are outside it, and a rollback would leave a phantom index
+    # entry pointing at nothing.
     def record_idempotency_key!(resource_noid, resource_class)
       key = request.headers['Idempotency-Key']
       return if key.blank? || @current_user.nil?
@@ -62,7 +75,11 @@ module IdempotentCreate
         resource_type: resource_class.name,
         resource_noid: resource_noid
       )
-    rescue ActiveRecord::RecordNotUnique
+    rescue ActiveRecord::RecordNotUnique, ActiveRecord::RecordInvalid => e
+      # A validation failure on anything but the key is our own bug, not a
+      # race, and must stay loud.
+      raise if e.is_a?(ActiveRecord::RecordInvalid) && e.record.errors[:key].blank?
+
       Rails.logger.warn(
         "[IdempotentCreate] lost the race recording key=#{key} " \
         "for #{resource_class.name}=#{resource_noid}"

@@ -79,6 +79,19 @@ RSpec.describe 'Binary version history endpoints', type: :request do
       expect(versions.first['original_filename']).to eq('example.bin')
     end
 
+    it 'carries created and digest on every revision, not only the head' do
+      noid = create_blob(fixture: fixture_a)
+      replace_blob(noid, fixture: fixture_b)
+
+      versions = versions_for(noid)
+      expect(versions.pluck('created')).to all(be_present)
+      expect(versions.pluck('digest')).to all(match(/\Asha512:[0-9a-f]+\z/))
+      # The revisions hold different bytes, so their fixity digests differ —
+      # that difference is the point of the column. A prior revision reporting
+      # the head's digest would be worse than reporting none.
+      expect(versions.pluck('digest').uniq.length).to eq(2)
+    end
+
     it 'lists a single seed revision for a never-replaced file' do
       noid = create_blob
       versions = versions_for(noid)

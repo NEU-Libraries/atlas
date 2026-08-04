@@ -121,16 +121,41 @@ module Valkyrie
         parsed = parse_id(id)
         return [] unless parsed
 
-        object_root = storage_root.object_root_for(parsed[:key])
-        return [] unless object_root.exist?
-
-        inventory = load_inventory(object_root: object_root)
+        inventory = object_inventory(parsed[:key])
         return [] unless inventory
 
         inventory.versions_containing(parsed[:logical_path]).map do |v|
-          meta = inventory.versions[v] || {}
-          { version: v, created: meta['created'], message: meta['message'], user: meta['user'],
-            digest: inventory.digest_for(version: v, logical_path: parsed[:logical_path]) }
+          { version: v }.merge(version_facts(inventory, v, parsed[:logical_path]))
+        end
+      end
+
+      # Per-version metadata for a set of specific ids, keyed by id string:
+      #   { 'ocfl://<tag>/<key>/v1/a.txt' => { version: 'v1', created:, message:,
+      #                                        user:, digest: }, … }
+      #
+      # find_version_metadata answers "every version holding ONE logical path".
+      # This answers "the recorded facts for exactly these ids", where each id
+      # names its own version AND its own logical path. A binary's revision
+      # history needs the second question: a replacement can land under a
+      # different logical path than the current one, and a lookup keyed on the
+      # current path then reports nothing for the superseded revisions.
+      #
+      # One inventory read per object, because an OCFL inventory is cumulative —
+      # the head inventory holds the state of every version. Ids the adapter
+      # doesn't handle, or that name a version the object has no record of, are
+      # absent from the result.
+      def find_version_metadata_for(ids:)
+        parsed = Array(ids).to_h { |id| [id.to_s, parse_id(id)] }.compact
+        parsed.group_by { |_id, fields| fields[:key] }.each_with_object({}) do |(key, entries), result|
+          inventory = object_inventory(key)
+          next unless inventory
+
+          entries.each do |id, fields|
+            version = fields[:version] || inventory.head
+            next unless inventory.versions.key?(version)
+
+            result[id] = { version: version }.merge(version_facts(inventory, version, fields[:logical_path]))
+          end
         end
       end
 
@@ -171,6 +196,24 @@ module Valkyrie
           else
             resource.id.to_s
           end
+        end
+
+        # The head inventory of the object holding `key`, or nil when the object
+        # has no readable inventory.
+        def object_inventory(key)
+          object_root = storage_root.object_root_for(key)
+          return nil unless object_root.exist?
+
+          load_inventory(object_root: object_root)
+        end
+
+        # The inventory's record of one logical path at one version. `digest` is
+        # the content digest of that path *in that version*, so it is the fixity
+        # value as recorded then, not a re-hash of the bytes now.
+        def version_facts(inventory, version, logical_path)
+          meta = inventory.versions[version] || {}
+          { created: meta['created'], message: meta['message'], user: meta['user'],
+            digest: inventory.digest_for(version: version, logical_path: logical_path) }
         end
 
         def inventory_id_for(key)

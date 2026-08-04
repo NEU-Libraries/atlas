@@ -73,16 +73,16 @@ class BinaryVersionHistory
     attr_reader :blob
 
     def descriptor_for(file_identifier, seed, revision:)
-      label = version_label(file_identifier)
       event = event_for(file_identifier, seed: seed)
+      facts = version_facts[file_identifier.to_s] || {}
       {
         revision:          revision,
-        version_id:        label,
+        version_id:        version_label(file_identifier),
         file_identifier:   file_identifier.to_s,
-        created:           created_for(label),
+        created:           facts[:created],
         actor_nuid:        event&.actor_nuid,
         on_behalf_of_nuid: event&.on_behalf_of_nuid,
-        digest:            digest_for(file_identifier),
+        digest:            qualified_digest(facts[:digest]),
         size:              size_for(file_identifier),
         original_filename: blob.original_filename
       }
@@ -100,23 +100,23 @@ class BinaryVersionHistory
       file_identifier.to_s[%r{/(v\d+)/}, 1]
     end
 
-    # created / digest, keyed by version label, from a single inventory read.
-    # find_version_metadata lists every OCFL version containing the head
-    # logical path; the content-revision labels we care about are a subset.
-    def version_meta
-      @version_meta ||=
-        storage_adapter.find_version_metadata(id: blob.latest_revision).index_by { |meta| meta[:version] }
-    end
-
-    def created_for(label)
-      version_meta.dig(label, :created)
+    # created / digest per revision, keyed by the revision's own file
+    # identifier, from a single inventory read.
+    #
+    # Each identifier carries both its version and its logical path, and both
+    # matter: a replace writes the bytes under the uploaded file's name, so a
+    # revision's logical path need not be the current one. Asking the inventory
+    # only for the versions holding the *current* path therefore answers nothing
+    # for the superseded revisions, which is how a fixity column empties out as
+    # soon as a version stops being head.
+    def version_facts
+      @version_facts ||= storage_adapter.find_version_metadata_for(ids: blob.file_identifiers)
     end
 
     # Self-describing "<algorithm>:<hexvalue>" fixity as recorded at that
     # version, read from the inventory without re-hashing — same shape as the
     # Blob's denormalized head `digest`.
-    def digest_for(file_identifier)
-      value = version_meta.dig(version_label(file_identifier), :digest)
+    def qualified_digest(value)
       value && "#{storage_adapter.digest_algorithm}:#{value}"
     end
 

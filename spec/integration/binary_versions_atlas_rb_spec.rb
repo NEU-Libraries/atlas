@@ -33,6 +33,10 @@ RSpec.describe 'Binary version history via atlas_rb', :atlas_rb_server do
     expect(newest['version_id']).to match(/\Av\d+\z/)
     expect(newest['actor_nuid']).to eq(admin_nuid)
     expect(newest['digest']).to match(/\Asha512:[0-9a-f]+\z/)
+    # Every row carries its own recorded timestamp and fixity digest, not only
+    # the head one: the consumer renders a When and a Fixity cell per row.
+    expect(envelope['versions'].pluck('created')).to all(be_present)
+    expect(envelope['versions'].pluck('digest')).to all(match(/\Asha512:[0-9a-f]+\z/))
     seed_label = envelope['versions'].last['version_id']
 
     # Streaming the seed version yields the original bytes, byte-for-byte.

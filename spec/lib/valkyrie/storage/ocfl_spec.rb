@@ -39,21 +39,30 @@ RSpec.describe Valkyrie::Storage::OCFL do
     tmp
   end
 
+  # A second fixture with different bytes, so two uploads to one object produce
+  # two genuinely different content digests.
+  let(:other_file) do
+    tmp = Tempfile.new(['ocfl-fixture-', '.png'])
+    IO.copy_stream(Rails.root.join('spec/fixtures/files/example.png').to_s, tmp)
+    tmp.rewind
+    tmp
+  end
+
+  let(:noid_resource) do
+    Class.new(Valkyrie::Resource) do
+      attribute :noid, Valkyrie::Types::String
+    end.new(noid: 'abcd1234e')
+  end
+
+  let(:upload!) do
+    lambda do |io = file, original_filename: 'foo.jpg', resource: noid_resource|
+      storage_adapter.upload(file: io, original_filename: original_filename, resource: resource)
+    end
+  end
+
   it_behaves_like 'a Valkyrie::StorageAdapter'
 
   describe 'OCFL on-disk layout' do
-    let(:noid_resource) do
-      Class.new(Valkyrie::Resource) do
-        attribute :noid, Valkyrie::Types::String
-      end.new(noid: 'abcd1234e')
-    end
-
-    let(:upload!) do
-      lambda do |io = file, original_filename: 'foo.jpg', resource: noid_resource|
-        storage_adapter.upload(file: io, original_filename: original_filename, resource: resource)
-      end
-    end
-
     it 'writes storage-root NAMASTE + ocfl_layout.json + extension config' do
       upload!.call
       expect(File.read(File.join(tmpdir, '0=ocfl_1.1'))).to eq("ocfl_1.1\n")
@@ -113,6 +122,50 @@ RSpec.describe Valkyrie::Storage::OCFL do
           expect(Digest::SHA512.file(File.join(object_root, p)).hexdigest).to eq(digest)
         end
       end
+    end
+  end
+
+  describe '#find_version_metadata_for' do
+    it 'reports created and digest per id, each read at its own version' do
+      first  = upload!.call
+      second = upload!.call(other_file)
+
+      facts = storage_adapter.find_version_metadata_for(ids: [first.version_id, second.version_id])
+      expect(facts.keys).to contain_exactly(first.version_id.to_s, second.version_id.to_s)
+      expect(facts.values.pluck(:version)).to contain_exactly('v1', 'v2')
+      expect(facts.values.pluck(:created)).to all(be_present)
+      expect(facts[first.version_id.to_s][:digest])
+        .not_to eq(facts[second.version_id.to_s][:digest])
+    end
+
+    # The case the head-keyed lookup got wrong: a replacement lands under the
+    # name of the file that was uploaded, so the superseded revision's logical
+    # path is not the current one.
+    it 'reports a superseded revision whose logical path is no longer current' do
+      first  = upload!.call(file, original_filename: 'deposited.bin')
+      second = upload!.call(other_file, original_filename: 'RackMultipart-1234.tmp')
+
+      facts = storage_adapter.find_version_metadata_for(ids: [first.version_id, second.version_id])
+      expect(facts[first.version_id.to_s][:created]).to be_present
+      expect(facts[first.version_id.to_s][:digest]).to be_present
+    end
+
+    it 'resolves an unversioned id at the head version' do
+      upload!.call
+      second = upload!.call(other_file)
+
+      facts = storage_adapter.find_version_metadata_for(ids: [second.id])
+      expect(facts[second.id.to_s][:version]).to eq('v2')
+    end
+
+    it 'omits ids it cannot resolve and returns {} for none' do
+      first = upload!.call
+
+      facts = storage_adapter.find_version_metadata_for(
+        ids: [first.version_id, "#{first.id.to_s.sub(%r{/foo\.jpg\z}, '')}/v99/foo.jpg", 'file:///elsewhere']
+      )
+      expect(facts.keys).to eq([first.version_id.to_s])
+      expect(storage_adapter.find_version_metadata_for(ids: [])).to eq({})
     end
   end
 end

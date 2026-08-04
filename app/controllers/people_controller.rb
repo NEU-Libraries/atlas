@@ -50,7 +50,6 @@ class PeopleController < ApplicationController
       display_name:      params[:display_name],
       bio:               params[:bio],
       orcid:             params[:orcid],
-      title:             params[:title],
       actor_nuid:        @current_user&.nuid,
       on_behalf_of_nuid: @on_behalf_of
     ).decorate
@@ -67,7 +66,7 @@ class PeopleController < ApplicationController
       @person = find_person
       return head(:not_found) if @person.nil?
 
-      %w[display_name bio orcid title].each do |attr|
+      %w[display_name bio orcid].each do |attr|
         @person.public_send("#{attr}=", params[attr]) if params.key?(attr)
       end
       @person = Atlas.persister.save(resource: @person)

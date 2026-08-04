@@ -1428,9 +1428,6 @@ components:
             orcid:
               type: string
               nullable: true
-            title:
-              type: string
-              nullable: true
             affiliated_community_ids:
               type: array
               items:
@@ -1448,7 +1445,6 @@ components:
           - display_name
           - bio
           - orcid
-          - title
           - affiliated_community_ids
           - personal_root_id
       required:
@@ -3277,8 +3273,6 @@ paths:
                   type: string
                 orcid:
                   type: string
-                title:
-                  type: string
               required:
               - nuid
               - display_name
@@ -3307,8 +3301,8 @@ paths:
       summary: Edit authority fields (system/admin)
       tags:
       - People
-      description: Librarian edits to display_name/bio/orcid/title. NUID is immutable
-        and not patchable.
+      description: Librarian edits to display_name/bio/orcid. NUID is immutable and
+        not patchable.
       parameters: []
       responses:
         '200':
@@ -3330,8 +3324,6 @@ paths:
                 bio:
                   type: string
                 orcid:
-                  type: string
-                title:
                   type: string
   "/people/{id}/affiliations":
     parameters:

@@ -20,21 +20,18 @@
 # at the controller (PeopleController#create -> 409) so this stays a pure
 # constructor usable by specs / internal callers.
 class PersonCreator < ApplicationService
-  # rubocop:disable Metrics/ParameterLists
-  def initialize(nuid:, display_name:, bio: nil, orcid: nil, title: nil,
+  def initialize(nuid:, display_name:, bio: nil, orcid: nil,
                  actor_nuid: nil, on_behalf_of_nuid: nil)
-    # rubocop:enable Metrics/ParameterLists
     @nuid              = nuid
     @display_name      = display_name
     @bio               = bio
     @orcid             = orcid
-    @title             = title
     @actor_nuid        = actor_nuid
     @on_behalf_of_nuid = on_behalf_of_nuid
   end
 
   def call
-    person = Person.new(nuid: @nuid, display_name: @display_name, bio: @bio, orcid: @orcid, title: @title)
+    person = Person.new(nuid: @nuid, display_name: @display_name, bio: @bio, orcid: @orcid)
     # Public read before the first composite save, so AccessControlsIndexer projects it (see class note).
     person.publicize
     person = Atlas.persister.save(resource: person)

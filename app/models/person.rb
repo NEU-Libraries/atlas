@@ -30,7 +30,6 @@ class Person < Resource
 
   attribute :bio,   Valkyrie::Types::String.optional
   attribute :orcid, Valkyrie::Types::String.optional
-  attribute :title, Valkyrie::Types::String.optional
 
   # Librarian-declared Person↔Community edges (Valkyrie ids). Mutated only via
   # the audited add/remove affiliation actions.

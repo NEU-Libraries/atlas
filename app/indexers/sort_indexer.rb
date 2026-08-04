@@ -25,11 +25,10 @@
 # parsed on either the write path or the read path.
 #
 # title_ssi is the sort form of whatever title_tsim displays, for every resource
-# type. That agreement is load-bearing for a Person: a Person's title IS their
-# name, and Valkyrie projects every attribute into every suffix, so without a
-# sort title of its own a Person's `title` attribute (their job title) is what
-# title_ssi holds — and a reader gets two names out of alphabetical order at the
-# head of an A-Z list, keyed on a value the row never shows.
+# type. Holding to that for a Person is why the title source falls back to a
+# display name: a Person's title IS their name, a Person carries no MODS, and a
+# Person reaches ordinary catalog results — so an A-Z list has to order one by
+# their name.
 class SortIndexer
   # Numbers sort as text in a string field, so each run of digits is left-padded
   # to six characters ("Chapter 2" before "Chapter 10"). Applied as v1 applied
@@ -100,8 +99,8 @@ class SortIndexer
 
     # The name a resource that holds no MODS is titled by — a Person, whose
     # authoritative display_name PersonIndexer already projects into title_tsim
-    # for display and keyword search. Sorting has to read the same source, or a
-    # Person sorts under a value the row never shows.
+    # for display and keyword search. Sorting reads the same source, so the two
+    # agree; a Person with no sort title at all would sort as missing.
     def display_name
       resource.try(:display_name)
     end

@@ -84,19 +84,18 @@ RSpec.describe 'People', type: :request do
           nuid:         { type: :string },
           display_name: { type: :string },
           bio:          { type: :string },
-          orcid:        { type: :string },
-          title:        { type: :string }
+          orcid:        { type: :string }
         },
         required:   %w[nuid display_name]
       }
 
       response '201', 'created' do
         let(:Authorization) { "Bearer #{DefaultAuthHeaders.admin_assertion}" }
-        let(:body) { { nuid: '009998888', display_name: 'New Person', title: 'Professor' } }
+        let(:body) { { nuid: '009998888', display_name: 'New Person' } }
         schema '$ref' => '#/components/schemas/Person'
         run_test! do |response|
           person = JSON.parse(response.body)['person']
-          expect(person).to include('nuid' => '009998888', 'display_name' => 'New Person', 'title' => 'Professor')
+          expect(person).to include('nuid' => '009998888', 'display_name' => 'New Person')
           # The personal root is minted eagerly and surfaced as a NOID.
           expect(person['personal_root_id']).to be_present
           # Create emits a structural audit row for the Person.
@@ -153,14 +152,13 @@ RSpec.describe 'People', type: :request do
       tags 'People'
       consumes 'application/json'
       produces 'application/json'
-      description 'Librarian edits to display_name/bio/orcid/title. NUID is immutable and not patchable.'
+      description 'Librarian edits to display_name/bio/orcid. NUID is immutable and not patchable.'
       parameter name: :body, in: :body, schema: {
         type:       :object,
         properties: {
           display_name: { type: :string },
           bio:          { type: :string },
-          orcid:        { type: :string },
-          title:        { type: :string }
+          orcid:        { type: :string }
         }
       }
 

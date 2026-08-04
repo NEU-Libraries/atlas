@@ -191,7 +191,6 @@ module OpenapiSchemas
               display_name:             { type: :string, description: 'Authoritative, librarian-editable name' },
               bio:                      { type: :string, nullable: true },
               orcid:                    { type: :string, nullable: true },
-              title:                    { type: :string, nullable: true },
               affiliated_community_ids: { type: :array, items: { type: :string },
                                           description: 'NOIDs of affiliated communities' },
               personal_root_id:         { type: :string, nullable: true,

@@ -29,9 +29,13 @@
 #   required by Cerberus (it reads personal_root_id off the Person JSON); indexed
 #   for discovery + to verify provisioning straight from Solr.
 #
-# Empty hash for everything that isn't a Person. Valkyrie's solr persister sets
-# internal_resource on the doc, so Cerberus's type-allowlisted catalog naturally
-# excludes Person without any extra flag here.
+# Empty hash for everything that isn't a Person.
+#
+# A Person doc reaches ordinary catalog results — Cerberus's type filter is a
+# denylist of the file-level types (-FileSet, -Blob, -Delegate), which a Person
+# passes — so treat a Person as a first-class result throughout, not as a
+# People-surface special case. SortIndexer sorts one on the same display_name
+# this titles it with.
 class PersonIndexer
   attr_reader :resource
 

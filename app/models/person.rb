@@ -15,10 +15,11 @@
 # Person itself is (decision) Postgres + Solr only — curatorial identity, not
 # preserved content, so it writes no OCFL envelope and seeds no
 # descriptive-metadata FileSet (its personal root, an ordinary Collection, does).
-# It lives in orm_resources alongside Community/Collection/Work but is scoped
-# OUT of the catalog default by its internal_resource (Cerberus type-allowlists
-# Work/Collection/Community); see PersonIndexer for the People-surface
-# projection.
+# It lives in orm_resources alongside Community/Collection/Work and reaches
+# ordinary catalog results: Cerberus excludes file-level types by denylist
+# (-FileSet, -Blob, -Delegate), which a Person passes. So a Person doc has to
+# carry the same discovery projections every other result carries — see
+# PersonIndexer for the People-surface fields and SortIndexer for the sort title.
 class Person < Resource
   # The correlation key. Unique among Persons (enforced at create — one Person
   # per NUID); the public address for the People surface (/people/:nuid).

@@ -20,8 +20,16 @@
 # the second is the only date a reader cares about.
 #
 # The field names and the normalisation are v1's, so a sort that worked in v1
-# orders the same way here. Sources are the JSON access copy (resource.mods),
-# so no MODS XML is parsed on either the write path or the read path.
+# orders the same way here. Sources are the JSON access copy (resource.mods) and
+# — for a resource that carries no MODS — its display name, so no MODS XML is
+# parsed on either the write path or the read path.
+#
+# title_ssi is the sort form of whatever title_tsim displays, for every resource
+# type. That agreement is load-bearing for a Person: a Person's title IS their
+# name, and Valkyrie projects every attribute into every suffix, so without a
+# sort title of its own a Person's `title` attribute (their job title) is what
+# title_ssi holds — and a reader gets two names out of alphabetical order at the
+# head of an A-Z list, keyed on a value the row never shows.
 class SortIndexer
   # Numbers sort as text in a string field, so each run of digits is left-padded
   # to six characters ("Chapter 2" before "Chapter 10"). Applied as v1 applied
@@ -65,12 +73,17 @@ class SortIndexer
 
   private
 
+    # Memoized including a nil answer: every resource is Modsable, so a lookup
+    # costs a query even for the file-level resources that never hold MODS, and
+    # this runs on every save.
     def mods
-      @mods ||= resource.try(:mods)
+      return @mods if defined?(@mods)
+
+      @mods = resource.try(:mods)
     end
 
     def sort_title
-      @sort_title ||= normalize(composed_title)
+      @sort_title ||= normalize(composed_title.presence || display_name)
     end
 
     # The composed title without its nonSort prefix. MODS records the article as
@@ -83,6 +96,14 @@ class SortIndexer
       return nil if parts.blank?
 
       NEU::MODS.compose_title(parts.except(:non_sort))
+    end
+
+    # The name a resource that holds no MODS is titled by — a Person, whose
+    # authoritative display_name PersonIndexer already projects into title_tsim
+    # for display and keyword search. Sorting has to read the same source, or a
+    # Person sorts under a value the row never shows.
+    def display_name
+      resource.try(:display_name)
     end
 
     def normalize(value)

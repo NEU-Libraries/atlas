@@ -72,6 +72,12 @@ RSpec.describe SortIndexer do
     it 'is absent when the resource has no title' do
       expect(described_class.new(resource: work_with_mods).to_solr).not_to have_key(:title_ssi)
     end
+
+    it 'sorts a resource that holds no MODS by its display name' do
+      person = Person.new(display_name: 'Doe, Jane', title: 'Professor of Marine Sciences')
+
+      expect(described_class.new(resource: person).to_solr[:title_ssi]).to eq('doe jane')
+    end
   end
 
   describe 'creator_ssi' do
@@ -151,16 +157,33 @@ RSpec.describe SortIndexer do
       expect(sort_fields_in_solr(collection)['title_ssi']).to eq('test collection')
     end
 
-    it 'answers a real Solr sort on title_ssi' do
+    it 'sorts a Person under their name, not under the job title they carry' do
+      person = PersonCreator.call(nuid: '001234567', display_name: 'Doe, Jane',
+                                  title: 'Professor of Marine and Environmental Sciences')
+
+      # Valkyrie projects the `title` attribute into every title_* suffix,
+      # title_ssi included, so the indexer's value has to win — as PersonIndexer's
+      # title_tsim already does. Otherwise a Person sorts under their job title:
+      # unnormalised, so ahead of every real sort title, and keyed on a value the
+      # row never shows.
+      expect(sort_fields_in_solr(person)['title_ssi']).to eq('doe jane')
+    end
+
+    it 'answers a real Solr sort on title_ssi, a Person in the result set' do
       Work.find(work.noid).mods_xml = Rails.root.join('spec/fixtures/files/work-mods.xml').read
       Atlas.persister.save(resource: Work.find(work.noid))
+      PersonCreator.call(nuid: '001234567', display_name: 'Doe, Jane',
+                         title: 'Professor of Marine and Environmental Sciences')
 
       docs = Atlas.index_adapter.connection.get(
         'select', params: { q: 'title_ssi:[* TO *]', sort: 'title_ssi asc', fl: 'title_ssi' }
       ).dig('response', 'docs')
 
-      expect(docs).to be_present
-      expect(docs.pluck('title_ssi')).to eq(docs.pluck('title_ssi').sort)
+      keys = docs.pluck('title_ssi')
+      expect(keys).to be_present
+      expect(keys).to eq(keys.sort)
+      expect(keys).to include('doe jane')
+      expect(keys.join(' ')).not_to match(/professor/i)
     end
   end
 end

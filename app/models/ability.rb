@@ -35,11 +35,14 @@ class Ability
   include CanCan::Ability
 
   # update_thumbnails / update_image_derivatives / update_derivative_permissions /
-  # update_iiif_service / update_full_text / complete travel with :update for the
+  # update_iiif_service / update_full_text / complete / mark_incomplete /
+  # clear_incomplete travel with :update for the
   # purposes of ACL gating — they all mutate the resource's state (machine-set
   # derived metadata) and callers who can :update can do these too. Keeps the
   # group-ACL block-form rules to a single :update declaration per resource
-  # class.
+  # class. The incomplete pair sits here rather than on the delegate tier
+  # because the same Cerberus job that deposits a Work is the one that reports
+  # its pipeline gave up, and that job already holds :update.
   #
   # :reparent and :link_member are intentionally NOT aliased here, and
   # non-admin HUMAN roles get neither via edit rights (group ACL below) —
@@ -57,7 +60,8 @@ class Ability
   # :tombstone rides edit rights: reversing a withdrawal is an operator action,
   # so it lives with :reparent on the delegate tier.
   UPDATE_ALIASES = %i[update_thumbnails update_image_derivatives update_derivative_permissions
-                      update_iiif_service update_full_text complete].freeze
+                      update_iiif_service update_full_text complete
+                      mark_incomplete clear_incomplete].freeze
 
   def initialize(user, on_behalf_of: nil)
     # @current_user is never nil under require_auth — at worst it

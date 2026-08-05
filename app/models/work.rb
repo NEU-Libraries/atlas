@@ -21,6 +21,24 @@ class Work < Resource
   # /works?in_progress=true monitoring query can find stuck deposits.
   attribute :in_progress, Valkyrie::Types::Bool.default(true)
 
+  # Sibling of in_progress for the other half of the lifecycle: the deposit
+  # finished, but a work-scoped enrichment job (PDF rendition, derivatives,
+  # full text) gave up after its retries. It FLAGS and never hides — a record
+  # with its file, title and metadata but one missing derivative is degraded,
+  # not broken, so it stays readable. Cerberus sets it from a give-up handler
+  # and clears it when a later run of the same job succeeds, which makes the
+  # state self-healing. Indexed in Solr so a result row can carry an
+  # "Incomplete" pill without a per-row fetch.
+  attribute :incomplete, Valkyrie::Types::Bool.default(false)
+
+  # Why the pipeline gave up, as a machine token (pdf_rendition_gave_up,
+  # media_rendition_gave_up, ingest_gave_up, …), so the caller can phrase the
+  # message and group a staff list by cause. Atlas holds it as an opaque
+  # string and deliberately does not validate it: the vocabulary belongs to
+  # Cerberus, the only writer, so a token added in a Cerberus job must not
+  # need an Atlas release to be accepted.
+  attribute :incomplete_reason, Valkyrie::Types::String.optional
+
   # Derived full-document text, extracted by Cerberus (pdftotext / Tika in a
   # Solid Queue job) and PATCHed in via /works/:id/full_text — the Work-level
   # aggregate of its content FileSets' body text. A regenerable **search aid**,

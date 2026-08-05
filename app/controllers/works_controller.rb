@@ -15,6 +15,12 @@ class WorksController < ApplicationController
   include Auditable
   include ParentScopedCreate
 
+  # The operator monitoring filters on GET /works, each an exact match on a
+  # Work lifecycle flag. An absent param means "no filtering" on that flag, so
+  # ?in_progress=false stays distinguishable from omitting it; supplying both
+  # narrows to the Works that satisfy each.
+  INDEX_FILTER_FLAGS = %i[in_progress incomplete].freeze
+
   def index
     authorize! :read, Work
     @pagination, @works = paginate_model(Work, filters: index_filters)
@@ -226,6 +232,41 @@ class WorksController < ApplicationController
     audit!(resource: @work, action: 'complete', change_type: 'lifecycle')
   end
 
+  # Flag a Work whose enrichment pipeline gave up (see Work#incomplete). The
+  # reason is a machine token Atlas stores unvalidated; a blank or absent one
+  # still sets the flag, because the caller is a job already on its own
+  # failure path and a 422 here would fail that failure handler. Idempotent —
+  # the last reason wins — so it is safe under the retry wrapper. No audit
+  # row: this is machine-set derived state that a later successful run clears
+  # by itself, like the thumbnail and full-text setters.
+  def mark_incomplete
+    with_stale_object_retry do
+      @work = find_work(params[:id])
+      authorize! :mark_incomplete, @work
+      return head(:not_found) if @work.nil?
+
+      @work.incomplete        = true
+      @work.incomplete_reason = params[:reason].presence
+      @work = Atlas.persister.save(resource: @work).decorate
+    end
+    render :show
+  end
+
+  # Clear the flag and its reason together — the repair half of the pair,
+  # called when a later run of the same job succeeds.
+  def clear_incomplete
+    with_stale_object_retry do
+      @work = find_work(params[:id])
+      authorize! :clear_incomplete, @work
+      return head(:not_found) if @work.nil?
+
+      @work.incomplete        = false
+      @work.incomplete_reason = nil
+      @work = Atlas.persister.save(resource: @work).decorate
+    end
+    render :show
+  end
+
   # Move a Work to a different Collection. Trivial sibling of the collection/
   # community re-parent: a Work has no descendants and carries no ancestry
   # field, so there is no cascade — only its own a_member_of changes.
@@ -267,10 +308,17 @@ class WorksController < ApplicationController
               .select { |m| Role.downloadable?(m.use) }
     end
 
+    # A blank value counts as absent, not as "match works whose flag is nil".
+    # `?in_progress=` is what a caller sends when it builds the query string
+    # from an unset variable, and casting that empty string gives nil, which
+    # matches no Work at all — an empty list reads as "nothing is stuck" and
+    # would be a lie. `to_s` keeps a literal false readable as false.
     def index_filters
-      return {} unless params.key?(:in_progress)
+      INDEX_FILTER_FLAGS.each_with_object({}) do |flag, filters|
+        next if params[flag].to_s.blank?
 
-      { in_progress: ActiveModel::Type::Boolean.new.cast(params[:in_progress]) }
+        filters[flag] = ActiveModel::Type::Boolean.new.cast(params[flag])
+      end
     end
 
     # The hands-on-keyboard actor for this create. Under acting-as the

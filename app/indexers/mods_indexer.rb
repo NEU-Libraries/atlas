@@ -14,6 +14,15 @@ class MODSIndexer
     # can find stuck deposits even before MODS metadata is filled in.
     fields[:in_progress_bsi] = resource.in_progress if resource.respond_to?(:in_progress)
 
+    # The pipeline-failure pair (Work#incomplete). Both go to Solr because a
+    # consumer renders the "Incomplete" pill and its cause straight from the
+    # search document — an unindexed field cannot drive it, and a per-row
+    # fetch to read one flag would defeat the result list.
+    if resource.respond_to?(:incomplete)
+      fields[:incomplete_bsi]        = resource.incomplete
+      fields[:incomplete_reason_ssi] = resource.incomplete_reason
+    end
+
     if decorated_resource.try(:plain_title)
       fields[:title_tsim] = decorated_resource.plain_title
       fields[:description_tsim] = decorated_resource.plain_description

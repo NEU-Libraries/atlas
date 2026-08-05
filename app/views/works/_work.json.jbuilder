@@ -22,4 +22,6 @@ json.work do
   json.depositor @work.depositor
   json.proxy_uploader @work.proxy_uploader
   json.in_progress @work.in_progress
+  json.incomplete @work.incomplete
+  json.incomplete_reason @work.incomplete_reason
 end

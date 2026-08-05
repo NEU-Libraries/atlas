@@ -7,6 +7,8 @@ json.works do |root|
       json.title work.plain_title
       json.description work.plain_description
       json.in_progress work.in_progress
+      json.incomplete work.incomplete
+      json.incomplete_reason work.incomplete_reason
     end
   end
 end

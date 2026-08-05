@@ -25,15 +25,32 @@ RSpec.describe 'Works', type: :request do
         Pass `?in_progress=true` to see only Works that Cerberus has not
         yet marked complete (operator-friendly "what's stuck?" view).
         Pass `?in_progress=false` to see only completed Works.
+
+        Pass `?incomplete=true` for the other operator list: Works whose
+        enrichment pipeline gave up after its retries (see
+        `POST /works/{id}/incomplete`). The two filters are independent and
+        combine, so `?in_progress=false&incomplete=true` reads as "finished,
+        but degraded".
       DESC
       parameter name: :in_progress, in: :query, type: :boolean, required: false,
                 description: 'Filter by in_progress state. Omit for no filtering.'
+      parameter name: :incomplete, in: :query, type: :boolean, required: false,
+                description: 'Filter by incomplete state. Omit for no filtering.'
 
+      # Each response below overrides only the filter it exercises. These
+      # defaults keep the other one out of the query string.
+      let(:in_progress) { nil }
+      let(:incomplete)  { nil }
+
+      # Both filters are blank here, which is also how a caller that builds the
+      # query string from an unset variable spells "no filter" — it must list
+      # every Work rather than silently matching none.
       response '200', 'works listed' do
-        let(:in_progress) { nil }
         before { 2.times { WorkCreator.call(parent_id: collection.noid) } }
         schema '$ref' => '#/components/schemas/WorksIndex'
-        run_test!
+        run_test! do |response|
+          expect(JSON.parse(response.body).fetch('works').size).to eq(2)
+        end
       end
 
       response '200', 'in-progress works listed' do
@@ -66,6 +83,48 @@ RSpec.describe 'Works', type: :request do
           works = JSON.parse(response.body).fetch('works')
           expect(works.size).to eq(1)
           expect(works.first.dig('work', 'in_progress')).to be false
+        end
+      end
+
+      response '200', 'incomplete works listed with their reason' do
+        let(:incomplete) { true }
+        before do
+          WorkCreator.call(parent_id: collection.noid)
+          w = WorkCreator.call(parent_id: collection.noid)
+          w.incomplete        = true
+          w.incomplete_reason = 'pdf_rendition_gave_up'
+          Atlas.persister.save(resource: w)
+        end
+        schema '$ref' => '#/components/schemas/WorksIndex'
+        run_test! do |response|
+          works = JSON.parse(response.body).fetch('works')
+          expect(works.size).to eq(1)
+          expect(works.first.dig('work', 'incomplete')).to be true
+          expect(works.first.dig('work', 'incomplete_reason')).to eq('pdf_rendition_gave_up')
+        end
+      end
+
+      response '200', 'the two filters combine — finished but degraded' do
+        let(:in_progress) { false }
+        let(:incomplete)  { true }
+        before do
+          # Three Works, one per class: still depositing, finished and clean,
+          # finished but degraded. Only the last matches both filters.
+          WorkCreator.call(parent_id: collection.noid)
+          clean = WorkCreator.call(parent_id: collection.noid)
+          clean.in_progress = false
+          Atlas.persister.save(resource: clean)
+          degraded = WorkCreator.call(parent_id: collection.noid)
+          degraded.in_progress       = false
+          degraded.incomplete        = true
+          degraded.incomplete_reason = 'media_rendition_gave_up'
+          Atlas.persister.save(resource: degraded)
+        end
+        schema '$ref' => '#/components/schemas/WorksIndex'
+        run_test! do |response|
+          works = JSON.parse(response.body).fetch('works')
+          expect(works.size).to eq(1)
+          expect(works.first.dig('work', 'incomplete_reason')).to eq('media_rendition_gave_up')
         end
       end
     end
@@ -1105,6 +1164,146 @@ RSpec.describe 'Works', type: :request do
         run_test! do |response|
           expect(JSON.parse(response.body)['error']).to eq('stale_resource')
         end
+      end
+    end
+  end
+
+  path '/works/{id}/incomplete' do
+    parameter name: :id, in: :path, type: :string, description: 'NOID of the Work'
+
+    post 'Flag a work whose pipeline gave up' do
+      tags 'Works'
+      consumes 'application/json'
+      produces 'application/json'
+      description <<~DESC
+        Sets `incomplete` to true and records `incomplete_reason`. Cerberus
+        calls this from a work-scoped job's give-up handler — the PDF or media
+        rendition, the derivatives, the full-text extraction — once that job
+        has exhausted its retries.
+
+        This state **flags; it never hides**. A Work with its file, title and
+        metadata but one missing derivative is degraded, not broken, and stays
+        readable. `MODSIndexer` projects both fields onto the Work's Solr
+        document (`incomplete_bsi`, `incomplete_reason_ssi`) so a result row
+        can render a pill without a per-row fetch.
+
+        `reason` is a machine token (`pdf_rendition_gave_up`,
+        `media_rendition_gave_up`, `ingest_gave_up`, …). Atlas stores it as an
+        opaque string and does **not** validate it against a list: the
+        vocabulary belongs to the caller, so a new token must not need an
+        Atlas release. A blank or absent reason still sets the flag — the
+        caller is a job already on its failure path.
+
+        Idempotent; the last reason wins. `DELETE` on the same path clears
+        both fields when a later run of the job succeeds.
+      DESC
+      parameter name: :body, in: :body, required: false, schema: {
+        type:       :object,
+        properties: {
+          reason: { type: :string, description: 'Machine token naming the cause (e.g. pdf_rendition_gave_up)' }
+        }
+      }
+
+      response '200', 'work flagged incomplete' do
+        let(:work) { WorkCreator.call(parent_id: collection.noid) }
+        let(:id)   { work.noid }
+        let(:body) { { reason: 'pdf_rendition_gave_up' } }
+        schema '$ref' => '#/components/schemas/Work'
+        run_test! do |response|
+          json = JSON.parse(response.body)
+          expect(json.dig('work', 'incomplete')).to be true
+          expect(json.dig('work', 'incomplete_reason')).to eq('pdf_rendition_gave_up')
+          # Flags, never hides: the deposit is untouched otherwise.
+          expect(json.dig('work', 'tombstoned')).to be false
+        end
+      end
+
+      response '200', 'the last reason wins on a replay' do
+        let(:work) { WorkCreator.call(parent_id: collection.noid) }
+        let(:id)   { work.noid }
+        let(:body) { { reason: 'media_rendition_gave_up' } }
+        before do
+          post "/works/#{work.noid}/incomplete",
+               params: { reason: 'pdf_rendition_gave_up' }, as: :json
+        end
+        schema '$ref' => '#/components/schemas/Work'
+        run_test! do |response|
+          expect(JSON.parse(response.body).dig('work', 'incomplete_reason')).to eq('media_rendition_gave_up')
+        end
+      end
+
+      response '200', 'a body-less call still sets the flag, with a null reason' do
+        let(:work) { WorkCreator.call(parent_id: collection.noid) }
+        let(:id)   { work.noid }
+        let(:body) { {} }
+        schema '$ref' => '#/components/schemas/Work'
+        run_test! do |response|
+          json = JSON.parse(response.body)
+          expect(json.dig('work', 'incomplete')).to be true
+          expect(json.dig('work', 'incomplete_reason')).to be_nil
+        end
+      end
+
+      response '404', 'no such work' do
+        let(:id)   { 'nonexistent' }
+        let(:body) { { reason: 'ingest_gave_up' } }
+        run_test!
+      end
+
+      response '409', 'optimistic-lock conflict survived the internal retry budget' do
+        let(:work) { WorkCreator.call(parent_id: collection.noid) }
+        let(:id)   { work.noid }
+        let(:body) { { reason: 'ingest_gave_up' } }
+        before do
+          work # persist before stubbing so the creator's saves don't hit the stub
+          allow_any_instance_of(WorksController).to receive(:sleep)
+          allow(Atlas.persister).to receive(:save).and_raise(Valkyrie::Persistence::StaleObjectError)
+        end
+        run_test! do |response|
+          expect(JSON.parse(response.body)['error']).to eq('stale_resource')
+        end
+      end
+    end
+
+    delete 'Clear the incomplete flag' do
+      tags 'Works'
+      produces 'application/json'
+      description <<~DESC
+        Clears `incomplete` and `incomplete_reason` together. Cerberus calls
+        this when a later run of the same job succeeds, which makes the state
+        self-healing; an operator repairing a Work by hand can call it too.
+
+        Idempotent — clearing a Work that was never flagged is a no-op.
+      DESC
+
+      response '200', 'flag cleared' do
+        let(:work) do
+          w = WorkCreator.call(parent_id: collection.noid)
+          w.incomplete        = true
+          w.incomplete_reason = 'pdf_rendition_gave_up'
+          Atlas.persister.save(resource: w)
+        end
+        let(:id) { work.noid }
+        schema '$ref' => '#/components/schemas/Work'
+        run_test! do |response|
+          json = JSON.parse(response.body)
+          expect(json.dig('work', 'incomplete')).to be false
+          expect(json.dig('work', 'incomplete_reason')).to be_nil
+        end
+      end
+
+      response '200', 'clearing a work that was never flagged is a no-op' do
+        let(:work) { WorkCreator.call(parent_id: collection.noid) }
+        let(:id)   { work.noid }
+        schema '$ref' => '#/components/schemas/Work'
+        run_test! do |response|
+          expect(JSON.parse(response.body).dig('work', 'incomplete')).to be false
+        end
+      end
+
+      response '404', 'no such work' do
+        let(:id) { 'nonexistent' }
+        run_test!
       end
     end
   end

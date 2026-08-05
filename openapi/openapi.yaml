@@ -154,6 +154,16 @@ components:
               type: boolean
               description: Cerberus-driven workflow flag; true until the bulk-deposit
                 job marks the Work complete.
+            incomplete:
+              type: boolean
+              description: Pipeline-failure flag; true when a work-scoped enrichment
+                job gave up after its retries. Flags only — the Work stays readable.
+            incomplete_reason:
+              type: string
+              nullable: true
+              description: Machine token naming the cause (e.g. pdf_rendition_gave_up).
+                Opaque to Atlas and unvalidated; the vocabulary belongs to the caller.
+                Null unless the Work is flagged.
             derivative_permissions:
               type: object
               additionalProperties:
@@ -181,6 +191,8 @@ components:
           - depositor
           - proxy_uploader
           - in_progress
+          - incomplete
+          - incomplete_reason
           - derivative_permissions
       required:
       - work
@@ -579,11 +591,23 @@ components:
               type: boolean
               description: Cerberus-driven workflow flag; true until the bulk-deposit
                 job marks the Work complete.
+            incomplete:
+              type: boolean
+              description: Pipeline-failure flag; true when a work-scoped enrichment
+                job gave up after its retries. Flags only — the Work stays readable.
+            incomplete_reason:
+              type: string
+              nullable: true
+              description: Machine token naming the cause (e.g. pdf_rendition_gave_up).
+                Opaque to Atlas and unvalidated; the vocabulary belongs to the caller.
+                Null unless the Work is flagged.
           required:
           - id
           - title
           - description
           - in_progress
+          - incomplete
+          - incomplete_reason
       required:
       - work
     CollectionSummary:
@@ -4072,6 +4096,12 @@ paths:
         Pass `?in_progress=true` to see only Works that Cerberus has not
         yet marked complete (operator-friendly "what's stuck?" view).
         Pass `?in_progress=false` to see only completed Works.
+
+        Pass `?incomplete=true` for the other operator list: Works whose
+        enrichment pipeline gave up after its retries (see
+        `POST /works/{id}/incomplete`). The two filters are independent and
+        combine, so `?in_progress=false&incomplete=true` reads as "finished,
+        but degraded".
       parameters:
       - name: in_progress
         in: query
@@ -4079,9 +4109,15 @@ paths:
         description: Filter by in_progress state. Omit for no filtering.
         schema:
           type: boolean
+      - name: incomplete
+        in: query
+        required: false
+        description: Filter by incomplete state. Omit for no filtering.
+        schema:
+          type: boolean
       responses:
         '200':
-          description: completed works listed
+          description: the two filters combine — finished but degraded
           content:
             application/json:
               schema:
@@ -4752,3 +4788,76 @@ paths:
                 "$ref": "#/components/schemas/Work"
         '409':
           description: optimistic-lock conflict survived the internal retry budget
+  "/works/{id}/incomplete":
+    parameters:
+    - name: id
+      in: path
+      description: NOID of the Work
+      required: true
+      schema:
+        type: string
+    post:
+      summary: Flag a work whose pipeline gave up
+      tags:
+      - Works
+      description: |
+        Sets `incomplete` to true and records `incomplete_reason`. Cerberus
+        calls this from a work-scoped job's give-up handler — the PDF or media
+        rendition, the derivatives, the full-text extraction — once that job
+        has exhausted its retries.
+
+        This state **flags; it never hides**. A Work with its file, title and
+        metadata but one missing derivative is degraded, not broken, and stays
+        readable. `MODSIndexer` projects both fields onto the Work's Solr
+        document (`incomplete_bsi`, `incomplete_reason_ssi`) so a result row
+        can render a pill without a per-row fetch.
+
+        `reason` is a machine token (`pdf_rendition_gave_up`,
+        `media_rendition_gave_up`, `ingest_gave_up`, …). Atlas stores it as an
+        opaque string and does **not** validate it against a list: the
+        vocabulary belongs to the caller, so a new token must not need an
+        Atlas release. A blank or absent reason still sets the flag — the
+        caller is a job already on its failure path.
+
+        Idempotent; the last reason wins. `DELETE` on the same path clears
+        both fields when a later run of the job succeeds.
+      parameters: []
+      responses:
+        '200':
+          description: a body-less call still sets the flag, with a null reason
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Work"
+        '404':
+          description: no such work
+        '409':
+          description: optimistic-lock conflict survived the internal retry budget
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  description: Machine token naming the cause (e.g. pdf_rendition_gave_up)
+    delete:
+      summary: Clear the incomplete flag
+      tags:
+      - Works
+      description: |
+        Clears `incomplete` and `incomplete_reason` together. Cerberus calls
+        this when a later run of the same job succeeds, which makes the state
+        self-healing; an operator repairing a Work by hand can call it too.
+
+        Idempotent — clearing a Work that was never flagged is a no-op.
+      responses:
+        '200':
+          description: clearing a work that was never flagged is a no-op
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Work"
+        '404':
+          description: no such work

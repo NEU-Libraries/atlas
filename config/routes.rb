@@ -34,6 +34,10 @@ Rails.application.routes.draw do
         post :tombstone
         post :restore
         post :complete
+        # The pipeline-failure flag (Work#incomplete). One noun, two verbs:
+        # POST sets it with a reason, DELETE repairs it.
+        post :incomplete, action: :mark_incomplete
+        delete :incomplete, action: :clear_incomplete
         patch :thumbnails, action: :update_thumbnails
         patch :image_derivatives, action: :update_image_derivatives
         patch :derivative_permissions, action: :update_derivative_permissions

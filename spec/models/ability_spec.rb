@@ -305,6 +305,13 @@ RSpec.describe Ability do
       expect(subject).not_to be_able_to(:update_derivative_permissions, other_users_work)
     end
 
+    it 'aliases the incomplete pair to :update — the depositing job already holds it' do
+      expect(subject).to     be_able_to(:mark_incomplete,  work_via_edit_user)
+      expect(subject).to     be_able_to(:clear_incomplete, work_via_edit_user)
+      expect(subject).not_to be_able_to(:mark_incomplete,  other_users_work)
+      expect(subject).not_to be_able_to(:clear_incomplete, other_users_work)
+    end
+
     it 'does NOT grant :reparent or :link_member — structural mutations are admin-only' do
       # Edit-rights is deliberately insufficient for re-parenting a node or
       # linking a Work into additional Collections; both are admin-only and

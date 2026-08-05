@@ -681,8 +681,15 @@ module OpenapiSchemas
   # Fields that live on Work but not on Collection/Community.
   def work_only_props
     {
-      in_progress: { type:        :boolean,
-                     description: 'Cerberus-driven workflow flag; true until the bulk-deposit job marks the Work complete.' }
+      in_progress:       { type:        :boolean,
+                           description: 'Cerberus-driven workflow flag; true until the bulk-deposit job marks the Work complete.' },
+      incomplete:        { type:        :boolean,
+                           description: 'Pipeline-failure flag; true when a work-scoped enrichment job gave up ' \
+                                        'after its retries. Flags only — the Work stays readable.' },
+      incomplete_reason: { type: :string, nullable: true,
+                           description: 'Machine token naming the cause (e.g. pdf_rendition_gave_up). Opaque to ' \
+                                        'Atlas and unvalidated; the vocabulary belongs to the caller. Null unless ' \
+                                        'the Work is flagged.' }
     }
   end
 

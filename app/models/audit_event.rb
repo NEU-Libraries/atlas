@@ -4,7 +4,7 @@
 # than Valkyrie because audit events must outlive their correlated resources;
 # they live in Postgres alongside (not inside) the metadata adapter.
 class AuditEvent < ApplicationRecord
-  ACTIONS        = %w[create update tombstone restore complete
+  ACTIONS        = %w[create update tombstone restore complete destroy
                       reparent link_member unlink_member
                       associate disassociate
                       add_file replace_file remove_file

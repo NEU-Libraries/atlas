@@ -180,11 +180,26 @@ module Valkyrie
         { algorithm: inventory.digest_algorithm, value: value }
       end
 
+      # Removes the whole OCFL object for the key the id names — every version
+      # and every logical path, not only the path in the id. Atlas keys one
+      # object per resource NOID, so an object and a resource's bytes are the
+      # same extent, and a partial removal would leave an object whose
+      # inventory no longer describes its contents.
       def delete(id:)
         parsed = parse_id(id)
         return unless parsed
 
-        object_root = storage_root.object_root_for(parsed[:key])
+        delete_object(key: parsed[:key])
+      end
+
+      # The same removal addressed by NOID instead of by a stored file id.
+      # Every resource owns an object (its preservation envelope) even when it
+      # holds no binary, and that object's id appears nowhere in the metadata
+      # for a caller to pass to delete.
+      def delete_object(key:)
+        return if key.blank?
+
+        object_root = storage_root.object_root_for(key.to_s)
         FileUtils.rm_rf(object_root) if object_root.exist?
       end
 

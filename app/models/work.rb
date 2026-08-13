@@ -4,6 +4,26 @@ class Work < Resource
   include Metsable
   include TierVisibility
 
+  # The typed, directed edges between two separate Works (v1's "associated
+  # works"): a codebook, a figure, a transcription and so on, each pointing
+  # at the Work it belongs to. The subordinate Work stores the edge; the
+  # other end is read back with find_inverse_references_by, so the reverse
+  # edge is never stored and can never drift out of step with the forward
+  # one.
+  #
+  # Five named attributes rather than one encoded string, because
+  # find_inverse_references_by needs a real property to query — it cannot
+  # read a type out of "codebook_for:abc123" — and because these are v1's
+  # own predicate names, so a migration maps one to one. The cost is that a
+  # sixth relationship type needs an Atlas release; the vocabulary has not
+  # changed since v1.
+  ASSOCIATION_TYPES = %i[is_codebook_for is_figure_for is_instructional_material_for
+                         is_supplemental_material_for is_transcription_of].freeze
+
+  ASSOCIATION_TYPES.each do |predicate|
+    attribute predicate, Valkyrie::Types::Set.of(Valkyrie::Types::ID)
+  end
+
   # The one structural home (Tree). Scalar — a Work lives in exactly one
   # Collection. Mirrors FileSet's existing scalar a_member_of.
   attribute :a_member_of, Valkyrie::Types::ID

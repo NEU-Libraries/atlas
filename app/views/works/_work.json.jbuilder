@@ -4,7 +4,6 @@ json.work do
   json.id @work.noid
   json.valkyrie_id @work.id.to_s
   json.ancestors @work.ancestors
-  json.ancestor_chain @work.ancestor_chain
   json.thumbnail @work.thumbnail_uri
   json.thumbnail_2x @work.thumbnail_uri_for(Role.thumbnail_image_2x.name)
   json.preview @work.thumbnail_uri_for(Role.preview_image.name)

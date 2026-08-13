@@ -3,21 +3,21 @@
 require 'rails_helper'
 
 RSpec.describe Relationships do
-  describe '#ancestors' do
+  describe '#ancestor_noids' do
     let!(:community)  { Atlas.persister.save(resource: Community.new) }
     let!(:collection) { Atlas.persister.save(resource: Collection.new(a_member_of: community.id)) }
     let!(:nested)     { Atlas.persister.save(resource: Collection.new(a_member_of: collection.id)) }
 
-    it 'walks the chain to the root (root-first), as [noid, class] pairs' do
-      expect(nested.ancestors).to eq([[community.noid, 'Community'], [collection.noid, 'Collection']])
+    it 'walks the chain to the root (root-first), as bare noids' do
+      expect(nested.ancestor_noids).to eq([community.noid, collection.noid])
     end
 
     it 'returns [] for a top-level resource' do
-      expect(community.ancestors).to eq([])
+      expect(community.ancestor_noids).to eq([])
     end
 
     # Corrupt the tree via the Postgres-only persister so the AncestryIndexer
-    # (which runs ancestors at index time, and would itself raise the guard)
+    # (which runs the walk at index time, and would itself raise the guard)
     # doesn't fire — isolating the walk under test. The indexer-time guard is
     # exercised separately; here we assert the walk raises rather than hangs.
     let(:pg) { Valkyrie::MetadataAdapter.find(:postgres).persister }
@@ -27,18 +27,18 @@ RSpec.describe Relationships do
       community.a_member_of = collection.id
       pg.save(resource: community)
 
-      expect { collection.ancestors }.to raise_error(Exceptions::AncestorError)
+      expect { collection.ancestor_noids }.to raise_error(Exceptions::AncestorError)
     end
 
     it 'raises AncestorError on a direct self-parent loop' do
       collection.a_member_of = collection.id
       pg.save(resource: collection)
 
-      expect { collection.ancestors }.to raise_error(Exceptions::AncestorError)
+      expect { collection.ancestor_noids }.to raise_error(Exceptions::AncestorError)
     end
   end
 
-  describe '#ancestor_chain' do
+  describe '#ancestors' do
     # Use the Creator services so each resource gets its descriptive-metadata
     # FileSet — seeding a title writes through MODS, which needs that FileSet.
     let!(:community)  { CommunityCreator.call }
@@ -51,22 +51,22 @@ RSpec.describe Relationships do
     end
 
     it 'returns root-first {noid, klass, title} nodes carrying each ancestor title' do
-      expect(work.ancestor_chain).to eq([
-                                          { noid: community.noid,  klass: 'Community',  title: 'Root Community' },
-                                          { noid: collection.noid, klass: 'Collection', title: 'Parent Collection' }
-                                        ])
+      expect(work.ancestors).to eq([
+                                     { noid: community.noid,  klass: 'Community',  title: 'Root Community' },
+                                     { noid: collection.noid, klass: 'Collection', title: 'Parent Collection' }
+                                   ])
     end
 
     it 'returns [] for a top-level resource' do
-      expect(community.ancestor_chain).to eq([])
+      expect(community.ancestors).to eq([])
     end
 
-    it 'raises AncestorError on a cycle (same guard as #ancestors)' do
+    it 'raises AncestorError on a cycle (same guard as #ancestor_noids)' do
       pg = Valkyrie::MetadataAdapter.find(:postgres).persister
       community.a_member_of = collection.id
       pg.save(resource: community)
 
-      expect { collection.ancestor_chain }.to raise_error(Exceptions::AncestorError)
+      expect { collection.ancestors }.to raise_error(Exceptions::AncestorError)
     end
   end
 

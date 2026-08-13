@@ -36,7 +36,7 @@ RSpec.describe 'Re-parenting via atlas_rb', :atlas_rb_server do
 
       result = AtlasRb::Work.reparent(work.noid, destination.noid, nuid: admin_nuid)
 
-      expect(result['ancestors'].map(&:first)).to include(destination.noid)
+      expect(result['ancestors'].pluck('noid')).to include(destination.noid)
       expect(Work.find(work.noid).parent.noid).to eq(destination.noid)
     end
   end
@@ -55,7 +55,7 @@ RSpec.describe 'Re-parenting via atlas_rb', :atlas_rb_server do
       # The cascade: child rode along — fetched fresh through the gem, its
       # ancestor chain now runs through the new destination.
       refetched = AtlasRb::Collection.find(child.noid, nuid: admin_nuid)
-      expect(refetched['ancestors'].map(&:first)).to contain_exactly(home.noid, destination.noid)
+      expect(refetched['ancestors'].pluck('noid')).to contain_exactly(home.noid, destination.noid)
     end
 
     it 'raises AtlasRb::ReparentError (and does not perform) a move into its own descendant' do
@@ -85,7 +85,7 @@ RSpec.describe 'Re-parenting via atlas_rb', :atlas_rb_server do
 
       result = AtlasRb::Community.reparent(community.noid, destination.noid, nuid: admin_nuid)
 
-      expect(result['ancestors'].map(&:first)).to include(destination.noid)
+      expect(result['ancestors'].pluck('noid')).to include(destination.noid)
       expect(Community.find(community.noid).parent.noid).to eq(destination.noid)
     end
 

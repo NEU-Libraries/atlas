@@ -278,7 +278,7 @@ RSpec.describe 'Works', type: :request do
         end
       end
 
-      response '200', 'ancestor_chain carries each ancestor noid, klass and title (root-first)' do
+      response '200', 'ancestors carry each ancestor noid, klass and title (root-first)' do
         let(:work) { WorkCreator.call(parent_id: collection.noid) }
         let(:id)   { work.noid }
         before do
@@ -287,7 +287,7 @@ RSpec.describe 'Works', type: :request do
         end
         schema '$ref' => '#/components/schemas/Work'
         run_test! do |response|
-          chain = JSON.parse(response.body).fetch('work').fetch('ancestor_chain')
+          chain = JSON.parse(response.body).fetch('work').fetch('ancestors')
           expect(chain).to eq([
                                 { 'noid' => community.noid,  'klass' => 'Community',  'title' => 'Root Community' },
                                 { 'noid' => collection.noid, 'klass' => 'Collection', 'title' => 'Parent Collection' }
@@ -975,7 +975,7 @@ RSpec.describe 'Works', type: :request do
         schema '$ref' => '#/components/schemas/Work'
         run_test! do |response|
           ancestors = JSON.parse(response.body).dig('work', 'ancestors')
-          expect(ancestors.map(&:first)).to include(destination.noid)
+          expect(ancestors.pluck('noid')).to include(destination.noid)
         end
       end
 

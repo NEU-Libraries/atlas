@@ -550,19 +550,18 @@ module OpenapiSchemas
 
   def base_resource_props
     {
-      id:             { type: :string, description: 'NOID' },
-      valkyrie_id:    { type: :string, description: 'Valkyrie internal id' },
-      ancestors:      ancestor_pairs,
-      ancestor_chain: ancestor_chain_nodes,
-      thumbnail:      { type: :string, nullable: true, description: 'IIIF URL of the :thumbnail_image Delegate (~85px), or null' },
-      thumbnail_2x:   { type: :string, nullable: true, description: 'IIIF URL of the :thumbnail_image_2x Delegate (~170px retina), or null' },
-      preview:        { type: :string, nullable: true, description: 'IIIF URL of the :preview_image Delegate (~500px hero), or null' },
-      title:          { type: :string, nullable: true },
-      description:    { type: :string, nullable: true },
-      permanent_url:  { type: :string, nullable: true },
-      tombstoned:     { type: :boolean, description: 'Withdrawn-from-discovery flag' },
-      tombstoned_at:  { type: :string, nullable: true, description: 'ISO-8601 timestamp set when tombstoned' },
-      tombstoned_by:  { type: :string, nullable: true, description: 'NUID of the user who tombstoned the resource' }
+      id:            { type: :string, description: 'NOID' },
+      valkyrie_id:   { type: :string, description: 'Valkyrie internal id' },
+      ancestors:     ancestor_nodes,
+      thumbnail:     { type: :string, nullable: true, description: 'IIIF URL of the :thumbnail_image Delegate (~85px), or null' },
+      thumbnail_2x:  { type: :string, nullable: true, description: 'IIIF URL of the :thumbnail_image_2x Delegate (~170px retina), or null' },
+      preview:       { type: :string, nullable: true, description: 'IIIF URL of the :preview_image Delegate (~500px hero), or null' },
+      title:         { type: :string, nullable: true },
+      description:   { type: :string, nullable: true },
+      permanent_url: { type: :string, nullable: true },
+      tombstoned:    { type: :boolean, description: 'Withdrawn-from-discovery flag' },
+      tombstoned_at: { type: :string, nullable: true, description: 'ISO-8601 timestamp set when tombstoned' },
+      tombstoned_by: { type: :string, nullable: true, description: 'NUID of the user who tombstoned the resource' }
     }.merge(provenance_props)
   end
 
@@ -577,10 +576,10 @@ module OpenapiSchemas
     }
   end
 
-  # ancestor_chain is the same chain as `ancestors`, root-first, but each node
-  # is an object carrying the ancestor's title under named keys — so breadcrumb
-  # consumers get the title without a per-ancestor round-trip.
-  def ancestor_chain_nodes
+  # ancestors is the chain root-first, each node an object carrying the
+  # ancestor's title under named keys — so breadcrumb consumers get the title
+  # without a per-ancestor round-trip.
+  def ancestor_nodes
     {
       type:        :array,
       description: 'Ancestor chain, root-first, with titles — array of {noid, klass, title} objects',
@@ -596,23 +595,8 @@ module OpenapiSchemas
     }
   end
 
-  # ancestors comes back as an array of [noid, type-name] 2-tuples,
-  # e.g. [["c-123", "Community"], ["col-456", "Collection"]]
-  def ancestor_pairs
-    {
-      type:  :array,
-      items: {
-        type:        :array,
-        items:       { type: :string },
-        minItems:    2,
-        maxItems:    2,
-        description: '[noid, type-name] pair'
-      }
-    }
-  end
-
   def lineage
-    ancestor_pairs.merge(description: 'Ancestor or descendant chain — array of [noid, type-name] pairs')
+    ancestor_nodes.merge(description: 'Ancestor chain, root-first — array of {noid, klass, title} objects')
   end
 
   # GET /resources/:id/mods/versions — MODS version-history envelope. Field

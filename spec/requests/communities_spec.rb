@@ -215,7 +215,7 @@ RSpec.describe 'Communities', type: :request do
     get 'List ancestors of a community' do
       tags 'Communities'
       produces 'application/json'
-      description 'Returns the ancestor chain as an array of [noid, type-name] pairs.'
+      description 'Returns the ancestor chain, root-first, as an array of {noid, klass, title} objects.'
 
       response '200', 'ancestors listed' do
         let(:community) { CommunityCreator.call }
@@ -309,7 +309,7 @@ RSpec.describe 'Communities', type: :request do
         schema '$ref' => '#/components/schemas/Community'
         run_test! do |response|
           ancestors = JSON.parse(response.body).dig('community', 'ancestors')
-          expect(ancestors.map(&:first)).to include(new_root.noid)
+          expect(ancestors.pluck('noid')).to include(new_root.noid)
         end
       end
 

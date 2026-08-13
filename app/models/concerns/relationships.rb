@@ -36,23 +36,22 @@ module Relationships
     result.first
   end
 
-  # Lightweight [noid, class-name] pairs, root-first. The historical contract
-  # the AncestryIndexer (ancestor_ids_ssim) and any positional-tuple consumer
-  # depend on. Derived from the single walk in `ancestor_resources` — the
-  # parents are already materialized there, so this costs nothing extra.
+  # Ancestors root-first, each carrying its title — so a consumer building
+  # breadcrumbs gets the title that was already loaded here, instead of one
+  # HTTP round-trip per ancestor to re-fetch it. plain_title mirrors the
+  # resource's own title field in the jbuilder partials; it lives on the
+  # decorator.
   def ancestors
-    ancestor_resources.map { |r| [r.noid.to_s, r.class.to_s] }
-  end
-
-  # The same chain as `ancestors`, but carrying each ancestor's title under
-  # named keys — so a consumer building breadcrumbs (Cerberus) gets the title
-  # that was already loaded here, instead of issuing one HTTP round-trip per
-  # ancestor to re-fetch it. plain_title mirrors the resource's own title
-  # field in the jbuilder partials; it lives on the decorator.
-  def ancestor_chain
     ancestor_resources.map do |r|
       { noid: r.noid.to_s, klass: r.class.to_s, title: r.decorate.plain_title }
     end
+  end
+
+  # Bare noids, root-first. The AncestryIndexer needs the chain but not the
+  # titles, and decorating every ancestor to build a title it discards is work
+  # on every save.
+  def ancestor_noids
+    ancestor_resources.map { |r| r.noid.to_s }
   end
 
   # Collections/communities whose ancestor chain includes this resource —
@@ -86,7 +85,7 @@ module Relationships
     # Walk parent links to the root, collecting the fully materialized resource
     # objects once. Returned root-first (matching the historical `pids.reverse`
     # order: [root, …, grandparent, parent]) so both `ancestors` and
-    # `ancestor_chain` derive their shapes from a single walk, never twice.
+    # `ancestor_noids` derive their shapes from a single walk, never twice.
     def ancestor_resources(resource = nil, resources = [])
       p = (resource || self).parent
       return resources.reverse if p.nil?

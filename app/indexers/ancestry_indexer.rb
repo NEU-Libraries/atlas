@@ -28,6 +28,6 @@ class AncestryIndexer
   def to_solr
     return {} unless resource.is_a?(Collection) || resource.is_a?(Community)
 
-    { 'ancestor_ids_ssim' => resource.ancestors.map { |noid, _klass| noid } }
+    { 'ancestor_ids_ssim' => resource.ancestor_noids }
   end
 end

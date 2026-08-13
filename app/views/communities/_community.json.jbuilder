@@ -4,7 +4,6 @@ json.community do
   json.id @community.noid
   json.valkyrie_id @community.id.to_s
   json.ancestors @community.ancestors
-  json.ancestor_chain @community.ancestor_chain
   json.thumbnail @community.thumbnail_uri
   json.thumbnail_2x @community.thumbnail_uri_for(Role.thumbnail_image_2x.name)
   json.preview @community.thumbnail_uri_for(Role.preview_image.name)

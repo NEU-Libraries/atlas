@@ -63,15 +63,6 @@ class CollectionsController < ApplicationController
     @children = @collection.filtered_children
   end
 
-  def ancestors
-    authorize! :read, Collection
-    @collection = find_collection(params[:id])&.decorate
-    return head(:not_found) if @collection.nil?
-    return render(:show, status: :gone) if @collection.tombstoned
-
-    @ancestors = @collection.ancestors
-  end
-
   def update
     @collection = find_collection(params[:id])
     authorize! :update, @collection

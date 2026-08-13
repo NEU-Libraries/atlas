@@ -238,34 +238,6 @@ RSpec.describe 'Collections', type: :request do
     end
   end
 
-  path '/collections/{id}/ancestors' do
-    parameter name: :id, in: :path, type: :string
-
-    get 'List ancestors of a collection' do
-      tags 'Collections'
-      produces 'application/json'
-      description 'Returns the ancestor chain, root-first, as an array of {noid, klass, title} objects.'
-
-      response '200', 'ancestors listed' do
-        let(:collection) { CollectionCreator.call(parent_id: community.noid) }
-        let(:id)         { collection.noid }
-        schema '$ref' => '#/components/schemas/Lineage'
-        run_test!
-      end
-
-      response '410', 'collection tombstoned' do
-        let(:collection) do
-          c = CollectionCreator.call(parent_id: community.noid)
-          c.tombstoned = true
-          Atlas.persister.save(resource: c)
-        end
-        let(:id) { collection.noid }
-        schema '$ref' => '#/components/schemas/Collection'
-        run_test!
-      end
-    end
-  end
-
   path '/collections/{id}/thumbnails' do
     parameter name: :id, in: :path, type: :string, description: 'NOID of the Collection'
 

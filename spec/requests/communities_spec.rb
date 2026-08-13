@@ -209,34 +209,6 @@ RSpec.describe 'Communities', type: :request do
     end
   end
 
-  path '/communities/{id}/ancestors' do
-    parameter name: :id, in: :path, type: :string
-
-    get 'List ancestors of a community' do
-      tags 'Communities'
-      produces 'application/json'
-      description 'Returns the ancestor chain, root-first, as an array of {noid, klass, title} objects.'
-
-      response '200', 'ancestors listed' do
-        let(:community) { CommunityCreator.call }
-        let(:id)        { community.noid }
-        schema '$ref' => '#/components/schemas/Lineage'
-        run_test!
-      end
-
-      response '410', 'community tombstoned' do
-        let(:community) do
-          c = CommunityCreator.call
-          c.tombstoned = true
-          Atlas.persister.save(resource: c)
-        end
-        let(:id) { community.noid }
-        schema '$ref' => '#/components/schemas/Community'
-        run_test!
-      end
-    end
-  end
-
   path '/communities/{id}/thumbnails' do
     parameter name: :id, in: :path, type: :string, description: 'NOID of the Community'
 

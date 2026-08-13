@@ -63,15 +63,6 @@ class CommunitiesController < ApplicationController
     @children = @community.filtered_children
   end
 
-  def ancestors
-    authorize! :read, Community
-    @community = find_community(params[:id])&.decorate
-    return head(:not_found) if @community.nil?
-    return render(:show, status: :gone) if @community.tombstoned
-
-    @ancestors = @community.ancestors
-  end
-
   def update
     @community = find_community(params[:id])
     authorize! :update, @community

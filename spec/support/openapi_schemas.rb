@@ -38,7 +38,6 @@ module OpenapiSchemas
       Permissions:        permissions,
       ResourceRef:        resource_ref,
       ResourceDigests:    resource_digests,
-      Lineage:            lineage,
       ModsVersions:       mods_versions,
       BlobVersions:       blob_versions,
       BlobAncestry:       blob_ancestry,
@@ -593,10 +592,6 @@ module OpenapiSchemas
         required:   %w[noid klass title]
       }
     }
-  end
-
-  def lineage
-    ancestor_nodes.merge(description: 'Ancestor chain, root-first — array of {noid, klass, title} objects')
   end
 
   # GET /resources/:id/mods/versions — MODS version-history envelope. Field

@@ -1117,25 +1117,6 @@ components:
         - title
         - thumbnail
         - tombstoned
-    Lineage:
-      type: array
-      description: Ancestor chain, root-first — array of {noid, klass, title} objects
-      items:
-        type: object
-        properties:
-          noid:
-            type: string
-            description: Ancestor NOID
-          klass:
-            type: string
-            description: Ancestor resource class name
-          title:
-            type: string
-            description: Ancestor plain-text title (may be empty)
-        required:
-        - noid
-        - klass
-        - title
     ModsVersions:
       type: object
       properties:
@@ -1983,32 +1964,6 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Collection"
-  "/collections/{id}/ancestors":
-    parameters:
-    - name: id
-      in: path
-      required: true
-      schema:
-        type: string
-    get:
-      summary: List ancestors of a collection
-      tags:
-      - Collections
-      description: Returns the ancestor chain, root-first, as an array of {noid, klass,
-        title} objects.
-      responses:
-        '200':
-          description: ancestors listed
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/Lineage"
-        '410':
-          description: collection tombstoned
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/Collection"
   "/collections/{id}/thumbnails":
     parameters:
     - name: id
@@ -2298,32 +2253,6 @@ paths:
                 type: array
                 items:
                   type: string
-        '410':
-          description: community tombstoned
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/Community"
-  "/communities/{id}/ancestors":
-    parameters:
-    - name: id
-      in: path
-      required: true
-      schema:
-        type: string
-    get:
-      summary: List ancestors of a community
-      tags:
-      - Communities
-      description: Returns the ancestor chain, root-first, as an array of {noid, klass,
-        title} objects.
-      responses:
-        '200':
-          description: ancestors listed
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/Lineage"
         '410':
           description: community tombstoned
           content:

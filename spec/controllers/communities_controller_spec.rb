@@ -185,11 +185,6 @@ describe CommunitiesController, type: :controller do
       expect(response).to have_http_status(:not_found)
     end
 
-    it 'GET #ancestors 404s for a non-Community id' do
-      get :ancestors, params: { id: collection.noid }, as: :json
-      expect(response).to have_http_status(:not_found)
-    end
-
     it 'GET #mods 404s for a non-Community id' do
       get :mods, params: { id: collection.noid }, as: :json
       expect(response).to have_http_status(:not_found)

@@ -351,11 +351,25 @@ RSpec.describe 'Works', type: :request do
 
     delete 'Destroy a work' do
       tags 'Works'
+      description <<~DESC
+        Permanently removes the Work. This is a purge, not a withdrawal: it
+        deletes the Work's metadata, cascades into its FileSets and their
+        Blobs, and removes the OCFL objects that hold the preserved bytes —
+        every retained revision, not only the current one. Nothing survives
+        but the audit row, which records the NOIDs it removed.
+
+        Use `POST /works/{id}/tombstone` for the user-visible withdrawal
+        path. That one keeps everything and can be reversed.
+
+        Admin only.
+      DESC
 
       response '204', 'work destroyed' do
         let(:work) { WorkCreator.call(parent_id: collection.noid) }
         let(:id)   { work.noid }
-        run_test!
+        run_test! do
+          expect(Work.find(work.noid)).to be_nil
+        end
       end
     end
   end

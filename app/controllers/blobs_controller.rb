@@ -127,7 +127,9 @@ class BlobsController < ApplicationController
 
     parent_fs = blob.parent
     blob_id   = blob.id
-    Atlas.persister.delete(resource: blob)
+    # Irreversible: takes the OCFL object with it, so every retained revision
+    # of these bytes goes too, not just the head.
+    ResourcePurger.call(resource: blob)
 
     return unless parent_fs.is_a?(FileSet)
 

@@ -1653,6 +1653,13 @@ paths:
       summary: Destroy a file
       tags:
       - Files
+      description: |
+        Permanently removes the Blob's metadata record **and** its bytes,
+        taking the whole OCFL object with it — every retained revision, not
+        only the current one. Cannot be reversed. Unlinks the Blob from its
+        FileSet and rebuilds that FileSet's METS.
+
+        Admin only.
       responses:
         '204':
           description: file destroyed
@@ -1939,9 +1946,24 @@ paths:
       summary: Destroy a collection
       tags:
       - Collections
+      description: |
+        Permanently removes the Collection, its descriptive-metadata FileSet,
+        and the OCFL objects that hold the preserved bytes. This is a purge,
+        not a withdrawal, and it cannot be reversed — use
+        `POST /collections/{id}/tombstone` for that.
+
+        Refuses with 422 (`has_children`) while the Collection still holds a
+        Work or a sub-container, **including tombstoned ones**. That is
+        stricter than tombstone, which only counts live members: a member
+        left behind by a purge is orphaned for good. Empty the tree
+        leaf-first.
+
+        Admin only.
       responses:
         '204':
           description: collection destroyed
+        '422':
+          description: collection still has members
   "/collections/{id}/mods":
     parameters:
     - name: id
@@ -2244,9 +2266,24 @@ paths:
       summary: Destroy a community
       tags:
       - Communities
+      description: |
+        Permanently removes the Community, its descriptive-metadata FileSet,
+        and the OCFL objects that hold the preserved bytes. This is a purge,
+        not a withdrawal, and it cannot be reversed — use
+        `POST /communities/{id}/tombstone` for that.
+
+        Refuses with 422 (`has_children`) while the Community still holds a
+        Collection or a sub-community, **including tombstoned ones**. That is
+        stricter than tombstone, which only counts live members: a member
+        left behind by a purge is orphaned for good. Empty the tree
+        leaf-first.
+
+        Admin only.
       responses:
         '204':
           description: community destroyed
+        '422':
+          description: community still has members
   "/communities/{id}/mods":
     parameters:
     - name: id
@@ -3163,6 +3200,13 @@ paths:
       summary: Destroy a file set
       tags:
       - FileSets
+      description: |
+        Permanently removes the FileSet, cascades into its Blobs, and removes
+        the OCFL objects that hold the preserved bytes — every retained
+        revision, not only the current one. Cannot be reversed. Rebuilds the
+        parent Work's METS structMap without the removed pages.
+
+        Admin only.
       responses:
         '204':
           description: file set destroyed
@@ -4277,6 +4321,17 @@ paths:
       summary: Destroy a work
       tags:
       - Works
+      description: |
+        Permanently removes the Work. This is a purge, not a withdrawal: it
+        deletes the Work's metadata, cascades into its FileSets and their
+        Blobs, and removes the OCFL objects that hold the preserved bytes —
+        every retained revision, not only the current one. Nothing survives
+        but the audit row, which records the NOIDs it removed.
+
+        Use `POST /works/{id}/tombstone` for the user-visible withdrawal
+        path. That one keeps everything and can be reversed.
+
+        Admin only.
       responses:
         '204':
           description: work destroyed

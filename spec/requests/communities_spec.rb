@@ -132,11 +132,36 @@ RSpec.describe 'Communities', type: :request do
 
     delete 'Destroy a community' do
       tags 'Communities'
+      description <<~DESC
+        Permanently removes the Community, its descriptive-metadata FileSet,
+        and the OCFL objects that hold the preserved bytes. This is a purge,
+        not a withdrawal, and it cannot be reversed — use
+        `POST /communities/{id}/tombstone` for that.
+
+        Refuses with 422 (`has_children`) while the Community still holds a
+        Collection or a sub-community, **including tombstoned ones**. That is
+        stricter than tombstone, which only counts live members: a member
+        left behind by a purge is orphaned for good. Empty the tree
+        leaf-first.
+
+        Admin only.
+      DESC
 
       response '204', 'community destroyed' do
         let(:community) { CommunityCreator.call }
         let(:id)        { community.noid }
-        run_test!
+        run_test! do
+          expect(Community.find(community.noid)).to be_nil
+        end
+      end
+
+      response '422', 'community still has members' do
+        let(:community) { CommunityCreator.call }
+        let(:id)        { community.noid }
+        before { CollectionCreator.call(parent_id: community.noid) }
+        run_test! do |response|
+          expect(JSON.parse(response.body)['code']).to eq('has_children')
+        end
       end
     end
   end

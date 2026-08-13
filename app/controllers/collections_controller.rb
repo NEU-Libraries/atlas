@@ -99,12 +99,22 @@ class CollectionsController < ApplicationController
     render :show
   end
 
+  # Irreversible, and unlike tombstone it also refuses a member that is merely
+  # tombstoned: a purge cannot be undone, so a member left behind here is
+  # orphaned for good. An operator empties the tree leaf-first instead.
   def destroy
     @collection = find_collection(params[:id])
     authorize! :destroy, @collection
     return head(:not_found) if @collection.nil?
 
-    Atlas.persister.delete(resource: @collection)
+    if @collection.filtered_children.any?
+      render json:   { error: 'cannot destroy a collection that still has members',
+                       code:  'has_children' },
+             status: :unprocessable_entity and return
+    end
+
+    ResourcePurger.call(resource: @collection, actor_nuid: @current_user&.nuid,
+                        on_behalf_of_nuid: @on_behalf_of)
   end
 
   def tombstone

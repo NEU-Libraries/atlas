@@ -105,6 +105,26 @@ describe WorksController, type: :controller do
         expect(response).to have_http_status(:success)
         expect(Work.find(work.noid)).to be_nil
       end
+
+      it 'cascades into its FileSets and Blobs' do
+        blob      = BlobCreator.call(path: Rails.root.join('spec/fixtures/files/example.png').to_s,
+                                     work_id: work.noid, original_filename: 'example.png')
+        file_sets = work.children.select { |c| c.is_a?(FileSet) }
+
+        delete :destroy, params: { id: work.noid }, as: :json
+
+        expect(Blob.find(blob.noid)).to be_nil
+        file_sets.each { |fs| expect(FileSet.find(fs.noid)).to be_nil }
+      end
+
+      it 'audits the destroy with the purge manifest' do
+        expect { delete :destroy, params: { id: work.noid }, as: :json }
+          .to change(AuditEvent, :count).by(1)
+
+        event = AuditEvent.last
+        expect(event.action).to eq('destroy')
+        expect(event.payload['purged']).to include(work.noid)
+      end
     end
   end
 

@@ -91,6 +91,46 @@ describe CollectionsController, type: :controller do
         expect(response).to have_http_status(:success)
         expect(Collection.find(collection.noid)).to be_nil
       end
+
+      it 'audits the destroy' do
+        expect { delete :destroy, params: { id: collection.noid }, as: :json }
+          .to change(AuditEvent, :count).by(1)
+        expect(AuditEvent.last.action).to eq('destroy')
+      end
+    end
+
+    context 'when the collection still has members' do
+      it 'refuses a live member' do
+        WorkCreator.call(parent_id: collection.noid)
+
+        delete :destroy, params: { id: collection.noid }, as: :json
+
+        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response.parsed_body['code']).to eq('has_children')
+        expect(Collection.find(collection.noid)).not_to be_nil
+      end
+
+      # Diverges from tombstone, which allows this. A purge cannot be undone,
+      # so a tombstoned member left behind is orphaned for good.
+      it 'refuses a tombstoned member too' do
+        work = WorkCreator.call(parent_id: collection.noid)
+        work.tombstone(by: '000000004')
+        Atlas.persister.save(resource: work)
+
+        delete :destroy, params: { id: collection.noid }, as: :json
+
+        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response.parsed_body['code']).to eq('has_children')
+      end
+
+      # Every container is minted with one, so it must not read as a member.
+      it 'ignores its own descriptive-metadata FileSet' do
+        expect(collection.children.select { |c| c.is_a?(FileSet) }).not_to be_empty
+
+        delete :destroy, params: { id: collection.noid }, as: :json
+
+        expect(response).to have_http_status(:success)
+      end
     end
   end
 

@@ -97,12 +97,22 @@ class CommunitiesController < ApplicationController
     render :show
   end
 
+  # Irreversible, and unlike tombstone it also refuses a member that is merely
+  # tombstoned: a purge cannot be undone, so a member left behind here is
+  # orphaned for good. An operator empties the tree leaf-first instead.
   def destroy
     @community = find_community(params[:id])
     authorize! :destroy, @community
     return head(:not_found) if @community.nil?
 
-    Atlas.persister.delete(resource: @community)
+    if @community.filtered_children.any?
+      render json:   { error: 'cannot destroy a community that still has members',
+                       code:  'has_children' },
+             status: :unprocessable_entity and return
+    end
+
+    ResourcePurger.call(resource: @community, actor_nuid: @current_user&.nuid,
+                        on_behalf_of_nuid: @on_behalf_of)
   end
 
   def tombstone

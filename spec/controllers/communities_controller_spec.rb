@@ -87,6 +87,24 @@ describe CommunitiesController, type: :controller do
         expect(response).to have_http_status(:success)
         expect(Community.find(community.noid)).to be_nil
       end
+
+      it 'audits the destroy' do
+        expect { delete :destroy, params: { id: community.noid }, as: :json }
+          .to change(AuditEvent, :count).by(1)
+        expect(AuditEvent.last.action).to eq('destroy')
+      end
+    end
+
+    context 'when the community still has members' do
+      it 'refuses' do
+        CollectionCreator.call(parent_id: community.noid)
+
+        delete :destroy, params: { id: community.noid }, as: :json
+
+        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response.parsed_body['code']).to eq('has_children')
+        expect(Community.find(community.noid)).not_to be_nil
+      end
     end
   end
 

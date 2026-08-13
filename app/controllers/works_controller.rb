@@ -189,12 +189,16 @@ class WorksController < ApplicationController
     render :show
   end
 
+  # Irreversible. Removes the Work's metadata, its FileSets, their Blobs, and
+  # the OCFL objects holding the preserved bytes. Use tombstone for the
+  # withdrawal path — that one keeps everything and can be undone.
   def destroy
     @work = find_work(params[:id])
     authorize! :destroy, @work
     return head(:not_found) if @work.nil?
 
-    Atlas.persister.delete(resource: @work)
+    ResourcePurger.call(resource: @work, actor_nuid: @current_user&.nuid,
+                        on_behalf_of_nuid: @on_behalf_of)
   end
 
   def tombstone

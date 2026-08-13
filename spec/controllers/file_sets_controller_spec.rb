@@ -93,6 +93,13 @@ describe FileSetsController, type: :controller do
       end
     end
 
+    context 'when the file set does not exist' do
+      it '404s rather than raising' do
+        delete :destroy, params: { id: 'nosuchnoid' }, as: :json
+        expect(response).to have_http_status(:not_found)
+      end
+    end
+
     context 'when destroying a page of a completed work (eager-after-finalize)' do
       it 'rebuilds the Work-level METS without the removed page' do
         FileSetCreator.call(work_id: work.noid, classification: Classification.image, position: 1)

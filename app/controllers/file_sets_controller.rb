@@ -93,11 +93,14 @@ class FileSetsController < ApplicationController
     render :show
   end
 
+  # Irreversible. Removes the FileSet, its Blobs, and the preserved bytes.
   def destroy
     authorize! :destroy, FileSet
     file_set = FileSet.find(params[:id])
+    return head(:not_found) if file_set.nil?
+
     parent = file_set.parent
-    Atlas.persister.delete(resource: file_set)
+    ResourcePurger.call(resource: file_set)
     rebuild_parent_mets(parent, file_set)
   end
 

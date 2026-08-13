@@ -221,11 +221,21 @@ RSpec.describe 'FileSets', type: :request do
 
     delete 'Destroy a file set' do
       tags 'FileSets'
+      description <<~DESC
+        Permanently removes the FileSet, cascades into its Blobs, and removes
+        the OCFL objects that hold the preserved bytes — every retained
+        revision, not only the current one. Cannot be reversed. Rebuilds the
+        parent Work's METS structMap without the removed pages.
+
+        Admin only.
+      DESC
 
       response '204', 'file set destroyed' do
         let(:file_set) { FileSetCreator.call(work_id: work.noid, classification: Classification.generic) }
         let(:id)       { file_set.noid }
-        run_test!
+        run_test! do
+          expect(FileSet.find(file_set.noid)).to be_nil
+        end
       end
     end
   end

@@ -211,11 +211,21 @@ RSpec.describe 'Files (Blobs)', type: :request do
 
     delete 'Destroy a file' do
       tags 'Files'
+      description <<~DESC
+        Permanently removes the Blob's metadata record **and** its bytes,
+        taking the whole OCFL object with it — every retained revision, not
+        only the current one. Cannot be reversed. Unlinks the Blob from its
+        FileSet and rebuilds that FileSet's METS.
+
+        Admin only.
+      DESC
 
       response '204', 'file destroyed' do
         let(:blob) { BlobCreator.call(work_id: work.noid, original_filename: 'example.bin', path: fixture.to_s) }
         let(:id)   { blob.noid }
-        run_test!
+        run_test! do
+          expect(Blob.find(blob.noid)).to be_nil
+        end
       end
     end
   end

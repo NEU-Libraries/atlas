@@ -161,11 +161,36 @@ RSpec.describe 'Collections', type: :request do
 
     delete 'Destroy a collection' do
       tags 'Collections'
+      description <<~DESC
+        Permanently removes the Collection, its descriptive-metadata FileSet,
+        and the OCFL objects that hold the preserved bytes. This is a purge,
+        not a withdrawal, and it cannot be reversed — use
+        `POST /collections/{id}/tombstone` for that.
+
+        Refuses with 422 (`has_children`) while the Collection still holds a
+        Work or a sub-container, **including tombstoned ones**. That is
+        stricter than tombstone, which only counts live members: a member
+        left behind by a purge is orphaned for good. Empty the tree
+        leaf-first.
+
+        Admin only.
+      DESC
 
       response '204', 'collection destroyed' do
         let(:collection) { CollectionCreator.call(parent_id: community.noid) }
         let(:id)         { collection.noid }
-        run_test!
+        run_test! do
+          expect(Collection.find(collection.noid)).to be_nil
+        end
+      end
+
+      response '422', 'collection still has members' do
+        let(:collection) { CollectionCreator.call(parent_id: community.noid) }
+        let(:id)         { collection.noid }
+        before { WorkCreator.call(parent_id: collection.noid) }
+        run_test! do |response|
+          expect(JSON.parse(response.body)['code']).to eq('has_children')
+        end
       end
     end
   end

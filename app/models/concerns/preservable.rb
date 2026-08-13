@@ -15,7 +15,14 @@ module Preservable
   # Work; null elsewhere. The Work-level METS structMap is the canonical
   # preservation record of order; this keeps each FileSet's own OCFL
   # object self-describing in isolation.
-  ENVELOPE_SCHEMA_VERSION = 3
+  # v3 → v4: additive :associations — the typed Work-to-Work edges
+  # (is_codebook_for and its four siblings), keyed by predicate and empty on
+  # every other resource class. Each edge is a human judgement about two
+  # objects that nothing else in the repository records and no job can derive
+  # again, so it has to survive on disk. Note a_linked_member_of is
+  # deliberately absent: a linked membership is a discovery convenience a Set
+  # recipe can express again, not an assertion that exists nowhere else.
+  ENVELOPE_SCHEMA_VERSION = 4
 
   def graph_payload
     {
@@ -25,7 +32,8 @@ module Preservable
       classification: respond_to?(:type) ? type : nil,
       position:       respond_to?(:position) ? position : nil,
       a_member_of:    parent_noids,
-      member_ids:     member_noids
+      member_ids:     member_noids,
+      associations:   association_noids
     }
   end
 
@@ -55,5 +63,20 @@ module Preservable
       return [] if ids.empty?
 
       Atlas.query.find_many_by_ids(ids: ids).map(&:noid)
+    end
+
+    # Only the OUTBOUND edges, because only they are stored here. The other
+    # end reads back from the asserting Work's own envelope, so a
+    # reconstitution pass over the whole store recovers both directions
+    # without either file having to be kept in step with the other.
+    def association_noids
+      return {} unless is_a?(Work)
+
+      Work::ASSOCIATION_TYPES.each_with_object({}) do |predicate, result|
+        ids = Array(self[predicate]).compact
+        next if ids.empty?
+
+        result[predicate.to_s] = Atlas.query.find_many_by_ids(ids: ids).map(&:noid)
+      end
     end
 end

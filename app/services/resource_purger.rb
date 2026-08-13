@@ -26,7 +26,7 @@ class ResourcePurger < ApplicationService
     # Deepest first, so a failure part-way through leaves a resolvable parent
     # with fewer children rather than children whose parent no longer exists.
     targets.reverse_each do |resource|
-      detach_linked_members!(resource)
+      detach_inbound_references!(resource)
       purge_storage(resource)
       Atlas.persister.delete(resource: resource)
     end
@@ -34,22 +34,27 @@ class ResourcePurger < ApplicationService
     targets.map(&:noid)
   end
 
+  # Edges that point AT a resource while living on the other end, so purging
+  # the target would leave the holder with an id that resolves to nothing:
+  # a linked membership is stored on the Work rather than the Collection it
+  # points into, and an association is stored on the Work that asserts it
+  # rather than the one it names. Structural children need no equivalent —
+  # the controller refuses a container that still has any.
+  INBOUND_PROPERTIES = ([:a_linked_member_of] + Work::ASSOCIATION_TYPES).freeze
+
   private
 
-    # A linked membership is stored on the Work, not on the Collection it
-    # points into, so purging the Collection would otherwise leave every
-    # linking Work holding an id that resolves to nothing. Structural children
-    # need no equivalent, because the controller refuses a container that has
-    # any.
-    def detach_linked_members!(resource)
-      linking_works(resource).each do |work|
-        work.a_linked_member_of = Array(work.a_linked_member_of).reject { |id| id.to_s == resource.id.to_s }
-        Atlas.persister.save(resource: work)
+    def detach_inbound_references!(resource)
+      INBOUND_PROPERTIES.each do |property|
+        holders_by(resource, property).each do |holder|
+          holder.set_value(property, Array(holder[property]).reject { |id| id.to_s == resource.id.to_s })
+          Atlas.persister.save(resource: holder)
+        end
       end
     end
 
-    def linking_works(resource)
-      Atlas.query.find_inverse_references_by(resource: resource, property: :a_linked_member_of).to_a
+    def holders_by(resource, property)
+      Atlas.query.find_inverse_references_by(resource: resource, property: property).to_a
     rescue KeyError
       []
     end

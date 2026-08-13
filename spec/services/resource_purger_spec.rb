@@ -71,6 +71,29 @@ RSpec.describe ResourcePurger do
 
       expect(Work.find(work.noid).a_linked_member_of.to_a).to be_empty
     end
+
+    # An association is stored on the Work that asserts it, so purging the Work
+    # it names would otherwise leave the asserter pointing at nothing.
+    it 'drops the resource from any Work that asserted an association about it' do
+      target   = WorkCreator.call(parent_id: collection.noid)
+      asserted = WorkAssociationCreator.call(work: work, target: target, type: 'is_codebook_for')
+      expect(asserted.is_codebook_for.map(&:to_s)).to include(target.id.to_s)
+
+      described_class.call(resource: target)
+
+      expect(Work.find(work.noid).is_codebook_for.to_a).to be_empty
+    end
+
+    it 'leaves an association that names a different Work alone' do
+      target = WorkCreator.call(parent_id: collection.noid)
+      other  = WorkCreator.call(parent_id: collection.noid)
+      WorkAssociationCreator.call(work: work, target: target, type: 'is_codebook_for')
+      WorkAssociationCreator.call(work: Work.find(work.noid), target: other, type: 'is_codebook_for')
+
+      described_class.call(resource: target)
+
+      expect(Work.find(work.noid).is_codebook_for.map(&:to_s)).to eq([other.id.to_s])
+    end
   end
 
   describe 'the audit row' do
@@ -78,9 +101,9 @@ RSpec.describe ResourcePurger do
       BlobCreator.call(path: fixture_path, work_id: work.noid, original_filename: 'example.png')
       purged = nil
 
-      expect {
+      expect do
         purged = described_class.call(resource: work, actor_nuid: '000000004')
-      }.to change(AuditEvent, :count).by(1)
+      end.to change(AuditEvent, :count).by(1)
 
       event = AuditEvent.last
       expect(event.action).to eq('destroy')

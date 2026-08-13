@@ -166,6 +166,13 @@ Rails.application.routes.draw do
     post   '/works/:id/linked_members', to: 'works#add_linked_member'
     delete '/works/:id/linked_members/:collection_id', to: 'works#remove_linked_member'
 
+    # Typed associations between two separate Works (codebook, figure,
+    # transcription, …). The type sits in the DELETE path, not a query
+    # parameter, because two Works can hold two different edges at once.
+    get    '/works/:id/associations', to: 'works#associations', as: 'work_associations'
+    post   '/works/:id/associations', to: 'works#add_association'
+    delete '/works/:id/associations/:type/:work_id', to: 'works#remove_association'
+
     get '/file_sets/:id/mets', to: 'file_sets#mets', as: 'file_set_mets'
 
     # Downloads

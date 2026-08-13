@@ -1315,6 +1315,26 @@ components:
       required:
       - works
       - pagination
+    WorkAssociations:
+      type: object
+      properties:
+        outbound:
+          type: object
+          description: What this Work asserts about other Works
+          additionalProperties:
+            type: array
+            items:
+              type: string
+        inbound:
+          type: object
+          description: What other Works assert about this one
+          additionalProperties:
+            type: array
+            items:
+              type: string
+      required:
+      - outbound
+      - inbound
     Compilation:
       type: object
       properties:
@@ -4723,6 +4743,135 @@ paths:
                 type: array
                 items:
                   type: string
+  "/works/{id}/associations":
+    parameters:
+    - name: id
+      in: path
+      description: NOID of the Work
+      required: true
+      schema:
+        type: string
+    get:
+      summary: List a work's associations
+      tags:
+      - Works
+      description: |
+        Returns the typed relationships between this Work and other Works
+        (DRS v1's "associated works"), read from both ends and keyed by
+        predicate.
+
+        `outbound` is what this Work asserts — "I am the codebook for that
+        dataset". `inbound` is what other Works assert about it — "those
+        Works say they are figures for me". The edge is stored once, on the
+        asserting Work; the inbound direction is derived, never stored, so
+        the two can never disagree. Predicates with no edges are omitted.
+
+        The five predicates are `is_codebook_for`, `is_figure_for`,
+        `is_instructional_material_for`, `is_supplemental_material_for` and
+        `is_transcription_of`.
+
+        Not part of the Work show payload — fetch it here when you need it.
+      responses:
+        '200':
+          description: associations listed
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/WorkAssociations"
+    post:
+      summary: Associate a work with another work
+      tags:
+      - Works
+      description: |
+        Asserts a typed, directed relationship from this Work to another —
+        "this is the codebook for that dataset". Both Works stay separate
+        records; nothing moves in the containment tree and no ACL changes.
+
+        The edge is stored only on this Work. `GET` on the target reports the
+        same edge under `inbound`, so there is no reciprocal edge to keep in
+        step.
+
+        Asserting an edge that already exists is a no-op. Two Works can hold
+        several different edges at once.
+
+        A cycle is permitted and meaningful: "A is a transcription of B" and
+        "B is a figure for A" can both be true.
+
+        Admin and devolved-admin only. The assertion renders on the target's
+        page too, and the asserter may hold no rights over it, so this is an
+        operator action rather than an edit-rights one.
+      parameters: []
+      responses:
+        '200':
+          description: work associated
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/WorkAssociations"
+        '422':
+          description: rejects an unknown relationship type
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - work_id
+              - type
+              properties:
+                work_id:
+                  type: string
+                  description: NOID of the Work this one is subordinate to
+                type:
+                  type: string
+                  description: One of the five relationship predicates
+                  enum:
+                  - is_codebook_for
+                  - is_figure_for
+                  - is_instructional_material_for
+                  - is_supplemental_material_for
+                  - is_transcription_of
+  "/works/{id}/associations/{type}/{work_id}":
+    parameters:
+    - name: id
+      in: path
+      description: NOID of the asserting Work
+      required: true
+      schema:
+        type: string
+    - name: type
+      in: path
+      description: The relationship predicate to retract
+      required: true
+      schema:
+        type: string
+    - name: work_id
+      in: path
+      description: NOID of the associated Work
+      required: true
+      schema:
+        type: string
+    delete:
+      summary: Remove an association between two works
+      tags:
+      - Works
+      description: |
+        Retracts one typed relationship. Idempotent — retracting an edge that
+        was never asserted is a no-op.
+
+        The type is in the path rather than a query parameter because it is
+        part of the edge's identity: retracting the figure claim leaves a
+        transcription claim between the same two Works standing.
+
+        Same authorization as the POST (admin and devolved admin). Returns
+        the updated associations from both ends.
+      responses:
+        '200':
+          description: association removed
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/WorkAssociations"
   "/works/{id}/tombstone":
     parameters:
     - name: id

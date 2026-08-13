@@ -6,6 +6,7 @@
 class AuditEvent < ApplicationRecord
   ACTIONS        = %w[create update tombstone restore complete
                       reparent link_member unlink_member
+                      associate disassociate
                       add_file replace_file remove_file
                       add_affiliation remove_affiliation
                       mint_token revoke_token

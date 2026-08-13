@@ -319,6 +319,99 @@ describe WorksController, type: :controller do
     end
   end
 
+  describe 'POST #add_association (authz gate)' do
+    # An association renders on the TARGET's page as well as the asserter's,
+    # and the asserter may hold no rights over the target — so edit rights on
+    # the asserting Work are deliberately not enough.
+    let(:edit_group) { 'northeastern:drs:special-curators' }
+    let!(:curator) do
+      User.create!(email: "curator-#{SecureRandom.hex(4)}@example.invalid",
+                   password: SecureRandom.hex(16), nuid: '000000779',
+                   name: 'User, Curator', role: :privileged, groups: [edit_group])
+    end
+    let!(:delegate) do
+      User.create!(email: "delegate-#{SecureRandom.hex(4)}@example.invalid",
+                   password: SecureRandom.hex(16), nuid: '000000780',
+                   name: 'User, Delegate', role: :privileged, groups: [Permissions::ADMIN_GROUP])
+    end
+
+    let(:community)  { CommunityCreator.call }
+    let(:collection) { CollectionCreator.call(parent_id: community.noid) }
+    let(:codebook)   { WorkCreator.call(parent_id: collection.noid) }
+    let(:dataset)    { WorkCreator.call(parent_id: collection.noid) }
+
+    def act_as!(user)
+      request.headers['Authorization'] = "Bearer #{DefaultAuthHeaders.assertion_for(user.nuid)}"
+    end
+
+    it 'forbids an edit-rights principal even with edit rights on BOTH works' do
+      [codebook, dataset].each do |resource|
+        resource.add_edit_group(edit_group)
+        Atlas.persister.save(resource: resource)
+      end
+      act_as!(curator)
+
+      post :add_association, params: { id: codebook.noid, work_id: dataset.noid, type: 'is_codebook_for' },
+                             as:     :json
+
+      expect(response).to have_http_status(:forbidden)
+      expect(Array(Work.find(codebook.noid).is_codebook_for)).to be_empty
+    end
+
+    it 'allows a devolved admin' do
+      act_as!(delegate)
+
+      post :add_association, params: { id: codebook.noid, work_id: dataset.noid, type: 'is_codebook_for' },
+                             as:     :json
+
+      expect(response).to have_http_status(:success)
+      expect(Array(Work.find(codebook.noid).is_codebook_for).map(&:to_s)).to include(dataset.id.to_s)
+    end
+
+    it 'allows an admin' do
+      post :add_association, params: { id: codebook.noid, work_id: dataset.noid, type: 'is_codebook_for' },
+                             as:     :json
+
+      expect(response).to have_http_status(:success)
+    end
+
+    it 'lets any reader list the associations' do
+      act_as!(curator)
+
+      get :associations, params: { id: codebook.noid }, as: :json
+
+      expect(response).to have_http_status(:success)
+    end
+
+    it '422s an unresolvable target' do
+      post :add_association, params: { id: codebook.noid, work_id: 'nosuchnoid', type: 'is_codebook_for' },
+                             as:     :json
+
+      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response.parsed_body['error']).to eq('target_not_found')
+    end
+  end
+
+  describe 'DELETE #remove_association' do
+    let(:community)  { CommunityCreator.call }
+    let(:collection) { CollectionCreator.call(parent_id: community.noid) }
+    let(:dataset)    { WorkCreator.call(parent_id: collection.noid) }
+    let(:codebook) do
+      w = WorkCreator.call(parent_id: collection.noid)
+      WorkAssociationCreator.call(work: w, target: dataset, type: 'is_codebook_for')
+      w
+    end
+
+    it 'retracts the edge and reports both ends' do
+      delete :remove_association,
+             params: { id: codebook.noid, type: 'is_codebook_for', work_id: dataset.noid }, as: :json
+
+      expect(response).to have_http_status(:success)
+      expect(response.parsed_body['outbound']).to eq({})
+      expect(Array(Work.find(codebook.noid).is_codebook_for)).to be_empty
+    end
+  end
+
   # A hand-edited /works/<non-Work-id> must 404, not 500. Valkyrie's
   # Work.find is not type-scoped, so a Community id resolves to a Community
   # that would otherwise reach the Work serializer (derivative_permissions_map

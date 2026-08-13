@@ -1077,6 +1077,139 @@ RSpec.describe 'Works', type: :request do
     end
   end
 
+  path '/works/{id}/associations' do
+    parameter name: :id, in: :path, type: :string, description: 'NOID of the Work'
+
+    get 'List a work\'s associations' do
+      tags 'Works'
+      produces 'application/json'
+      description <<~DESC
+        Returns the typed relationships between this Work and other Works
+        (DRS v1's "associated works"), read from both ends and keyed by
+        predicate.
+
+        `outbound` is what this Work asserts — "I am the codebook for that
+        dataset". `inbound` is what other Works assert about it — "those
+        Works say they are figures for me". The edge is stored once, on the
+        asserting Work; the inbound direction is derived, never stored, so
+        the two can never disagree. Predicates with no edges are omitted.
+
+        The five predicates are `is_codebook_for`, `is_figure_for`,
+        `is_instructional_material_for`, `is_supplemental_material_for` and
+        `is_transcription_of`.
+
+        Not part of the Work show payload — fetch it here when you need it.
+      DESC
+
+      response '200', 'associations listed' do
+        let(:dataset) { WorkCreator.call(parent_id: collection.noid) }
+        let(:work) do
+          w = WorkCreator.call(parent_id: collection.noid)
+          WorkAssociationCreator.call(work: w, target: dataset, type: 'is_codebook_for')
+          w
+        end
+        let(:id) { work.noid }
+        schema '$ref' => '#/components/schemas/WorkAssociations'
+        run_test! do |response|
+          expect(JSON.parse(response.body).dig('outbound', 'is_codebook_for')).to eq([dataset.noid])
+        end
+      end
+    end
+
+    post 'Associate a work with another work' do
+      tags 'Works'
+      consumes 'application/json'
+      produces 'application/json'
+      description <<~DESC
+        Asserts a typed, directed relationship from this Work to another —
+        "this is the codebook for that dataset". Both Works stay separate
+        records; nothing moves in the containment tree and no ACL changes.
+
+        The edge is stored only on this Work. `GET` on the target reports the
+        same edge under `inbound`, so there is no reciprocal edge to keep in
+        step.
+
+        Asserting an edge that already exists is a no-op. Two Works can hold
+        several different edges at once.
+
+        A cycle is permitted and meaningful: "A is a transcription of B" and
+        "B is a figure for A" can both be true.
+
+        Admin and devolved-admin only. The assertion renders on the target's
+        page too, and the asserter may hold no rights over it, so this is an
+        operator action rather than an edit-rights one.
+      DESC
+      parameter name: :body, in: :body, schema: {
+        type:       :object,
+        required:   %w[work_id type],
+        properties: {
+          work_id: { type: :string, description: 'NOID of the Work this one is subordinate to' },
+          type:    { type: :string, description: 'One of the five relationship predicates',
+                     enum: Work::ASSOCIATION_TYPES.map(&:to_s) }
+        }
+      }
+
+      response '200', 'work associated' do
+        let(:dataset) { WorkCreator.call(parent_id: collection.noid) }
+        let(:work)    { WorkCreator.call(parent_id: collection.noid) }
+        let(:id)      { work.noid }
+        let(:body)    { { work_id: dataset.noid, type: 'is_codebook_for' } }
+        schema '$ref' => '#/components/schemas/WorkAssociations'
+        run_test! do |response|
+          expect(JSON.parse(response.body).dig('outbound', 'is_codebook_for')).to eq([dataset.noid])
+        end
+      end
+
+      response '422', 'rejects an unknown relationship type' do
+        let(:dataset) { WorkCreator.call(parent_id: collection.noid) }
+        let(:work)    { WorkCreator.call(parent_id: collection.noid) }
+        let(:id)      { work.noid }
+        let(:body)    { { work_id: dataset.noid, type: 'is_sequel_to' } }
+        run_test! do |response|
+          expect(JSON.parse(response.body)['error']).to eq('invalid_type')
+        end
+      end
+    end
+  end
+
+  path '/works/{id}/associations/{type}/{work_id}' do
+    parameter name: :id, in: :path, type: :string, description: 'NOID of the asserting Work'
+    parameter name: :type, in: :path, type: :string, description: 'The relationship predicate to retract'
+    parameter name: :work_id, in: :path, type: :string, description: 'NOID of the associated Work'
+
+    delete 'Remove an association between two works' do
+      tags 'Works'
+      produces 'application/json'
+      description <<~DESC
+        Retracts one typed relationship. Idempotent — retracting an edge that
+        was never asserted is a no-op.
+
+        The type is in the path rather than a query parameter because it is
+        part of the edge's identity: retracting the figure claim leaves a
+        transcription claim between the same two Works standing.
+
+        Same authorization as the POST (admin and devolved admin). Returns
+        the updated associations from both ends.
+      DESC
+
+      response '200', 'association removed' do
+        let(:dataset) { WorkCreator.call(parent_id: collection.noid) }
+        let(:work) do
+          w = WorkCreator.call(parent_id: collection.noid)
+          WorkAssociationCreator.call(work: w, target: dataset, type: 'is_codebook_for')
+          w
+        end
+        let(:id)      { work.noid }
+        let(:type)    { 'is_codebook_for' }
+        let(:work_id) { dataset.noid }
+        schema '$ref' => '#/components/schemas/WorkAssociations'
+        run_test! do |response|
+          expect(JSON.parse(response.body)['outbound']).to eq({})
+        end
+      end
+    end
+  end
+
   path '/works/{id}/tombstone' do
     parameter name: :id, in: :path, type: :string
 

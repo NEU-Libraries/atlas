@@ -96,6 +96,17 @@ class ApplicationController < ActionController::API
     }, status: :unprocessable_entity
   end
 
+  # Structured 422 for Work-association validation failures (unknown type,
+  # target not found / not a Work / the Work itself, either end tombstoned).
+  # Same code-as-discriminator contract as the linked-member path above.
+  rescue_from Exceptions::WorkAssociationError do |exception|
+    render json: {
+      error:       exception.code,
+      resource_id: params[:id],
+      message:     exception.message
+    }, status: :unprocessable_entity
+  end
+
   # Structured 422 for verify-on-ingest failures (an upload whose bytes don't
   # match a supplied expected_digest, or an unsupported digest algorithm).
   # Same code-as-discriminator contract; the upload is rejected before any

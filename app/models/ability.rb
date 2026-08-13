@@ -246,11 +246,18 @@ class Ability
     #  - :restore on Work/Collection/Community — reversing a tombstone is an
     #    operator action, not an owner or curator one, so it sits beside
     #    :reparent here rather than riding edit rights like :tombstone does.
+    #  - :associate on Work — asserting "this is the codebook for that" makes
+    #    a claim that renders on BOTH Works' pages, including the target,
+    #    which the asserter may hold no rights over. Edit rights on the
+    #    asserting Work would therefore let anyone hang an inbound link off a
+    #    well-known Work its owner never asked for, so this stays an operator
+    #    verb like :reparent rather than riding edit rights.
     def apply_admin_delegate_abilities(user)
       return unless user.admin_delegate?
 
-      can :reparent, [Work, Collection, Community]
-      can :restore,  [Work, Collection, Community]
+      can :reparent,  [Work, Collection, Community]
+      can :restore,   [Work, Collection, Community]
+      can :associate, Work
       can :create, AuditEvent
       can :read_versions, Blob
     end

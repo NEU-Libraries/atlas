@@ -42,7 +42,8 @@ module OpenapiSchemas
       ModsVersions:       mods_versions,
       BlobVersions:       blob_versions,
       BlobAncestry:       blob_ancestry,
-      DescendantWorks:    descendant_works
+      DescendantWorks:    descendant_works,
+      WorkAssociations:   work_associations
     }.merge(compilation_schemas).merge(person_schemas)
   end
   # rubocop:enable Metrics/AbcSize
@@ -363,6 +364,29 @@ module OpenapiSchemas
         pagination: { '$ref' => '#/components/schemas/Pagination' }
       },
       required:   %w[works pagination]
+    }
+  end
+
+  # GET/POST/DELETE /works/{id}/associations — the typed Work-to-Work edges
+  # (mirrors works/associations.json.jbuilder). Both maps are keyed by
+  # predicate and hold NOIDs; a predicate with no edges is omitted, so the
+  # properties stay open rather than enumerated.
+  def work_associations
+    {
+      type:       :object,
+      properties: {
+        outbound: work_association_map('What this Work asserts about other Works'),
+        inbound:  work_association_map('What other Works assert about this one')
+      },
+      required:   %w[outbound inbound]
+    }
+  end
+
+  def work_association_map(description)
+    {
+      type:                 :object,
+      description:          description,
+      additionalProperties: { type: :array, items: { type: :string } }
     }
   end
 

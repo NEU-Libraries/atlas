@@ -12,6 +12,7 @@ class WorksController < ApplicationController
   include StaleObjectRetry
   include Reparentable
   include LinkedMembers
+  include WorkAssociations
   include Auditable
   include ParentScopedCreate
 

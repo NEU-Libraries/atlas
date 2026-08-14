@@ -32,6 +32,10 @@ class OAIController < ActionController::Base # rubocop:disable Rails/Application
                'ListRecords'         => :list_records,
                'GetRecord'           => :fetch_record }.freeze
 
+  # Every response is 200, including the error ones. OAI-PMH keeps its own
+  # errors distinct from HTTP status codes — the status reports the transport,
+  # the <error> element reports the protocol — so a badVerb is a successful
+  # HTTP exchange carrying an OAI-PMH error.
   def index
     @oai = OAI::Request.new(raw_args)
     handle_verb if @oai.valid?

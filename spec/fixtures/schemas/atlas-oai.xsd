@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Composite validation entry point for the /oai specs.
+
+  OAI-PMH.xsd declares <metadata>, <about> and <setDescription> as
+  <any namespace="##other" processContents="strict"/>, so a validator that
+  knows only OAI-PMH rejects an embedded MODS or oai_dc payload it cannot
+  resolve. Importing every namespace Atlas emits into one schema gives
+  libxml2 the declarations it needs, and keeps the strict check that found
+  the empty <setDescription/> defect in the v1 endpoint.
+
+  All schemaLocations in this directory are rewritten to local relative
+  paths: Nokogiri validates with libxml2's NONET flag set, so a remote
+  schemaLocation would simply fail to resolve.
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+  <xs:import namespace="http://www.openarchives.org/OAI/2.0/"
+             schemaLocation="OAI-PMH.xsd"/>
+  <xs:import namespace="http://www.openarchives.org/OAI/2.0/oai_dc/"
+             schemaLocation="oai_dc.xsd"/>
+  <xs:import namespace="http://www.openarchives.org/OAI/2.0/oai-identifier"
+             schemaLocation="oai-identifier.xsd"/>
+  <xs:import namespace="http://www.loc.gov/mods/v3"
+             schemaLocation="mods-3-5.xsd"/>
+</xs:schema>

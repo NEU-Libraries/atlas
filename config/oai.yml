@@ -1,0 +1,25 @@
+# OAI-PMH provider settings (Rails.application.config_for(:oai)).
+#
+# base_url must be the address a harvester actually reaches, because Identify
+# and every <request> element advertise it. v1 reported the site root here and
+# only kept working because Boston Public Library held the real URL by hand.
+#
+# Ops maps `location /oai` onto Atlas, so the public address stays on the
+# repository host even though Atlas itself may sit behind a path prefix.
+shared:
+  repository_name: 'Northeastern University Library Digital Repository Service'
+  admin_email: 'library-systems@northeastern.edu'
+  repository_identifier: 'repository.library.northeastern.edu'
+  # A full MODS document is multiple KB, so records page smaller than bare
+  # identifiers do.
+  records_per_page: 50
+  identifiers_per_page: 200
+
+development:
+  base_url: 'http://localhost:3000/oai'
+
+test:
+  base_url: 'http://www.example.com/oai'
+
+production:
+  base_url: 'https://repository.library.northeastern.edu/oai'

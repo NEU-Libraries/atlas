@@ -4,6 +4,15 @@ Rails.application.routes.draw do
   mount Rswag::Api::Engine => '/api-docs'
   get '/docs', to: 'docs#show'
 
+  # OAI-PMH provider — a separate protocol with its own XSD, so it sits
+  # outside the `defaults format: :json` block and answers XML unconditionally.
+  # The protocol requires a repository to accept both GET and POST at one
+  # baseURL, and dispatches on the `verb` argument rather than the path, so one
+  # route covers all six verbs. Harvesters (Digital Commonwealth via Boston
+  # Public Library) call it directly; there is no Ruby client and it is
+  # deliberately absent from openapi/openapi.yaml.
+  match '/oai', to: 'oai#index', via: %i[get post]
+
   # Human auth is delegated to Cerberus (SSO) — Atlas never takes a password,
   # so the devise sessions (sign_in/out) and registrations (sign_up) routes are
   # skipped (F1). The devise modules stay on User and the :user Warden mapping

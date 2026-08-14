@@ -21,4 +21,5 @@ ActiveSupport::Inflector.inflections(:en) do |inflect|
   inflect.acronym 'MODS'
   inflect.acronym 'METS'
   inflect.acronym 'ACL'
+  inflect.acronym 'OAI'
 end

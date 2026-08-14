@@ -32,6 +32,19 @@ class Compilation < ApplicationRecord
 
   before_create { self.noid ||= Minter.mint }
 
+  # v1's ListSets passed no `rows` and inherited Solr's default of 10, so it
+  # would have truncated silently at the eleventh published set. The cap here
+  # is explicit and generous, and it bounds the per-page setSpec resolution
+  # too (OAISetMembershipQuery runs one Solr query per published set).
+  PUBLISHED_LIMIT = 500
+
+  # The OAI-PMH sets (GET /oai?verb=ListSets). Publishing a Set is an external
+  # commitment — a harvester walks it and copies what it finds into another
+  # catalogue — so the verb pair is admin-only and the recipe routes start
+  # emitting audit rows once the flag is on. Ordered by noid so ListSets and a
+  # record's setSpec list agree from one page to the next.
+  scope :published, -> { where(published: true).order(:noid).limit(PUBLISHED_LIMIT) }
+
   # Grant-scoped listing: Sets where the principal is a *grantee* but not the
   # owner — the "Shared with me" / "Editable by me" surfaces. Owned Sets are
   # always excluded (the UI lists those under "My Sets"); the caller's own

@@ -96,6 +96,11 @@ Rails.application.routes.draw do
         delete 'included_works/:work_id',             to: 'compilations#remove_included_work'
         post   'exclusions',                          to: 'compilations#add_exclusion'
         delete 'exclusions/:work_id',                 to: 'compilations#remove_exclusion'
+        # The OAI-PMH set flag. One noun, two verbs (the Work#incomplete
+        # shape): POST publishes the Set to /oai, DELETE withdraws it.
+        # Admin-only — publishing hands the Set to outside harvesters.
+        post   'published',                           to: 'compilations#publish'
+        delete 'published',                           to: 'compilations#unpublish'
       end
     end
 

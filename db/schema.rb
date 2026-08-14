@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.0].define(version: 2026_08_03_120000) do
+ActiveRecord::Schema[7.0].define(version: 2026_08_14_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
   enable_extension "uuid-ossp"
@@ -75,8 +75,10 @@ ActiveRecord::Schema[7.0].define(version: 2026_08_03_120000) do
     t.string "edit_groups", default: [], null: false, array: true
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.boolean "published", default: false, null: false
     t.index ["depositor"], name: "index_compilations_on_depositor"
     t.index ["noid"], name: "index_compilations_on_noid", unique: true
+    t.index ["published"], name: "index_compilations_on_published"
   end
 
   create_table "idempotency_keys", force: :cascade do |t|

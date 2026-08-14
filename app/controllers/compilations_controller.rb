@@ -53,7 +53,8 @@ class CompilationsController < ApplicationController
   # `permissions` ACL hash. ACL writes capture audited_acl before/after and
   # emit a `permissions` audit row, suppressing no-ops — same convention as
   # the resource metadata PATCH (Auditable#audit_metadata_update!). Recipe
-  # churn (the membership routes) deliberately emits nothing.
+  # churn (the membership routes) emits nothing until the Set is published —
+  # see CompilationMemberships#audit_recipe_change!.
   def update
     @compilation = find_compilation
     authorize! :update, @compilation
@@ -88,7 +89,38 @@ class CompilationsController < ApplicationController
     @pagination = result.pagination
   end
 
+  # POST /compilations/:id/published — make the Set an OAI-PMH set, listed by
+  # GET /oai?verb=ListSets and walkable by any harvester.
+  def publish
+    change_published(true)
+  end
+
+  # DELETE /compilations/:id/published — withdraw it from the feed.
+  #
+  # A harvester that already holds the Set's records is NOT told they went
+  # away: OAI deletion is per record, and unpublishing removes the set, not
+  # its Works. Digital Commonwealth keeps what it copied until it re-harvests
+  # from scratch. That is why the pair is admin-only.
+  def unpublish
+    change_published(false)
+  end
+
   private
+
+    # One noun (`published`), two verbs — the Work#incomplete shape. Admin-only:
+    # no rule below `manage :all` grants :publish, so edit rights on the Set are
+    # deliberately not enough. A no-op re-publish emits no audit row.
+    def change_published(flag)
+      @compilation = find_compilation
+      authorize! :publish, @compilation
+      changed = @compilation.published != flag
+      @compilation.update!(published: flag)
+      if changed
+        audit!(resource: @compilation, action: flag ? 'publish' : 'unpublish',
+               change_type: 'lifecycle', payload: { published: flag })
+      end
+      render :show
+    end
 
     def find_compilation
       Compilation.find_by!(noid: params[:id])

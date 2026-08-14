@@ -1312,6 +1312,10 @@ components:
             depositor:
               type: string
               description: Curator NUID (owner)
+            published:
+              type: boolean
+              description: 'OAI-PMH set flag: when true the Set is listed by GET /oai?verb=ListSets
+                and harvesters may walk it'
             included_collections:
               type: array
               items:
@@ -1350,6 +1354,7 @@ components:
           - title
           - description
           - depositor
+          - published
           - included_collections
           - included_works
           - excluded_works
@@ -2876,6 +2881,77 @@ paths:
       responses:
         '200':
           description: set-aside cleared
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Compilation"
+  "/compilations/{id}/published":
+    parameters:
+    - name: id
+      in: path
+      description: Compilation NOID
+      required: true
+      schema:
+        type: string
+    post:
+      summary: Publish the Set to OAI-PMH
+      tags:
+      - Compilations
+      description: |
+        Makes the Set an OAI-PMH set: `GET /oai?verb=ListSets` lists it, and any
+        harvester can walk its Works. Admin-only — publishing is an external
+        commitment, so edit rights on the Set are not enough. Idempotent; a
+        re-publish emits no audit row.
+
+        Once published, the recipe routes start emitting `structural` audit rows,
+        because a Work entering or leaving the feed is a curatorial act.
+      security:
+      - BearerAuth: []
+        NuidHeader: []
+      parameters:
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          type: string
+      - name: User
+        in: header
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: set published
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Compilation"
+        '403':
+          description: owner without admin is refused
+    delete:
+      summary: Withdraw the Set from OAI-PMH
+      tags:
+      - Compilations
+      description: Clears the flag; ListSets stops advertising it. Admin-only. Harvesters
+        that already copied the Set are NOT told — OAI deletion is per record, and
+        this removes the set, not its Works.
+      security:
+      - BearerAuth: []
+        NuidHeader: []
+      parameters:
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          type: string
+      - name: User
+        in: header
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: set withdrawn
           content:
             application/json:
               schema:

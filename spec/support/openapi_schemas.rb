@@ -307,7 +307,10 @@ module OpenapiSchemas
       id:          { type: :string, description: 'NOID (minted; the API-addressable id)' },
       title:       { type: :string },
       description: { type: :string, nullable: true },
-      depositor:   { type: :string, description: 'Curator NUID (owner)' }
+      depositor:   { type: :string, description: 'Curator NUID (owner)' },
+      published:   { type:        :boolean,
+                     description: 'OAI-PMH set flag: when true the Set is listed by ' \
+                                  'GET /oai?verb=ListSets and harvesters may walk it' }
     }.merge(compilation_recipe_props, compilation_acl_props))
   end
 

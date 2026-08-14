@@ -7,6 +7,7 @@ json.compilation do
   json.title compilation.title
   json.description compilation.description
   json.depositor compilation.depositor
+  json.published compilation.published
   json.included_collections compilation.included_collections
   json.included_works compilation.included_works
   json.excluded_works compilation.excluded_works

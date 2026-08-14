@@ -10,10 +10,15 @@ class AuditEvent < ApplicationRecord
                       add_file replace_file remove_file
                       add_affiliation remove_affiliation
                       mint_token revoke_token
+                      publish unpublish
                       impersonation_started impersonation_ended].freeze
   CHANGE_TYPES   = %w[metadata structural permissions lifecycle file session].freeze
   EVENT_SOURCES  = %w[job controller script ingest migration].freeze
-  RESOURCE_TYPES = %w[Community Collection Work Person].freeze
+  # Compilation is the one non-Valkyrie member: a published Set is what /oai
+  # exposes to outside harvesters, so its publish state and its recipe are
+  # provenance. Its rows carry the Compilation's primary key in resource_id
+  # (the writer reads `resource.id`), not a Valkyrie UUID.
+  RESOURCE_TYPES = %w[Community Collection Work Person Compilation].freeze
 
   validates :actor_nuid,   presence: true
   validates :action,       presence: true, inclusion: { in: ACTIONS }

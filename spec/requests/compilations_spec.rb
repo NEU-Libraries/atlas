@@ -616,6 +616,124 @@ RSpec.describe 'Compilations', type: :request, default_auth: false do
         end
       end
     end
+
+    path '/compilations/{id}/published' do
+      parameter name: :id, in: :path, type: :string, description: 'Compilation NOID'
+
+      post 'Publish the Set to OAI-PMH' do
+        tags 'Compilations'
+        produces 'application/json'
+        description <<~D
+          Makes the Set an OAI-PMH set: `GET /oai?verb=ListSets` lists it, and any
+          harvester can walk its Works. Admin-only — publishing is an external
+          commitment, so edit rights on the Set are not enough. Idempotent; a
+          re-publish emits no audit row.
+
+          Once published, the recipe routes start emitting `structural` audit rows,
+          because a Work entering or leaving the feed is a curatorial act.
+        D
+        security [{ BearerAuth: [], NuidHeader: [] }]
+        parameter name: :Authorization, in: :header, type: :string, required: false
+        parameter name: :User, in: :header, type: :string, required: false
+
+        response '200', 'set published' do
+          schema '$ref' => '#/components/schemas/Compilation'
+          let(:Authorization) { auth_header }
+          let(:User) { "NUID #{admin.nuid}" }
+          run_test! do |response|
+            expect(JSON.parse(response.body).dig('compilation', 'published')).to be(true)
+            expect(compilation.reload.published).to be(true)
+            expect(AuditEvent.where(resource_type: 'Compilation', action: 'publish').count).to eq(1)
+          end
+        end
+
+        response '403', 'owner without admin is refused' do
+          let(:Authorization) { auth_header }
+          let(:User) { "NUID #{curator.nuid}" }
+          run_test! do
+            expect(compilation.reload.published).to be(false)
+          end
+        end
+      end
+
+      delete 'Withdraw the Set from OAI-PMH' do
+        tags 'Compilations'
+        produces 'application/json'
+        description 'Clears the flag; ListSets stops advertising it. Admin-only. ' \
+                    'Harvesters that already copied the Set are NOT told — OAI ' \
+                    'deletion is per record, and this removes the set, not its Works.'
+        security [{ BearerAuth: [], NuidHeader: [] }]
+        parameter name: :Authorization, in: :header, type: :string, required: false
+        parameter name: :User, in: :header, type: :string, required: false
+
+        response '200', 'set withdrawn' do
+          schema '$ref' => '#/components/schemas/Compilation'
+          let(:Authorization) { auth_header }
+          let(:User) { "NUID #{admin.nuid}" }
+          before { compilation.update!(published: true) }
+          run_test! do |response|
+            expect(JSON.parse(response.body).dig('compilation', 'published')).to be(false)
+            expect(AuditEvent.where(resource_type: 'Compilation', action: 'unpublish').count).to eq(1)
+          end
+        end
+      end
+    end
+
+    # The audit half of the published flag: recipe churn is silent on a
+    # personal Set and provenance on a published one.
+    describe 'recipe audit rows' do
+      # Plain examples, so the rswag `User` parameter that `auth_header` reads
+      # is not declared — sign for the curator directly.
+      let(:headers) do
+        { 'Authorization' => "Bearer #{DefaultAuthHeaders.assertion_for(curator.nuid)}",
+          'User'          => "NUID #{curator.nuid}" }
+      end
+
+      def compilation_rows
+        AuditEvent.where(resource_type: 'Compilation', change_type: 'structural')
+      end
+
+      it 'stays silent while the Set is unpublished' do
+        post "/compilations/#{compilation.noid}/included_works",
+             params:  { work_id: work.noid }.to_json,
+             headers: headers.merge('Content-Type' => 'application/json')
+
+        expect(response).to have_http_status(:ok)
+        expect(compilation_rows.count).to eq(0)
+      end
+
+      it 'records a Work joining a published Set' do
+        compilation.update!(published: true)
+
+        post "/compilations/#{compilation.noid}/included_works",
+             params:  { work_id: work.noid }.to_json,
+             headers: headers.merge('Content-Type' => 'application/json')
+
+        row = compilation_rows.last
+        expect(row.action).to eq('link_member')
+        expect(row.payload).to include('line' => 'included_works', 'before' => [], 'after' => [work.noid])
+      end
+
+      it 'records a Work leaving a published Set' do
+        compilation.update!(published: true)
+        compilation.work_inclusions.create!(resource_noid: work.noid)
+
+        delete "/compilations/#{compilation.noid}/included_works/#{work.noid}", headers: headers
+
+        row = compilation_rows.last
+        expect(row.action).to eq('unlink_member')
+        expect(row.payload).to include('before' => [work.noid], 'after' => [])
+      end
+
+      it 'suppresses a no-op removal' do
+        compilation.update!(published: true)
+
+        delete "/compilations/#{compilation.noid}/included_works/#{work.noid}", headers: headers
+
+        expect(response).to have_http_status(:ok)
+        expect(compilation_rows.count).to eq(0)
+      end
+    end
   end
 
   # ---- recipe resolution ----

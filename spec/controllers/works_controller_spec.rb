@@ -252,6 +252,49 @@ describe WorksController, type: :controller do
         expect(response.parsed_body['error']).to eq('stale_resource')
         expect(response.parsed_body['action']).to eq('complete')
       end
+
+      # The controller builds its own client and reads the public base from
+      # the environment, so both are stubbed here to drive the real
+      # HandleMinter rather than a stand-in for it.
+      def configure_minting(client)
+        allow(HandleClient).to receive(:new).and_return(client)
+        allow(ENV).to receive(:fetch).and_call_original
+        allow(ENV).to receive(:fetch).with('CERBERUS_PUBLIC_BASE', nil)
+                                     .and_return('https://repository.example.edu')
+      end
+
+      it 'mints a handle and renders it' do
+        client = instance_double(HandleClient, configured?: true)
+        allow(client).to receive(:mint) { |suffix, **| "DRSDEV/#{suffix}" }
+        configure_minting(client)
+
+        post :complete, params: { id: work.noid }, as: :json
+
+        expect(response).to have_http_status(:success)
+        expect(response.parsed_body.dig('work', 'handle')).to eq("DRSDEV/#{work.noid}")
+      end
+
+      it 'renders a null handle when the deployment mints none' do
+        post :complete, params: { id: work.noid }, as: :json
+
+        expect(response).to have_http_status(:success)
+        expect(response.parsed_body.dig('work', 'handle')).to be_nil
+      end
+
+      # The finalize must not inherit the handle server's availability. A
+      # bulk deposit re-finalizes routinely, and a minting outage that 500s
+      # /complete would stall it.
+      it 'still completes when the handle server is unreachable' do
+        client = instance_double(HandleClient, configured?: true)
+        allow(client).to receive(:mint).and_raise(HandleClient::Error, 'connection refused')
+        configure_minting(client)
+
+        post :complete, params: { id: work.noid }, as: :json
+
+        expect(response).to have_http_status(:success)
+        expect(response.parsed_body.dig('work', 'in_progress')).to be false
+        expect(response.parsed_body.dig('work', 'handle')).to be_nil
+      end
     end
   end
 

@@ -22,7 +22,13 @@ module Preservable
   # again, so it has to survive on disk. Note a_linked_member_of is
   # deliberately absent: a linked membership is a discovery convenience a Set
   # recipe can express again, not an assertion that exists nowhere else.
-  ENVELOPE_SCHEMA_VERSION = 4
+  # v4 → v5: additive :handle — the minted persistent identifier
+  # ("<prefix>/<noid>"), null on every resource class but Work and on any Work
+  # finalized before minting was configured. An external Handle service holds
+  # the other half of this binding and the wider world cites it, so it is the
+  # one identifier here that the repository cannot re-derive from its own
+  # contents: a rebuild that lost it would break every outside citation.
+  ENVELOPE_SCHEMA_VERSION = 5
 
   def graph_payload
     {
@@ -31,6 +37,7 @@ module Preservable
       type:           self.class.name,
       classification: respond_to?(:type) ? type : nil,
       position:       respond_to?(:position) ? position : nil,
+      handle:         respond_to?(:handle) ? handle : nil,
       a_member_of:    parent_noids,
       member_ids:     member_noids,
       associations:   association_noids

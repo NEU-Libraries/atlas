@@ -59,6 +59,15 @@ class Work < Resource
   # need an Atlas release to be accepted.
   attribute :incomplete_reason, Valkyrie::Types::String.optional
 
+  # The persistent identifier minted at /complete: "<prefix>/<noid>" (see
+  # HandleMinter). Unlike the derived fields below, this one IS
+  # preservation-relevant — an external Handle service registers it and
+  # off-site citations point at it, so nothing in the repository can
+  # re-derive the binding between object and identifier. It therefore rides
+  # the OCFL envelope (schema v5), not Postgres and Solr alone. Nil until a
+  # Work is finalized, and on every Work where no handle server is configured.
+  attribute :handle, Valkyrie::Types::String.optional
+
   # Derived full-document text, extracted by Cerberus (pdftotext / Tika in a
   # Solid Queue job) and PATCHed in via /works/:id/full_text — the Work-level
   # aggregate of its content FileSets' body text. A regenerable **search aid**,

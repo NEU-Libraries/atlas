@@ -15,12 +15,21 @@ RSpec.describe Preservable do
     context 'on a root Community' do
       it 'reports type, empty a_member_of, empty member_ids' do
         payload = community.graph_payload
-        expect(payload[:schema_version]).to eq(4)
+        expect(payload[:schema_version]).to eq(5)
         expect(payload[:noid]).to eq(community.noid)
         expect(payload[:type]).to eq('Community')
         expect(payload[:classification]).to eq('Community')
         expect(payload[:a_member_of]).to eq([])
         expect(payload[:member_ids]).to eq([])
+      end
+
+      # Only a Work can carry one, but the key is emitted everywhere so a
+      # reconstitution pass reads one envelope shape per schema version.
+      it 'emits a null handle on a class that cannot have one' do
+        payload = community.graph_payload
+
+        expect(payload).to have_key(:handle)
+        expect(payload[:handle]).to be_nil
       end
     end
 
@@ -102,7 +111,7 @@ RSpec.describe Preservable do
       it 'reports the role-bearing fields needed for preservation' do
         payload = mods_blob.graph_payload
 
-        expect(payload[:schema_version]).to eq(4)
+        expect(payload[:schema_version]).to eq(5)
         expect(payload[:noid]).to eq(mods_blob.noid)
         expect(payload[:type]).to eq('Blob')
         expect(payload[:use]).to eq(Role.descriptive_metadata.name)
@@ -149,7 +158,7 @@ RSpec.describe Preservable do
     it 'mirrors the keys Permissions#permissions= consumes' do
       payload = work.permissions_payload
 
-      expect(payload[:schema_version]).to eq(4)
+      expect(payload[:schema_version]).to eq(5)
       expect(payload[:noid]).to eq(work.noid)
       expect(payload).to have_key(:embargo)
       expect(payload).to have_key(:depositor)

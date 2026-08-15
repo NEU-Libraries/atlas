@@ -234,6 +234,12 @@ class WorksController < ApplicationController
     # preservation record of page order). Unreached on a stale-object
     # 409 — retry exhaustion re-raises out of the block above.
     WorkMETSRebuilder.call(work: @work)
+    # Mint the persistent identifier last, and reassign because the response
+    # renders the handle. HandleMinter is best-effort: it reloads past the
+    # METS write, skips a Work that already has a handle, and swallows a
+    # handle-server outage — /complete cannot be allowed to fail on an
+    # external service it does not need to have succeeded.
+    @work = HandleMinter.call(work: @work).decorate
     audit!(resource: @work, action: 'complete', change_type: 'lifecycle')
   end
 

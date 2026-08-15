@@ -103,15 +103,23 @@ class HandleClient
       { index: URL_INDEX, type: 'URL', data: { format: 'string', value: url } }
     end
 
+    # The Handle REST API mirrors its own status into the HTTP status — a "no
+    # such handle" (responseCode 100) arrives as a 404, and a refused
+    # credential as a 401 — so the responseCode is the authority here and a
+    # bare HTTP status only decides a reply that carries no Handle code at
+    # all (a proxy error, say).
     def perform(request, allow: [RC_SUCCESS])
       response = dispatch(request)
-      unless response.is_a?(Net::HTTPSuccess)
-        raise Error, "handle server returned HTTP #{response.code}: #{response.body}"
-      end
+      body     = parse(response)
+      code     = body['responseCode']
 
-      body = parse(response)
-      code = body['responseCode']
-      raise Error, "handle server returned responseCode #{code}: #{response.body}" unless allow.include?(code)
+      if code.nil?
+        unless response.is_a?(Net::HTTPSuccess)
+          raise Error, "handle server returned HTTP #{response.code}: #{response.body}"
+        end
+      elsif allow.exclude?(code)
+        raise Error, "handle server returned responseCode #{code}: #{response.body}"
+      end
 
       body
     end
@@ -140,8 +148,14 @@ class HandleClient
     end
 
     def parse(response)
-      JSON.parse(response.body.to_s)
+      # A refused credential comes back as a bare 401 with no body at all, so
+      # an empty one is not a parse failure — it just carries no Handle code,
+      # and the HTTP status above is left to speak for it.
+      return {} if response.body.blank?
+
+      JSON.parse(response.body)
     rescue JSON::ParserError
-      raise Error, "handle server returned unparseable body: #{response.body.to_s.truncate(200)}"
+      raise Error, "handle server returned HTTP #{response.code} with an unparseable body: " \
+                   "#{response.body.to_s.truncate(200)}"
     end
 end

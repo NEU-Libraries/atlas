@@ -97,15 +97,20 @@ RSpec.describe HandleClient do
   end
 
   describe 'failure handling' do
-    it 'raises Error on a non-success HTTP status' do
+    # Nothing in front of the handle server speaks Handle, so a reply with no
+    # responseCode (a proxy error, say) is judged on its HTTP status alone.
+    it 'raises Error on a non-success HTTP status carrying no Handle code' do
       allow(http).to receive(:request)
-        .and_return(response_double({ 'responseCode' => 1 }, success: false, code: '401'))
+        .and_return(response_double({ 'error' => 'bad gateway' }, success: false, code: '502'))
 
-      expect { mint }.to raise_error(described_class::Error, /HTTP 401/)
+      expect { mint }.to raise_error(described_class::Error, /HTTP 502/)
     end
 
+    # The server mirrors a refused credential into a 401, so the Handle code
+    # is what the message must name.
     it 'raises Error on a Handle responseCode that is not success' do
-      allow(http).to receive(:request).and_return(response_double({ 'responseCode' => 402 }))
+      allow(http).to receive(:request)
+        .and_return(response_double({ 'responseCode' => 402 }, success: false, code: '401'))
 
       expect { mint }.to raise_error(described_class::Error, /responseCode 402/)
     end
@@ -129,6 +134,14 @@ RSpec.describe HandleClient do
 
       expect { mint }.to raise_error(described_class::Error, /unparseable/)
     end
+
+    # A refused credential is a bare 401 with no body, which must read as the
+    # status it is rather than as a parse failure.
+    it 'reports the status when a rejected request carries no body' do
+      allow(http).to receive(:request).and_return(response_double('', success: false, code: '401'))
+
+      expect { mint }.to raise_error(described_class::Error, /HTTP 401/)
+    end
   end
 
   describe '#resolve' do
@@ -140,9 +153,13 @@ RSpec.describe HandleClient do
       expect(client.resolve('DRSDEV/x')).to eq('https://example.edu/works/x')
     end
 
-    # 100 is Handle's "no such handle" — an answer, not a failure.
-    it 'returns nil when the server has no such handle' do
-      allow(http).to receive(:request).and_return(response_double({ 'responseCode' => 100 }))
+    # 100 is Handle's "no such handle" — an answer, not a failure. The server
+    # mirrors it into a 404, so the HTTP status must not be read as the
+    # failure it looks like. Verified against the real server, which is the
+    # only way this shape came to light.
+    it 'returns nil when the server has no such handle, despite the 404' do
+      allow(http).to receive(:request)
+        .and_return(response_double({ 'responseCode' => 100 }, success: false, code: '404'))
 
       expect(client.resolve('DRSDEV/missing')).to be_nil
     end

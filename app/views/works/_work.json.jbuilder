@@ -15,6 +15,7 @@ json.work do
   json.title @work.plain_title
   json.description @work.plain_description
   json.permanent_url @work.mods&.permanent_url
+  json.handle @work.handle
   json.tombstoned @work.tombstoned
   json.tombstoned_at @work.tombstoned_at&.to_s
   json.tombstoned_by @work.tombstoned_by

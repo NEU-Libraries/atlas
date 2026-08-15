@@ -695,7 +695,11 @@ module OpenapiSchemas
       incomplete_reason: { type: :string, nullable: true,
                            description: 'Machine token naming the cause (e.g. pdf_rendition_gave_up). Opaque to ' \
                                         'Atlas and unvalidated; the vocabulary belongs to the caller. Null unless ' \
-                                        'the Work is flagged.' }
+                                        'the Work is flagged.' },
+      handle:            { type: :string, nullable: true,
+                           description: 'Persistent identifier, "<prefix>/<noid>", minted against the Handle ' \
+                                        'service when the Work is finalized. Null until then, and on any ' \
+                                        'deployment with no handle server configured.' }
     }
   end
 

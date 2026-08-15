@@ -9,6 +9,7 @@ json.works do |root|
       json.in_progress work.in_progress
       json.incomplete work.incomplete
       json.incomplete_reason work.incomplete_reason
+      json.handle work.handle
     end
   end
 end

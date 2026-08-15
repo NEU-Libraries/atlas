@@ -4,6 +4,7 @@ volumes:
   db:
   storage:
   solr:
+  handle-data:
 services:
   db:
     image: postgres:14
@@ -18,8 +19,58 @@ services:
   web:
     image: nakatomi/atlas_web
     entrypoint: /home/atlas/web/docker-entrypoint.sh
+    environment:
+      # Handle minting at POST /works/:id/complete. Inert until all three of
+      # the URL, prefix and secret are set, so a stack brought up without the
+      # handles profile finalizes Works exactly as before and leaves the
+      # handle null. Set HANDLE_ADMIN_SECRET in .env to arm both this and the
+      # handle service below with the same value.
+      HANDLE_SERVER_URL: ${HANDLE_SERVER_URL:-https://handle:8000}
+      HANDLE_PREFIX: ${HANDLE_PREFIX:-DRSDEV}
+      HANDLE_ADMIN_SECRET: ${HANDLE_ADMIN_SECRET:-}
+      # The dev server's certificate is self-signed CN=anonymous with no SAN,
+      # so no hostname can verify against it and a CA bundle is no help. On
+      # wherever this is unset, so a real certificate is verified normally.
+      HANDLE_SSL_VERIFY: 'false'
+      # Where a minted handle sends a reader — the public Cerberus Work page.
+      CERBERUS_PUBLIC_BASE: ${CERBERUS_PUBLIC_BASE:-http://localhost:3000}
     ports:
       - 3000:3000
+  handle:
+    # Handle.Net server (independent-service mode, unregistered local prefix)
+    # for persistent-identifier work — the thing HandleMinter mints against.
+    # Built from ~/projects/cerberus-handles, whose README is the reference.
+    # Opt-in: `docker compose --profile handles up -d handle` starts it, and a
+    # plain up leaves it alone.
+    #
+    # Its environment is listed variable by variable rather than pulled from an
+    # env_file, because the image's own defaults are not the ones in
+    # cerberus-handles' .env.example: leaving STORAGE_TYPE and SQL_URL unset
+    # drops the server onto the embedded BDB-JE store, which skips the admin
+    # seed and can then never authenticate a write.
+    image: nakatomi/cerberus-handles:9.3.2
+    profiles:
+      - handles
+    environment:
+      HANDLE_PREFIX: ${HANDLE_PREFIX:-DRSDEV}
+      SERVER_ADMINS: "300:${HANDLE_PREFIX:-DRSDEV}/ADMIN"
+      # Renamed on the way in: a bare ADMIN_SECRET reads as Atlas's own. Left
+      # empty the container refuses to boot, which is the right failure.
+      ADMIN_SECRET: ${HANDLE_ADMIN_SECRET:-}
+      STORAGE_TYPE: sql
+      SQL_URL: jdbc:sqlite:/var/handle/svr/handles.db
+      SQL_DRIVER: org.sqlite.JDBC
+    ports:
+      # HTTP and HTTPS are port-unified: reads answer over plain HTTP,
+      # administrative writes require TLS on this same port. The native Handle
+      # protocol (2641/tcp+udp) stays on the compose network — publish it too
+      # only if you need the hdl-* tools from the host.
+      - 8000:8000/tcp
+    volumes:
+      # Config and the server keypair regenerate from the environment on every
+      # boot, so this carries only the handle store and the seeded admin
+      # record. Wiping it is a full reset.
+      - handle-data:/var/handle/svr
   solr:
     image: nakatomi/blacklight-solr
     ports:

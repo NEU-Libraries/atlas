@@ -274,7 +274,13 @@ describe WorksController, type: :controller do
         expect(response.parsed_body.dig('work', 'handle')).to eq("DRSDEV/#{work.noid}")
       end
 
+      # Forces the unconfigured client rather than trusting the ambient
+      # environment to be empty. Left implicit, this example mints for real on
+      # any machine whose compose supplies HANDLE_ADMIN_SECRET.
       it 'renders a null handle when the deployment mints none' do
+        allow(HandleClient).to receive(:new)
+          .and_return(instance_double(HandleClient, configured?: false))
+
         post :complete, params: { id: work.noid }, as: :json
 
         expect(response).to have_http_status(:success)

@@ -43,6 +43,18 @@ rescue ActiveRecord::PendingMigrationError => e
   abort e.to_s.strip
 end
 RSpec.configure do |config|
+  # Minting reaches a real, external Handle server, so the suite must never be
+  # able to reach one. HandleClient reads its configuration from the
+  # environment, and docker-compose sets those variables on the same `web`
+  # service that runs the specs — so on a developer's configured machine the
+  # suite would mint (and delete) live records. Clearing them here makes
+  # HandleClient#configured? false for every example; the specs that exercise
+  # minting inject a double or pass explicit arguments.
+  config.before(:suite) do
+    %w[HANDLE_SERVER_URL HANDLE_PREFIX HANDLE_ADMIN_SECRET HANDLE_SSL_VERIFY
+       CERBERUS_PUBLIC_BASE].each { |key| ENV.delete(key) }
+  end
+
   config.before(:suite) do
     FileUtils.rm_rf(Rails.root.join('tmp/files'))
     Atlas.persister.wipe!

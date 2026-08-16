@@ -88,9 +88,32 @@ RSpec.describe HandleClient do
       expect(http).to have_received(:verify_mode=).with(OpenSSL::SSL::VERIFY_NONE)
     end
 
-    it 'verifies TLS by default' do
+    # These two pin the HANDLE_SSL_VERIFY contract, so they stub the variable
+    # rather than read whatever the container happens to carry. docker-compose
+    # sets it on the same `web` service that runs the specs, so an ambient read
+    # makes the result depend on where the suite runs.
+    def with_ssl_verify_env(value)
+      allow(ENV).to receive(:fetch).and_call_original
+      allow(ENV).to receive(:fetch).with('HANDLE_SSL_VERIFY', 'true').and_return(value)
       described_class.new(server_url: 'https://handle:8000', prefix: 'DRSDEV', admin_secret: 'sekrit')
                      .mint('neu:abc123', url: 'https://example.edu/works/neu:abc123')
+    end
+
+    it 'verifies TLS by default' do
+      with_ssl_verify_env('true')
+
+      expect(http).to have_received(:verify_mode=).with(OpenSSL::SSL::VERIFY_PEER)
+    end
+
+    it 'stops verifying when HANDLE_SSL_VERIFY is false' do
+      with_ssl_verify_env('false')
+
+      expect(http).to have_received(:verify_mode=).with(OpenSSL::SSL::VERIFY_NONE)
+    end
+
+    # Only the exact string "false" disables it, so a typo fails safe.
+    it 'keeps verifying for any other HANDLE_SSL_VERIFY value' do
+      with_ssl_verify_env('no')
 
       expect(http).to have_received(:verify_mode=).with(OpenSSL::SSL::VERIFY_PEER)
     end

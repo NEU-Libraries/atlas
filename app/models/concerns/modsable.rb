@@ -28,6 +28,14 @@ module Modsable
     descriptive_metadata_file_set&.files&.first
   end
 
+  # Whether `mods_xml=` has somewhere to write. Every resource built through
+  # its creator gets the descriptive-metadata FileSet, so a false here is a
+  # resource assembled by hand — which callers that write MODS opportunistically
+  # have to check, because the write raises rather than inventing the FileSet.
+  def mods_writable?
+    descriptive_metadata_file_set.present?
+  end
+
   def mods_json=(raw_xml)
     record = Metadata::MODS.find_or_create_by(valkyrie_id: noid)
     record.json_attributes = convert_xml_to_json(raw_xml)
@@ -41,8 +49,13 @@ module Modsable
       children.find { |fs| fs.type == Classification.descriptive_metadata.name }
     end
 
+    # Fail before the Blob is persisted, not after: a resource with no
+    # descriptive-metadata FileSet has nothing to attach one to, and saving
+    # first would leave the unreferenced Blob behind in Postgres and Solr.
     def create_mods_blob
       fs = descriptive_metadata_file_set
+      raise "#{noid} has no descriptive-metadata FileSet to hold MODS" if fs.nil?
+
       blob = Atlas.persister.save(resource: Blob.new(use: Role.descriptive_metadata.name))
       fs.member_ids += [blob.id]
       fs = Atlas.persister.save(resource: fs)

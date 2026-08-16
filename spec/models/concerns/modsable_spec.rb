@@ -38,5 +38,28 @@ RSpec.describe Modsable do
       relationships = latest_relationships(desc_fs.noid)
       expect(relationships[:member_ids]).to include(work.mods_blob.noid)
     end
+
+    # A Work assembled without its creator has no FileSet to attach the Blob
+    # to. The write has to fail before it persists one, or the failure leaves
+    # an unreferenced Blob in Postgres and Solr that nothing will ever reach.
+    it 'persists no orphan Blob when there is no descriptive-metadata FileSet' do
+      bare   = Atlas.persister.save(resource: Work.new(a_member_of: collection.id))
+      before = Atlas.query.find_all_of_model(model: Blob).count
+
+      expect { bare.mods_xml = bare.mods_template }.to raise_error(/no descriptive-metadata FileSet/)
+      expect(Atlas.query.find_all_of_model(model: Blob).count).to eq(before)
+    end
+  end
+
+  describe '#mods_writable?' do
+    it 'is true for a Work built through its creator' do
+      expect(work.mods_writable?).to be(true)
+    end
+
+    it 'is false for a Work with no descriptive-metadata FileSet' do
+      bare = Atlas.persister.save(resource: Work.new(a_member_of: collection.id))
+
+      expect(bare.mods_writable?).to be(false)
+    end
   end
 end

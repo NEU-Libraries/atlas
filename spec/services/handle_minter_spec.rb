@@ -105,10 +105,31 @@ RSpec.describe HandleMinter do
       Work.find(resource.id).mods_blob.file_identifiers.size
     end
 
-    it 'writes the bare handle into the document' do
+    def permanent_url_of(resource)
+      "https://hdl.handle.net/DRSDEV/#{resource.noid}"
+    end
+
+    # v1's records hold the resolver URL in this element, and neu-mods projects
+    # it onto a field named permanent_url. A bare handle would render as dead
+    # text and split the field into two shapes across migrated and new Works.
+    it 'writes the resolver URL into the document' do
       mint(described)
 
-      expect(identifier_of(described).text).to eq("DRSDEV/#{described.noid}")
+      expect(identifier_of(described).text).to eq(permanent_url_of(described))
+    end
+
+    it 'resolves through the configured resolver, not only the global proxy' do
+      mint(described, resolver_base: 'https://hdl.example.edu/')
+
+      expect(identifier_of(described).text).to eq("https://hdl.example.edu/DRSDEV/#{described.noid}")
+    end
+
+    # Cerberus renders its own link from the bare handle, so the attribute is
+    # the identifier and the document holds the citable form of it.
+    it 'leaves the handle attribute bare' do
+      mint(described)
+
+      expect(Work.find(described.id).handle).to eq("DRSDEV/#{described.noid}")
     end
 
     it 'keeps the displayLabel the rest of DRS renders the row from' do
@@ -122,7 +143,7 @@ RSpec.describe HandleMinter do
     it 'fills permanent_url on the JSON access copy' do
       mint(described)
 
-      expect(Work.find(described.id).mods.permanent_url).to eq("DRSDEV/#{described.noid}")
+      expect(Work.find(described.id).mods.permanent_url).to eq(permanent_url_of(described))
     end
 
     it 'adds the identifier to a document that has none' do
@@ -132,13 +153,13 @@ RSpec.describe HandleMinter do
 
       mint(described)
 
-      expect(identifier_of(described).text).to eq("DRSDEV/#{described.noid}")
+      expect(identifier_of(described).text).to eq(permanent_url_of(described))
     end
 
     # Every write appends an OCFL version to the descriptive metadata, so a
     # document that already says this must not be written again.
-    it 'writes no new version when the document already carries the handle' do
-      set_identifier!(described, "DRSDEV/#{described.noid}")
+    it 'writes no new version when the document already carries the URL' do
+      set_identifier!(described, permanent_url_of(described))
       versions = mods_versions(described)
 
       mint(described)
@@ -154,8 +175,32 @@ RSpec.describe HandleMinter do
 
       mint(already)
 
-      expect(identifier_of(already).text).to eq("DRSDEV/#{already.noid}")
+      expect(identifier_of(already).text).to eq(permanent_url_of(already))
       expect(client).not_to have_received(:mint)
+    end
+
+    # An earlier Atlas wrote the bare handle here. It is the same identifier in
+    # a shape that does not resolve, so the reconciliation replaces it.
+    it 'upgrades a bare handle to the resolver URL' do
+      set_identifier!(described, "DRSDEV/#{described.noid}")
+
+      mint(described)
+
+      expect(identifier_of(described).text).to eq(permanent_url_of(described))
+    end
+
+    # A migrated record can name its own resolver. That URL dereferences the
+    # same handle, so rewriting it would buy nothing and cut an OCFL version.
+    it 'keeps another host resolving the same handle' do
+      set_identifier!(described, "http://hdl.handle.net/DRSDEV/#{described.noid}")
+      described.handle = "DRSDEV/#{described.noid}"
+      already = Atlas.persister.save(resource: described)
+      versions = mods_versions(already)
+
+      mint(already)
+
+      expect(identifier_of(already).text).to eq("http://hdl.handle.net/DRSDEV/#{already.noid}")
+      expect(mods_versions(already)).to eq(versions)
     end
 
     # A v1 record migrated in under prefix 2047 whose `handle` was never set
@@ -163,11 +208,11 @@ RSpec.describe HandleMinter do
     # keeps the one it has: a preservation copy does not discard a true
     # statement to make room for another.
     it 'leaves an identifier it did not mint in place' do
-      set_identifier!(described, '2047/D20000001')
+      set_identifier!(described, 'http://hdl.handle.net/2047/D20000001')
 
       mint(described)
 
-      expect(identifier_of(described).text).to eq('2047/D20000001')
+      expect(identifier_of(described).text).to eq('http://hdl.handle.net/2047/D20000001')
       expect(Work.find(described.id).handle).to eq("DRSDEV/#{described.noid}")
     end
 

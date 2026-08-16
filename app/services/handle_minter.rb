@@ -31,11 +31,18 @@
 # the underlying PUT is keyed by handle name, so even a re-mint re-points an
 # existing record rather than duplicating it.
 class HandleMinter < ApplicationService
+  # The global proxy that every registered prefix resolves through. A dev stack
+  # homes an unregistered prefix, which is in no Global Handle Registry and so
+  # cannot be answered for here — it overrides this with its own server.
+  DEFAULT_RESOLVER_BASE = 'https://hdl.handle.net'
+
   def initialize(work:, client: HandleClient.new,
-                 public_base: ENV.fetch('CERBERUS_PUBLIC_BASE', nil))
-    @work        = work
-    @client      = client
-    @public_base = public_base.presence
+                 public_base: ENV.fetch('CERBERUS_PUBLIC_BASE', nil),
+                 resolver_base: ENV.fetch('HANDLE_RESOLVER_BASE', nil))
+    @work          = work
+    @client        = client
+    @public_base   = public_base.presence
+    @resolver_base = resolver_base.presence || DEFAULT_RESOLVER_BASE
   end
 
   def call
@@ -69,8 +76,11 @@ class HandleMinter < ApplicationService
     # the JSON access copy fills from the same write rather than needing a
     # derived value of its own.
     #
-    # The identifier carries the BARE handle. `type="hdl"` means the identifier
-    # itself, not a resolver URL, and that is the shape v1 records hold.
+    # The identifier carries the RESOLVER URL, not the bare handle: that is the
+    # shape v1's records hold, and the field neu-mods projects it onto is named
+    # permanent_url. A bare handle also renders as dead text wherever the value
+    # is linkified, and would leave migrated and new Works holding two different
+    # shapes in one field. `work.handle` stays bare — it is the identifier.
     def record_in_mods(work)
       return if work.handle.blank?
       return log_unwritable(work) unless work.mods_writable?
@@ -80,20 +90,21 @@ class HandleMinter < ApplicationService
     end
 
     # @return [String, nil] the document with its `hdl` identifier set to the
-    #   handle, or nil when there is nothing to write. Skipping a no-op matters:
-    #   every write appends an OCFL version to the descriptive metadata, so an
-    #   unconditional one would cut a version that says nothing new.
+    #   permanent URL, or nil when there is nothing to write. Skipping a no-op
+    #   matters: every write appends an OCFL version to the descriptive
+    #   metadata, so an unconditional one would cut a version that says nothing
+    #   new.
     def mods_with_identifier(work)
       doc  = Nokogiri::XML(work.mods_xml, &:noblanks)
       node = identifier_node(doc)
       return nil if node.nil? || keep_existing?(work, node)
 
-      node.content = work.handle
+      node.content = permanent_url(work)
       doc.to_s
     end
 
-    # Whether the document's identifier must be left as it stands: either it
-    # already says this handle, or it says a different one.
+    # Whether the document's identifier must be left as it stands: it already
+    # resolves this handle, or it names a different one.
     #
     # A different one means a v1 record migrated in under prefix 2047 whose
     # `handle` attribute was never set, so this minted a second identifier.
@@ -103,15 +114,26 @@ class HandleMinter < ApplicationService
     # answer: reading an identity back out of a document any caller can assemble
     # would spread one fixture's handle across every Work built from it. The
     # migrator setting `handle` on ingest is what stops the second mint.
+    #
+    # A URL for this same handle is kept whatever host it names, so a migrated
+    # record's own resolver is not rewritten. Only a bare handle is replaced,
+    # which heals a document written before the URL shape.
     def keep_existing?(work, node)
       current = node.text.strip
-      return false if current.empty?
-      return true if current == work.handle
+      return false if current.empty? || current == work.handle
+      return true if handle_in(current) == work.handle
 
       Rails.logger.warn(
         "HandleMinter: #{work.noid} MODS carries handle #{current}, left in place over #{work.handle}"
       )
       true
+    end
+
+    # The handle a stored identifier names, whether it is bare or wrapped in a
+    # resolver URL. Any host counts: v1 wrote http://hdl.handle.net, and a
+    # deployment can resolve through its own proxy.
+    def handle_in(text)
+      text.sub(%r{\Ahttps?://[^/]+/}i, '')
     end
 
     # The document's `hdl` identifier, created empty at the end of the root if
@@ -143,6 +165,13 @@ class HandleMinter < ApplicationService
     # its own host and Atlas does not, so the base arrives as config.
     def target_url(work)
       "#{@public_base.chomp('/')}/works/#{work.noid}"
+    end
+
+    # The citable form of the handle — a resolver that dereferences it to
+    # #target_url. This is what the document records, and what the rest of DRS
+    # renders as the Permanent URL.
+    def permanent_url(work)
+      "#{@resolver_base.chomp('/')}/#{work.handle}"
     end
 
     # No server configured, or nowhere to point a handle at, means this

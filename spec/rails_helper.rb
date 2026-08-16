@@ -50,9 +50,13 @@ RSpec.configure do |config|
   # suite would mint (and delete) live records. Clearing them here makes
   # HandleClient#configured? false for every example; the specs that exercise
   # minting inject a double or pass explicit arguments.
+  #
+  # HANDLE_RESOLVER_BASE reaches nothing, but it is cleared with the rest so
+  # that the URL the minter writes into a document is the same on a developer's
+  # machine as it is in CI.
   config.before(:suite) do
     %w[HANDLE_SERVER_URL HANDLE_PREFIX HANDLE_ADMIN_SECRET HANDLE_SSL_VERIFY
-       CERBERUS_PUBLIC_BASE].each { |key| ENV.delete(key) }
+       HANDLE_RESOLVER_BASE CERBERUS_PUBLIC_BASE].each { |key| ENV.delete(key) }
   end
 
   config.before(:suite) do

@@ -32,34 +32,44 @@ RSpec.describe MODSVersionHistory do
     Work.find(work.noid).mods_xml = xml
   end
 
+  # Which version a seed lands in depends on how many versions the write path
+  # spends getting there, so capture it rather than name it.
+  def ordinal(label)
+    label.delete_prefix('v').to_i
+  end
+
   describe '#descriptors' do
     it 'collapses envelope-churn revisions (identical digest) to the earliest version' do
-      work = WorkCreator.call(parent_id: collection.noid) # seed descMetadata at v3
+      work = WorkCreator.call(parent_id: collection.noid)
+      seeded = descriptors_for(work).first[:version_id]
       # Re-emit the Blob's envelope twice WITHOUT touching MODS — exactly what
-      # the backfill task does. Each call cuts properties.json + permissions.json
-      # versions that carry descMetadata.xml forward unchanged.
+      # the backfill task does. Each call cuts a version that carries
+      # descMetadata.xml forward unchanged.
       2.times { Work.find(work.noid).mods_blob.write_preservation_envelope! }
 
       descriptors = descriptors_for(work)
       expect(descriptors.length).to eq(1)
-      expect(descriptors.first[:version_id]).to eq('v3') # earliest of the run
+      expect(descriptors.first[:version_id]).to eq(seeded) # churn does not advance it
     end
 
     it 'collapses consecutive byte-identical edits, keeping the earliest' do
       work = WorkCreator.call(parent_id: collection.noid)
+      seeded = descriptors_for(work).first[:version_id]
       set_mods(work, content_a)
       set_mods(work, content_a) # same bytes -> a no-op revision
 
       descriptors = descriptors_for(work)
-      # seed (v3) + the first of the identical A-pair (v4); the second collapses.
-      expect(descriptors.pluck(:version_id)).to eq(%w[v4 v3])
+      # The seed plus the first of the identical A-pair; the second collapses.
+      expect(descriptors.length).to eq(2)
+      expect(descriptors.last[:version_id]).to eq(seeded)
+      expect(ordinal(descriptors.first[:version_id])).to be > ordinal(seeded)
     end
 
     it 'keeps a non-consecutive return to a prior content state' do
       work = WorkCreator.call(parent_id: collection.noid)
-      set_mods(work, content_a) # v4
-      set_mods(work, content_b) # v5
-      set_mods(work, content_a) # v6 — same bytes as v4, but NOT consecutive
+      set_mods(work, content_a)
+      set_mods(work, content_b)
+      set_mods(work, content_a) # same bytes as the first A, but NOT consecutive
 
       # A→B→A: the second A is a real change back, so all four states stand.
       expect(descriptors_for(work).length).to eq(4)
@@ -70,7 +80,7 @@ RSpec.describe MODSVersionHistory do
       set_mods(work, content_a)
       set_mods(work, content_b)
 
-      ordinals = descriptors_for(work).map { |d| d[:version_id].delete_prefix('v').to_i }
+      ordinals = descriptors_for(work).map { |d| ordinal(d[:version_id]) }
       expect(ordinals).to eq(ordinals.sort.reverse)
     end
 

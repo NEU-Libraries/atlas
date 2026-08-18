@@ -33,6 +33,21 @@ module FileHelper
     end
   end
 
+  # Commits several files into ONE OCFL version. `entries` is an array of
+  # [path, original_filename] pairs. Files written together as a single logical
+  # event belong in one version: a version is OCFL's unit of change and holds any
+  # number of logical paths, so one call per file multiplies versions,
+  # inventories and stored files for no gain in what the history records.
+  def create_files(entries, resource)
+    ios = entries.map { |path, _name| File.open(path) }
+    Valkyrie.config.storage_adapter.upload_many(
+      files:    entries.each_with_index.map { |(_path, name), i| { file: ios[i], original_filename: name } },
+      resource: resource
+    )
+  ensure
+    ios&.each(&:close)
+  end
+
   # The fixity digest the storage layer recorded for a stored revision, as a
   # self-describing "<algorithm>:<hexvalue>" string (e.g. "sha512:abc…"), read
   # from the OCFL inventory without re-hashing the bytes. nil if the id doesn't

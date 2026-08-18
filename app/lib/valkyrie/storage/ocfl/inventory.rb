@@ -104,18 +104,26 @@ module Valkyrie
           containing.keys.sort_by { |v| v.delete_prefix('v').to_i }.reverse
         end
 
-        # Returns a new Inventory with vN+1 appended for the given digest /
-        # logical_path / content_path triple. Manifest dedups when the digest
-        # is already present. State clones from head, removing any prior
-        # binding for the logical_path, then asserts the new digest -> path.
-        def bump(digest:, logical_path:, content_path:, created:, message:, user:)
+        # Returns a new Inventory with vN+1 appended, carrying every entry in
+        # `entries` — each a { digest:, logical_path:, content_path: } hash.
+        #
+        # A version is OCFL's unit of change and can hold any number of logical
+        # paths, so files written together belong in one version rather than one
+        # each. Manifest dedups when the digest is already present, including
+        # against an earlier entry in the same batch, so two names for identical
+        # bytes share one content file.
+        def bump(entries:, created:, message:, user:)
           next_n = head_int + 1
           next_v = "v#{next_n}"
 
           new_manifest = deep_dup_manifest
-          new_manifest[digest] = [content_path] unless new_manifest.key?(digest)
+          new_state = head_state
 
-          new_state = state_replacing_logical(head_state, digest, logical_path)
+          Array(entries).each do |entry|
+            digest = entry.fetch(:digest)
+            new_manifest[digest] = [entry.fetch(:content_path)] unless new_manifest.key?(digest)
+            new_state = state_replacing_logical(new_state, digest, entry.fetch(:logical_path))
+          end
 
           new_versions = versions.merge(
             next_v => {

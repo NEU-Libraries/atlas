@@ -404,6 +404,46 @@ RSpec.describe Valkyrie::Storage::OCFL do
     end
   end
 
+  describe '#upload_many' do
+    it 'commits every file as one version, and answers a handle each' do
+      stored = storage_adapter.upload_many(
+        files:    [{ file: file, original_filename: 'relationships.json' },
+                   { file: other_file, original_filename: 'permissions.json' }],
+        resource: noid_resource
+      )
+
+      expect(stored.map { |f| f.version_id.to_s }).to all(include('/v1/'))
+      expect(stored.map { |f| f.id.to_s.split('/').last }).to eq(%w[relationships.json permissions.json])
+
+      inventory = JSON.parse(File.read(File.join(tmpdir, 'ab', 'cd', 'abcd1234e', 'inventory.json')))
+      expect(inventory['versions'].keys).to eq(['v1'])
+      expect(inventory['versions']['v1']['state'].values.flatten)
+        .to contain_exactly('relationships.json', 'permissions.json')
+    end
+
+    it 'writes one content file when two names carry identical bytes' do
+      copy = Tempfile.new(['ocfl-fixture-', '.bin'])
+      IO.copy_stream(Rails.root.join('spec/fixtures/files/example.bin').to_s, copy)
+      copy.rewind
+
+      storage_adapter.upload_many(
+        files:    [{ file: file, original_filename: 'a.bin' }, { file: copy, original_filename: 'b.bin' }],
+        resource: noid_resource
+      )
+
+      object_root = File.join(tmpdir, 'ab', 'cd', 'abcd1234e')
+      inventory = JSON.parse(File.read(File.join(object_root, 'inventory.json')))
+      expect(inventory['manifest'].size).to eq(1)
+      expect(inventory['versions']['v1']['state'].values.flatten).to contain_exactly('a.bin', 'b.bin')
+      expect(Dir.glob(File.join(object_root, 'v1', 'content', '*')).length).to eq(1)
+    end
+
+    it 'refuses an empty batch rather than cutting an empty version' do
+      expect { storage_adapter.upload_many(files: [], resource: noid_resource) }
+        .to raise_error(ArgumentError, /at least one file/)
+    end
+  end
+
   describe '#version_label_for' do
     it 'reads the version segment from a versioned id' do
       expect(storage_adapter.version_label_for(upload!.call.version_id)).to eq('v1')

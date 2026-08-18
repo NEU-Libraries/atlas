@@ -96,17 +96,31 @@ module Valkyrie
       end
 
       def upload(file:, original_filename:, resource:, **_extra)
+        upload_many(files: [{ file: file, original_filename: original_filename }], resource: resource).first
+      end
+
+      # Commits several files as ONE version. A version is OCFL's unit of change
+      # and holds any number of logical paths, so files written together — a
+      # resource's envelope, say — belong in one version rather than one each.
+      # Answers a File per entry, in the order given.
+      def upload_many(files:, resource:, **_extra)
+        # An empty batch would cut a version identical to the one before it, which
+        # is churn recording nothing.
+        raise ArgumentError, 'upload_many needs at least one file' if Array(files).empty?
+
         key = resolve_key(resource)
-        perform_upload(root_name: root_for_new_write(key), key: key, source: file,
-                       logical_path: sanitize_filename(original_filename))
+        sources = Array(files).map do |entry|
+          { source: entry.fetch(:file), logical_path: sanitize_filename(entry.fetch(:original_filename)) }
+        end
+        perform_upload(root_name: root_for_new_write(key), key: key, sources: sources)
       end
 
       def upload_version(id:, file:)
         parsed = parse_id(id)
         raise Valkyrie::StorageAdapter::FileNotFound unless parsed
 
-        perform_upload(root_name: parsed[:root], key: parsed[:key], source: file,
-                       logical_path: parsed[:logical_path])
+        perform_upload(root_name: parsed[:root], key: parsed[:key],
+                       sources: [{ source: file, logical_path: parsed[:logical_path] }]).first
       end
 
       def sealed?(root_name)
@@ -485,40 +499,29 @@ module Valkyrie
           )
         end
 
-        def perform_upload(root_name:, key:, source:, logical_path:)
+        # One version per call, however many sources it carries. Each source is a
+        # { source:, logical_path: } pair.
+        def perform_upload(root_name:, key:, sources:)
           root = bootstrap_root!(root_name)
           object_root = root.object_root_for(key)
           bootstrap_object!(object_root)
-
-          io = unwrap_source(source)
-          io.rewind if io.respond_to?(:rewind)
-          digest = stream_digest(io)
-          io.rewind if io.respond_to?(:rewind)
 
           base_inventory = load_inventory(object_root: object_root) ||
                            Inventory.empty(id: inventory_id_for(key), digest_algorithm: digest_algorithm)
 
           next_n = base_inventory.head_int + 1
           next_v = "v#{next_n}"
-          content_path = "#{next_v}/content/#{logical_path}"
+          entries = digested_entries(sources, next_v)
 
           new_inventory = base_inventory.bump(
-            digest:       digest,
-            logical_path: logical_path,
-            content_path: content_path,
-            created:      clock.call.utc.iso8601,
-            message:      'Atlas upload',
-            user:         user_agent
+            entries: entries.map { |e| e.slice(:digest, :logical_path, :content_path) },
+            created: clock.call.utc.iso8601,
+            message: 'Atlas upload',
+            user:    user_agent
           )
 
-          dedup = base_inventory.dedup?(digest)
           tmp_dir = stage_version_dir(object_root, next_n)
-
-          unless dedup
-            target = tmp_dir.join('content', logical_path)
-            FileUtils.mkdir_p(target.dirname)
-            move_or_copy(io, target)
-          end
+          stage_content(entries, tmp_dir, base_inventory)
 
           inv_json = pretty_inventory_json(new_inventory)
           ::File.write(tmp_dir.join(INVENTORY_FILENAME), inv_json)
@@ -531,9 +534,38 @@ module Valkyrie
 
           update_head_pointer(object_root, inv_json)
 
-          physical = object_root.join(new_inventory.content_path_for(digest))
-          build_file(root_name: root_name, key: key, version: next_v,
-                     logical_path: logical_path, physical: physical)
+          entries.map do |entry|
+            physical = object_root.join(new_inventory.content_path_for(entry[:digest]))
+            build_file(root_name: root_name, key: key, version: next_v,
+                       logical_path: entry[:logical_path], physical: physical)
+          end
+        end
+
+        def digested_entries(sources, next_v)
+          sources.map do |source|
+            io = unwrap_source(source.fetch(:source))
+            io.rewind if io.respond_to?(:rewind)
+            digest = stream_digest(io)
+            io.rewind if io.respond_to?(:rewind)
+            logical_path = source.fetch(:logical_path)
+            { digest: digest, logical_path: logical_path, io: io,
+              content_path: "#{next_v}/content/#{logical_path}" }
+          end
+        end
+
+        # Skips a digest the object already holds, and a digest an earlier entry
+        # in this batch just staged: identical bytes under two names are one
+        # content file that both logical paths point at.
+        def stage_content(entries, tmp_dir, base_inventory)
+          staged = Set.new
+          entries.each do |entry|
+            next if base_inventory.dedup?(entry[:digest]) || staged.include?(entry[:digest])
+
+            staged << entry[:digest]
+            target = tmp_dir.join('content', entry[:logical_path])
+            FileUtils.mkdir_p(target.dirname)
+            move_or_copy(entry[:io], target)
+          end
         end
 
         def bootstrap_object!(object_root)

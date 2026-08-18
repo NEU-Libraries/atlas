@@ -13,9 +13,15 @@ class PreservationEnvelopeWriter < ApplicationService
     @resource = resource
   end
 
+  # One version, not one per file. The graph and the permissions describe the
+  # same instant and are always written together, so splitting them across two
+  # versions records nothing the single version does not — both paths appear in
+  # every version's state either way — while doubling the inventories, sidecars
+  # and fsyncs the write costs.
   def call
-    write(@resource.graph_payload, @resource.graph_filename)
-    write(@resource.permissions_payload, 'permissions.json')
+    Dir.mktmpdir do |dir|
+      create_files(staged_in(dir), @resource)
+    end
   rescue StandardError => e
     Rails.logger.error("envelope write failed for #{@resource.noid}: #{e.message}")
     raise
@@ -23,11 +29,16 @@ class PreservationEnvelopeWriter < ApplicationService
 
   private
 
-    def write(payload, filename)
-      Tempfile.create([File.basename(filename, '.json'), '.json']) do |tmp|
-        tmp.write(JSON.pretty_generate(payload))
-        tmp.flush
-        create_file(tmp.path, @resource, filename)
+    def payloads
+      { @resource.graph_filename => @resource.graph_payload,
+        'permissions.json'       => @resource.permissions_payload }
+    end
+
+    def staged_in(dir)
+      payloads.map do |filename, payload|
+        path = File.join(dir, filename)
+        ::File.write(path, JSON.pretty_generate(payload))
+        [path, filename]
       end
     end
 end

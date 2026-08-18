@@ -103,7 +103,7 @@ RSpec.describe PreservationEnvelopeWriter do
 
     it 're-raises StorageAdapter errors after logging' do
       expect(Rails.logger).to receive(:error).with(/envelope write failed.*#{work.noid}/)
-      allow_any_instance_of(Valkyrie::Storage::OCFL).to receive(:upload).and_raise(StandardError, 'boom')
+      allow_any_instance_of(Valkyrie::Storage::OCFL).to receive(:upload_many).and_raise(StandardError, 'boom')
 
       expect { described_class.call(resource: work) }.to raise_error(StandardError, 'boom')
     end

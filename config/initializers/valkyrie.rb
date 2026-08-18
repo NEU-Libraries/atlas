@@ -9,6 +9,9 @@ Rails.application.config.to_prepare do
   Valkyrie::StorageAdapter.register(
     Valkyrie::Storage::OCFL.new(
       storage_root: Pathname.new('/home/atlas/storage'),
+      # The value this path already hashes to, now fixed so the storage can move
+      # (a different mount, a different provider) without breaking stored ids.
+      tag: '7c483a4a',
       file_mover: FileUtils.method(:cp)
     ),
     :disk
@@ -17,6 +20,9 @@ Rails.application.config.to_prepare do
   Valkyrie::StorageAdapter.register(
     Valkyrie::Storage::OCFL.new(
       storage_root: Rails.root.join('tmp', 'files'),
+      # A literal, so a worktree and the main checkout mint identical ids from
+      # their own tmp/files rather than ids that differ by checkout path.
+      tag: 'testdisk',
       file_mover: FileUtils.method(:cp)
     ),
     :test_disk

@@ -8,8 +8,9 @@ module Valkyrie
     #   id         = ocfl://<tag>/<key>/<logical-path>         (head)
     #   version_id = ocfl://<tag>/<key>/<vN>/<logical-path>    (per-version)
     #
-    # <tag> is sha1(base_path)[0..7] so multiple OCFL roots can register
-    # without colliding.
+    # <tag> claims ids for this adapter. Pass it explicitly: derived from
+    # base_path it binds every stored id to a physical location, so the storage
+    # could never move without every id in Postgres ceasing to resolve.
     class OCFL
       PROTOCOL = 'ocfl://'
       INVENTORY_FILENAME = 'inventory.json'
@@ -26,6 +27,7 @@ module Valkyrie
       attr_reader :storage_root, :file_mover, :clock, :user_agent, :digest_algorithm
 
       def initialize(storage_root:,
+                     tag: nil,
                      digest_algorithm: 'sha512',
                      tuple_sizes: [2, 2],
                      file_mover: FileUtils.method(:mv),
@@ -33,6 +35,7 @@ module Valkyrie
                      user_agent: { name:    'Atlas',
                                    address: 'mailto:library-systems@northeastern.edu' })
         @storage_root_path = Pathname.new(storage_root)
+        @tag = tag
         @digest_algorithm = digest_algorithm
         @file_mover = file_mover
         @clock = clock
@@ -44,6 +47,8 @@ module Valkyrie
         PROTOCOL
       end
 
+      # Falls back to a digest of the path only so an adapter built without a tag
+      # still works; a configured adapter names its tag.
       def tag
         @tag ||= Digest::SHA1.hexdigest(@storage_root_path.to_s)[0..7]
       end

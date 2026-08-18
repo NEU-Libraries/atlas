@@ -125,6 +125,19 @@ RSpec.describe Valkyrie::Storage::OCFL do
     end
   end
 
+  describe '#tag' do
+    it 'uses an explicitly named tag verbatim' do
+      adapter = described_class.new(storage_root: tmpdir, tag: 'named')
+      expect(adapter.tag).to eq('named')
+      expect(adapter.handles?(id: 'ocfl://named/abcd1234e/foo.jpg')).to be(true)
+    end
+
+    it 'derives a tag from the path when none is named' do
+      expect(described_class.new(storage_root: tmpdir).tag)
+        .to eq(Digest::SHA1.hexdigest(tmpdir.to_s)[0..7])
+    end
+  end
+
   describe '#version_label_for' do
     it 'reads the version segment from a versioned id' do
       expect(storage_adapter.version_label_for(upload!.call.version_id)).to eq('v1')

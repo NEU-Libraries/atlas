@@ -125,6 +125,24 @@ RSpec.describe Valkyrie::Storage::OCFL do
     end
   end
 
+  describe 'write durability' do
+    let(:object_root) { File.join(tmpdir, 'ab', 'cd', 'abcd1234e') }
+
+    it 'fsyncs the staged version tree and the object root before returning' do
+      synced = []
+      allow_any_instance_of(File).to receive(:fsync) { |handle| synced << handle.path }
+
+      upload!.call
+
+      expect(synced).to include(a_string_matching(%r{/\.tmp-v1-\h+/content/foo\.jpg\z}))
+      expect(synced).to include(a_string_matching(%r{/\.tmp-v1-\h+/inventory\.json\z}))
+      expect(synced).to include(a_string_matching(%r{/\.tmp-v1-\h+\z}))
+      expect(synced).to include(a_string_matching(%r{/tmp_inventory\.json\z}))
+      # Once after the version directory is published, once after the head pair.
+      expect(synced.count(object_root)).to eq(2)
+    end
+  end
+
   describe '#find_version_metadata_for' do
     it 'reports created and digest per id, each read at its own version' do
       first  = upload!.call

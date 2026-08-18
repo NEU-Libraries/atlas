@@ -314,9 +314,11 @@ module Valkyrie
           inv_json = pretty_inventory_json(new_inventory)
           ::File.write(tmp_dir.join(INVENTORY_FILENAME), inv_json)
           ::File.write(tmp_dir.join("#{INVENTORY_FILENAME}#{SIDECAR_SUFFIX}"), sidecar_body(inv_json))
+          fsync_staged!(tmp_dir)
 
           version_dir = object_root.join(next_v)
           FileUtils.mv(tmp_dir.to_s, version_dir.to_s)
+          fsync_dir(object_root)
 
           update_head_pointer(object_root, inv_json)
 
@@ -354,8 +356,11 @@ module Valkyrie
           tmp_sidecar = object_root.join("tmp_inventory.json#{SIDECAR_SUFFIX}")
           ::File.write(tmp_inv, inv_json)
           ::File.write(tmp_sidecar, sidecar_body(inv_json))
+          fsync_file(tmp_inv)
+          fsync_file(tmp_sidecar)
           FileUtils.mv(tmp_inv.to_s, object_root.join(INVENTORY_FILENAME).to_s)
           FileUtils.mv(tmp_sidecar.to_s, object_root.join("#{INVENTORY_FILENAME}#{SIDECAR_SUFFIX}").to_s)
+          fsync_dir(object_root)
         end
 
         # When version: is given, read vN/inventory.json directly. Otherwise
@@ -424,6 +429,28 @@ module Valkyrie
 
         def sidecar_body(inv_json)
           "#{Digest::SHA512.hexdigest(inv_json)}  #{INVENTORY_FILENAME}\n"
+        end
+
+        # A rename publishes a version atomically, but atomic is not durable:
+        # the kernel can lose the bytes after the call returns, leaving Postgres
+        # recording a version the preservation copy does not hold. Force the
+        # staged tree down before the rename and the parent directory down after
+        # it. A substrate that cannot fsync raises rather than pretend.
+        def fsync_staged!(dir)
+          Pathname.glob(dir.join('**', '*')).each do |path|
+            path.directory? ? fsync_dir(path) : fsync_file(path)
+          end
+          fsync_dir(dir)
+        end
+
+        def fsync_file(path)
+          ::File.open(path.to_s, 'rb', &:fsync)
+        end
+
+        # Ruby 3.0 carries no Dir#fsync and no File::DIRECTORY, but File.open on
+        # a directory yields a descriptor that fsync accepts.
+        def fsync_dir(path)
+          ::File.open(path.to_s, &:fsync)
         end
     end
   end

@@ -19,6 +19,7 @@ module Valkyrie
     class OCFL
       PROTOCOL = 'ocfl://'
       INVENTORY_FILENAME = 'inventory.json'
+      OBJECT_NAMASTE = '0=ocfl_object_1.1'
       SIDECAR_SUFFIX = '.sha512'
       # OCFL spec W005 says inventory `id` SHOULD be a URI. We use a locally-
       # scoped URN keyed on NOID so the id stays bound to the durable layer
@@ -534,7 +535,7 @@ module Valkyrie
 
         def bootstrap_object!(object_root)
           FileUtils.mkdir_p(object_root)
-          namaste = object_root.join('0=ocfl_object_1.1')
+          namaste = object_root.join(OBJECT_NAMASTE)
           ::File.write(namaste, "ocfl_object_1.1\n") unless namaste.exist?
         end
 

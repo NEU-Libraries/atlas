@@ -125,6 +125,54 @@ RSpec.describe Valkyrie::Storage::OCFL do
     end
   end
 
+  describe 'logical path portability' do
+    def fresh_io
+      tmp = Tempfile.new(['ocfl-fixture-', '.bin'])
+      IO.copy_stream(Rails.root.join('spec/fixtures/files/example.bin').to_s, tmp)
+      tmp.rewind
+      tmp
+    end
+
+    # The head id ends in the logical path, so its last segment is what the
+    # sanitiser produced.
+    def logical_path_for(original_filename)
+      storage_adapter.upload(file: fresh_io, original_filename: original_filename,
+                             resource: noid_resource).id.to_s.split('/').last
+    end
+
+    it 'flattens a directory component so a deposit cannot escape its object' do
+      expect(logical_path_for('../../etc/passwd')).to eq('passwd')
+      expect(logical_path_for('scans/page.tif')).to eq('page.tif')
+      expect(logical_path_for('C:\Users\x\report.pdf')).to eq('report.pdf')
+    end
+
+    it 'replaces the characters an SMB-backed mount rejects' do
+      expect(logical_path_for('a:b*c?d.txt')).to eq('a_b_c_d.txt')
+    end
+
+    it 'drops a trailing dot or space' do
+      expect(logical_path_for('report.pdf. ')).to eq('report.pdf')
+    end
+
+    it 'sidesteps a reserved device name and keeps the extension' do
+      expect(logical_path_for('con.txt')).to eq('_con.txt')
+    end
+
+    it 'keeps non-ASCII, normalised to NFC' do
+      expect(logical_path_for("cafe\u0301.txt")).to eq("caf\u00e9.txt")
+    end
+
+    it 'trims an over-long name and keeps the extension' do
+      result = logical_path_for("#{'x' * 400}.tif")
+      expect(result.bytesize).to be <= 200
+      expect(result).to end_with('.tif')
+    end
+
+    it 'falls back to "file" when nothing usable remains' do
+      expect(logical_path_for('..')).to eq('file')
+    end
+  end
+
   describe 'write durability' do
     let(:object_root) { File.join(tmpdir, 'ab', 'cd', 'abcd1234e') }
 

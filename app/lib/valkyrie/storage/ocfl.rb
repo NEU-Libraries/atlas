@@ -18,6 +18,10 @@ module Valkyrie
       # scoped URN keyed on NOID so the id stays bound to the durable layer
       # (NOID, encoded in the path) rather than to a hostname or to Postgres.
       INVENTORY_ID_NAMESPACE = 'urn:neu-drs'
+      # Characters an SMB-backed mount rejects, plus the control range.
+      ILLEGAL_PATH_CHARS = /[<>:"|?*\x00-\x1f]/
+      RESERVED_STEMS = /\A(?:con|prn|aux|nul|com[1-9]|lpt[1-9])\z/i
+      MAX_SEGMENT_BYTES = 200
 
       attr_reader :storage_root, :file_mover, :clock, :user_agent, :digest_algorithm
 
@@ -235,9 +239,28 @@ module Valkyrie
           "#{INVENTORY_ID_NAMESPACE}:#{key}"
         end
 
+        # The deposited filename becomes a logical path in the inventory and a
+        # real directory entry, so it has to survive any substrate we might store
+        # on. We flatten to one segment — a directory component would let a
+        # deposit escape its object — and drop what an SMB-backed mount rejects.
+        # Non-ASCII stays, NFC normalised, because an accented filename is
+        # descriptive metadata a reader needs.
         def sanitize_filename(name)
-          parts = name.to_s.split('/').reject { |p| p.empty? || p == '..' || p == '.' }
-          parts.empty? ? 'file' : parts.join('/')
+          base = ::File.basename(name.to_s.tr('\\', '/')).scrub('_')
+          base = base.unicode_normalize(:nfc).gsub(ILLEGAL_PATH_CHARS, '_').sub(/[. ]+\z/, '')
+          base = "_#{base}" if RESERVED_STEMS.match?(base.sub(/\..*\z/, ''))
+          base = truncate_segment(base)
+          base.empty? ? 'file' : base
+        end
+
+        # Keep the extension when trimming to a portable component length: the
+        # deposit path reads it back as the MIME hint.
+        def truncate_segment(base)
+          return base if base.bytesize <= MAX_SEGMENT_BYTES
+
+          ext = ::File.extname(base)
+          stem = base[0, base.length - ext.length].to_s
+          "#{stem.byteslice(0, MAX_SEGMENT_BYTES - ext.bytesize).to_s.scrub('')}#{ext}"
         end
 
         # id forms:

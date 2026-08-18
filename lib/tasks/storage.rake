@@ -2,6 +2,39 @@
 
 namespace :atlas do
   namespace :storage do
+    desc 'Check a candidate can host an OCFL storage root. PATH_TO_CHECK=/mnt/x, else every configured root.'
+    task check_substrate: :environment do
+      candidates = ENV['PATH_TO_CHECK'].presence&.split(',')
+      if candidates.nil?
+        # A configured root is created on first write, so an absent one is normal
+        # here and creating it is what the adapter itself does. A path given by
+        # hand is left alone: an absent mount is the answer, not something to fix.
+        candidates = Valkyrie.config.storage_adapter.storage_roots.values.map(&:base_path)
+        candidates.each { |root| FileUtils.mkdir_p(root) }
+      end
+      paths = candidates.map(&:to_s)
+      failed = []
+
+      paths.each do |candidate|
+        report = SubstrateConformance.call(path: candidate)
+        puts "#{report[:path]} — #{report[:ok] ? 'USABLE' : 'NOT USABLE'}"
+        report[:checks].each do |check|
+          state = if !check.required
+                    'n/a '
+                  elsif check.ok
+                    'pass'
+                  else
+                    'FAIL'
+                  end
+          puts format('  %<id>d %<state>s  %<name>-38s %<detail>s',
+                      id: check.id, state: state, name: check.name, detail: check.detail)
+        end
+        failed << report[:path] unless report[:ok]
+      end
+
+      abort "not usable: #{failed.join(', ')}" if failed.any?
+    end
+
     desc 'Count the objects in each storage root and seal any that reached its limit. Idempotent.'
     task seal_full_roots: :environment do
       adapter = Valkyrie.config.storage_adapter

@@ -277,6 +277,45 @@ RSpec.describe Valkyrie::Storage::OCFL do
       expect(object_dir(other_tmpdir)).to exist
     end
 
+    def descriptor(dir)
+      JSON.parse(Pathname.new(dir).join('extensions', 'neu-drs-storage-pool', 'config.json').read)
+    end
+
+    it 'records the pool inside each root it writes to' do
+      adapter = pool
+      adapter.upload(file: file, original_filename: 'foo.jpg', resource: noid_resource)
+      adapter.seal!('a')
+      adapter.upload(file: other_file, original_filename: 'bar.png', resource: other_resource)
+
+      expect(descriptor(tmpdir)).to include('pool' => 'drs', 'root' => 'a', 'siblings' => ['b'])
+      expect(descriptor(other_tmpdir)).to include('pool' => 'drs', 'root' => 'b', 'siblings' => ['a'])
+      expect(descriptor(tmpdir)['written']).to eq('2026-01-01T00:00:00Z')
+    end
+
+    it 'heals the sibling list when the pool grows' do
+      described_class.new(storage_root: tmpdir, tag: 'pooltag', file_mover: FileUtils.method(:mv),
+                          clock: -> { Time.utc(2026, 1, 1) })
+                     .upload(file: file, original_filename: 'foo.jpg', resource: noid_resource)
+      expect(descriptor(tmpdir)['siblings']).to eq([])
+
+      pool.upload(file: other_file, original_filename: 'bar.png', resource: other_resource)
+
+      expect(descriptor(tmpdir)['siblings']).to eq(['b'])
+    end
+
+    it 'keeps each root a valid OCFL storage root in its own right' do
+      adapter = pool
+      adapter.seal!('a')
+      adapter.upload(file: file, original_filename: 'foo.jpg', resource: noid_resource)
+
+      [tmpdir, other_tmpdir].each do |dir|
+        expect(File.read(File.join(dir, '0=ocfl_1.1'))).to eq("ocfl_1.1\n")
+        expect(File).to exist(File.join(dir, 'ocfl_layout.json'))
+        expect(File).to exist(File.join(dir, 'extensions',
+                                        '0007-n-tuple-omit-prefix-storage-layout', 'config.json'))
+      end
+    end
+
     it 'derives a tag from the first root when none is named' do
       adapter = described_class.new(storage_roots: { 'a' => tmpdir, 'b' => other_tmpdir })
       expect(adapter.tag).to eq(Digest::SHA1.hexdigest(tmpdir.to_s)[0..7])

@@ -35,6 +35,7 @@ module Valkyrie
       # this, and forbids loose files directly under `extensions`.
       POOL_EXTENSION = 'neu-drs-storage-pool'
       SEAL_FILENAME = 'sealed.json'
+      POOL_CONFIG_FILENAME = 'config.json'
 
       # Every root is sealed, so a new object has nowhere to go. An operator
       # opens another root; the adapter must not pick a sealed one.
@@ -43,7 +44,7 @@ module Valkyrie
       # either one silently would make the wrong half authoritative.
       AmbiguousObject = Class.new(StandardError)
 
-      attr_reader :storage_roots, :file_mover, :clock, :user_agent, :digest_algorithm
+      attr_reader :storage_roots, :pool_name, :file_mover, :clock, :user_agent, :digest_algorithm
 
       # Holds one root or several. `storage_roots:` is an ordered name => path
       # map; `storage_root:` with `root_name:` is the one-root spelling of the
@@ -53,6 +54,7 @@ module Valkyrie
                      storage_roots: nil,
                      tag: nil,
                      root_name: 'a',
+                     pool_name: 'drs',
                      digest_algorithm: 'sha512',
                      tuple_sizes: [2, 2],
                      file_mover: FileUtils.method(:mv),
@@ -60,6 +62,7 @@ module Valkyrie
                      user_agent: { name:    'Atlas',
                                    address: 'mailto:library-systems@northeastern.edu' })
         @storage_roots = build_roots(storage_root, storage_roots, root_name, tuple_sizes)
+        @pool_name = pool_name
         @tag = tag
         @digest_algorithm = digest_algorithm
         @file_mover = file_mover
@@ -113,7 +116,7 @@ module Valkyrie
       # keeps accepting new versions of the objects it already holds, which is
       # what lets the pool grow without a single object moving.
       def seal!(root_name, reason: nil)
-        storage_roots.fetch(root_name).bootstrap!
+        bootstrap_root!(root_name)
         path = seal_marker_path(root_name)
         FileUtils.mkdir_p(path.dirname)
         ::File.write(path, JSON.pretty_generate('sealed_at' => clock.call.utc.iso8601,
@@ -307,6 +310,39 @@ module Valkyrie
           holding.first
         end
 
+        def bootstrap_root!(name)
+          root = storage_roots.fetch(name)
+          root.bootstrap!
+          write_pool_descriptor!(name)
+          root
+        end
+
+        # Records the pool inside each root, so somebody who finds one root
+        # learns the others exist and what they are called. A config file can be
+        # lost; this cannot be lost without losing the content with it. Rewritten
+        # whenever the roster stops matching, so adding a root heals the siblings
+        # list on the next write rather than leaving every root describing an
+        # older pool.
+        def write_pool_descriptor!(name)
+          path = pool_config_path(name)
+          desired = { 'extensionName' => POOL_EXTENSION, 'pool' => pool_name,
+                      'root' => name, 'siblings' => storage_roots.keys - [name] }
+          return if recorded_descriptor(path).slice(*desired.keys) == desired
+
+          FileUtils.mkdir_p(path.dirname)
+          ::File.write(path, JSON.pretty_generate(desired.merge('written' => clock.call.utc.iso8601)))
+        end
+
+        def recorded_descriptor(path)
+          path.exist? ? JSON.parse(path.read) : {}
+        rescue JSON::ParserError
+          {}
+        end
+
+        def pool_config_path(root_name)
+          storage_roots.fetch(root_name).base_path.join('extensions', POOL_EXTENSION, POOL_CONFIG_FILENAME)
+        end
+
         def seal_marker_path(root_name)
           storage_roots.fetch(root_name).base_path.join('extensions', POOL_EXTENSION, SEAL_FILENAME)
         end
@@ -442,8 +478,7 @@ module Valkyrie
         end
 
         def perform_upload(root_name:, key:, source:, logical_path:)
-          root = storage_roots.fetch(root_name)
-          root.bootstrap!
+          root = bootstrap_root!(root_name)
           object_root = root.object_root_for(key)
           bootstrap_object!(object_root)
 

@@ -9,7 +9,7 @@ RSpec.describe StorageRootSealer do
 
   let(:adapter) do
     Valkyrie::Storage::OCFL.new(
-      storage_roots: { 'a' => dir_a, 'b' => dir_b },
+      storage_roots: { 'r001' => dir_a, 'r002' => dir_b },
       tag:           'sealspec',
       file_mover:    FileUtils.method(:cp),
       clock:         -> { Time.utc(2026, 1, 1) }
@@ -33,21 +33,21 @@ RSpec.describe StorageRootSealer do
   end
 
   def seal(**overrides)
-    described_class.call(root_name: 'a', adapter: adapter, **overrides)
+    described_class.call(root_name: 'r001', adapter: adapter, **overrides)
   end
 
   it 'leaves a root open below the limit' do
     deposit(2)
 
-    expect(seal(max_objects: 3)).to include(root: 'a', objects: 2, sealed: false, reason: nil)
-    expect(adapter).not_to be_sealed('a')
+    expect(seal(max_objects: 3)).to include(root: 'r001', objects: 2, sealed: false, reason: nil)
+    expect(adapter).not_to be_sealed('r001')
   end
 
   it 'seals a root that reached the limit, recording the count as the reason' do
     deposit(3)
 
     expect(seal(max_objects: 3)).to include(objects: 3, sealed: true)
-    expect(adapter).to be_sealed('a')
+    expect(adapter).to be_sealed('r001')
 
     marker = JSON.parse(Pathname.new(dir_a).join('extensions', 'neu-drs-storage-pool', 'sealed.json').read)
     expect(marker['reason']).to eq('3 objects reached the limit of 3')
@@ -55,7 +55,7 @@ RSpec.describe StorageRootSealer do
   end
 
   it 'is a no-op on a root already sealed, without counting it' do
-    adapter.seal!('a', reason: 'by hand')
+    adapter.seal!('r001', reason: 'by hand')
     expect(Dir).not_to receive(:glob)
 
     expect(seal(max_objects: 0)).to include(sealed: true, reason: 'already sealed', objects: nil)
@@ -63,16 +63,16 @@ RSpec.describe StorageRootSealer do
 
   it 'refuses to seal the only open root, because that stops every new deposit' do
     deposit(1)
-    adapter.seal!('b')
+    adapter.seal!('r002')
 
     expect(seal(max_objects: 1)).to include(sealed: false, reason: described_class::LAST_ROOT_REFUSAL)
-    expect(adapter).not_to be_sealed('a')
-    expect(adapter.open_root_name).to eq('a')
+    expect(adapter).not_to be_sealed('r001')
+    expect(adapter.open_root_name).to eq('r001')
   end
 
   it 'seals the only open root when an operator forces it' do
     deposit(1)
-    adapter.seal!('b')
+    adapter.seal!('r002')
 
     expect(seal(max_objects: 1, force: true)).to include(sealed: true)
     expect { adapter.open_root_name }.to raise_error(Valkyrie::Storage::OCFL::PoolSealed)

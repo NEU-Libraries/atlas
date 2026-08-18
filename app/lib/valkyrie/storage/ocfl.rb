@@ -54,7 +54,7 @@ module Valkyrie
       def initialize(storage_root: nil,
                      storage_roots: nil,
                      tag: nil,
-                     root_name: 'a',
+                     root_name: 'r001',
                      pool_name: 'drs',
                      digest_algorithm: 'sha512',
                      tuple_sizes: [2, 2],

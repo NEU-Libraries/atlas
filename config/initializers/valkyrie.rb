@@ -12,7 +12,7 @@ Rails.application.config.to_prepare do
       # The value this path already hashes to, now fixed so the storage can move
       # (a different mount, a different provider) without breaking stored ids.
       tag: '7c483a4a',
-      root_name: 'a',
+      root_name: 'r001',
       file_mover: FileUtils.method(:cp)
     ),
     :disk
@@ -24,7 +24,7 @@ Rails.application.config.to_prepare do
       # A literal, so a worktree and the main checkout mint identical ids from
       # their own tmp/files rather than ids that differ by checkout path.
       tag: 'testdisk',
-      root_name: 'a',
+      root_name: 'r001',
       file_mover: FileUtils.method(:cp)
     ),
     :test_disk

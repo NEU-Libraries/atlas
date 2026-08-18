@@ -137,8 +137,8 @@ RSpec.describe Valkyrie::Storage::OCFL do
 
     # Same tag and same two roots each time; only the order differs, and the
     # first entry is the default a write lands in.
-    def pool(order = %w[a b], clock: Time.utc(2026, 1, 1))
-      paths = { 'a' => tmpdir, 'b' => other_tmpdir }
+    def pool(order = %w[r001 r002], clock: Time.utc(2026, 1, 1))
+      paths = { 'r001' => tmpdir, 'r002' => other_tmpdir }
       described_class.new(
         storage_roots: order.index_with { |n| paths.fetch(n) },
         tag:           'pooltag',
@@ -152,12 +152,12 @@ RSpec.describe Valkyrie::Storage::OCFL do
     end
 
     it 'reads an object out of the root its id names' do
-      stored = pool(%w[b a]).upload(file: file, original_filename: 'foo.jpg', resource: noid_resource)
+      stored = pool(%w[r002 r001]).upload(file: file, original_filename: 'foo.jpg', resource: noid_resource)
 
-      expect(stored.id.to_s).to eq('ocfl://pooltag/@b/abcd1234e/foo.jpg')
+      expect(stored.id.to_s).to eq('ocfl://pooltag/@r002/abcd1234e/foo.jpg')
       expect(object_dir(other_tmpdir)).to exist
       expect(object_dir(tmpdir)).not_to exist
-      # The reader's own default is 'a'; it finds the object because the id says 'b'.
+      # The reader's own default is 'r001'; it finds the object because the id says 'r002'.
       expect(pool.find_by(id: stored.id).version_id).to eq(stored.version_id)
       expect(pool.find_versions(id: stored.id).length).to eq(1)
       expect(pool.digest_for(id: stored.id)[:value]).to be_present
@@ -173,9 +173,9 @@ RSpec.describe Valkyrie::Storage::OCFL do
     end
 
     it 'reads version metadata from each id own root, not from one of them' do
-      in_a = pool(%w[a b], clock: Time.utc(2026, 1, 1))
+      in_a = pool(%w[r001 r002], clock: Time.utc(2026, 1, 1))
              .upload(file: file, original_filename: 'foo.jpg', resource: noid_resource)
-      in_b = pool(%w[b a], clock: Time.utc(2026, 2, 2))
+      in_b = pool(%w[r002 r001], clock: Time.utc(2026, 2, 2))
              .upload(file: other_file, original_filename: 'foo.jpg', resource: noid_resource)
 
       facts = pool.find_version_metadata_for(ids: [in_a.version_id, in_b.version_id])
@@ -189,45 +189,45 @@ RSpec.describe Valkyrie::Storage::OCFL do
     it 'sends a new object to the open root, and the next one on after a seal' do
       adapter = pool
       first = adapter.upload(file: file, original_filename: 'foo.jpg', resource: noid_resource)
-      expect(first.id.to_s).to include('/@a/')
+      expect(first.id.to_s).to include('/@r001/')
 
-      adapter.seal!('a', reason: 'full')
-      expect(adapter).to be_sealed('a')
-      expect(adapter.open_root_name).to eq('b')
+      adapter.seal!('r001', reason: 'full')
+      expect(adapter).to be_sealed('r001')
+      expect(adapter.open_root_name).to eq('r002')
 
       second = adapter.upload(file: other_file, original_filename: 'bar.png', resource: other_resource)
-      expect(second.id.to_s).to include('/@b/')
+      expect(second.id.to_s).to include('/@r002/')
     end
 
     it 'keeps taking new versions of the objects a sealed root already holds' do
       adapter = pool
       first = adapter.upload(file: file, original_filename: 'foo.jpg', resource: noid_resource)
-      adapter.seal!('a')
+      adapter.seal!('r001')
 
       again = adapter.upload_version(id: first.id, file: other_file)
 
       expect(again.id).to eq(first.id)
-      expect(again.version_id.to_s).to eq('ocfl://pooltag/@a/abcd1234e/v2/foo.jpg')
+      expect(again.version_id.to_s).to eq('ocfl://pooltag/@r001/abcd1234e/v2/foo.jpg')
       expect(adapter.find_versions(id: first.id).length).to eq(2)
     end
 
     it 'never lets one object span two roots, even when its root is sealed' do
       adapter = pool
       adapter.upload(file: file, original_filename: 'foo.jpg', resource: noid_resource)
-      adapter.seal!('a')
+      adapter.seal!('r001')
 
       # A second logical path for the SAME resource is the same OCFL object, so
       # placement must not send it to the open root.
       sibling = adapter.upload(file: other_file, original_filename: 'sidecar.xml', resource: noid_resource)
 
-      expect(sibling.id.to_s).to eq('ocfl://pooltag/@a/abcd1234e/sidecar.xml')
+      expect(sibling.id.to_s).to eq('ocfl://pooltag/@r001/abcd1234e/sidecar.xml')
       expect(object_dir(other_tmpdir)).not_to exist
     end
 
     it 'refuses to place a new object when every root is sealed' do
       adapter = pool
-      adapter.seal!('a')
-      adapter.seal!('b')
+      adapter.seal!('r001')
+      adapter.seal!('r002')
 
       expect { adapter.open_root_name }
         .to raise_error(described_class::PoolSealed, /every storage root is sealed/)
@@ -250,7 +250,7 @@ RSpec.describe Valkyrie::Storage::OCFL do
 
     it 'removes an object from whichever root holds it' do
       adapter = pool
-      adapter.seal!('a')
+      adapter.seal!('r001')
       stored = adapter.upload(file: file, original_filename: 'foo.jpg', resource: noid_resource)
       expect(object_dir(other_tmpdir)).to exist
 
@@ -284,11 +284,11 @@ RSpec.describe Valkyrie::Storage::OCFL do
     it 'records the pool inside each root it writes to' do
       adapter = pool
       adapter.upload(file: file, original_filename: 'foo.jpg', resource: noid_resource)
-      adapter.seal!('a')
+      adapter.seal!('r001')
       adapter.upload(file: other_file, original_filename: 'bar.png', resource: other_resource)
 
-      expect(descriptor(tmpdir)).to include('pool' => 'drs', 'root' => 'a', 'siblings' => ['b'])
-      expect(descriptor(other_tmpdir)).to include('pool' => 'drs', 'root' => 'b', 'siblings' => ['a'])
+      expect(descriptor(tmpdir)).to include('pool' => 'drs', 'root' => 'r001', 'siblings' => ['r002'])
+      expect(descriptor(other_tmpdir)).to include('pool' => 'drs', 'root' => 'r002', 'siblings' => ['r001'])
       expect(descriptor(tmpdir)['written']).to eq('2026-01-01T00:00:00Z')
     end
 
@@ -300,12 +300,12 @@ RSpec.describe Valkyrie::Storage::OCFL do
 
       pool.upload(file: other_file, original_filename: 'bar.png', resource: other_resource)
 
-      expect(descriptor(tmpdir)['siblings']).to eq(['b'])
+      expect(descriptor(tmpdir)['siblings']).to eq(['r002'])
     end
 
     it 'keeps each root a valid OCFL storage root in its own right' do
       adapter = pool
-      adapter.seal!('a')
+      adapter.seal!('r001')
       adapter.upload(file: file, original_filename: 'foo.jpg', resource: noid_resource)
 
       [tmpdir, other_tmpdir].each do |dir|
@@ -317,14 +317,14 @@ RSpec.describe Valkyrie::Storage::OCFL do
     end
 
     it 'derives a tag from the first root when none is named' do
-      adapter = described_class.new(storage_roots: { 'a' => tmpdir, 'b' => other_tmpdir })
+      adapter = described_class.new(storage_roots: { 'r001' => tmpdir, 'r002' => other_tmpdir })
       expect(adapter.tag).to eq(Digest::SHA1.hexdigest(tmpdir.to_s)[0..7])
     end
 
     it 'refuses a pool with no path behind a name' do
-      expect { described_class.new(storage_roots: { 'a' => nil }) }
+      expect { described_class.new(storage_roots: { 'r001' => nil }) }
         .to raise_error(ArgumentError, /storage_root/)
-      expect { described_class.new(storage_roots: { 'a' => '' }) }
+      expect { described_class.new(storage_roots: { 'r001' => '' }) }
         .to raise_error(ArgumentError, /storage_root/)
       expect { described_class.new }.to raise_error(ArgumentError, /storage_root/)
     end
@@ -337,8 +337,8 @@ RSpec.describe Valkyrie::Storage::OCFL do
 
       adapter = described_class.new(storage_root: Pathname.new(tmpdir), tag: 'pathname')
 
-      expect(adapter.storage_roots.keys).to eq(['a'])
-      expect(adapter.open_root_name).to eq('a')
+      expect(adapter.storage_roots.keys).to eq(['r001'])
+      expect(adapter.open_root_name).to eq('r001')
       stored = adapter.upload(file: file, original_filename: 'foo.jpg', resource: noid_resource)
       expect(adapter.find_by(id: stored.id).version_id).to eq(stored.version_id)
     end
@@ -347,8 +347,8 @@ RSpec.describe Valkyrie::Storage::OCFL do
   describe 'the root segment in an id' do
     it 'names the root in both id forms' do
       stored = upload!.call
-      expect(stored.id.to_s).to eq("ocfl://#{storage_adapter.tag}/@a/abcd1234e/foo.jpg")
-      expect(stored.version_id.to_s).to eq("ocfl://#{storage_adapter.tag}/@a/abcd1234e/v1/foo.jpg")
+      expect(stored.id.to_s).to eq("ocfl://#{storage_adapter.tag}/@r001/abcd1234e/foo.jpg")
+      expect(stored.version_id.to_s).to eq("ocfl://#{storage_adapter.tag}/@r001/abcd1234e/v1/foo.jpg")
     end
 
     it 'round-trips a rooted id through find_by and find_versions' do
@@ -365,7 +365,7 @@ RSpec.describe Valkyrie::Storage::OCFL do
       expect(storage_adapter.handles?(id: legacy)).to be(true)
       # The handle carries the current form: the segment is read-time insurance,
       # not a shape we keep minting.
-      expect(storage_adapter.find_by(id: legacy).id.to_s).to eq("ocfl://#{storage_adapter.tag}/@a/abcd1234e/foo.jpg")
+      expect(storage_adapter.find_by(id: legacy).id.to_s).to eq("ocfl://#{storage_adapter.tag}/@r001/abcd1234e/foo.jpg")
     end
 
     it 'declines an id naming a root this adapter does not hold' do

@@ -12,7 +12,11 @@ RUN chmod +x /usr/local/bin/cc-test-reporter
 RUN useradd -ms /bin/bash atlas
 USER atlas
 
-RUN mkdir -p /home/atlas/storage
+# Each storage root's path must exist here, owned by atlas. Docker seeds a fresh
+# named volume from the image's content at the mount path, ownership included; a
+# path absent from the image gets a root-owned volume the app cannot write to,
+# and the pool only discovers it when the previous root seals.
+RUN mkdir -p /home/atlas/storage /home/atlas/storage-r002
 
 COPY --chown=atlas:atlas Gemfile* /tmp/
 WORKDIR /tmp

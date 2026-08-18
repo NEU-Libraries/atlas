@@ -377,7 +377,10 @@ module Valkyrie
 
         def build_roots(single, many, root_name, tuple_sizes)
           pairs = many.presence || { root_name => single }
-          raise ArgumentError, 'give storage_root: or storage_roots:' if pairs.values.any?(&:blank?)
+          # Not blank?: Pathname#empty? asks whether the directory on disk is
+          # empty, and blank? delegates to it, so an empty storage root — every
+          # freshly mounted one — would read as no root at all.
+          raise ArgumentError, 'give storage_root: or storage_roots:' if pairs.values.any? { |path| path.to_s.empty? }
 
           pairs.to_h do |name, path|
             validate_root_name!(name)

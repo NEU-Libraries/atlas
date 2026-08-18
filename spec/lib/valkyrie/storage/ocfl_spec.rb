@@ -324,7 +324,23 @@ RSpec.describe Valkyrie::Storage::OCFL do
     it 'refuses a pool with no path behind a name' do
       expect { described_class.new(storage_roots: { 'a' => nil }) }
         .to raise_error(ArgumentError, /storage_root/)
+      expect { described_class.new(storage_roots: { 'a' => '' }) }
+        .to raise_error(ArgumentError, /storage_root/)
       expect { described_class.new }.to raise_error(ArgumentError, /storage_root/)
+    end
+
+    # Config passes Pathnames while these specs pass Strings, and a Pathname
+    # answers blank? by asking whether its directory is empty on disk. An empty
+    # root is what every fresh mount looks like.
+    it 'accepts a Pathname root that exists and is empty' do
+      expect(Pathname.new(tmpdir)).to be_empty
+
+      adapter = described_class.new(storage_root: Pathname.new(tmpdir), tag: 'pathname')
+
+      expect(adapter.storage_roots.keys).to eq(['a'])
+      expect(adapter.open_root_name).to eq('a')
+      stored = adapter.upload(file: file, original_filename: 'foo.jpg', resource: noid_resource)
+      expect(adapter.find_by(id: stored.id).version_id).to eq(stored.version_id)
     end
   end
 

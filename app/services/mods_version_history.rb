@@ -74,7 +74,7 @@ class MODSVersionHistory
     return nil if blob.nil?
 
     file = storage_adapter.find_versions(id: blob.latest_revision).find do |f|
-      f.version_id.to_s.split('/')[-2] == version_id
+      storage_adapter.version_label_for(f.version_id) == version_id
     end
     file&.read
   end

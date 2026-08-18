@@ -125,6 +125,25 @@ RSpec.describe Valkyrie::Storage::OCFL do
     end
   end
 
+  describe '#version_label_for' do
+    it 'reads the version segment from a versioned id' do
+      expect(storage_adapter.version_label_for(upload!.call.version_id)).to eq('v1')
+    end
+
+    it 'returns nil for a head id, which names no version' do
+      expect(storage_adapter.version_label_for(upload!.call.id)).to be_nil
+    end
+
+    it 'reads the version even when the logical path holds a slash' do
+      id = "ocfl://#{storage_adapter.tag}/abcd1234e/v3/scans/page.tif"
+      expect(storage_adapter.version_label_for(id)).to eq('v3')
+    end
+
+    it 'returns nil for an id this adapter does not handle' do
+      expect(storage_adapter.version_label_for('ocfl://deadbeef/abcd1234e/v1/foo.jpg')).to be_nil
+    end
+  end
+
   describe 'logical path portability' do
     def fresh_io
       tmp = Tempfile.new(['ocfl-fixture-', '.bin'])

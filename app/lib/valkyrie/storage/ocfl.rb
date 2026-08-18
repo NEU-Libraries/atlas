@@ -184,6 +184,15 @@ module Valkyrie
         { algorithm: inventory.digest_algorithm, value: value }
       end
 
+      # The OCFL version label (vN) a stored id names, or nil when the id carries
+      # no version segment or this adapter does not handle it. Callers needing
+      # the label come through here: the id grammar belongs to the adapter, and a
+      # second parser elsewhere drifts from it.
+      def version_label_for(id)
+        parsed = parse_id(id)
+        parsed && parsed[:version]
+      end
+
       # Removes the whole OCFL object for the key the id names — every version
       # and every logical path, not only the path in the id. Atlas keys one
       # object per resource NOID, so an object and a resource's bytes are the

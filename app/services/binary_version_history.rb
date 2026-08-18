@@ -92,12 +92,10 @@ class BinaryVersionHistory
       Valkyrie.config.storage_adapter
     end
 
-    # The OCFL version label (vN) embedded in a versioned file identifier
-    # (ocfl://<tag>/<key>/<vN>/<logical-path>). The version segment sits
-    # directly after the key, so the first /vN/ match is it — robust even when
-    # the logical path itself contains slashes.
+    # The OCFL version label a revision's identifier names. The adapter owns the
+    # id grammar, so ask it rather than re-parse the string here.
     def version_label(file_identifier)
-      file_identifier.to_s[%r{/(v\d+)/}, 1]
+      storage_adapter.version_label_for(file_identifier)
     end
 
     # created / digest per revision, keyed by the revision's own file

@@ -11,7 +11,12 @@
 # root — and a root large enough to be worth sealing is exactly the one that
 # walk is too expensive for.
 class StorageRootSealer < ApplicationService
-  DEFAULT_MAX_OBJECTS = 1_000_000
+  # An object is one Atlas resource, so a Modsable container costs three and each
+  # deposited file costs three — a single-file Work is six. And an object is not
+  # a stored file: this content averages about thirteen, most of them inventory
+  # bookkeeping, so two million objects is roughly twenty-six million files.
+  # Raise it against a key budget for the destination rather than by feel.
+  DEFAULT_MAX_OBJECTS = 2_000_000
 
   def initialize(root_name:,
                  max_objects: DEFAULT_MAX_OBJECTS,

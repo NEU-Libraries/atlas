@@ -31,6 +31,17 @@ module Valkyrie
       # Sentinel for an id naming a root this adapter does not hold; distinct
       # from nil, which means the id named no root at all.
       FOREIGN_ROOT = :foreign_root
+      # Our local extension. The spec reserves `extensions/<name>/` for exactly
+      # this, and forbids loose files directly under `extensions`.
+      POOL_EXTENSION = 'neu-drs-storage-pool'
+      SEAL_FILENAME = 'sealed.json'
+
+      # Every root is sealed, so a new object has nowhere to go. An operator
+      # opens another root; the adapter must not pick a sealed one.
+      PoolSealed = Class.new(StandardError)
+      # One key exists in two roots. That is a failed migration, and picking
+      # either one silently would make the wrong half authoritative.
+      AmbiguousObject = Class.new(StandardError)
 
       attr_reader :storage_roots, :file_mover, :clock, :user_agent, :digest_algorithm
 
@@ -82,14 +93,41 @@ module Valkyrie
 
       def upload(file:, original_filename:, resource:, **_extra)
         key = resolve_key(resource)
-        perform_upload(key: key, source: file, logical_path: sanitize_filename(original_filename))
+        perform_upload(root_name: root_for_new_write(key), key: key, source: file,
+                       logical_path: sanitize_filename(original_filename))
       end
 
       def upload_version(id:, file:)
         parsed = parse_id(id)
         raise Valkyrie::StorageAdapter::FileNotFound unless parsed
 
-        perform_upload(key: parsed[:key], source: file, logical_path: parsed[:logical_path])
+        perform_upload(root_name: parsed[:root], key: parsed[:key], source: file,
+                       logical_path: parsed[:logical_path])
+      end
+
+      def sealed?(root_name)
+        seal_marker_path(root_name).exist?
+      end
+
+      # Seals a root against *new objects only*. It keeps serving every read and
+      # keeps accepting new versions of the objects it already holds, which is
+      # what lets the pool grow without a single object moving.
+      def seal!(root_name, reason: nil)
+        storage_roots.fetch(root_name).bootstrap!
+        path = seal_marker_path(root_name)
+        FileUtils.mkdir_p(path.dirname)
+        ::File.write(path, JSON.pretty_generate('sealed_at' => clock.call.utc.iso8601,
+                                                'reason'    => reason))
+        root_name
+      end
+
+      # The root a new object lands in: the first one not sealed. Which root is
+      # open therefore lives on the disk beside the content rather than in
+      # config, so it survives a restart and an operator can read it off a
+      # backup.
+      def open_root_name
+        storage_roots.keys.find { |name| !sealed?(name) } ||
+          raise(PoolSealed, "every storage root is sealed: #{storage_roots.keys.join(', ')}")
       end
 
       def find_by(id:)
@@ -245,6 +283,29 @@ module Valkyrie
 
       private
 
+        # An object never spans roots, so a write goes where the object already is
+        # and only a genuinely new object follows placement. Without this lookup
+        # a resource's MODS blob and its binary can land in different roots, and
+        # each root's inventory then describes half an object — a state no OCFL
+        # validator can detect, because each half is valid on its own.
+        def root_for_new_write(key)
+          existing_root_name(key) || open_root_name
+        end
+
+        # Which root already holds this key's object, or nil for a new one.
+        def existing_root_name(key)
+          holding = storage_roots.select { |_name, root| root.object_root_for(key).exist? }.keys
+          if holding.size > 1
+            raise AmbiguousObject, "#{key} exists in more than one storage root: #{holding.join(', ')}"
+          end
+
+          holding.first
+        end
+
+        def seal_marker_path(root_name)
+          storage_roots.fetch(root_name).base_path.join('extensions', POOL_EXTENSION, SEAL_FILENAME)
+        end
+
         def resolve_key(resource)
           if resource.respond_to?(:noid) && resource.noid.present?
             resource.noid
@@ -375,8 +436,8 @@ module Valkyrie
           )
         end
 
-        def perform_upload(key:, source:, logical_path:)
-          root = storage_roots.fetch(default_root_name)
+        def perform_upload(root_name:, key:, source:, logical_path:)
+          root = storage_roots.fetch(root_name)
           root.bootstrap!
           object_root = root.object_root_for(key)
           bootstrap_object!(object_root)
@@ -423,7 +484,7 @@ module Valkyrie
           update_head_pointer(object_root, inv_json)
 
           physical = object_root.join(new_inventory.content_path_for(digest))
-          build_file(root_name: default_root_name, key: key, version: next_v,
+          build_file(root_name: root_name, key: key, version: next_v,
                      logical_path: logical_path, physical: physical)
         end
 

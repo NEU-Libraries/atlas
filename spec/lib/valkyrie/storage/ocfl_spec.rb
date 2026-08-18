@@ -54,6 +54,12 @@ RSpec.describe Valkyrie::Storage::OCFL do
     end.new(noid: 'abcd1234e')
   end
 
+  let(:other_resource) do
+    Class.new(Valkyrie::Resource) do
+      attribute :noid, Valkyrie::Types::String
+    end.new(noid: 'wxyz9876f')
+  end
+
   let(:upload!) do
     lambda do |io = file, original_filename: 'foo.jpg', resource: noid_resource|
       storage_adapter.upload(file: io, original_filename: original_filename, resource: resource)
@@ -178,6 +184,68 @@ RSpec.describe Valkyrie::Storage::OCFL do
       expect(facts[in_a.version_id.to_s][:created]).to eq('2026-01-01T00:00:00Z')
       expect(facts[in_b.version_id.to_s][:created]).to eq('2026-02-02T00:00:00Z')
       expect(facts[in_a.version_id.to_s][:digest]).not_to eq(facts[in_b.version_id.to_s][:digest])
+    end
+
+    it 'sends a new object to the open root, and the next one on after a seal' do
+      adapter = pool
+      first = adapter.upload(file: file, original_filename: 'foo.jpg', resource: noid_resource)
+      expect(first.id.to_s).to include('/@a/')
+
+      adapter.seal!('a', reason: 'full')
+      expect(adapter).to be_sealed('a')
+      expect(adapter.open_root_name).to eq('b')
+
+      second = adapter.upload(file: other_file, original_filename: 'bar.png', resource: other_resource)
+      expect(second.id.to_s).to include('/@b/')
+    end
+
+    it 'keeps taking new versions of the objects a sealed root already holds' do
+      adapter = pool
+      first = adapter.upload(file: file, original_filename: 'foo.jpg', resource: noid_resource)
+      adapter.seal!('a')
+
+      again = adapter.upload_version(id: first.id, file: other_file)
+
+      expect(again.id).to eq(first.id)
+      expect(again.version_id.to_s).to eq('ocfl://pooltag/@a/abcd1234e/v2/foo.jpg')
+      expect(adapter.find_versions(id: first.id).length).to eq(2)
+    end
+
+    it 'never lets one object span two roots, even when its root is sealed' do
+      adapter = pool
+      adapter.upload(file: file, original_filename: 'foo.jpg', resource: noid_resource)
+      adapter.seal!('a')
+
+      # A second logical path for the SAME resource is the same OCFL object, so
+      # placement must not send it to the open root.
+      sibling = adapter.upload(file: other_file, original_filename: 'sidecar.xml', resource: noid_resource)
+
+      expect(sibling.id.to_s).to eq('ocfl://pooltag/@a/abcd1234e/sidecar.xml')
+      expect(object_dir(other_tmpdir)).not_to exist
+    end
+
+    it 'refuses to place a new object when every root is sealed' do
+      adapter = pool
+      adapter.seal!('a')
+      adapter.seal!('b')
+
+      expect { adapter.open_root_name }
+        .to raise_error(described_class::PoolSealed, /every storage root is sealed/)
+      expect { adapter.upload(file: file, original_filename: 'foo.jpg', resource: noid_resource) }
+        .to raise_error(described_class::PoolSealed)
+    end
+
+    it 'refuses to guess when one key exists in two roots' do
+      adapter = pool
+      adapter.upload(file: file, original_filename: 'foo.jpg', resource: noid_resource)
+      # Only a botched migration outside the adapter reaches this state:
+      # placement itself always sends a later write to the root already holding
+      # the object, which is why it has to be staged by hand here.
+      FileUtils.mkdir_p(object_dir(other_tmpdir).dirname)
+      FileUtils.cp_r(object_dir(tmpdir).to_s, object_dir(other_tmpdir).to_s)
+
+      expect { adapter.upload(file: other_file, original_filename: 'foo.jpg', resource: noid_resource) }
+        .to raise_error(described_class::AmbiguousObject, /more than one storage root/)
     end
 
     it 'derives a tag from the first root when none is named' do

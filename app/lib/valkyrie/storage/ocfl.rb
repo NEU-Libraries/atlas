@@ -339,12 +339,16 @@ module Valkyrie
           {}
         end
 
+        def pool_extension_dir(root_name)
+          storage_roots.fetch(root_name).base_path.join('extensions', POOL_EXTENSION)
+        end
+
         def pool_config_path(root_name)
-          storage_roots.fetch(root_name).base_path.join('extensions', POOL_EXTENSION, POOL_CONFIG_FILENAME)
+          pool_extension_dir(root_name).join(POOL_CONFIG_FILENAME)
         end
 
         def seal_marker_path(root_name)
-          storage_roots.fetch(root_name).base_path.join('extensions', POOL_EXTENSION, SEAL_FILENAME)
+          pool_extension_dir(root_name).join(SEAL_FILENAME)
         end
 
         def resolve_key(resource)

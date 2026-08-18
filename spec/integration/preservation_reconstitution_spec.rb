@@ -4,7 +4,7 @@ require 'rails_helper'
 
 # Section 6 of the OCFL Phase 2 plan — the bus-factor proof.
 #
-# Walk the on-disk OCFL storage root. Read every relationships.json /
+# Walk every on-disk OCFL storage root. Read every relationships.json /
 # properties.json + permissions.json. Build a reconstituted graph from the
 # JSON alone — no Postgres, no Solr — and assert it matches the live
 # Atlas state.
@@ -19,17 +19,23 @@ RSpec.describe 'OCFL preservation reconstitution', type: :integration do
   # clears tmp/files once at suite start; per-example wiping here keeps each
   # bus-factor scenario hermetic.
   before do
-    FileUtils.rm_rf(Rails.root.join('tmp/files'))
+    storage_roots.each { |root| FileUtils.rm_rf(root) }
     Atlas.persister.wipe!
   end
 
-  let(:storage_root) { Rails.root.join('tmp/files') }
+  # Every configured storage root, as an operator handed the mounts would have
+  # them. Reading the paths off the adapter is how this harness learns where to
+  # look; the walk below then uses nothing but the files.
+  def storage_roots
+    Valkyrie.config.storage_adapter.storage_roots.values.map(&:base_path)
+  end
 
-  # Walk every OCFL object on disk. For each, read its head-version sidecars
-  # and return a hash keyed by NOID. This is what a reconstitution tool
+  # Walk every OCFL object in every root. For each, read its head-version
+  # sidecars and return a hash keyed by NOID. This is what a reconstitution tool
   # without Atlas would do.
   def reconstitute_from_disk
-    Dir.glob(storage_root.join('*', '*', '*').to_s).each_with_object({}) do |object_root, by_noid|
+    Dir.glob(storage_roots.map { |root| root.join('*', '*', '*').to_s })
+       .each_with_object({}) do |object_root, by_noid|
       sidecar = read_sidecar(object_root)
       by_noid[File.basename(object_root)] = sidecar if sidecar.any?
     end
@@ -48,6 +54,24 @@ RSpec.describe 'OCFL preservation reconstitution', type: :integration do
 
         out[logical_path] = JSON.parse(physical.read, symbolize_names: true)
       end
+    end
+  end
+
+  it 'tells an operator holding one storage root that the others exist' do
+    WorkCreator.call(parent_id: CollectionCreator.call(parent_id: CommunityCreator.call.noid).noid)
+
+    descriptors = storage_roots.map do |root|
+      JSON.parse(root.join('extensions', 'neu-drs-storage-pool', 'config.json').read)
+    end
+    names = Valkyrie.config.storage_adapter.storage_roots.keys
+
+    expect(descriptors.length).to eq(names.length)
+    descriptors.each do |descriptor|
+      expect(descriptor['pool']).to be_present
+      expect(names).to include(descriptor['root'])
+      # Each root names the rest, so a single mount reveals the pool's shape
+      # without Atlas, its database, or its config file.
+      expect(descriptor['siblings']).to eq(names - [descriptor['root']])
     end
   end
 

@@ -3,6 +3,9 @@ version: '3.7'
 volumes:
   db:
   storage:
+  # The pool's second capacity unit. A storage root is bounded, so growth means
+  # another root rather than a bigger one; this is that root for dev.
+  storage_r002:
   solr:
   handle-data:
 services:

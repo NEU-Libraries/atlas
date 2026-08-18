@@ -3,6 +3,12 @@ version: '3.7'
 services:
   web:
     build: .
+    environment:
+      # Names the second root for the shared :disk adapter. Only set where the
+      # matching mount exists: a configured root with no mount behind it is
+      # container-local storage that disappears on restart.
+      OCFL_EXTRA_ROOTS: r002=/home/atlas/storage-r002
     volumes:
       - ./:/home/atlas/web
       - storage:/home/atlas/storage
+      - storage_r002:/home/atlas/storage-r002

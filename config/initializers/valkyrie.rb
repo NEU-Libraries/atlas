@@ -8,11 +8,16 @@ Rails.application.config.to_prepare do
 
   Valkyrie::StorageAdapter.register(
     Valkyrie::Storage::OCFL.new(
-      storage_root: Pathname.new('/home/atlas/storage'),
-      # The value this path already hashes to, now fixed so the storage can move
-      # (a different mount, a different provider) without breaking stored ids.
+      # One root per provisioned storage location. r001 is the original; further
+      # roots come from OCFL_EXTRA_ROOTS, because this adapter is shared by
+      # development, staging and production while each mounts its own storage.
+      storage_roots: Valkyrie::Storage::OCFL::RootConfig.roots(
+        primary_name: 'r001',
+        primary_path: Pathname.new('/home/atlas/storage')
+      ),
+      # The value the r001 path already hashes to, now fixed so the storage can
+      # move (a different mount, a different provider) without breaking ids.
       tag: '7c483a4a',
-      root_name: 'r001',
       file_mover: FileUtils.method(:cp)
     ),
     :disk
@@ -20,6 +25,8 @@ Rails.application.config.to_prepare do
 
   Valkyrie::StorageAdapter.register(
     Valkyrie::Storage::OCFL.new(
+      # Deliberately one root and deliberately not reading OCFL_EXTRA_ROOTS: the
+      # suite has to be hermetic, and several specs clear tmp/files by name.
       storage_root: Rails.root.join('tmp', 'files'),
       # A literal, so a worktree and the main checkout mint identical ids from
       # their own tmp/files rather than ids that differ by checkout path.

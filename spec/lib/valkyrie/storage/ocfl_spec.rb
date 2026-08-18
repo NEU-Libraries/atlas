@@ -125,6 +125,51 @@ RSpec.describe Valkyrie::Storage::OCFL do
     end
   end
 
+  describe 'the root segment in an id' do
+    it 'names the root in both id forms' do
+      stored = upload!.call
+      expect(stored.id.to_s).to eq("ocfl://#{storage_adapter.tag}/@a/abcd1234e/foo.jpg")
+      expect(stored.version_id.to_s).to eq("ocfl://#{storage_adapter.tag}/@a/abcd1234e/v1/foo.jpg")
+    end
+
+    it 'round-trips a rooted id through find_by and find_versions' do
+      stored = upload!.call
+      expect(storage_adapter.find_by(id: stored.id).version_id).to eq(stored.version_id)
+      expect(storage_adapter.find_by(id: stored.version_id).version_id).to eq(stored.version_id)
+      expect(storage_adapter.find_versions(id: stored.id).map { |f| f.version_id.to_s })
+        .to eq([stored.version_id.to_s])
+    end
+
+    it 'still resolves an id minted before the segment existed' do
+      upload!.call
+      legacy = "ocfl://#{storage_adapter.tag}/abcd1234e/foo.jpg"
+      expect(storage_adapter.handles?(id: legacy)).to be(true)
+      # The handle carries the current form: the segment is read-time insurance,
+      # not a shape we keep minting.
+      expect(storage_adapter.find_by(id: legacy).id.to_s).to eq("ocfl://#{storage_adapter.tag}/@a/abcd1234e/foo.jpg")
+    end
+
+    it 'declines an id naming a root this adapter does not hold' do
+      upload!.call
+      foreign = "ocfl://#{storage_adapter.tag}/@zz/abcd1234e/foo.jpg"
+      expect { storage_adapter.find_by(id: foreign) }
+        .to raise_error(Valkyrie::StorageAdapter::FileNotFound)
+      expect(storage_adapter.find_versions(id: foreign)).to eq([])
+      expect(storage_adapter.digest_for(id: foreign)).to be_nil
+    end
+
+    it 'reads the version label out of a rooted id' do
+      expect(storage_adapter.version_label_for(upload!.call.version_id)).to eq('v1')
+    end
+
+    it 'refuses a root name that would break the grammar' do
+      expect { described_class.new(storage_root: tmpdir, root_name: 'a/b') }
+        .to raise_error(ArgumentError, /root_name/)
+      expect { described_class.new(storage_root: tmpdir, root_name: '') }
+        .to raise_error(ArgumentError, /root_name/)
+    end
+  end
+
   describe '#tag' do
     it 'uses an explicitly named tag verbatim' do
       adapter = described_class.new(storage_root: tmpdir, tag: 'named')

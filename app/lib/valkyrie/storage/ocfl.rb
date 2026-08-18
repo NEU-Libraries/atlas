@@ -5,8 +5,13 @@ module Valkyrie
     # OCFL 1.1 storage adapter.
     #
     # Two ID forms, both matched by handles?:
-    #   id         = ocfl://<tag>/<key>/<logical-path>         (head)
-    #   version_id = ocfl://<tag>/<key>/<vN>/<logical-path>    (per-version)
+    #   id         = ocfl://<tag>/@<root>/<key>/<logical-path>      (head)
+    #   version_id = ocfl://<tag>/@<root>/<key>/<vN>/<logical-path> (per-version)
+    #
+    # <root> names which storage root holds the object, so the pool an adapter
+    # spans can grow without any stored id changing. It is a name, never a
+    # location. A NOID cannot contain '@', so the segment is unambiguous, and an
+    # id lacking it resolves to this adapter's root.
     #
     # <tag> claims ids for this adapter. Pass it explicitly: derived from
     # base_path it binds every stored id to a physical location, so the storage
@@ -23,19 +28,27 @@ module Valkyrie
       ILLEGAL_PATH_CHARS = /[<>:"|?*\x00-\x1f]/
       RESERVED_STEMS = /\A(?:con|prn|aux|nul|com[1-9]|lpt[1-9])\z/i
       MAX_SEGMENT_BYTES = 200
+      # Sentinel for an id naming a root this adapter does not hold; distinct
+      # from nil, which means the id named no root at all.
+      FOREIGN_ROOT = :foreign_root
 
-      attr_reader :storage_root, :file_mover, :clock, :user_agent, :digest_algorithm
+      attr_reader :storage_root, :root_name, :file_mover, :clock, :user_agent, :digest_algorithm
 
       def initialize(storage_root:,
                      tag: nil,
+                     root_name: 'a',
                      digest_algorithm: 'sha512',
                      tuple_sizes: [2, 2],
                      file_mover: FileUtils.method(:mv),
                      clock: Time.method(:now),
                      user_agent: { name:    'Atlas',
                                    address: 'mailto:library-systems@northeastern.edu' })
+        raise ArgumentError, "root_name must be a name, not a path: #{root_name.inspect}" \
+          if root_name.to_s.empty? || root_name.to_s.match?(%r{[/@]})
+
         @storage_root_path = Pathname.new(storage_root)
         @tag = tag
+        @root_name = root_name.to_s
         @digest_algorithm = digest_algorithm
         @file_mover = file_mover
         @clock = clock
@@ -139,8 +152,8 @@ module Valkyrie
       end
 
       # Per-version metadata for a set of specific ids, keyed by id string:
-      #   { 'ocfl://<tag>/<key>/v1/a.txt' => { version: 'v1', created:, message:,
-      #                                        user:, digest: }, … }
+      #   { 'ocfl://<tag>/@<root>/<key>/v1/a.txt' => { version: 'v1', created:,
+      #                                                message:, user:, digest: } }
       #
       # find_version_metadata answers "every version holding ONE logical path".
       # This answers "the recorded facts for exactly these ids", where each id
@@ -278,31 +291,44 @@ module Valkyrie
         end
 
         # id forms:
-        #   ocfl://<tag>/<key>/<logical-path...>
-        #   ocfl://<tag>/<key>/vN/<logical-path...>
+        #   ocfl://<tag>/@<root>/<key>/<logical-path...>
+        #   ocfl://<tag>/@<root>/<key>/vN/<logical-path...>
+        #
+        # An absent @<root> resolves to this adapter's root, so an id minted
+        # before the segment existed still reads. A root this adapter does not
+        # hold is not ours to resolve, so it parses as nothing and the callers'
+        # existing guards answer FileNotFound.
         def parse_id(id)
           str = id.to_s
           return nil unless str.start_with?("#{PROTOCOL}#{tag}/")
 
-          remainder = str.sub("#{PROTOCOL}#{tag}/", '')
-          parts = remainder.split('/', -1)
-          return nil if parts.size < 2
+          parts = str.sub("#{PROTOCOL}#{tag}/", '').split('/', -1)
+          root = take_root!(parts)
+          return nil if root == FOREIGN_ROOT || parts.size < 2
 
           key = parts.shift
-          version = nil
           version = parts.shift if parts.first =~ /\Av\d+\z/
           logical_path = parts.join('/')
           return nil if logical_path.empty?
 
-          { key: key, version: version, logical_path: logical_path }
+          { root: root, key: key, version: version, logical_path: logical_path }
+        end
+
+        # Consumes a leading @<root> segment when there is one. Answers the root
+        # name, or FOREIGN_ROOT for a root this adapter does not hold.
+        def take_root!(parts)
+          return root_name unless parts.first.to_s.start_with?('@')
+
+          named = parts.shift.delete_prefix('@')
+          named == root_name ? named : FOREIGN_ROOT
         end
 
         def logical_id_for(key, logical_path)
-          "#{PROTOCOL}#{tag}/#{key}/#{logical_path}"
+          "#{PROTOCOL}#{tag}/@#{root_name}/#{key}/#{logical_path}"
         end
 
         def version_id_for(key, version, logical_path)
-          "#{PROTOCOL}#{tag}/#{key}/#{version}/#{logical_path}"
+          "#{PROTOCOL}#{tag}/@#{root_name}/#{key}/#{version}/#{logical_path}"
         end
 
         def build_file(key:, version:, logical_path:, physical:)

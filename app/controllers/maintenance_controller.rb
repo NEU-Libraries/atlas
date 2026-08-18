@@ -84,7 +84,7 @@ class MaintenanceController < ApplicationController
       RESETTABLE_ENVS.include?(Rails.env.to_s)
     end
 
-    # Empty the on-disk Valkyrie (OCFL) storage root, leaving the root directory
+    # Empty every on-disk Valkyrie (OCFL) storage root, leaving each directory
     # itself in place (it is a container mount point). Children are removed
     # rather than the root so the adapter's path stays valid for the re-seed.
     def purge_storage!
@@ -92,16 +92,19 @@ class MaintenanceController < ApplicationController
       # preservation root — never let it be reachable outside a resettable env.
       raise "refusing to purge OCFL storage outside a resettable env (#{Rails.env})" unless resettable_env?
 
-      root = Valkyrie.config.storage_adapter.storage_root.base_path
       # An absent root just means "nothing to purge" — the OCFL adapter lazily
       # creates it on first write, so test's ephemeral tmp/files may not exist
       # yet on a freshly booted container. Create it so the guard's directory
       # check passes and the re-seed has a valid empty store; no-op when the root
       # already exists (dev/staging's mounted volume), so their behavior is
-      # unchanged. The shallow-/unsafe-root guard below still protects against /.
-      FileUtils.mkdir_p(root)
-      guard_storage_root!(root)
-      FileUtils.rm_rf(root.children)
+      # unchanged. The shallow-/unsafe-root guard runs per root, because one
+      # misconfigured entry in the pool must not be reached through a sibling.
+      Valkyrie.config.storage_adapter.storage_roots.each_value do |storage_root|
+        root = storage_root.base_path
+        FileUtils.mkdir_p(root)
+        guard_storage_root!(root)
+        FileUtils.rm_rf(root.children)
+      end
     end
 
     # Refuse to operate on a missing, non-directory, or dangerously shallow root

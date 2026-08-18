@@ -27,7 +27,7 @@ RSpec.describe MaintenanceController do
     before do
       @root        = Pathname.new(Dir.mktmpdir)
       fake_root    = instance_double(Valkyrie::Storage::OCFL::StorageRoot, base_path: @root)
-      fake_adapter = instance_double(Valkyrie::Storage::OCFL, storage_root: fake_root)
+      fake_adapter = instance_double(Valkyrie::Storage::OCFL, storage_roots: { 'a' => fake_root })
       allow(Valkyrie.config).to receive(:storage_adapter).and_return(fake_adapter)
     end
 
@@ -59,7 +59,7 @@ RSpec.describe MaintenanceController do
     it 'tolerates an absent root, creating an empty one for the re-seed' do
       absent       = @root.join('not-yet-created')
       fake_root    = instance_double(Valkyrie::Storage::OCFL::StorageRoot, base_path: absent)
-      fake_adapter = instance_double(Valkyrie::Storage::OCFL, storage_root: fake_root)
+      fake_adapter = instance_double(Valkyrie::Storage::OCFL, storage_roots: { 'a' => fake_root })
       allow(Valkyrie.config).to receive(:storage_adapter).and_return(fake_adapter)
       expect(absent).not_to exist
 

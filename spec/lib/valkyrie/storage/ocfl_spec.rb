@@ -125,6 +125,73 @@ RSpec.describe Valkyrie::Storage::OCFL do
     end
   end
 
+  describe 'a pool of storage roots' do
+    let(:other_tmpdir) { Dir.mktmpdir('ocfl-spec-b-') }
+    after { FileUtils.rm_rf(other_tmpdir) }
+
+    # Same tag and same two roots each time; only the order differs, and the
+    # first entry is the default a write lands in.
+    def pool(order = %w[a b], clock: Time.utc(2026, 1, 1))
+      paths = { 'a' => tmpdir, 'b' => other_tmpdir }
+      described_class.new(
+        storage_roots: order.index_with { |n| paths.fetch(n) },
+        tag:           'pooltag',
+        file_mover:    FileUtils.method(:mv),
+        clock:         -> { clock }
+      )
+    end
+
+    def object_dir(dir)
+      Pathname.new(dir).join('ab', 'cd', 'abcd1234e')
+    end
+
+    it 'reads an object out of the root its id names' do
+      stored = pool(%w[b a]).upload(file: file, original_filename: 'foo.jpg', resource: noid_resource)
+
+      expect(stored.id.to_s).to eq('ocfl://pooltag/@b/abcd1234e/foo.jpg')
+      expect(object_dir(other_tmpdir)).to exist
+      expect(object_dir(tmpdir)).not_to exist
+      # The reader's own default is 'a'; it finds the object because the id says 'b'.
+      expect(pool.find_by(id: stored.id).version_id).to eq(stored.version_id)
+      expect(pool.find_versions(id: stored.id).length).to eq(1)
+      expect(pool.digest_for(id: stored.id)[:value]).to be_present
+    end
+
+    it 'declines an id naming a root the pool does not hold' do
+      pool.upload(file: file, original_filename: 'foo.jpg', resource: noid_resource)
+      foreign = 'ocfl://pooltag/@zz/abcd1234e/foo.jpg'
+
+      expect { pool.find_by(id: foreign) }.to raise_error(Valkyrie::StorageAdapter::FileNotFound)
+      expect(pool.find_versions(id: foreign)).to eq([])
+      expect(pool.digest_for(id: foreign)).to be_nil
+    end
+
+    it 'reads version metadata from each id own root, not from one of them' do
+      in_a = pool(%w[a b], clock: Time.utc(2026, 1, 1))
+             .upload(file: file, original_filename: 'foo.jpg', resource: noid_resource)
+      in_b = pool(%w[b a], clock: Time.utc(2026, 2, 2))
+             .upload(file: other_file, original_filename: 'foo.jpg', resource: noid_resource)
+
+      facts = pool.find_version_metadata_for(ids: [in_a.version_id, in_b.version_id])
+
+      expect(facts.keys).to contain_exactly(in_a.version_id.to_s, in_b.version_id.to_s)
+      expect(facts[in_a.version_id.to_s][:created]).to eq('2026-01-01T00:00:00Z')
+      expect(facts[in_b.version_id.to_s][:created]).to eq('2026-02-02T00:00:00Z')
+      expect(facts[in_a.version_id.to_s][:digest]).not_to eq(facts[in_b.version_id.to_s][:digest])
+    end
+
+    it 'derives a tag from the first root when none is named' do
+      adapter = described_class.new(storage_roots: { 'a' => tmpdir, 'b' => other_tmpdir })
+      expect(adapter.tag).to eq(Digest::SHA1.hexdigest(tmpdir.to_s)[0..7])
+    end
+
+    it 'refuses a pool with no path behind a name' do
+      expect { described_class.new(storage_roots: { 'a' => nil }) }
+        .to raise_error(ArgumentError, /storage_root/)
+      expect { described_class.new }.to raise_error(ArgumentError, /storage_root/)
+    end
+  end
+
   describe 'the root segment in an id' do
     it 'names the root in both id forms' do
       stored = upload!.call
@@ -164,9 +231,11 @@ RSpec.describe Valkyrie::Storage::OCFL do
 
     it 'refuses a root name that would break the grammar' do
       expect { described_class.new(storage_root: tmpdir, root_name: 'a/b') }
-        .to raise_error(ArgumentError, /root_name/)
+        .to raise_error(ArgumentError, /root name/)
       expect { described_class.new(storage_root: tmpdir, root_name: '') }
-        .to raise_error(ArgumentError, /root_name/)
+        .to raise_error(ArgumentError, /root name/)
+      expect { described_class.new(storage_roots: { 'ok' => tmpdir, 'b@d' => tmpdir }) }
+        .to raise_error(ArgumentError, /root name/)
     end
   end
 

@@ -32,9 +32,14 @@ module Valkyrie
       # from nil, which means the id named no root at all.
       FOREIGN_ROOT = :foreign_root
 
-      attr_reader :storage_root, :root_name, :file_mover, :clock, :user_agent, :digest_algorithm
+      attr_reader :storage_roots, :file_mover, :clock, :user_agent, :digest_algorithm
 
-      def initialize(storage_root:,
+      # Holds one root or several. `storage_roots:` is an ordered name => path
+      # map; `storage_root:` with `root_name:` is the one-root spelling of the
+      # same thing. A name is a name and never a location, so a root can move
+      # between mounts or providers without any stored id changing.
+      def initialize(storage_root: nil,
+                     storage_roots: nil,
                      tag: nil,
                      root_name: 'a',
                      digest_algorithm: 'sha512',
@@ -43,27 +48,28 @@ module Valkyrie
                      clock: Time.method(:now),
                      user_agent: { name:    'Atlas',
                                    address: 'mailto:library-systems@northeastern.edu' })
-        raise ArgumentError, "root_name must be a name, not a path: #{root_name.inspect}" \
-          if root_name.to_s.empty? || root_name.to_s.match?(%r{[/@]})
-
-        @storage_root_path = Pathname.new(storage_root)
+        @storage_roots = build_roots(storage_root, storage_roots, root_name, tuple_sizes)
         @tag = tag
-        @root_name = root_name.to_s
         @digest_algorithm = digest_algorithm
         @file_mover = file_mover
         @clock = clock
         @user_agent = user_agent.transform_keys(&:to_s)
-        @storage_root = StorageRoot.new(base_path: @storage_root_path, tuple_sizes: tuple_sizes)
+      end
+
+      # The root a new object lands in when nothing else decides. Placement
+      # refines this; a read never uses it, because a read is told its root.
+      def default_root_name
+        storage_roots.keys.first
       end
 
       def protocol
         PROTOCOL
       end
 
-      # Falls back to a digest of the path only so an adapter built without a tag
-      # still works; a configured adapter names its tag.
+      # Falls back to a digest of the first root's path only so an adapter built
+      # without a tag still works; a configured adapter names its tag.
       def tag
-        @tag ||= Digest::SHA1.hexdigest(@storage_root_path.to_s)[0..7]
+        @tag ||= Digest::SHA1.hexdigest(storage_roots.values.first.base_path.to_s)[0..7]
       end
 
       def handles?(id:)
@@ -90,7 +96,7 @@ module Valkyrie
         parsed = parse_id(id)
         raise Valkyrie::StorageAdapter::FileNotFound unless parsed
 
-        object_root = storage_root.object_root_for(parsed[:key])
+        object_root = object_root_for(parsed)
         raise Valkyrie::StorageAdapter::FileNotFound unless object_root.exist?
 
         inventory = load_inventory(object_root: object_root, version: parsed[:version])
@@ -106,14 +112,15 @@ module Valkyrie
         physical = object_root.join(content_path)
         raise Valkyrie::StorageAdapter::FileNotFound unless physical.exist?
 
-        build_file(key: parsed[:key], version: version, logical_path: parsed[:logical_path], physical: physical)
+        build_file(root_name: parsed[:root], key: parsed[:key], version: version,
+                   logical_path: parsed[:logical_path], physical: physical)
       end
 
       def find_versions(id:)
         parsed = parse_id(id)
         return [] unless parsed
 
-        object_root = storage_root.object_root_for(parsed[:key])
+        object_root = object_root_for(parsed)
         return [] unless object_root.exist?
 
         inventory = load_inventory(object_root: object_root)
@@ -123,7 +130,8 @@ module Valkyrie
           digest = inventory.digest_for(version: v, logical_path: parsed[:logical_path])
           content_path = inventory.content_path_for(digest)
           physical = object_root.join(content_path)
-          build_file(key: parsed[:key], version: v, logical_path: parsed[:logical_path], physical: physical)
+          build_file(root_name: parsed[:root], key: parsed[:key], version: v,
+                     logical_path: parsed[:logical_path], physical: physical)
         end
       end
 
@@ -143,7 +151,7 @@ module Valkyrie
         parsed = parse_id(id)
         return [] unless parsed
 
-        inventory = object_inventory(parsed[:key])
+        inventory = object_inventory(parsed[:root], parsed[:key])
         return [] unless inventory
 
         inventory.versions_containing(parsed[:logical_path]).map do |v|
@@ -168,8 +176,9 @@ module Valkyrie
       # absent from the result.
       def find_version_metadata_for(ids:)
         parsed = Array(ids).to_h { |id| [id.to_s, parse_id(id)] }.compact
-        parsed.group_by { |_id, fields| fields[:key] }.each_with_object({}) do |(key, entries), result|
-          inventory = object_inventory(key)
+        parsed.group_by { |_id, fields| fields.values_at(:root, :key) }
+              .each_with_object({}) do |((root, key), entries), result|
+          inventory = object_inventory(root, key)
           next unless inventory
 
           entries.each do |id, fields|
@@ -189,7 +198,7 @@ module Valkyrie
         parsed = parse_id(id)
         return nil unless parsed
 
-        object_root = storage_root.object_root_for(parsed[:key])
+        object_root = object_root_for(parsed)
         return nil unless object_root.exist?
 
         inventory = load_inventory(object_root: object_root, version: parsed[:version])
@@ -230,7 +239,7 @@ module Valkyrie
       def delete_object(key:)
         return if key.blank?
 
-        object_root = storage_root.object_root_for(key.to_s)
+        object_root = storage_roots.fetch(default_root_name).object_root_for(key.to_s)
         FileUtils.rm_rf(object_root) if object_root.exist?
       end
 
@@ -246,11 +255,35 @@ module Valkyrie
 
         # The head inventory of the object holding `key`, or nil when the object
         # has no readable inventory.
-        def object_inventory(key)
-          object_root = storage_root.object_root_for(key)
+        def object_inventory(root_name, key)
+          object_root = storage_roots.fetch(root_name).object_root_for(key)
           return nil unless object_root.exist?
 
           load_inventory(object_root: object_root)
+        end
+
+        # The on-disk object a parsed id points at. parse_id already refused a
+        # root this adapter does not hold, so the fetch cannot miss.
+        def object_root_for(parsed)
+          storage_roots.fetch(parsed[:root]).object_root_for(parsed[:key])
+        end
+
+        def build_roots(single, many, root_name, tuple_sizes)
+          pairs = many.presence || { root_name => single }
+          raise ArgumentError, 'give storage_root: or storage_roots:' if pairs.values.any?(&:blank?)
+
+          pairs.to_h do |name, path|
+            validate_root_name!(name)
+            [name.to_s, StorageRoot.new(base_path: Pathname.new(path), tuple_sizes: tuple_sizes)]
+          end
+        end
+
+        # A name holding '/' or '@' would break the very grammar the name exists
+        # to disambiguate.
+        def validate_root_name!(name)
+          return unless name.to_s.empty? || name.to_s.match?(%r{[/@]})
+
+          raise ArgumentError, "root name must be a name, not a path: #{name.inspect}"
         end
 
         # The inventory's record of one logical path at one version. `digest` is
@@ -317,31 +350,35 @@ module Valkyrie
         # Consumes a leading @<root> segment when there is one. Answers the root
         # name, or FOREIGN_ROOT for a root this adapter does not hold.
         def take_root!(parts)
-          return root_name unless parts.first.to_s.start_with?('@')
+          return default_root_name unless parts.first.to_s.start_with?('@')
 
           named = parts.shift.delete_prefix('@')
-          named == root_name ? named : FOREIGN_ROOT
+          storage_roots.key?(named) ? named : FOREIGN_ROOT
         end
 
-        def logical_id_for(key, logical_path)
+        def logical_id_for(root_name, key, logical_path)
           "#{PROTOCOL}#{tag}/@#{root_name}/#{key}/#{logical_path}"
         end
 
-        def version_id_for(key, version, logical_path)
+        def version_id_for(root_name, key, version, logical_path)
           "#{PROTOCOL}#{tag}/@#{root_name}/#{key}/#{version}/#{logical_path}"
         end
 
-        def build_file(key:, version:, logical_path:, physical:)
+        # The root belongs in the id because the caller persists this id and
+        # reads it back later. Stamping the default root here would hand out an
+        # id pointing at a root that does not hold the object.
+        def build_file(root_name:, key:, version:, logical_path:, physical:)
           OCFL::File.new(
-            id:         Valkyrie::ID.new(logical_id_for(key, logical_path)),
-            version_id: Valkyrie::ID.new(version_id_for(key, version, logical_path)),
+            id:         Valkyrie::ID.new(logical_id_for(root_name, key, logical_path)),
+            version_id: Valkyrie::ID.new(version_id_for(root_name, key, version, logical_path)),
             io:         LazyFile.open(physical.to_s, 'rb')
           )
         end
 
         def perform_upload(key:, source:, logical_path:)
-          storage_root.bootstrap!
-          object_root = storage_root.object_root_for(key)
+          root = storage_roots.fetch(default_root_name)
+          root.bootstrap!
+          object_root = root.object_root_for(key)
           bootstrap_object!(object_root)
 
           io = unwrap_source(source)
@@ -386,7 +423,8 @@ module Valkyrie
           update_head_pointer(object_root, inv_json)
 
           physical = object_root.join(new_inventory.content_path_for(digest))
-          build_file(key: key, version: next_v, logical_path: logical_path, physical: physical)
+          build_file(root_name: default_root_name, key: key, version: next_v,
+                     logical_path: logical_path, physical: physical)
         end
 
         def bootstrap_object!(object_root)

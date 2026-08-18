@@ -248,6 +248,35 @@ RSpec.describe Valkyrie::Storage::OCFL do
         .to raise_error(described_class::AmbiguousObject, /more than one storage root/)
     end
 
+    it 'removes an object from whichever root holds it' do
+      adapter = pool
+      adapter.seal!('a')
+      stored = adapter.upload(file: file, original_filename: 'foo.jpg', resource: noid_resource)
+      expect(object_dir(other_tmpdir)).to exist
+
+      # delete_object is given a NOID, which names no root, so it has to search.
+      adapter.delete_object(key: 'abcd1234e')
+
+      expect(object_dir(other_tmpdir)).not_to exist
+      expect { adapter.find_by(id: stored.id) }.to raise_error(Valkyrie::StorageAdapter::FileNotFound)
+    end
+
+    it 'shrugs off a NOID no root holds' do
+      expect { pool.delete_object(key: 'nosuchnoid') }.not_to raise_error
+    end
+
+    it 'refuses to remove a key that two roots hold' do
+      adapter = pool
+      adapter.upload(file: file, original_filename: 'foo.jpg', resource: noid_resource)
+      FileUtils.mkdir_p(object_dir(other_tmpdir).dirname)
+      FileUtils.cp_r(object_dir(tmpdir).to_s, object_dir(other_tmpdir).to_s)
+
+      expect { adapter.delete_object(key: 'abcd1234e') }
+        .to raise_error(described_class::AmbiguousObject)
+      expect(object_dir(tmpdir)).to exist
+      expect(object_dir(other_tmpdir)).to exist
+    end
+
     it 'derives a tag from the first root when none is named' do
       adapter = described_class.new(storage_roots: { 'a' => tmpdir, 'b' => other_tmpdir })
       expect(adapter.tag).to eq(Digest::SHA1.hexdigest(tmpdir.to_s)[0..7])

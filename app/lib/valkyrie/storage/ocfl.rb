@@ -274,11 +274,16 @@ module Valkyrie
       # Every resource owns an object (its preservation envelope) even when it
       # holds no binary, and that object's id appears nowhere in the metadata
       # for a caller to pass to delete.
+      #
+      # A NOID names no root, so this searches the pool. That is one existence
+      # check per root, and removal is rare.
       def delete_object(key:)
         return if key.blank?
 
-        object_root = storage_roots.fetch(default_root_name).object_root_for(key.to_s)
-        FileUtils.rm_rf(object_root) if object_root.exist?
+        root_name = existing_root_name(key.to_s)
+        return if root_name.nil?
+
+        FileUtils.rm_rf(storage_roots.fetch(root_name).object_root_for(key.to_s))
       end
 
       private

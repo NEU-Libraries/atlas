@@ -12,13 +12,25 @@
 # whatever the display path renders is exactly what the match path removes.
 module EnhancedText
   # Only these two. Anything else a curator types is an attempt to make the
-  # metadata "pretty", and DecoratorHelper's sanitiser drops it.
+  # metadata "pretty"; render shows it as source text rather than obeying it.
   TAGS = %w[sub sup].freeze
 
-  # An opening or closing tag, attributes and all: the display sanitiser keeps
-  # the tag and discards its attributes, so the match form has to tolerate a
-  # record that wrote them.
+  # An opening or closing tag, attributes and all. The match form has to
+  # tolerate a record that wrote attributes, because a sort or match key must
+  # not carry `class="x"` either.
   TAG_PATTERN = %r{</?(?:#{TAGS.join('|')})\b[^>]*>}i
+
+  # The three characters an HTML text node has to escape. Deliberately not the
+  # quote characters: those only matter inside an attribute value, a rendered
+  # value is always element text, and leaving them alone keeps linkify's URL
+  # detection working on a URL that contains one.
+  ESCAPES = { '&' => '&amp;', '<' => '&lt;', '>' => '&gt;' }.freeze
+  ESCAPE_PATTERN = /[&<>]/
+
+  # An allowlisted tag in its escaped form, and BARE -- no attributes. This is
+  # what makes render safe: the escaped form of a tag carrying anything at all
+  # (`<sub onmouseover=...>`) cannot match, so it can never be revived.
+  ESCAPED_TAG = %r{&lt;(/?)(#{TAGS.join('|')})&gt;}i
 
   # The markup removed, the text kept -- "Bi<sub>2</sub>" becomes "Bi2".
   # Deliberately not a general HTML strip: a title is free text where "<" can
@@ -26,5 +38,25 @@ module EnhancedText
   # render cannot damage one of those.
   def self.strip(value)
     value.to_s.gsub(TAG_PATTERN, '')
+  end
+
+  # The inverse of strip: keep the two tags as markup and render every other
+  # character as itself.
+  #
+  # Escaping first and reviving only the allowlist is the whole point. Handing
+  # the value to an HTML parser instead means a literal "<" followed by a letter
+  # opens a bogus element that swallows everything up to the next ">" -- a title
+  # holding "Ti <Tc in Bi<sub>2</sub>O" lost 20 characters AND its subscript,
+  # and how much vanished depended on where the next ">" happened to fall. A
+  # record that correctly escapes its less-than as "&lt;Tc" produces exactly
+  # that text, so well-formed MODS was the trigger.
+  #
+  # The cost of the trade is that a tag outside the allowlist now shows as
+  # source text rather than being tidied away. For a preservation system that is
+  # the better failure: a curator can see the mistake and fix the record.
+  def self.render(value)
+    value.to_s
+         .gsub(ESCAPE_PATTERN, ESCAPES)
+         .gsub(ESCAPED_TAG) { "<#{Regexp.last_match(1)}#{Regexp.last_match(2).downcase}>" }
   end
 end

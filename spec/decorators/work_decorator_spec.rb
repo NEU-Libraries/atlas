@@ -77,7 +77,13 @@ RSpec.describe WorkDecorator do
 
     it 'still escapes everything outside the two-tag allowlist' do
       expect(title_html('Steel & Iron')).to eq('<dt>Title</dt><dd>Steel &amp; Iron</dd>')
-      expect(title_html('a <b>bold</b> claim')).to eq('<dt>Title</dt><dd>a bold claim</dd>')
+      expect(title_html('a <b>bold</b> claim'))
+        .to eq('<dt>Title</dt><dd>a &lt;b&gt;bold&lt;/b&gt; claim</dd>')
+    end
+
+    it 'keeps the whole title when it holds a literal less-than' do
+      expect(title_html('Resistivity at Ti <Tc in Bi<sub>2</sub>O'))
+        .to eq('<dt>Title</dt><dd>Resistivity at Ti &lt;Tc in Bi<sub>2</sub>O</dd>')
     end
 
     it 'leaves plain_title raw -- the JSON views and the indexers read it as a value' do

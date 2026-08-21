@@ -95,24 +95,25 @@ describe DecoratorHelper do
         .to eq('<p>H<sub>2</sub>O and E=mc<sup>2</sup></p>')
     end
 
-    it 'strips disallowed inline tags' do
+    it 'shows a tag outside the allowlist as source text, keeping every character' do
       expect(helper.linkify('<b>important</b> and <i>note</i>'))
-        .to eq('<p>important and note</p>')
+        .to eq('<p>&lt;b&gt;important&lt;/b&gt; and &lt;i&gt;note&lt;/i&gt;</p>')
     end
 
-    it 'strips curator-typed <a> tags entirely (link-text remains as plain text)' do
+    it 'shows a curator-typed <a> tag as source text rather than obeying it' do
       input = 'See <a href="https://example.com">click here</a> for info.'
-      expect(helper.linkify(input)).to eq('<p>See click here for info.</p>')
+      expect(helper.linkify(input))
+        .to eq('<p>See &lt;a href="https://example.com"&gt;click here&lt;/a&gt; for info.</p>')
     end
 
-    it 'strips <script> contents along with the tag' do
+    it 'renders a <script> inert as escaped source text' do
       input = 'Hello <script>alert(1)</script> world'
-      expect(helper.linkify(input)).to eq('<p>Hello  world</p>')
+      expect(helper.linkify(input)).to eq('<p>Hello &lt;script&gt;alert(1)&lt;/script&gt; world</p>')
     end
 
-    it 'strips <style> contents along with the tag' do
+    it 'renders a <style> inert as escaped source text' do
       input = 'Pre <style>body{}</style> post'
-      expect(helper.linkify(input)).to eq('<p>Pre  post</p>')
+      expect(helper.linkify(input)).to eq('<p>Pre &lt;style&gt;body{}&lt;/style&gt; post</p>')
     end
 
     it 'wraps a single paragraph in <p>' do
@@ -135,9 +136,16 @@ describe DecoratorHelper do
       expect(helper.linkify("wrap\nped")).to eq('<p>wrap ped</p>')
     end
 
-    it 'strips curator-typed <br> tags (br is not in the whitelist)' do
+    it 'shows curator-typed <br> tags as source text (br is not in the allowlist)' do
       expect(helper.linkify('a<br><br><br><br>b'))
-        .to eq('<p>ab</p>')
+        .to eq('<p>a&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;b</p>')
+    end
+
+    it 'keeps text after an unspaced less-than -- every subject goes through here' do
+      expect(helper.linkify('Temperature <Kelvin threshold'))
+        .to eq('<p>Temperature &lt;Kelvin threshold</p>')
+      expect(helper.linkify('Ti <Tc in Bi<sub>2</sub>O'))
+        .to eq('<p>Ti &lt;Tc in Bi<sub>2</sub>O</p>')
     end
 
     it 'returns an html_safe string' do
@@ -178,12 +186,41 @@ describe DecoratorHelper do
       expect(helper.enhanced_text('Resistivity at Ti < Tc')).to eq('Resistivity at Ti &lt; Tc')
     end
 
-    it 'drops a tag outside the allowlist, keeping its text' do
-      expect(helper.enhanced_text('a <b>bold</b> claim')).to eq('a bold claim')
+    it 'shows a tag outside the allowlist as source text, keeping every character' do
+      expect(helper.enhanced_text('a <b>bold</b> claim')).to eq('a &lt;b&gt;bold&lt;/b&gt; claim')
     end
 
-    it 'drops attributes a record put on an allowed tag' do
-      expect(helper.enhanced_text('H<sub class="x">2</sub>O')).to eq('H<sub>2</sub>O')
+    # Only a BARE tag is revived, so an attribute cannot round-trip at all --
+    # tighter than the old sanitiser, which kept the tag and dropped the
+    # attribute. The unmatched </sub> that survives is inert; a browser ignores
+    # a stray end tag, and the enclosing <dd> bounds it either way.
+    it 'refuses to revive an allowed tag that carries an attribute' do
+      expect(helper.enhanced_text('H<sub class="x">2</sub>O'))
+        .to eq('H&lt;sub class="x"&gt;2</sub>O')
+      expect(helper.enhanced_text('<sub onmouseover="x()">2</sub>'))
+        .to eq('&lt;sub onmouseover="x()"&gt;2</sub>')
+    end
+
+    # The defect this replaced the HTML parser to fix: a bare "<" followed by a
+    # letter opened a bogus element that swallowed everything up to the next
+    # ">", so this title used to render as "Resistivity at Ti 2O".
+    it 'keeps text after an unspaced less-than' do
+      expect(helper.enhanced_text('Resistivity at Ti <Tc'))
+        .to eq('Resistivity at Ti &lt;Tc')
+    end
+
+    it 'does not let a literal less-than swallow a following subscript' do
+      expect(helper.enhanced_text('Ti <Tc in Bi<sub>2</sub>O'))
+        .to eq('Ti &lt;Tc in Bi<sub>2</sub>O')
+    end
+
+    it 'keeps the whole title when both spaced and unspaced less-thans appear' do
+      expect(helper.enhanced_text('Resistivity at Ti <Tc and Ti < Tc in Bi<sub>2</sub>O'))
+        .to eq('Resistivity at Ti &lt;Tc and Ti &lt; Tc in Bi<sub>2</sub>O')
+    end
+
+    it 'case-folds an upper-case allowed tag' do
+      expect(helper.enhanced_text('<SUB>2</SUB>')).to eq('<sub>2</sub>')
     end
 
     it 'does not autolink -- a title is a value, not prose' do

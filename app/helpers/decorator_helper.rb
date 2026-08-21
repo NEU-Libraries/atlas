@@ -1,37 +1,10 @@
 # frozen_string_literal: true
 
 require 'cgi'
-require 'sanitize'
 require 'uri'
 
 module DecoratorHelper
   include ActionView::Helpers # Seems to be neccessary due to Atlas being an API app
-
-  # Sanitize's default :whitespace_elements config inserts whitespace where
-  # block-level tags get stripped (so "<p>a</p><p>b</p>" doesn't render as
-  # "ab"). For curator metadata that's the wrong behaviour: typed <br><br>
-  # would survive as runs of literal whitespace. Override every default
-  # whitespace element with empty before/after so stripped tags vanish
-  # silently. Sanitize::Config.merge does a deep merge, so passing {} here
-  # would be a no-op -- each key has to be set explicitly.
-  QUIET_WHITESPACE_ELEMENTS = Sanitize::Config::DEFAULT[:whitespace_elements].keys
-                                                                             .index_with do |_el|
-    { before: '', after: '' }
-  end.freeze
-
-  # The only tags that survive sanitisation are EnhancedText's pair. We
-  # deliberately omit <br>, <a>, and structural tags: <a>'s come from URL
-  # detection, <p>'s are minted from blank-line paragraph breaks by linkify
-  # itself, and other structural tags (<dt>, <dd>) are emitted by the
-  # decorator. Any of these typed by curators get stripped -- the goal is to
-  # prevent attempts to make metadata "pretty". Shared by linkify (prose) and
-  # enhanced_text (a single-line value), so the two agree on the allowlist.
-  ENHANCED_TEXT_SANITIZE_CONFIG = {
-    elements:            EnhancedText::TAGS,
-    attributes:          {},
-    remove_contents:     %w[script style],
-    whitespace_elements: QUIET_WHITESPACE_ELEMENTS
-  }.freeze
 
   URL_CANDIDATE_RE = %r{https?://[^\s<>]+}
   # Brackets (), [], {} are *not* in here -- bracket balance is owned by
@@ -70,15 +43,15 @@ module DecoratorHelper
   def enhanced_text(value)
     return ''.html_safe if value.blank?
 
-    # rubocop:disable Rails/OutputSafety -- Sanitize escaped every text
-    # segment on the way through and only the two-tag allowlist survived,
-    # which is the entire reason the value is routed through it.
-    Sanitize.fragment(value.to_s, ENHANCED_TEXT_SANITIZE_CONFIG).html_safe
+    # rubocop:disable Rails/OutputSafety -- render escapes the value and then
+    # revives only a bare <sub>/<sup>, so the two tags of the allowlist are
+    # the only markup the result can possibly contain.
+    EnhancedText.render(value).html_safe
     # rubocop:enable Rails/OutputSafety
   end
 
   # Render curator-authored freetext as a safe HTML fragment:
-  #   1. Sanitize against a tiny inline whitelist (sup/sub only).
+  #   1. Escape the value, then revive only a bare <sup>/<sub>.
   #   2. Split on blank-line paragraph breaks and wrap each paragraph in
   #      <p>...</p>; treat lone newlines as soft wraps (collapsed to a
   #      space). Emits <p> uniformly so consumers like Cerberus can own
@@ -89,14 +62,14 @@ module DecoratorHelper
   def linkify(text)
     return ''.html_safe if text.blank?
 
-    sanitized = Sanitize.fragment(text.to_s, ENHANCED_TEXT_SANITIZE_CONFIG)
-    paragraphed = paragraphize(sanitized)
-    # rubocop:disable Rails/OutputSafety -- html_safe is the entire purpose
-    # of this method: every text segment came out of Sanitize escaped, every
-    # surviving tag is from our tiny whitelist or our own injection, and
-    # autolink only emits <a> tags via link_tag which escapes both href and
-    # text content. Treating the result as html_safe is the correctness
-    # guarantee we are paid to provide.
+    escaped = EnhancedText.render(text)
+    paragraphed = paragraphize(escaped)
+    # rubocop:disable Rails/OutputSafety -- html_safe is the entire purpose of
+    # this method: render escaped every text segment, every surviving tag is
+    # from our tiny allowlist or our own injection, and autolink only emits
+    # <a> tags via link_tag, which escapes both href and text content.
+    # Treating the result as html_safe is the correctness guarantee we are
+    # paid to provide.
     autolink(paragraphed).html_safe
     # rubocop:enable Rails/OutputSafety
   end
@@ -111,7 +84,7 @@ module DecoratorHelper
           .join
     end
 
-    # html is already sanitised (only <sup>/<sub> tags survive, plus
+    # html is already escaped (only <sup>/<sub> tags survive, plus
     # <p>...</p> wrappers we just inserted). Walk it as a stream, splitting
     # around tags. Tags pass through untouched; text segments get URL
     # detection with non-URL text re-escaped.
@@ -120,7 +93,7 @@ module DecoratorHelper
       segments.map { |seg| seg.start_with?('<') ? seg : autolink_text(seg) }.join
     end
 
-    # Text segments come from Sanitize's output, so they are already HTML-
+    # Text segments come from render's output, so they are already HTML-
     # escaped (e.g. '&' has become '&amp;'). Pass surrounding text through
     # untouched. For URL matches, decode entities to recover the real URL,
     # validate it, and emit a properly-escaped <a> tag.

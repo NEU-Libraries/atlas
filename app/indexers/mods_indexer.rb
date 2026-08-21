@@ -27,6 +27,7 @@ class MODSIndexer
       fields[:title_tsim] = decorated_resource.plain_title
       fields[:description_tsim] = decorated_resource.plain_description
       fields[:permanent_url_ssi] = decorated_resource.mods&.permanent_url
+      add_match_title(fields, decorated_resource.plain_title)
     end
 
     fields
@@ -35,4 +36,21 @@ class MODSIndexer
   def decorated_resource
     @decorated_resource ||= resource.decorate
   end
+
+  private
+
+    # title_tsim is both the match field and the display field a result row
+    # renders, so it keeps the record's <sub>/<sup> markup -- which makes Solr
+    # tokenise "sub" as a term of its own and leaves "Bi2Sr2CaCu2O8", the
+    # formula a reader types, matching nothing. title_plain_tsim is the
+    # match-only twin: the same title with the markup removed. Stripping
+    # title_tsim instead would fix matching and break every result heading.
+    #
+    # Written only when the two differ, so an ordinary title is not indexed
+    # twice. Being searched needs the field in the request handler's qf, which
+    # the blacklight-solr image owns, as it does for full_text_tesimv.
+    def add_match_title(fields, title)
+      plain = EnhancedText.strip(title)
+      fields[:title_plain_tsim] = plain unless plain == title
+    end
 end

@@ -94,7 +94,11 @@ class SortIndexer
       parts = mods&.main_title&.attributes&.symbolize_keys
       return nil if parts.blank?
 
-      NEU::MODS.compose_title(parts.except(:non_sort))
+      # Enhanced-text markup comes out before normalising: SORT_NOISE drops "<",
+      # ">" and "/" as ordinary punctuation, which welds the word "sub" and the
+      # subscript digits into the key ("bisub000002subsr..."). The sort field is
+      # never displayed, so plain text is unambiguously the right form here.
+      EnhancedText.strip(NEU::MODS.compose_title(parts.except(:non_sort)))
     end
 
     # The name a resource that holds no MODS is titled by — a Person, whose

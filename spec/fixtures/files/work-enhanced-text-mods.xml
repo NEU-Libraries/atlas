@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- MODS has no element for a subscript, so a record writes one by escaping
+     the tags into the title's own text node. Read back, the title value is the
+     literal string "Bi<sub>2</sub>Sr<sub>2</sub>CaCu<sub>2</sub>O<sub>8</sub>".
+     Cerberus's suite carries a fixture of the same name for the same title. -->
+<mods:mods xmlns:mods="http://www.loc.gov/mods/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.loc.gov/mods/v3 http://www.loc.gov/standards/mods/v3/mods-3-5.xsd">
+    <mods:titleInfo usage="primary">
+        <mods:title>Origin of the high-energy kink in the superconductor Bi&lt;sub&gt;2&lt;/sub&gt;Sr&lt;sub&gt;2&lt;/sub&gt;CaCu&lt;sub&gt;2&lt;/sub&gt;O&lt;sub&gt;8&lt;/sub&gt;</mods:title>
+    </mods:titleInfo>
+    <mods:abstract>Photoemission measurements of the electron self-energy, reported for E=mc&lt;sup&gt;2&lt;/sup&gt; scaling.</mods:abstract>
+</mods:mods>

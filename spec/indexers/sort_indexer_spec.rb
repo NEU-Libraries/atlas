@@ -69,6 +69,15 @@ RSpec.describe SortIndexer do
       expect(title_key(title: 'Boston -- A History')).to eq('boston a history')
     end
 
+    it 'drops enhanced-text markup instead of sorting under the word "sub"' do
+      expect(title_key(title: 'Bi<sub>2</sub>Sr<sub>2</sub>CaCu<sub>2</sub>O<sub>8</sub>'))
+        .to eq('bi000002sr000002cacu000002o000008')
+    end
+
+    it 'drops a superscript too' do
+      expect(title_key(title: 'E=mc<sup>2</sup>')).to eq('emc000002')
+    end
+
     it 'is absent when the resource has no title' do
       expect(described_class.new(resource: work_with_mods).to_solr).not_to have_key(:title_ssi)
     end

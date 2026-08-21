@@ -57,4 +57,35 @@ RSpec.describe WorkDecorator do
         .to eq('<dt>Use and reproduction</dt><dd><p>Copyright restrictions may apply.</p></dd>')
     end
   end
+
+  # MODS has no element for a subscript, so a chemistry record escapes the tags
+  # into the title's own text node. Escaping the <dd> printed those tags to the
+  # reader; sanitising renders them.
+  context 'when the title carries enhanced-text markup' do
+    def title_html(title)
+      decorate_with(main_title: Metadata::Fields::TitleInfo.new(title: title)).title
+    end
+
+    it 'renders the subscripts a record escaped into the title' do
+      expect(title_html('Bi<sub>2</sub>Sr<sub>2</sub>CaCu<sub>2</sub>O<sub>8</sub>'))
+        .to eq('<dt>Title</dt><dd>Bi<sub>2</sub>Sr<sub>2</sub>CaCu<sub>2</sub>O<sub>8</sub></dd>')
+    end
+
+    it 'renders a superscript' do
+      expect(title_html('E=mc<sup>2</sup>')).to eq('<dt>Title</dt><dd>E=mc<sup>2</sup></dd>')
+    end
+
+    it 'still escapes everything outside the two-tag allowlist' do
+      expect(title_html('Steel & Iron')).to eq('<dt>Title</dt><dd>Steel &amp; Iron</dd>')
+      expect(title_html('a <b>bold</b> claim')).to eq('<dt>Title</dt><dd>a bold claim</dd>')
+    end
+
+    it 'leaves plain_title raw -- the JSON views and the indexers read it as a value' do
+      work = decorate_with(
+        main_title: Metadata::Fields::TitleInfo.new(title: 'H<sub>2</sub>O')
+      )
+
+      expect(work.plain_title).to eq('H<sub>2</sub>O')
+    end
+  end
 end

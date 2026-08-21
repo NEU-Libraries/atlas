@@ -161,6 +161,42 @@ describe DecoratorHelper do
     end
   end
 
+  describe '#enhanced_text' do
+    it 'renders the sub/sup a record escaped into a title text node' do
+      result = helper.enhanced_text('Bi<sub>2</sub>Sr<sub>2</sub>CaCu<sub>2</sub>O<sub>8</sub>')
+
+      expect(result).to eq('Bi<sub>2</sub>Sr<sub>2</sub>CaCu<sub>2</sub>O<sub>8</sub>')
+      expect(result).to be_html_safe
+    end
+
+    it 'adds no paragraph wrapper -- a title is one line, unlike linkify prose' do
+      expect(helper.enhanced_text("What's New")).to eq("What's New")
+    end
+
+    it 'escapes text that is not part of the allowlist' do
+      expect(helper.enhanced_text('Steel & Iron')).to eq('Steel &amp; Iron')
+      expect(helper.enhanced_text('Resistivity at Ti < Tc')).to eq('Resistivity at Ti &lt; Tc')
+    end
+
+    it 'drops a tag outside the allowlist, keeping its text' do
+      expect(helper.enhanced_text('a <b>bold</b> claim')).to eq('a bold claim')
+    end
+
+    it 'drops attributes a record put on an allowed tag' do
+      expect(helper.enhanced_text('H<sub class="x">2</sub>O')).to eq('H<sub>2</sub>O')
+    end
+
+    it 'does not autolink -- a title is a value, not prose' do
+      expect(helper.enhanced_text('See http://example.com')).to eq('See http://example.com')
+    end
+
+    it 'returns an empty html_safe string for a blank value' do
+      result = helper.enhanced_text(nil)
+      expect(result).to eq('')
+      expect(result).to be_html_safe
+    end
+  end
+
   describe '#field' do
     it 'renders a dt/dd pair for a present value' do
       expect(helper.field('Date created', '2017-09-19'))

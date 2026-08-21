@@ -13,12 +13,17 @@ module MODSDecoration
     mods&.abstract
   end
 
-  # Shared html building for all MODS using models
+  # Shared html building for all MODS using models. The title is sanitised
+  # rather than escaped because a record with no element for a subscript writes
+  # one as escaped <sub> inside the title text, and a reader of this block needs
+  # Bi(2), not the tags. plain_title itself stays raw -- it is read as a value
+  # by the JSON views, the ancestor titles and the indexers, and those consumers
+  # need the markup intact.
   def title
     return '' if mods.nil? || mods.main_title.blank?
 
     tag.dt('Title') +
-      tag.dd(plain_title)
+      tag.dd(enhanced_text(plain_title))
   end
 
   def abstract

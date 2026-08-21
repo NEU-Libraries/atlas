@@ -7,14 +7,6 @@ require 'uri'
 module DecoratorHelper
   include ActionView::Helpers # Seems to be neccessary due to Atlas being an API app
 
-  # Inline tags that survive sanitisation. We deliberately omit <br>, <a>,
-  # and structural tags: <a>'s come from URL detection, <p>'s are minted
-  # from blank-line paragraph breaks by linkify itself, and other
-  # structural tags (<dt>, <dd>) are emitted by the decorator. Any of
-  # these typed by curators get stripped -- the goal is to prevent
-  # attempts to make metadata "pretty".
-  LINKIFY_ALLOWED_TAGS = %w[sup sub].freeze
-
   # Sanitize's default :whitespace_elements config inserts whitespace where
   # block-level tags get stripped (so "<p>a</p><p>b</p>" doesn't render as
   # "ab"). For curator metadata that's the wrong behaviour: typed <br><br>
@@ -27,8 +19,15 @@ module DecoratorHelper
     { before: '', after: '' }
   end.freeze
 
-  LINKIFY_SANITIZE_CONFIG = {
-    elements:            LINKIFY_ALLOWED_TAGS,
+  # The only tags that survive sanitisation are EnhancedText's pair. We
+  # deliberately omit <br>, <a>, and structural tags: <a>'s come from URL
+  # detection, <p>'s are minted from blank-line paragraph breaks by linkify
+  # itself, and other structural tags (<dt>, <dd>) are emitted by the
+  # decorator. Any of these typed by curators get stripped -- the goal is to
+  # prevent attempts to make metadata "pretty". Shared by linkify (prose) and
+  # enhanced_text (a single-line value), so the two agree on the allowlist.
+  ENHANCED_TEXT_SANITIZE_CONFIG = {
+    elements:            EnhancedText::TAGS,
     attributes:          {},
     remove_contents:     %w[script style],
     whitespace_elements: QUIET_WHITESPACE_ELEMENTS
@@ -62,6 +61,22 @@ module DecoratorHelper
     tag.dt(label) + tag.dd(link ? linkify(value) : value)
   end
 
+  # Render a single-line curator-authored *value* -- a title -- as a safe HTML
+  # fragment, so escaped <sub>/<sup> in a MODS text node reaches the reader as
+  # a subscript instead of as visible tags. Same allowlist as linkify, without
+  # its paragraph wrapper or URL detection: a title is one line, and a <p>
+  # inside the <dd> would change a shape every consumer of the MODS HTML block
+  # already lays out.
+  def enhanced_text(value)
+    return ''.html_safe if value.blank?
+
+    # rubocop:disable Rails/OutputSafety -- Sanitize escaped every text
+    # segment on the way through and only the two-tag allowlist survived,
+    # which is the entire reason the value is routed through it.
+    Sanitize.fragment(value.to_s, ENHANCED_TEXT_SANITIZE_CONFIG).html_safe
+    # rubocop:enable Rails/OutputSafety
+  end
+
   # Render curator-authored freetext as a safe HTML fragment:
   #   1. Sanitize against a tiny inline whitelist (sup/sub only).
   #   2. Split on blank-line paragraph breaks and wrap each paragraph in
@@ -74,7 +89,7 @@ module DecoratorHelper
   def linkify(text)
     return ''.html_safe if text.blank?
 
-    sanitized = Sanitize.fragment(text.to_s, LINKIFY_SANITIZE_CONFIG)
+    sanitized = Sanitize.fragment(text.to_s, ENHANCED_TEXT_SANITIZE_CONFIG)
     paragraphed = paragraphize(sanitized)
     # rubocop:disable Rails/OutputSafety -- html_safe is the entire purpose
     # of this method: every text segment came out of Sanitize escaped, every

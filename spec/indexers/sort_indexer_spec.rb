@@ -69,6 +69,40 @@ RSpec.describe SortIndexer do
       expect(title_key(title: 'Boston -- A History')).to eq('boston a history')
     end
 
+    it 'folds an accented letter to its base letter rather than dropping it' do
+      expect(title_key(title: 'Émile Zola')).to eq('emile zola')
+      expect(title_key(title: 'café')).to eq('cafe')
+    end
+
+    it 'folds a decomposed letter the same as a precomposed one' do
+      expect(title_key(title: "E\u0301mile")).to eq('emile')
+      expect(title_key(title: "E\u0301mile")).to eq(title_key(title: 'Émile'))
+    end
+
+    it 'folds a letter that has no decomposition' do
+      expect(title_key(title: 'Straße')).to eq('strasse')
+      expect(title_key(title: 'Œuvres')).to eq('oeuvres')
+      expect(title_key(title: 'Øst for Eden')).to eq('ost for eden')
+    end
+
+    it 'folds a fullwidth letter to its halfwidth form' do
+      expect(title_key(title: 'ＡBC')).to eq('abc')
+    end
+
+    # Solr already folds this way for matching (ICUFoldingFilter on title_tsim),
+    # so these are the tokens a search on the same title looks up.
+    it 'folds the way Solr folds for matching' do
+      expect(title_key(title: 'οδός')).to eq("\u03BF\u03B4\u03BF\u03C3")
+    end
+
+    # A title in a non-Latin script has to produce a key: Solr accepts a sort on
+    # a field a document lacks and silently files that document at one end of
+    # the list, whichever direction the reader asked for.
+    it 'keeps a script the transliteration table has no entry for' do
+      expect(title_key(title: '日本語の研究')).to eq('日本語の研究')
+      expect(title_key(title: 'Émile Zola 日本語 café')).to eq('emile zola 日本語 cafe')
+    end
+
     it 'drops enhanced-text markup instead of sorting under the word "sub"' do
       expect(title_key(title: 'Bi<sub>2</sub>Sr<sub>2</sub>CaCu<sub>2</sub>O<sub>8</sub>'))
         .to eq('bi000002sr000002cacu000002o000008')
@@ -102,6 +136,12 @@ RSpec.describe SortIndexer do
       resource = work_with_mods(names: [{ name: 'Smith, Editor', role: 'Contributor' }])
 
       expect(described_class.new(resource: resource).to_solr[:creator_ssi]).to eq('smith, editor')
+    end
+
+    it 'folds an accented name so it files under its own letter, not after Z' do
+      resource = work_with_mods(names: [{ name: 'Ångström, Anders', role: 'Creator' }])
+
+      expect(described_class.new(resource: resource).to_solr[:creator_ssi]).to eq('angstrom, anders')
     end
 
     it 'is absent when the resource has no names' do
@@ -164,6 +204,14 @@ RSpec.describe SortIndexer do
       Atlas.persister.save(resource: Collection.find(collection.noid))
 
       expect(sort_fields_in_solr(collection)['title_ssi']).to eq('test collection')
+    end
+
+    it 'lands a key for a title in a non-Latin script, so the doc is not missing the field' do
+      xml = Rails.root.join('spec/fixtures/files/collection-mods.xml').read
+      Collection.find(collection.noid).mods_xml = xml.sub('Test Collection', '日本語の研究')
+      Atlas.persister.save(resource: Collection.find(collection.noid))
+
+      expect(sort_fields_in_solr(collection)['title_ssi']).to eq('日本語の研究')
     end
 
     it 'sorts a Person under their name' do

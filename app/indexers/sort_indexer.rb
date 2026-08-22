@@ -19,10 +19,13 @@
 # the record, date_ssi is when the thing itself was made. For an archival scan
 # the second is the only date a reader cares about.
 #
-# The field names and the normalisation are v1's, so a sort that worked in v1
-# orders the same way here. Sources are the JSON access copy (resource.mods) and
-# — for a resource that carries no MODS — its display name, so no MODS XML is
-# parsed on either the write path or the read path.
+# The field names are v1's, and for ASCII text so is the normalisation, so a
+# sort that worked in v1 orders the same way here. Text outside ASCII folds to
+# its base letters (see SORT_NOISE) rather than being dropped, so an accented
+# title files under its own initial and a title in a non-Latin script still gets
+# a key at all. Sources are the JSON access copy (resource.mods) and — for a
+# resource that carries no MODS — its display name, so no MODS XML is parsed on
+# either the write path or the read path.
 #
 # title_ssi is the sort form of whatever title_tsim displays, for every resource
 # type. Holding to that for a Person is why the title source falls back to a
@@ -37,8 +40,24 @@ class SortIndexer
   PADDED_RUN = /0*([0-9]{6,})/
   NUMBER_PAD = '00000'
 
-  # Sorting ignores punctuation and case.
-  SORT_NOISE = /[^0-9a-z ]/
+  # Sorting ignores punctuation and case, but never a letter. A letter outside
+  # a-z folds to the base letter underneath it where there is one and is
+  # otherwise kept as itself, so nothing a curator can type leaves a resource
+  # with no sort key at all. A kept character sorts by codepoint, which groups a
+  # script together after the Latin range.
+  SORT_NOISE = /[^\p{L}\p{N} ]/
+
+  # A combining mark left over from decomposition: dropping it is what folds an
+  # "e" carrying an acute accent down to a plain "e". Unicode's own case folding
+  # covers a letter that has no decomposition but does have an equivalent (the
+  # eszett to "ss", a final sigma to a medial one), and the transliteration
+  # table covers the rest (a slashed o to "o", a thorn to "th").
+  COMBINING_MARK = /\p{M}/
+
+  # What the transliteration table answers for a character it holds no entry
+  # for, a CJK ideograph or a Greek letter among them. Such a character is kept
+  # as itself, never replaced by this.
+  UNFOLDABLE = '?'
 
   # An article a record carries in the title itself rather than in nonSort.
   LEADING_ARTICLE = /\A(?:a|an|the) /
@@ -110,20 +129,41 @@ class SortIndexer
     end
 
     def normalize(value)
-      value.to_s.downcase
-           .gsub(SORT_NOISE, '')
-           .sub(LEADING_ARTICLE, '')
-           .gsub(NUMBER_RUN, "#{NUMBER_PAD}\\1")
-           .gsub(PADDED_RUN, '\1')
-           .squish
+      fold(value)
+        .gsub(SORT_NOISE, '')
+        .sub(LEADING_ARTICLE, '')
+        .gsub(NUMBER_RUN, "#{NUMBER_PAD}\\1")
+        .gsub(PADDED_RUN, '\1')
+        .squish
+    end
+
+    # Text case-folded and reduced to its base letters. Case folding, then
+    # decomposition so that a diacritic becomes a separate mark to drop, then
+    # transliteration for the letters those two leave whole. Together they are
+    # the folding Solr's ICUFoldingFilter already applies to title_tsim, so
+    # sorting and matching agree on what a letter is.
+    def fold(value)
+      value.to_s.downcase(:fold)
+           .unicode_normalize(:nfkd)
+           .gsub(COMBINING_MARK, '')
+           .each_char.map { |char| fold_char(char) }.join
+    end
+
+    def fold_char(char)
+      return char if char.ascii_only?
+
+      folded = ActiveSupport::Inflector.transliterate(char, UNFOLDABLE)
+      folded.include?(UNFOLDABLE) ? char : folded
     end
 
     # The primary creator: the first name in a creator role, or — when no name
     # declares one — the first name of any role, so a resource whose only names
     # are contributors still sorts under a name instead of to the end of the
-    # list. Names sort case-folded, like titles.
+    # list. A name keeps its punctuation, because "Lee, Wen-Han" is already in
+    # filing order; it is case- and diacritic-folded like a title, so a name
+    # opening on an accented letter files under that letter rather than after Z.
     def sort_creator
-      @sort_creator ||= (creator_names.first || names.first).to_s.downcase.squish
+      @sort_creator ||= fold(creator_names.first || names.first).squish
     end
 
     def names

@@ -553,135 +553,114 @@ components:
     WorkSummary:
       type: object
       properties:
-        work:
-          type: object
-          properties:
-            id:
-              type: string
-            title:
-              type: string
-              nullable: true
-            description:
-              type: string
-              nullable: true
-            in_progress:
-              type: boolean
-              description: Cerberus-driven workflow flag; true until the bulk-deposit
-                job marks the Work complete.
-            incomplete:
-              type: boolean
-              description: Pipeline-failure flag; true when a work-scoped enrichment
-                job gave up after its retries. Flags only — the Work stays readable.
-            incomplete_reason:
-              type: string
-              nullable: true
-              description: Machine token naming the cause (e.g. pdf_rendition_gave_up).
-                Opaque to Atlas and unvalidated; the vocabulary belongs to the caller.
-                Null unless the Work is flagged.
-            handle:
-              type: string
-              nullable: true
-              description: Persistent identifier, "<prefix>/<noid>", minted against
-                the Handle service when the Work is finalized. Null until then, and
-                on any deployment with no handle server configured.
-          required:
-          - id
-          - title
-          - description
-          - in_progress
-          - incomplete
-          - incomplete_reason
-          - handle
+        id:
+          type: string
+        title:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        in_progress:
+          type: boolean
+          description: Cerberus-driven workflow flag; true until the bulk-deposit
+            job marks the Work complete.
+        incomplete:
+          type: boolean
+          description: Pipeline-failure flag; true when a work-scoped enrichment job
+            gave up after its retries. Flags only — the Work stays readable.
+        incomplete_reason:
+          type: string
+          nullable: true
+          description: Machine token naming the cause (e.g. pdf_rendition_gave_up).
+            Opaque to Atlas and unvalidated; the vocabulary belongs to the caller.
+            Null unless the Work is flagged.
+        handle:
+          type: string
+          nullable: true
+          description: Persistent identifier, "<prefix>/<noid>", minted against the
+            Handle service when the Work is finalized. Null until then, and on any
+            deployment with no handle server configured.
       required:
-      - work
+      - id
+      - title
+      - description
+      - in_progress
+      - incomplete
+      - incomplete_reason
+      - handle
     CollectionSummary:
       type: object
       properties:
-        collection:
-          type: object
-          properties:
-            id:
-              type: string
-            title:
-              type: string
-              nullable: true
-            description:
-              type: string
-              nullable: true
-          required:
-          - id
-          - title
-          - description
+        id:
+          type: string
+        title:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
       required:
-      - collection
+      - id
+      - title
+      - description
     CommunitySummary:
       type: object
       properties:
-        community:
-          type: object
-          properties:
-            id:
-              type: string
-            title:
-              type: string
-              nullable: true
-            description:
-              type: string
-              nullable: true
-          required:
-          - id
-          - title
-          - description
+        id:
+          type: string
+        title:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
       required:
-      - community
+      - id
+      - title
+      - description
     FileSetSummary:
       type: object
       properties:
-        file_set:
-          type: object
-          properties:
-            id:
-              type: string
-              description: NOID
-            type:
-              type: string
-              nullable: true
-            position:
-              type: integer
-              nullable: true
-              description: 1-based page order within the parent Work; null = unordered
-            tombstoned:
-              type: boolean
-              description: Withdrawn-from-discovery flag
-            tombstoned_at:
-              type: string
-              nullable: true
-              description: ISO-8601 timestamp set when tombstoned
-            tombstoned_by:
-              type: string
-              nullable: true
-              description: NUID of the user who tombstoned the resource
-          required:
-          - id
-          - type
-          - position
-          - tombstoned
-          - tombstoned_at
-          - tombstoned_by
+        id:
+          type: string
+          description: NOID
+        type:
+          type: string
+          nullable: true
+        position:
+          type: integer
+          nullable: true
+          description: 1-based page order within the parent Work; null = unordered
+        tombstoned:
+          type: boolean
+          description: Withdrawn-from-discovery flag
+        tombstoned_at:
+          type: string
+          nullable: true
+          description: ISO-8601 timestamp set when tombstoned
+        tombstoned_by:
+          type: string
+          nullable: true
+          description: NUID of the user who tombstoned the resource
       required:
-      - file_set
+      - id
+      - type
+      - position
+      - tombstoned
+      - tombstoned_at
+      - tombstoned_by
     BlobSummary:
       type: object
       properties:
-        blob:
-          type: object
-          properties:
-            id:
-              type: string
-          required:
-          - id
+        id:
+          type: string
+        use:
+          type: string
+          nullable: true
       required:
-      - blob
+      - id
+      - use
     WorksIndex:
       type: object
       properties:
@@ -1379,13 +1358,78 @@ components:
           - updated_at
       required:
       - compilation
+    CompilationSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          description: NOID (minted; the API-addressable id)
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        depositor:
+          type: string
+          description: Curator NUID (owner)
+        published:
+          type: boolean
+          description: 'OAI-PMH set flag: when true the Set is listed by GET /oai?verb=ListSets
+            and harvesters may walk it'
+        included_collections:
+          type: array
+          items:
+            type: string
+          description: Collection noids included transitively (self + descendants)
+        included_works:
+          type: array
+          items:
+            type: string
+          description: Work noids included individually
+        excluded_works:
+          type: array
+          items:
+            type: string
+          description: Work noids set aside (subtracted from the resolved union)
+        edit_users:
+          type: array
+          items:
+            type: string
+        read_groups:
+          type: array
+          items:
+            type: string
+        edit_groups:
+          type: array
+          items:
+            type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+      - id
+      - title
+      - description
+      - depositor
+      - published
+      - included_collections
+      - included_works
+      - excluded_works
+      - edit_users
+      - read_groups
+      - edit_groups
+      - created_at
+      - updated_at
     CompilationsIndex:
       type: object
       properties:
         compilations:
           type: array
           items:
-            "$ref": "#/components/schemas/Compilation"
+            "$ref": "#/components/schemas/CompilationSummary"
         pagination:
           "$ref": "#/components/schemas/Pagination"
       required:
@@ -1472,13 +1516,53 @@ components:
           - personal_root_id
       required:
       - person
+    PersonSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          description: NOID
+        valkyrie_id:
+          type: string
+          description: Valkyrie internal id
+        nuid:
+          type: string
+          description: Correlation key + public address
+        display_name:
+          type: string
+          description: Authoritative, librarian-editable name
+        bio:
+          type: string
+          nullable: true
+        orcid:
+          type: string
+          nullable: true
+        affiliated_community_ids:
+          type: array
+          items:
+            type: string
+          description: NOIDs of affiliated communities
+        personal_root_id:
+          type: string
+          nullable: true
+          description: NOID of the Person's personal-root Collection (the publish
+            conduit's structural parent)
+      required:
+      - id
+      - valkyrie_id
+      - nuid
+      - display_name
+      - bio
+      - orcid
+      - affiliated_community_ids
+      - personal_root_id
     PeopleIndex:
       type: object
       properties:
         people:
           type: array
           items:
-            "$ref": "#/components/schemas/Person"
+            "$ref": "#/components/schemas/PersonSummary"
         pagination:
           "$ref": "#/components/schemas/Pagination"
       required:

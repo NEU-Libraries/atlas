@@ -62,12 +62,12 @@ RSpec.describe 'Compilations via atlas_rb', :atlas_rb_server do
     expect(renamed['description']).to eq('HIST 1101')
 
     listing = AtlasRb::Compilation.list(nuid: curator.nuid)
-    expect(listing['compilations'].map { |entry| entry.dig('compilation', 'id') })
+    expect(listing['compilations'].pluck('id'))
       .to include(set['id'])
     expect(listing['pagination']).to be_present
 
     filtered = AtlasRb::Compilation.list(q: 'renam', nuid: curator.nuid)
-    expect(filtered['compilations'].map { |entry| entry.dig('compilation', 'id') })
+    expect(filtered['compilations'].pluck('id'))
       .to eq([set['id']])
     expect(filtered.dig('pagination', 'count')).to eq(1)
     expect(AtlasRb::Compilation.list(q: 'no-such-set', nuid: curator.nuid)['compilations'])
@@ -190,11 +190,11 @@ RSpec.describe 'Compilations via atlas_rb', :atlas_rb_server do
                                 nuid:        rando.nuid)
 
     editable_ids = AtlasRb::Compilation.list(scope: :editable, nuid: curator.nuid)['compilations']
-                                       .map { |e| e.dig('compilation', 'id') }
+                                       .pluck('id')
     expect(editable_ids).to contain_exactly(editable_user['id'], editable_group['id'])
 
     shared_ids = AtlasRb::Compilation.list(scope: :shared, nuid: curator.nuid)['compilations']
-                                     .map { |e| e.dig('compilation', 'id') }
+                                     .pluck('id')
     expect(shared_ids).to contain_exactly(editable_user['id'], editable_group['id'], read_only['id'])
     expect(shared_ids).not_to include(owned['id'])
   end

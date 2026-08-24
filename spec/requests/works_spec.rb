@@ -66,7 +66,7 @@ RSpec.describe 'Works', type: :request do
         run_test! do |response|
           works = JSON.parse(response.body).fetch('works')
           expect(works.size).to eq(1)
-          expect(works.first.dig('work', 'in_progress')).to be true
+          expect(works.first['in_progress']).to be true
         end
       end
 
@@ -82,7 +82,7 @@ RSpec.describe 'Works', type: :request do
         run_test! do |response|
           works = JSON.parse(response.body).fetch('works')
           expect(works.size).to eq(1)
-          expect(works.first.dig('work', 'in_progress')).to be false
+          expect(works.first['in_progress']).to be false
         end
       end
 
@@ -99,8 +99,8 @@ RSpec.describe 'Works', type: :request do
         run_test! do |response|
           works = JSON.parse(response.body).fetch('works')
           expect(works.size).to eq(1)
-          expect(works.first.dig('work', 'incomplete')).to be true
-          expect(works.first.dig('work', 'incomplete_reason')).to eq('pdf_rendition_gave_up')
+          expect(works.first['incomplete']).to be true
+          expect(works.first['incomplete_reason']).to eq('pdf_rendition_gave_up')
         end
       end
 
@@ -124,7 +124,7 @@ RSpec.describe 'Works', type: :request do
         run_test! do |response|
           works = JSON.parse(response.body).fetch('works')
           expect(works.size).to eq(1)
-          expect(works.first.dig('work', 'incomplete_reason')).to eq('media_rendition_gave_up')
+          expect(works.first['incomplete_reason']).to eq('media_rendition_gave_up')
         end
       end
     end

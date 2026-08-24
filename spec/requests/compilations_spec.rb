@@ -89,7 +89,7 @@ RSpec.describe 'Compilations', type: :request, default_auth: false do
         end
         run_test! do |response|
           payload = JSON.parse(response.body)
-          titles = payload['compilations'].map { |c| c.dig('compilation', 'title') }
+          titles = payload['compilations'].pluck('title')
           expect(titles).to eq(['My Set'])
         end
       end
@@ -109,7 +109,7 @@ RSpec.describe 'Compilations', type: :request, default_auth: false do
         end
         run_test! do |response|
           payload = JSON.parse(response.body)
-          titles = payload['compilations'].map { |c| c.dig('compilation', 'title') }
+          titles = payload['compilations'].pluck('title')
           expect(titles).to contain_exactly('Course readings', 'Discourse and power')
           expect(payload.dig('pagination', 'count')).to eq(2)
         end
@@ -135,7 +135,7 @@ RSpec.describe 'Compilations', type: :request, default_auth: false do
         end
         run_test! do |response|
           payload = JSON.parse(response.body)
-          titles = payload['compilations'].map { |c| c.dig('compilation', 'title') }
+          titles = payload['compilations'].pluck('title')
           expect(titles).to contain_exactly('By edit_users grant', 'By edit_groups grant')
         end
       end
@@ -158,7 +158,7 @@ RSpec.describe 'Compilations', type: :request, default_auth: false do
         end
         run_test! do |response|
           payload = JSON.parse(response.body)
-          titles = payload['compilations'].map { |c| c.dig('compilation', 'title') }
+          titles = payload['compilations'].pluck('title')
           expect(titles).to contain_exactly(
             'By edit_users grant', 'By edit_groups grant', 'Read-only to me'
           )

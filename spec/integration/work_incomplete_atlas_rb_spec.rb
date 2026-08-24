@@ -125,7 +125,7 @@ RSpec.describe 'Work incomplete state via atlas_rb', :atlas_rb_server do
       flagged = AtlasRb::Work.create(collection.noid, nuid: admin_nuid)
       AtlasRb::Work.mark_incomplete(flagged['id'], reason: 'ingest_gave_up', nuid: admin_nuid)
 
-      works = AtlasRb::Work.list(incomplete: true, nuid: admin_nuid)['works'].pluck('work')
+      works = AtlasRb::Work.list(incomplete: true, nuid: admin_nuid)['works']
 
       expect(works.pluck('id')).to eq([flagged['id']])
       expect(works.first['incomplete_reason']).to eq('ingest_gave_up')
@@ -141,7 +141,7 @@ RSpec.describe 'Work incomplete state via atlas_rb', :atlas_rb_server do
 
       works = AtlasRb::Work.list(in_progress: false, incomplete: true, nuid: admin_nuid)['works']
 
-      expect(works.map { |w| w.dig('work', 'id') }).to eq([degraded['id']])
+      expect(works.pluck('id')).to eq([degraded['id']])
     end
 
     it 'lists every Work when neither filter is supplied' do

@@ -49,14 +49,16 @@ module OpenapiSchemas
 
   def person_schemas
     {
-      Person:      person,
-      PeopleIndex: people_index
+      Person:        person,
+      PersonSummary: person_summary,
+      PeopleIndex:   people_index
     }
   end
 
   def compilation_schemas
     {
       Compilation:         compilation,
+      CompilationSummary:  compilation_summary,
       CompilationsIndex:   compilations_index,
       CompilationContents: compilation_contents
     }
@@ -91,15 +93,21 @@ module OpenapiSchemas
   end
 
   def file_set
-    wrapped(:file_set, {
-              id:            { type: :string, description: 'NOID' },
-              type:          { type: :string, nullable: true },
-              position:      { type: :integer, nullable: true,
-                               description: '1-based page order within the parent Work; null = unordered' },
-              tombstoned:    { type: :boolean, description: 'Withdrawn-from-discovery flag' },
-              tombstoned_at: { type: :string, nullable: true, description: 'ISO-8601 timestamp set when tombstoned' },
-              tombstoned_by: { type: :string, nullable: true, description: 'NUID of the user who tombstoned the resource' }
-            })
+    wrapped(:file_set, file_set_props)
+  end
+
+  # Mirrors file_sets/_file_set_fields.json.jbuilder, which both the wrapped
+  # detail payload and the flat index rows render.
+  def file_set_props
+    {
+      id:            { type: :string, description: 'NOID' },
+      type:          { type: :string, nullable: true },
+      position:      { type: :integer, nullable: true,
+                       description: '1-based page order within the parent Work; null = unordered' },
+      tombstoned:    { type: :boolean, description: 'Withdrawn-from-discovery flag' },
+      tombstoned_at: { type: :string, nullable: true, description: 'ISO-8601 timestamp set when tombstoned' },
+      tombstoned_by: { type: :string, nullable: true, description: 'NUID of the user who tombstoned the resource' }
+    }
   end
 
   def blob
@@ -145,26 +153,34 @@ module OpenapiSchemas
   # ---- summary shapes (used by index actions) ----
 
   def work_summary
-    wrapped(:work, summary_props.merge(work_only_props))
+    bare(summary_props.merge(work_only_props))
   end
 
   def collection_summary
-    wrapped(:collection, summary_props)
+    bare(summary_props)
   end
 
   def community_summary
-    wrapped(:community, summary_props)
+    bare(summary_props)
   end
 
-  # FileSet index uses the same _file_set partial as show, so summary and
-  # detail share the same shape (including tombstone fields). Reusing
-  # `file_set` keeps the two in lockstep.
+  # The FileSet index rows carry every detail key (including the tombstone
+  # fields) because both render the same fields partial; only the wrapper
+  # differs.
   def file_set_summary
-    file_set
+    bare(file_set_props)
   end
 
   def blob_summary
-    wrapped(:blob, { id: { type: :string } })
+    bare({ id: { type: :string }, use: { type: :string, nullable: true } })
+  end
+
+  def person_summary
+    bare(person_props)
+  end
+
+  def compilation_summary
+    bare(compilation_props)
   end
 
   # ---- collection responses (index) ----
@@ -184,25 +200,32 @@ module OpenapiSchemas
   # Person detail (a wrapped object). Every key is always emitted by the
   # partial (null when absent), so all are required + nullable as appropriate.
   def person
-    wrapped(:person, {
-              id:                       { type: :string, description: 'NOID' },
-              valkyrie_id:              { type: :string, description: 'Valkyrie internal id' },
-              nuid:                     { type: :string, description: 'Correlation key + public address' },
-              display_name:             { type: :string, description: 'Authoritative, librarian-editable name' },
-              bio:                      { type: :string, nullable: true },
-              orcid:                    { type: :string, nullable: true },
-              affiliated_community_ids: { type: :array, items: { type: :string },
-                                          description: 'NOIDs of affiliated communities' },
-              personal_root_id:         { type: :string, nullable: true,
-                                          description: "NOID of the Person's personal-root Collection " \
-                                                       "(the publish conduit's structural parent)" }
-            })
+    wrapped(:person, person_props)
+  end
+
+  # Mirrors people/_person_fields.json.jbuilder. Every key is always emitted
+  # by the partial (null when absent), so all are required + nullable as
+  # appropriate.
+  def person_props
+    {
+      id:                       { type: :string, description: 'NOID' },
+      valkyrie_id:              { type: :string, description: 'Valkyrie internal id' },
+      nuid:                     { type: :string, description: 'Correlation key + public address' },
+      display_name:             { type: :string, description: 'Authoritative, librarian-editable name' },
+      bio:                      { type: :string, nullable: true },
+      orcid:                    { type: :string, nullable: true },
+      affiliated_community_ids: { type: :array, items: { type: :string },
+                                  description: 'NOIDs of affiliated communities' },
+      personal_root_id:         { type: :string, nullable: true,
+                                  description: "NOID of the Person's personal-root Collection " \
+                                               "(the publish conduit's structural parent)" }
+    }
   end
 
   # People index / batch-resolve. Always paginated for a uniform shape (the
   # ?nuids batch returns all matches in one page — page size = match count).
   def people_index
-    paged(:people, { '$ref' => '#/components/schemas/Person' })
+    paged(:people, { '$ref' => '#/components/schemas/PersonSummary' })
   end
 
   def file_sets_index
@@ -303,7 +326,13 @@ module OpenapiSchemas
   # compilations/_compilation.json.jbuilder. `id` is the minted NOID; the
   # AR pk is never exposed.
   def compilation
-    wrapped(:compilation, {
+    wrapped(:compilation, compilation_props)
+  end
+
+  # Mirrors compilations/_compilation_fields.json.jbuilder, which both the
+  # wrapped show payload and the flat index rows render.
+  def compilation_props
+    {
       id:          { type: :string, description: 'NOID (minted; the API-addressable id)' },
       title:       { type: :string },
       description: { type: :string, nullable: true },
@@ -311,7 +340,7 @@ module OpenapiSchemas
       published:   { type:        :boolean,
                      description: 'OAI-PMH set flag: when true the Set is listed by ' \
                                   'GET /oai?verb=ListSets and harvesters may walk it' }
-    }.merge(compilation_recipe_props, compilation_acl_props))
+    }.merge(compilation_recipe_props, compilation_acl_props)
   end
 
   # The three noid arrays are the raw recipe — resolved by GET
@@ -338,7 +367,7 @@ module OpenapiSchemas
   end
 
   def compilations_index
-    paged(:compilations, { '$ref' => '#/components/schemas/Compilation' })
+    paged(:compilations, { '$ref' => '#/components/schemas/CompilationSummary' })
   end
 
   # GET /compilations/{id}/contents — the resolved recipe as find_many-style
@@ -703,14 +732,21 @@ module OpenapiSchemas
     }
   end
 
+  # An unwrapped property block, every key required because the partial always
+  # emits it. A single resource is wrapped in its type name; a row inside a
+  # named collection is not, so index rows use this directly.
+  def bare(properties, additional: false, description: nil)
+    schema = { type: :object, properties: properties, required: properties.keys.map(&:to_s) }
+    schema[:additionalProperties] = true if additional
+    schema[:description] = description if description
+    schema
+  end
+
   # Wrap a property block under a single key (matches jbuilder `json.work do ... end`).
   def wrapped(key, properties, additional: false, description: nil)
-    inner = { type: :object, properties: properties, required: properties.keys.map(&:to_s) }
-    inner[:additionalProperties] = true if additional
-    inner[:description] = description if description
     {
       type:       :object,
-      properties: { key => inner },
+      properties: { key => bare(properties, additional: additional, description: description) },
       required:   [key.to_s]
     }
   end

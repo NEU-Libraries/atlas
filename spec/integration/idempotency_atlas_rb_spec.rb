@@ -194,7 +194,7 @@ RSpec.describe 'Idempotency + in_progress bindings via atlas_rb', :atlas_rb_serv
       done = AtlasRb::Work.create(collection.noid, nuid: admin_nuid)
       AtlasRb::Work.complete(done['id'], nuid: admin_nuid)
 
-      ids = AtlasRb::Work.list(in_progress: true, nuid: admin_nuid)['works'].map { |w| w['work']['id'] }
+      ids = AtlasRb::Work.list(in_progress: true, nuid: admin_nuid)['works'].pluck('id')
 
       expect(ids).to include(in_p['id'])
       expect(ids).not_to include(done['id'])
@@ -205,7 +205,7 @@ RSpec.describe 'Idempotency + in_progress bindings via atlas_rb', :atlas_rb_serv
       done = AtlasRb::Work.create(collection.noid, nuid: admin_nuid)
       AtlasRb::Work.complete(done['id'], nuid: admin_nuid)
 
-      ids = AtlasRb::Work.list(in_progress: false, nuid: admin_nuid)['works'].map { |w| w['work']['id'] }
+      ids = AtlasRb::Work.list(in_progress: false, nuid: admin_nuid)['works'].pluck('id')
 
       expect(ids).to include(done['id'])
       expect(ids).not_to include(in_p['id'])
@@ -216,7 +216,7 @@ RSpec.describe 'Idempotency + in_progress bindings via atlas_rb', :atlas_rb_serv
       done = AtlasRb::Work.create(collection.noid, nuid: admin_nuid)
       AtlasRb::Work.complete(done['id'], nuid: admin_nuid)
 
-      ids = AtlasRb::Work.list(nuid: admin_nuid)['works'].map { |w| w['work']['id'] }
+      ids = AtlasRb::Work.list(nuid: admin_nuid)['works'].pluck('id')
 
       expect(ids).to include(in_p['id'], done['id'])
     end

@@ -2,7 +2,7 @@
 
 json.people do |root|
   root.array!(@people) do |person|
-    json.partial! 'people/person', person: person
+    json.partial! 'people/person_fields', person: person
   end
 end
 json.pagination @pagination

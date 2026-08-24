@@ -36,7 +36,7 @@ RSpec.describe 'People', type: :request do
         schema '$ref' => '#/components/schemas/PeopleIndex'
         run_test! do |response|
           body = JSON.parse(response.body)
-          expect(body['people'].map { |p| p['person']['nuid'] }).to include('001234567')
+          expect(body['people'].pluck('nuid')).to include('001234567')
           expect(body['pagination']).to be_present
         end
       end
@@ -62,7 +62,7 @@ RSpec.describe 'People', type: :request do
         schema '$ref' => '#/components/schemas/PeopleIndex'
         run_test! do |response|
           body = JSON.parse(response.body)
-          names = body['people'].map { |p| p['person']['display_name'] }
+          names = body['people'].pluck('display_name')
           # No truncation despite pagination — page size follows match count.
           expect(names).to contain_exactly('Jane Doe', 'Bob Roe')
         end

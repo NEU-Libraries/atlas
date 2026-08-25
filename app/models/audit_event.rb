@@ -11,8 +11,9 @@ class AuditEvent < ApplicationRecord
                       add_affiliation remove_affiliation
                       mint_token revoke_token
                       publish unpublish
-                      impersonation_started impersonation_ended].freeze
-  CHANGE_TYPES   = %w[metadata structural permissions lifecycle file session].freeze
+                      impersonation_started impersonation_ended
+                      open_maintenance_window close_maintenance_window].freeze
+  CHANGE_TYPES   = %w[metadata structural permissions lifecycle file session maintenance].freeze
   EVENT_SOURCES  = %w[job controller script ingest migration].freeze
   # Compilation is the one non-Valkyrie member: a published Set is what /oai
   # exposes to outside harvesters, so its publish state and its recipe are
@@ -28,8 +29,11 @@ class AuditEvent < ApplicationRecord
 
   # session  → impersonation start/end (no resource at all)
   # permissions → role/grant mutations on a user (target NUID lives in payload)
+  # maintenance → the repository-wide read-only window opening or closing; the
+  #   endpoint is :system-gated, so the acting NUID here is the only record of
+  #   who decided
   # everything else describes a write against a repository resource.
-  NON_RESOURCE_CHANGE_TYPES = %w[session permissions].freeze
+  NON_RESOURCE_CHANGE_TYPES = %w[session permissions maintenance].freeze
 
   validates :resource_id,   presence: true, if: :resource_scoped?
   validates :resource_type, presence: true, inclusion: { in: RESOURCE_TYPES }, if: :resource_scoped?

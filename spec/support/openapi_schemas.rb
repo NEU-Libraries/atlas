@@ -42,7 +42,8 @@ module OpenapiSchemas
       BlobVersions:       blob_versions,
       BlobAncestry:       blob_ancestry,
       DescendantWorks:    descendant_works,
-      WorkAssociations:   work_associations
+      WorkAssociations:   work_associations,
+      MaintenanceMode:    maintenance_mode
     }.merge(compilation_schemas).merge(person_schemas)
   end
   # rubocop:enable Metrics/AbcSize
@@ -62,6 +63,18 @@ module OpenapiSchemas
       CompilationsIndex:   compilations_index,
       CompilationContents: compilation_contents
     }
+  end
+
+  # GET/PUT /maintenance — the repository-wide read-only window. Unwrapped: it is
+  # a single flag, not a resource with a type name.
+  def maintenance_mode
+    bare({
+           read_only:   { type: :boolean, description: 'Whether writes are currently refused' },
+           source:      { type: :string, nullable: true, enum: %w[operator deploy], description: 'Which door opened the window; null when closed' },
+           since:       { type: :string, format: :'date-time', nullable: true, description: 'When the window opened; null when closed' },
+           message:     { type: :string, nullable: true, description: 'Operator note for the client-side banner' },
+           retry_after: { type: :integer, description: 'Seconds a refused caller should wait; mirrored into the 503 Retry-After header' }
+         })
   end
 
   # ---- detail shapes (one wrapped object) ----

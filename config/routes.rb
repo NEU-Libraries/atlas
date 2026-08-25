@@ -199,6 +199,13 @@ Rails.application.routes.draw do
     # Housekeeping
     get '/reset', to: 'maintenance#reset', as: 'reset'
 
+    # The repository-wide read-only window. GET sits on the authenticated read
+    # floor so Cerberus can poll the flag it is honouring even while the window
+    # is open; PUT is :system/admin-gated and is the one action the floor exempts,
+    # since an open window must stay closable.
+    get '/maintenance', to: 'maintenance#show',   as: 'maintenance'
+    put '/maintenance', to: 'maintenance#update', as: 'update_maintenance'
+
     # NUID — mint a personal-access JWT (POST) / revoke all of a user's tokens
     # by rotating its jti (DELETE). Both system-gated; nuid carried in the body.
     post   '/nuid', to: 'users/tokens#nuid',   as: 'nuid'

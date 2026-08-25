@@ -84,6 +84,11 @@ class Ability
     # (Permissions concern); Atlas defers to it.
     can :read, Resource
 
+    # The maintenance window's state, on the same authenticated read floor.
+    # Cerberus polls it to render its banner and write gate, and must be able to
+    # read the flag while the window it describes is open.
+    can :read, :maintenance
+
     apply_role_abilities(user)
     apply_group_abilities(user)
     apply_compilation_abilities(user)
@@ -102,6 +107,11 @@ class Ability
         # resource, or tombstone/restore/destroy anything.
         can :provision,  User
         can :mint_token, User
+        # Open/close the repository-wide read-only window. An operational action
+        # like :reindex below, not a user one — Cerberus's admin hub and the
+        # deploy orchestrator reach it through the system token; admin reaches it
+        # via the manage :all wildcard.
+        can :maintain,   :maintenance
         can :read,       User
         can :create,     Community
         can :create,     Collection

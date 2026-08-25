@@ -142,6 +142,20 @@ class ApplicationController < ActionController::API
     }, status: :unprocessable_entity
   end
 
+  # Structured 503 for the repository-wide maintenance window. Distinct from the
+  # 403 above by design: a 403 says the caller lacks rights, which during a
+  # migration window is a lie — the caller's rights are fine, the repository is
+  # closed. The `error: "read_only_mode"` discriminator is the wire contract
+  # atlas_rb keys on to raise its typed AtlasRb::ReadOnlyModeError — exact-match
+  # string, stable across versions, do not change without a contract bump.
+  rescue_from Exceptions::ReadOnlyMode do |exception|
+    response.headers['Retry-After'] = MaintenanceMode.retry_after.to_s
+    render json: {
+      error:   Exceptions::ReadOnlyMode::CODE,
+      message: exception.message
+    }, status: :service_unavailable
+  end
+
   private
 
     # CanCan looks up `current_user` to construct the Ability. Atlas's
@@ -157,11 +171,32 @@ class ApplicationController < ActionController::API
     # rescue path. Layered in front of the real check rather than inside
     # Ability so it can't be bypassed by any grant, present or future.
     def authorize!(action, subject, *args)
+      raise Exceptions::ReadOnlyMode if repository_read_only?(action)
+
       if @token_read_only && READ_ONLY_TOKEN_ACTIONS.exclude?(action)
         raise CanCan::AccessDenied.new('read-only token cannot perform this action', action, subject)
       end
 
       super
+    end
+
+    # Repository-wide maintenance floor, sharing READ_ONLY_TOKEN_ACTIONS with the
+    # per-token floor above: both answer "is this action read-shaped?", and one
+    # allowlist means a write endpoint added next year is refused without being
+    # enumerated. Nothing is exempted — `GET /reset` included, whose
+    # RESETTABLE_ENVS guard is a separate concern.
+    def repository_read_only?(action)
+      return false if read_only_exempt?
+      return false if READ_ONLY_TOKEN_ACTIONS.include?(action)
+
+      MaintenanceMode.read_only?
+    end
+
+    # The escape hatch that keeps the window closable. Only PUT /maintenance
+    # overrides this (see MaintenanceController); everything else is refused,
+    # which is the fail-closed property the floor exists for.
+    def read_only_exempt?
+      false
     end
 
     # Endpoints that legitimately skip authorization. None today —

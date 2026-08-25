@@ -1288,6 +1288,38 @@ components:
       required:
       - outbound
       - inbound
+    MaintenanceMode:
+      type: object
+      properties:
+        read_only:
+          type: boolean
+          description: Whether writes are currently refused
+        source:
+          type: string
+          nullable: true
+          enum:
+          - operator
+          - deploy
+          description: Which door opened the window; null when closed
+        since:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the window opened; null when closed
+        message:
+          type: string
+          nullable: true
+          description: Operator note for the client-side banner
+        retry_after:
+          type: integer
+          description: Seconds a refused caller should wait; mirrored into the 503
+            Retry-After header
+      required:
+      - read_only
+      - source
+      - since
+      - message
+      - retry_after
     Compilation:
       type: object
       properties:
@@ -3357,6 +3389,69 @@ paths:
       responses:
         '200':
           description: mets returned
+  "/maintenance":
+    get:
+      summary: Read the repository-wide read-only window
+      tags:
+      - Maintenance
+      operationId: maintenance_show
+      description: |
+        The state of the repository-wide read-only window. On the authenticated
+        read floor, and answered even while the window is open — a client that
+        could not read the flag could not honour it.
+
+        While `read_only` is true every write-shaped action is refused with a
+        `503` carrying `error: "read_only_mode"` and a `Retry-After` header.
+      responses:
+        '200':
+          description: window state
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/MaintenanceMode"
+    put:
+      summary: Open or close the repository-wide read-only window
+      tags:
+      - Maintenance
+      operationId: maintenance_update
+      description: |
+        Open (`read_only: true`) or close (`read_only: false`) the window.
+        Restricted to the system principal and admins.
+
+        `source` names which door is acting. A `deploy` close is refused —
+        silently, leaving the window standing and reporting the unchanged state —
+        when an `operator` opened the window, so a deploy that finishes cannot
+        close a window a human opened by hand. An `operator` close clears either.
+
+        This is the one action the read-only floor exempts; an open window has to
+        stay closable.
+      parameters: []
+      responses:
+        '200':
+          description: window opened
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/MaintenanceMode"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                read_only:
+                  type: boolean
+                source:
+                  type: string
+                  enum:
+                  - operator
+                  - deploy
+                message:
+                  type: string
+                retry_after:
+                  type: integer
+              required:
+              - read_only
   "/reset":
     get:
       summary: Reset development/test state

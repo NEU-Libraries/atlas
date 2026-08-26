@@ -17,14 +17,15 @@
 #     set of parents with `a.id IN (…)` and carrying the parent id out as an
 #     alias so the rows can be grouped without a second pass.
 #
+# It answers two named queries, one per unbatched read it replaces:
+# find_many_members is the batched `children` (the union of both directions),
+# find_many_ordered_members the batched find_members (member_ids only, in
+# stored order). Keeping them apart matters — page order comes off member_ids,
+# and the union puts the inverse direction first, so conflating the two would
+# reorder a Work's pages.
+#
 # Ids ride as bind parameters; only the placeholder count is built from input.
 # Postgres-specific by construction, like FindManyByAlternateIdentifiers.
-#
-# Two queries, mirroring the two unbatched reads they replace:
-# find_many_members is the batched `children` (the union, both directions) and
-# find_many_ordered_members is the batched find_members (member_ids only, in
-# stored order). Keeping them apart matters — page order comes off member_ids,
-# and the union puts the inverse direction first.
 class FindManyMembers
   def self.queries
     %i[find_many_members find_many_ordered_members]
@@ -90,7 +91,7 @@ class FindManyMembers
         SELECT member.*, a.id AS find_many_members_parent_id
         FROM orm_resources a,
         jsonb_array_elements(a.metadata->'member_ids') WITH ORDINALITY AS b(member, member_pos)
-        JOIN orm_resources member ON (b.member->>'id')::uuid = member.id
+        JOIN orm_resources member ON (b.member->>'id')::#{id_type} = member.id
         WHERE a.id IN (#{placeholders})
         ORDER BY a.id, b.member_pos
       SQL
@@ -112,5 +113,11 @@ class FindManyMembers
 
     def orm
       Valkyrie::Persistence::Postgres::ORM::Resource
+    end
+
+    # Read off the column rather than hardcoded, matching how Valkyrie builds
+    # the same cast in its own member queries.
+    def id_type
+      @id_type ||= orm.columns_hash['id'].type
     end
 end

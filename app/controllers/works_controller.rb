@@ -89,14 +89,17 @@ class WorksController < ApplicationController
 
     # Pair each downloadable member with its FileSet's classification (fs.type)
     # so the flattened view can surface it per asset — the grouped #file_sets
-    # read still has the FileSet in hand.
-    @assets = @work.children
-                   .reject { |fs| Classification.metadata?(fs.type) }
-                   .flat_map do |fs|
-                     Atlas.query.find_members(resource: fs).to_a
-                          .select { |m| Role.downloadable?(m.use) }
-                          .map    { |m| [m, fs.type] }
-                   end
+    # read still has the FileSet in hand. Members come from one batched read
+    # for every FileSet at once: a many-page Work would otherwise cost a query
+    # per page.
+    file_sets = @work.children.reject { |fs| Classification.metadata?(fs.type) }
+    members   = Atlas.query.custom_queries.find_many_ordered_members(resources: file_sets)
+
+    @assets = file_sets.flat_map do |fs|
+      members.fetch(fs.id.to_s, [])
+             .select { |m| Role.downloadable?(m.use) }
+             .map    { |m| [m, fs.type] }
+    end
   end
 
   # Sibling of #assets that preserves FileSet grouping and order — the read
@@ -107,7 +110,9 @@ class WorksController < ApplicationController
     @work = find_work(params[:id])
     return head(:not_found) if @work.nil?
 
-    @pages = @work.page_file_sets.map { |fs| [fs, page_assets(fs)] }
+    pages  = @work.page_file_sets
+    assets = PageAssetsQuery.call(file_sets: pages)
+    @pages = pages.map { |fs| [fs, assets.fetch(fs.id.to_s, [])] }
   end
 
   def update
@@ -308,16 +313,6 @@ class WorksController < ApplicationController
       JSON.parse(request.raw_post.presence || '{}')
     rescue JSON::ParserError
       {}
-    end
-
-    # A page's downloadable assets: its own member Blobs plus the members of
-    # any nested :derivative FileSet (per-page IIIF Delegates land there via
-    # DelegateCreator(resource_id: <page FileSet>)). The page's METS Blob is
-    # excluded by Role.downloadable?.
-    def page_assets(file_set)
-      file_set.children
-              .flat_map { |c| c.is_a?(FileSet) ? Atlas.query.find_members(resource: c).to_a : [c] }
-              .select { |m| Role.downloadable?(m.use) }
     end
 
     # A blank value counts as absent, not as "match works whose flag is nil".

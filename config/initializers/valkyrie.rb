@@ -133,6 +133,13 @@ Rails.application.config.to_prepare do
     Valkyrie::MetadataAdapter.find(:postgres).query_service
                              .custom_queries.register_query_handler(FindPeopleByNuids)
 
+    # Batched containment read (app/queries/find_many_members.rb): the children
+    # of many parents in two queries rather than two per parent, for the read
+    # paths that render a set of resources (resources#find_many, a Work's
+    # assets). Same shared postgres query service.
+    Valkyrie::MetadataAdapter.find(:postgres).query_service
+                             .custom_queries.register_query_handler(FindManyMembers)
+
   module Atlas
     def self.persister
       Valkyrie.config.metadata_adapter.persister

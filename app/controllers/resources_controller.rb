@@ -98,6 +98,11 @@ class ResourcesController < ApplicationController
     ids = Array(params[:ids]).map(&:to_s).uniq
     resources = Atlas.query.custom_queries.find_many_by_alternate_identifiers(alternate_identifiers: ids)
     @resources = resources.map(&:decorate)
+    # The digest renders a title and a thumbnail per row, each of which is its
+    # own read. Batch both, or the endpoint trades N round-trips for N*3
+    # queries and only moves the fan-out from HTTP to Postgres.
+    MODSPreloader.call(resources: @resources)
+    ThumbnailPreloader.call(resources: @resources)
   end
 
   # Every Work beneath a container, at any depth — flattened, permission-gated,

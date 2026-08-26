@@ -21,11 +21,22 @@ module ThumbnailProjection
     derivative_members.find { |m| m.is_a?(Delegate) && m.use == use }&.uri
   end
 
+  # Seed the projection from a batched read (ThumbnailPreloader), so rendering
+  # a set of resources costs a fixed number of queries instead of three per
+  # resource. Read-path only, like the other preload seams.
+  def preload_derivative_members(list)
+    @derivative_members = Array(list)
+  end
+
+  def derivative_member_file_set
+    children.find { |c| c.is_a?(FileSet) && c.type == Classification.derivative.name }
+  end
+
   private
 
     def derivative_members
       @derivative_members ||= begin
-        fs = children.find { |c| c.is_a?(FileSet) && c.type == Classification.derivative.name }
+        fs = derivative_member_file_set
         fs ? Atlas.query.find_members(resource: fs).to_a : []
       end
     end

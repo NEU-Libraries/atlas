@@ -64,12 +64,24 @@ module Relationships
   end
 
   def children
+    return @preloaded_children if @preloaded_children
+
     result = []
     result.concat Atlas.query.find_inverse_references_by(
       resource: self, property: :a_member_of
     ).to_a
     result.concat Atlas.query.find_members(resource: self).to_a
     result.uniq
+  end
+
+  # Seed `children` from a batched containment read (FindManyMembers), so a
+  # render over a set of resources costs two queries rather than two per
+  # resource. Deliberately an opt-in seam rather than memoizing `children`
+  # itself: the write paths re-read it after mutating membership through the
+  # persister (Modsable#mods_xml= is the sharp one — a stale Blob there would
+  # drop a MODS version), and they never call this.
+  def preload_children(list)
+    @preloaded_children = Array(list)
   end
 
   def filtered_children

@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
-# Seeds the sized-image projection on a set of decorated resources in a fixed
-# four queries, instead of the three per resource ThumbnailProjection costs on
-# its own (two to find the resource's children, one for the derivative
-# FileSet's members).
+# Seeds the sized-image projection on a set of decorated resources in three
+# queries, instead of the three per resource ThumbnailProjection costs on its
+# own (two to find the resource's children, one for the derivative FileSet's
+# members).
 #
 # Two batched levels: the resources' children, then the members of the
 # :derivative FileSets found among them. Takes decorated resources — the

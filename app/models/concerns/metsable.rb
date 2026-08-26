@@ -7,7 +7,9 @@ module Metsable
   include FileHelper
 
   def mets
-    @mets ||= Metadata::METS.find_by(valkyrie_id: noid)
+    return @mets if defined?(@mets)
+
+    @mets = Metadata::METS.find_by(valkyrie_id: noid)
   end
 
   def mets_xml

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.0].define(version: 2026_08_25_120000) do
+ActiveRecord::Schema[7.0].define(version: 2026_08_26_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
   enable_extension "uuid-ossp"
@@ -107,6 +107,7 @@ ActiveRecord::Schema[7.0].define(version: 2026_08_25_120000) do
     t.string "valkyrie_id"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.index ["valkyrie_id"], name: "index_metadata_mets_on_valkyrie_id"
   end
 
   create_table "metadata_mods", force: :cascade do |t|
@@ -114,6 +115,7 @@ ActiveRecord::Schema[7.0].define(version: 2026_08_25_120000) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.string "valkyrie_id"
+    t.index ["valkyrie_id"], name: "index_metadata_mods_on_valkyrie_id"
   end
 
   create_table "minter_states", id: :serial, force: :cascade do |t|

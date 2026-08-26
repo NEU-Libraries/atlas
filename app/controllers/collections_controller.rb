@@ -18,6 +18,7 @@ class CollectionsController < ApplicationController
   def index
     authorize! :read, Collection
     @pagination, @collections = paginate_model(Collection)
+    MODSPreloader.call(resources: @collections)
   end
 
   def show

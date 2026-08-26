@@ -6,8 +6,22 @@ module Modsable
   include MODSToJson
   include FileHelper
 
+  # `defined?` rather than `@mods ||=`: a resource with no access-copy row
+  # memoizes the nil, so the two-or-three MODS reads a single render does
+  # (plain_title, plain_description, permanent_url) cost one query, not one
+  # each. Index views render a page of these, so the difference is per row.
   def mods
-    @mods ||= Metadata::MODS.find_by(valkyrie_id: noid)
+    return @mods if defined?(@mods)
+
+    @mods = Metadata::MODS.find_by(valkyrie_id: noid)
+  end
+
+  # Seed the `mods` memo from a batch read, so a page of rows costs one
+  # metadata_mods query instead of one per row. Pass nil for a resource the
+  # batch found no row for — that is a legitimate answer and gets memoized.
+  # Read-path only: nothing here invalidates, and `mods_json=` reseeds.
+  def preload_mods(record)
+    @mods = record
   end
 
   def mods_xml

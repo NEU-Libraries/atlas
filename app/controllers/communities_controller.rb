@@ -18,6 +18,7 @@ class CommunitiesController < ApplicationController
   def index
     authorize! :read, Community
     @pagination, @communities = paginate_model(Community)
+    MODSPreloader.call(resources: @communities)
   end
 
   def show

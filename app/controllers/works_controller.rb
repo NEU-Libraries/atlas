@@ -25,6 +25,7 @@ class WorksController < ApplicationController
   def index
     authorize! :read, Work
     @pagination, @works = paginate_model(Work, filters: index_filters)
+    MODSPreloader.call(resources: @works)
   end
 
   def show

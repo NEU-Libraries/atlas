@@ -29,6 +29,7 @@ class PeopleController < ApplicationController
       @pagination, items = paginate_model(Person, per_page: params[:per_page])
     end
     @people = items.map(&:decorate)
+    PersonAffiliationPreloader.call(people: @people)
   end
 
   # GET /people/:noid

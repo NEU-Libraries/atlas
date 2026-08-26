@@ -140,6 +140,14 @@ Rails.application.config.to_prepare do
     Valkyrie::MetadataAdapter.find(:postgres).query_service
                              .custom_queries.register_query_handler(FindManyMembers)
 
+    # Batched parent read (app/queries/find_many_parents.rb): the inverse of
+    # FindManyMembers — the parent of many resources in two queries rather than
+    # two per resource, for the read paths that walk a set of leaves up the
+    # graph (a batch of Blobs to their containing Works). Same shared postgres
+    # query service.
+    Valkyrie::MetadataAdapter.find(:postgres).query_service
+                             .custom_queries.register_query_handler(FindManyParents)
+
     # Paginated model read (app/queries/find_page_of_model.rb): a COUNT(*) plus
     # a LIMIT/OFFSET page, so an index request stops materializing the whole
     # model twice to serve one page. Same shared postgres query service.

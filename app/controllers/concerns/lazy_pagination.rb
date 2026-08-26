@@ -7,12 +7,14 @@ module LazyPagination
   # Caps caller-supplied per_page so a request can't ask for an unbounded page.
   MAX_PER_PAGE = 100
 
+  # Unfiltered, the page is read straight out of Postgres (COUNT(*) plus
+  # LIMIT/OFFSET) via ModelPage. Filtered, the filter is in-memory so the whole
+  # model still has to be walked — but only once, into an array, rather than
+  # once to count and again to reach the offset.
   def paginate_model(klass, filters: {}, per_page: nil)
-    results = Atlas.query.find_all_of_model(model: klass)
-    results = apply_filters(results, filters) if filters.present?
-    pagy, items = pagy(results, count: results.count, **per_page_vars(per_page))
-    pagination = pagy_metadata(pagy)
-    [pagination, items]
+    scope = filters.present? ? filtered_all(klass, filters) : ModelPage.new(klass)
+    pagy, items = pagy(scope, count: scope.count, **per_page_vars(per_page))
+    [pagy_metadata(pagy), items]
   end
 
   # Paginate an already-resolved in-memory array (e.g. a batch-resolved set)
@@ -25,8 +27,30 @@ module LazyPagination
     [pagy_metadata(pagy), items]
   end
 
-  def pagy_get_items(lazy, pagy)
-    lazy.drop(pagy.offset).first(pagy.items)
+  # Serves all three shapes paginate_model and paginate_array pass in: a
+  # ModelPage reads its slice from Postgres, an array or a lazy enumerator is
+  # sliced in memory.
+  def pagy_get_items(collection, pagy)
+    return collection.page(limit: pagy.items, offset: pagy.offset) if collection.is_a?(ModelPage)
+
+    collection.drop(pagy.offset).first(pagy.items)
+  end
+
+  # A model's resources as a countable, sliceable page source, so pagy keeps
+  # doing the page parsing and overflow handling while the count and the slice
+  # go to SQL instead of to a full enumeration.
+  class ModelPage
+    def initialize(klass)
+      @klass = klass
+    end
+
+    def count
+      Atlas.query.custom_queries.count_of_model(model: @klass)
+    end
+
+    def page(limit:, offset:)
+      Atlas.query.custom_queries.find_page_of_model(model: @klass, limit: limit, offset: offset)
+    end
   end
 
   private
@@ -41,10 +65,11 @@ module LazyPagination
 
     # In-memory filter on top of Valkyrie's find_all_of_model. Cheap for the
     # small in-progress monitoring use case; revisit with a Solr-backed
-    # query if the dataset grows.
-    def apply_filters(results, filters)
-      results.select do |resource|
+    # query if the dataset grows. Materialized here so the count and the slice
+    # share one walk of the model.
+    def filtered_all(klass, filters)
+      Atlas.query.find_all_of_model(model: klass).select do |resource|
         filters.all? { |attr, val| resource.public_send(attr) == val }
-      end
+      end.to_a
     end
 end

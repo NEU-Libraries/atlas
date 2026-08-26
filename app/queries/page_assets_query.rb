@@ -13,7 +13,7 @@
 # read (FindManyMembers), so the cost is fixed at two regardless of page count.
 # Member order is preserved within each level, because page order and asset
 # order both come off member_ids.
-class PageAssetsQuery < ApplicationService
+class PageAssetsQuery
   def self.call(file_sets:)
     new(file_sets: file_sets).call
   end

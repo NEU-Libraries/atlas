@@ -140,6 +140,12 @@ Rails.application.config.to_prepare do
     Valkyrie::MetadataAdapter.find(:postgres).query_service
                              .custom_queries.register_query_handler(FindManyMembers)
 
+    # Paginated model read (app/queries/find_page_of_model.rb): a COUNT(*) plus
+    # a LIMIT/OFFSET page, so an index request stops materializing the whole
+    # model twice to serve one page. Same shared postgres query service.
+    Valkyrie::MetadataAdapter.find(:postgres).query_service
+                             .custom_queries.register_query_handler(FindPageOfModel)
+
   module Atlas
     def self.persister
       Valkyrie.config.metadata_adapter.persister

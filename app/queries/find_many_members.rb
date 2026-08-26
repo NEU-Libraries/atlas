@@ -61,7 +61,7 @@ class FindManyMembers
   private
 
     def parent_ids(resources)
-      Array(resources).map { |r| r.id.to_s }.reject(&:blank?).uniq
+      Array(resources).map { |r| r.id.to_s }.compact_blank.uniq
     end
 
     # Children pointing up via a_member_of. The edge is scalar on the backbone

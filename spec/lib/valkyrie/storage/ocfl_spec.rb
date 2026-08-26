@@ -542,6 +542,18 @@ RSpec.describe Valkyrie::Storage::OCFL do
         .not_to eq(facts[second.version_id.to_s][:digest])
     end
 
+    # Size rides along with the rest of the facts so a caller describing every
+    # revision of one object does not pay a find_by (and another inventory
+    # parse) per revision.
+    it 'reports each revision\'s byte size from the same inventory read' do
+      first  = upload!.call
+      second = upload!.call(other_file)
+
+      facts = storage_adapter.find_version_metadata_for(ids: [first.version_id, second.version_id])
+      expect(facts[first.version_id.to_s][:size]).to eq(Rails.root.join('spec/fixtures/files/example.bin').size)
+      expect(facts[second.version_id.to_s][:size]).to eq(Rails.root.join('spec/fixtures/files/example.png').size)
+    end
+
     # The case the head-keyed lookup got wrong: a replacement lands under the
     # name of the file that was uploaded, so the superseded revision's logical
     # path is not the current one.

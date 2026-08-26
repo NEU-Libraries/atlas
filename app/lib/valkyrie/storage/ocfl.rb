@@ -217,7 +217,8 @@ module Valkyrie
 
       # Per-version metadata for a set of specific ids, keyed by id string:
       #   { 'ocfl://<tag>/@<root>/<key>/v1/a.txt' => { version: 'v1', created:,
-      #                                                message:, user:, digest: } }
+      #                                                message:, user:, digest:,
+      #                                                size: } }
       #
       # find_version_metadata answers "every version holding ONE logical path".
       # This answers "the recorded facts for exactly these ids", where each id
@@ -225,6 +226,10 @@ module Valkyrie
       # history needs the second question: a replacement can land under a
       # different logical path than the current one, and a lookup keyed on the
       # current path then reports nothing for the superseded revisions.
+      #
+      # `size` is stat'ed from the physical content the version's digest names,
+      # so a caller describing every revision of one object gets sizes without a
+      # find_by (and another inventory parse) per revision.
       #
       # One inventory read per object, because an OCFL inventory is cumulative —
       # the head inventory holds the state of every version. Ids the adapter
@@ -234,15 +239,11 @@ module Valkyrie
         parsed = Array(ids).to_h { |id| [id.to_s, parse_id(id)] }.compact
         parsed.group_by { |_id, fields| fields.values_at(:root, :key) }
               .each_with_object({}) do |((root, key), entries), result|
-          inventory = object_inventory(root, key)
+          object_root = storage_roots.fetch(root).object_root_for(key)
+          inventory   = object_root.exist? ? load_inventory(object_root: object_root) : nil
           next unless inventory
 
-          entries.each do |id, fields|
-            version = fields[:version] || inventory.head
-            next unless inventory.versions.key?(version)
-
-            result[id] = { version: version }.merge(version_facts(inventory, version, fields[:logical_path]))
-          end
+          result.merge!(facts_for_entries(entries, inventory, object_root))
         end
       end
 
@@ -413,10 +414,36 @@ module Valkyrie
         # The inventory's record of one logical path at one version. `digest` is
         # the content digest of that path *in that version*, so it is the fixity
         # value as recorded then, not a re-hash of the bytes now.
+        # The recorded facts for the ids that live in one OCFL object, keyed by id.
+        # An id naming a version the object has no record of is absent.
+        def facts_for_entries(entries, inventory, object_root)
+          entries.each_with_object({}) do |(id, fields), result|
+            version = fields[:version] || inventory.head
+            next unless inventory.versions.key?(version)
+
+            facts = version_facts(inventory, version, fields[:logical_path])
+            result[id] = { version: version, size: content_size(inventory, object_root, facts[:digest]) }
+                         .merge(facts)
+          end
+        end
+
         def version_facts(inventory, version, logical_path)
           meta = inventory.versions[version] || {}
           { created: meta['created'], message: meta['message'], user: meta['user'],
             digest: inventory.digest_for(version: version, logical_path: logical_path) }
+        end
+
+        # Byte size of the content a digest names, read off the filesystem. nil
+        # when the digest is absent from the inventory or its content file is
+        # gone — the same answer a failed find_by would give.
+        def content_size(inventory, object_root, digest)
+          return nil unless digest
+
+          content_path = inventory.content_path_for(digest)
+          return nil unless content_path
+
+          physical = object_root.join(content_path)
+          physical.exist? ? physical.size : nil
         end
 
         def inventory_id_for(key)

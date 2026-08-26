@@ -40,6 +40,7 @@ module OpenapiSchemas
       ResourceDigests:    resource_digests,
       ModsVersions:       mods_versions,
       BlobVersions:       blob_versions,
+      BlobVersionsBatch:  blob_versions_batch,
       BlobAncestry:       blob_ancestry,
       DescendantWorks:    descendant_works,
       WorkAssociations:   work_associations,
@@ -699,6 +700,17 @@ module OpenapiSchemas
         }
       },
       required:   %w[blob_id versions]
+    }
+  end
+
+  # POST /files/find_many_versions — the batched read. One BlobVersions envelope
+  # per resolved Blob, reusing that shape unchanged so the descriptor contract
+  # can't fork between the single and batch reads. Possibly shorter than the
+  # requested id list; callers index by blob_id.
+  def blob_versions_batch
+    {
+      type:  :array,
+      items: { '$ref' => '#/components/schemas/BlobVersions' }
     }
   end
 

@@ -395,6 +395,117 @@ RSpec.describe 'Files (Blobs)', type: :request do
     end
   end
 
+  path '/files/find_many_versions' do
+    post 'List binary version history for many files in one round-trip' do
+      tags 'Files'
+      consumes 'application/json'
+      produces 'application/json'
+      description <<~DESC
+        The batched counterpart to `GET /files/{id}/versions`: one envelope per
+        Blob, of exactly that shape, for a set of ids in a single request. Use
+        it wherever a set of Blob noids would otherwise be resolved with a
+        `versions`-per-noid fan-out — a Work's replaceable-file listing reads
+        every held Blob on the Work, which on a multipage Work is one request
+        per page binary.
+
+        The result is **unordered** and **may be shorter than the input**: an id
+        that resolves to nothing, or to a resource that is not a Blob, is
+        dropped silently. Callers index by `blob_id`.
+
+        Admin-gated exactly like the single read (the devolved-admin tier —
+        :privileged role + the repository:admin group — reaches it too), because
+        the descriptors expose the same edit attribution. The grant is
+        class-wide, so nothing is dropped for authorization.
+      DESC
+      parameter name: :body, in: :body, schema: {
+        type:       :object,
+        properties: {
+          ids: { type: :array, items: { type: :string }, description: 'Blob NOIDs' }
+        },
+        required:   %w[ids]
+      }
+
+      response '200', 'histories for the resolvable subset' do
+        let(:first_blob)  { BlobCreator.call(work_id: work.noid, original_filename: 'one.bin', path: fixture.to_s) }
+        let(:second_blob) { BlobCreator.call(work_id: work.noid, original_filename: 'two.bin', path: fixture.to_s) }
+        let(:body)        { { ids: [first_blob.noid, second_blob.noid, 'does-not-exist'] } }
+        schema '$ref' => '#/components/schemas/BlobVersionsBatch'
+        run_test! do |response|
+          by_id = JSON.parse(response.body).index_by { |envelope| envelope['blob_id'] }
+          expect(by_id.keys).to contain_exactly(first_blob.noid, second_blob.noid)
+          expect(by_id[first_blob.noid]['versions'].first).to include(
+            'revision' => 1, 'original_filename' => 'one.bin'
+          )
+          expect(by_id[first_blob.noid]['versions'].first['digest']).to match(/\Asha512:[0-9a-f]+\z/)
+          expect(by_id[first_blob.noid]['versions'].first['size']).to eq(File.size(fixture))
+        end
+      end
+
+      response '200', 'an id that is not a Blob is dropped' do
+        let(:body) { { ids: [work.noid] } }
+        schema '$ref' => '#/components/schemas/BlobVersionsBatch'
+        run_test! do |response|
+          expect(JSON.parse(response.body)).to eq([])
+        end
+      end
+
+      response '200', 'empty id list returns an empty array' do
+        let(:body) { { ids: [] } }
+        schema '$ref' => '#/components/schemas/BlobVersionsBatch'
+        run_test! do |response|
+          expect(JSON.parse(response.body)).to eq([])
+        end
+      end
+    end
+  end
+
+  # Plain (non-rswag) coverage of the batch read's two behaviours that a schema
+  # can't express: that it carries the same audit attribution the single read
+  # correlates, and that it sits behind the same gate.
+  describe 'POST /files/find_many_versions', type: :request do
+    let(:blobs) do
+      Array.new(2) do |index|
+        post '/files', params: { work_id: work.noid, original_filename: "file-#{index}.bin",
+                                 binary: fixture_file_upload(fixture, 'application/octet-stream') }
+        response.parsed_body.dig('blob', 'id')
+      end
+    end
+
+    it 'attributes each revision, as the single read does' do
+      post '/files/find_many_versions', params: { ids: blobs }, as: :json
+
+      expect(response).to have_http_status(:ok)
+      envelopes = response.parsed_body
+      expect(envelopes.size).to eq(2)
+      expect(envelopes.map { |e| e['versions'].first['actor_nuid'] })
+        .to all(eq(DefaultAuthHeaders::ADMIN_NUID))
+    end
+
+    it 'agrees with the single read, envelope for envelope' do
+      noid = blobs.first
+      get "/files/#{noid}/versions"
+      single = response.parsed_body
+
+      post '/files/find_many_versions', params: { ids: [noid] }, as: :json
+
+      expect(response.parsed_body).to eq([single])
+    end
+
+    context 'with a non-admin principal', default_auth: false do
+      let!(:staff) do
+        User.create!(email: 'staff-batch-versions@example.invalid', password: SecureRandom.hex(16),
+                     nuid: '000000044', name: 'Roe, Sam', role: :privileged,
+                     groups: [Permissions::STAFF_EDIT_GROUP])
+      end
+
+      it 'denies the batch read with 403, like the single read' do
+        post '/files/find_many_versions', params:  { ids: [] }.to_json,
+                                          headers: signed_auth_headers(staff.nuid).merge('Content-Type' => 'application/json')
+        expect(response).to have_http_status(:forbidden)
+      end
+    end
+  end
+
   path '/files/{id}/versions/{version_id}/content' do
     parameter name: :id, in: :path, type: :string, description: 'NOID of the Blob'
     parameter name: :version_id, in: :path, type: :string, description: 'OCFL version label, e.g. v1'

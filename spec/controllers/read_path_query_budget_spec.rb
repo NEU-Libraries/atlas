@@ -81,6 +81,31 @@ describe 'read-path query budget', type: :controller do
     end
   end
 
+  describe BlobsController do
+    let!(:first_work) { WorkCreator.call(parent_id: collection.noid) }
+    let(:fixture)     { Rails.root.join('spec/fixtures/files/example.bin') }
+
+    def blob_on(work, name)
+      BlobCreator.call(work_id: work.noid, original_filename: name, path: fixture.to_s).noid
+    end
+
+    it 'reads a batch of version histories in a fixed number of queries' do
+      # Starts at one Blob, not zero: with nothing to resolve the batched parent
+      # and ledger reads are skipped altogether, which is not the comparison here.
+      ids = [blob_on(first_work, 'one.bin')]
+      one = count_queries { post :find_many_versions, params: { ids: ids }, as: :json }
+      expect(response).to have_http_status(:success)
+
+      # Spread across separate Works, so the batch widens both graph hops and the
+      # ledger read, not just the Blob resolution.
+      ids += Array.new(4) { |n| blob_on(WorkCreator.call(parent_id: collection.noid), "many-#{n}.bin") }
+      many = count_queries { post :find_many_versions, params: { ids: ids }, as: :json }
+
+      expect(response.parsed_body.size).to eq(5)
+      expect(many.size).to eq(one.size)
+    end
+  end
+
   describe PeopleController do
     let!(:sibling) { CommunityCreator.call(parent_id: community.noid) }
 

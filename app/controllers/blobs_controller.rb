@@ -82,6 +82,27 @@ class BlobsController < ApplicationController
     @versions = BinaryVersionHistory.descriptors(blob: @blob)
   end
 
+  # POST /files/find_many_versions  body: { ids: [<noid>, …] }
+  # The batched counterpart to #versions: version history for many Blobs in one
+  # round-trip, for a caller holding a set of Blob noids. The admin file-manage
+  # listing is the motivating one — it reads every replaceable Blob on a Work,
+  # which on a multipage Work is one request per page binary.
+  #
+  # Same gate as #versions: the descriptors carry the same edit attribution, and
+  # :read_versions is granted class-wide, so there is no per-Blob decision to
+  # make and nothing is dropped for authorization. Tolerant like
+  # resources#find_many otherwise — an id resolving to nothing, or to a resource
+  # that is not a Blob, is dropped rather than raised on, so the result may be
+  # shorter than the input. Callers index by blob_id.
+  def find_many_versions
+    authorize! :read_versions, Blob
+    ids = Array(params[:ids]).map(&:to_s).uniq
+    blobs = Atlas.query.custom_queries
+                 .find_many_by_alternate_identifiers(alternate_identifiers: ids)
+                 .select { |resource| resource.is_a?(Blob) }
+    @histories = BinaryVersionHistory.descriptors_for_many(blobs: blobs)
+  end
+
   # GET /files/:id/versions/:version_id/content
   # Stream the bytes of a prior version, pinned to its OCFL label. Mirrors
   # #content (same send_file/Rack chunking, memory-safe for large files) but

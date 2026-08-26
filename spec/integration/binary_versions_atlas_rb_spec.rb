@@ -57,6 +57,31 @@ RSpec.describe 'Binary version history via atlas_rb', :atlas_rb_server do
     expect(current.join.b).to eq(File.binread(fixture_a))
   end
 
+  # The batch read exists to collapse a versions-per-noid fan-out, so what has
+  # to hold end-to-end is that one call answers the same envelopes the per-Blob
+  # calls do — including the audit attribution, which is the part the batch
+  # resolves differently (one ledger read for every Blob's parent Work).
+  it 'answers many Blobs’ histories in one call, matching the per-Blob reads' do
+    work  = WorkCreator.call(parent_id: collection.noid)
+    first = AtlasRb::Blob.create(work.noid, fixture_a, 'first.bin', nuid: admin_nuid)
+    other = WorkCreator.call(parent_id: collection.noid)
+    second = AtlasRb::Blob.create(other.noid, fixture_b, 'second.png', nuid: admin_nuid)
+    AtlasRb::Blob.update(second['id'], fixture_a, nuid: admin_nuid)
+
+    ids = [first['id'], second['id']]
+    by_id = AtlasRb::Blob.find_many_versions(ids + ['does-not-exist'], nuid: admin_nuid)
+                         .index_by { |envelope| envelope['blob_id'] }
+
+    expect(by_id.keys).to match_array(ids)
+    expect(by_id[second['id']]['versions'].length).to eq(2)
+    expect(by_id[second['id']]['versions'].first['revision']).to eq(2)
+    expect(by_id.values.map { |e| e['versions'].first['actor_nuid'] }).to all(eq(admin_nuid))
+
+    ids.each do |id|
+      expect(by_id[id].to_h).to eq(AtlasRb::Blob.versions(id, nuid: admin_nuid).to_h)
+    end
+  end
+
   it 'deduplicates a double-submitted replace sharing an idempotency_key' do
     work = WorkCreator.call(parent_id: collection.noid)
     blob = AtlasRb::Blob.create(work.noid, fixture_a, 'example.bin', nuid: admin_nuid)

@@ -60,6 +60,12 @@ Rails.application.routes.draw do
       end
     end
     resources :files, :controller => :blobs do
+      # Batch version-history read. A collection route, not a member one: the
+      # ids ride in the body so the list is not bounded by URL length (the
+      # POST /resources/find_many precedent).
+      collection do
+        post :find_many_versions
+      end
       member do
         get :content
         # Blob → parent FileSet → parent Work resolver. The download path

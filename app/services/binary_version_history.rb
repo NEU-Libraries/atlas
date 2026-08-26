@@ -24,16 +24,41 @@
 # seed revision resolves to the add_file event by blob NOID), so unlike the
 # MODS timestamp-proximity correlation there is no window to tune.
 class BinaryVersionHistory
-  def self.descriptors(blob:)
-    new(blob).descriptors
+  def self.descriptors(blob:, file_events: nil)
+    new(blob, file_events: file_events).descriptors
   end
 
   def self.find_file(blob:, version_id:)
     new(blob).find_file(version_id)
   end
 
-  def initialize(blob)
+  # Descriptors for many Blobs at once, keyed by NOID — the batched sibling of
+  # .descriptors, for the batch read endpoint.
+  #
+  # Attribution is what makes this worth batching: correlating one Blob's
+  # revisions walks Blob -> FileSet -> Work and then reads that Work's file
+  # ledger, so a per-Blob loop costs several queries per Blob. Here both graph
+  # hops go through the batched parent query and the whole ledger arrives in one
+  # AuditEvent read, leaving a fixed query count however many Blobs are asked
+  # for. The OCFL inventory reads stay per-object — each Blob is its own OCFL
+  # object, so there is nothing to fold.
+  #
+  # @return [Hash{String => Array<Hash>}] Blob NOID => its descriptors, newest
+  #   first. A Blob holding no bytes maps to an empty array.
+  def self.descriptors_for_many(blobs:)
+    blobs = Array(blobs).compact
+    return {} if blobs.empty?
+
+    events = FileEventLedger.for_blobs(blobs)
+    blobs.to_h { |blob| [blob.noid, descriptors(blob: blob, file_events: events.fetch(blob.noid, []))] }
+  end
+
+  # file_events, when given, is this Blob's slice of the file audit ledger,
+  # already resolved by the caller (see .descriptors_for_many); nil means look
+  # it up.
+  def initialize(blob, file_events: nil)
     @blob = blob
+    @preloaded_file_events = file_events
   end
 
   # Reverse-chronological descriptors (newest first), one per retained content
@@ -83,7 +108,7 @@ class BinaryVersionHistory
         actor_nuid:        event&.actor_nuid,
         on_behalf_of_nuid: event&.on_behalf_of_nuid,
         digest:            qualified_digest(facts[:digest]),
-        size:              size_for(file_identifier),
+        size:              facts[:size],
         original_filename: blob.original_filename
       }
     end
@@ -98,7 +123,7 @@ class BinaryVersionHistory
       storage_adapter.version_label_for(file_identifier)
     end
 
-    # created / digest per revision, keyed by the revision's own file
+    # created / digest / size per revision, keyed by the revision's own file
     # identifier, from a single inventory read.
     #
     # Each identifier carries both its version and its logical path, and both
@@ -116,13 +141,6 @@ class BinaryVersionHistory
     # Blob's denormalized head `digest`.
     def qualified_digest(value)
       value && "#{storage_adapter.digest_algorithm}:#{value}"
-    end
-
-    def size_for(file_identifier)
-      file = storage_adapter.find_by(id: file_identifier)
-      ::File.size(file.disk_path)
-    rescue Valkyrie::StorageAdapter::FileNotFound
-      nil
     end
 
     # The file AuditEvent that attributes a revision. A replace_file event
@@ -145,24 +163,10 @@ class BinaryVersionHistory
       @add_file_event ||= file_events.find { |event| event.action == 'add_file' }
     end
 
-    # File events hang off the parent Work (RESOURCE_TYPES admits no Blob), so
-    # gather the Work's file ledger and keep only this Blob's rows. Empty when
-    # the Blob has no resolvable parent Work (orphan) — attribution then null.
+    # This Blob's rows from the file audit ledger — preloaded by a batch caller,
+    # otherwise resolved here. Empty when the Blob has no resolvable parent Work
+    # (orphan), in which case attribution is null.
     def file_events
-      @file_events ||= begin
-        work = parent_work
-        if work.nil?
-          []
-        else
-          AuditEvent.for_resource(work.id.to_s)
-                    .where(change_type: 'file')
-                    .select { |event| event.payload['blob_noid'] == blob.noid }
-        end
-      end
-    end
-
-    def parent_work
-      file_set = blob.parent
-      file_set.is_a?(FileSet) ? file_set.parent : nil
+      @file_events ||= @preloaded_file_events || FileEventLedger.for_blob(blob)
     end
 end

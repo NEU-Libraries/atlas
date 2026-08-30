@@ -50,11 +50,31 @@ module Modsable
     descriptive_metadata_file_set.present?
   end
 
+  # Writes the access copy, and drops the cached responses that project it.
+  #
+  # The eviction lives HERE, not in the persister, because this row lands
+  # before the persister sees anything — `mods_xml=` writes the blob, calls
+  # this, and only then saves the resource. A hook downstream would read the
+  # new title as though it had always been there and never notice the change.
+  #
+  # A container's title is embedded in every descendant Work's `ancestors`, so
+  # renaming one invalidates their cached bodies too. That cascade is a Solr
+  # lookup and is only paid when the title actually moved — comparing the
+  # composed title parts before and after costs one hash comparison, and
+  # container renames are rare next to the metadata writes that leave the title
+  # alone.
   def mods_json=(raw_xml)
     record = Metadata::MODS.find_or_create_by(valkyrie_id: noid)
+    previous_title = record.main_title&.attributes
     record.json_attributes = convert_xml_to_json(raw_xml)
     record.save!
     @mods = record
+
+    ResponseCache.evict(noid)
+    return unless is_a?(Collection) || is_a?(Community)
+    return if record.main_title&.attributes == previous_title
+
+    ResponseCache.evict_many(DescendantWorkNoidsQuery.call(self))
   end
 
   private

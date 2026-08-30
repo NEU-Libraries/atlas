@@ -94,11 +94,16 @@ Rails.application.config.to_prepare do
       :test_solr
     )
 
+    # CacheEvictingPersister wraps the composite so a write drops the written
+    # resource's cached responses. Outermost deliberately: it must see the
+    # resource AFTER both stores have taken it, so a failed save evicts nothing.
     Valkyrie::MetadataAdapter.register(
       Valkyrie::AdapterContainer.new(
-        persister: Valkyrie::Persistence::CompositePersister.new(
-          Valkyrie::MetadataAdapter.find(:postgres).persister,
-          Valkyrie::MetadataAdapter.find(:index_solr).persister
+        persister: Valkyrie::Persistence::CacheEvictingPersister.new(
+          Valkyrie::Persistence::CompositePersister.new(
+            Valkyrie::MetadataAdapter.find(:postgres).persister,
+            Valkyrie::MetadataAdapter.find(:index_solr).persister
+          )
         ),
         query_service: Valkyrie::MetadataAdapter.find(:postgres).query_service
       ),
@@ -107,9 +112,11 @@ Rails.application.config.to_prepare do
 
     Valkyrie::MetadataAdapter.register(
       Valkyrie::AdapterContainer.new(
-        persister: Valkyrie::Persistence::CompositePersister.new(
-          Valkyrie::MetadataAdapter.find(:postgres).persister,
-          Valkyrie::MetadataAdapter.find(:test_solr).persister
+        persister: Valkyrie::Persistence::CacheEvictingPersister.new(
+          Valkyrie::Persistence::CompositePersister.new(
+            Valkyrie::MetadataAdapter.find(:postgres).persister,
+            Valkyrie::MetadataAdapter.find(:test_solr).persister
+          )
         ),
         query_service: Valkyrie::MetadataAdapter.find(:postgres).query_service
       ),

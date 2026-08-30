@@ -52,6 +52,13 @@ gem 'noid-rails'
 gem 'pagy'
 gem 'rack-cors'
 gem 'rsolr'
+# Serves the generated openapi.yaml at /api-docs, which the Scalar page at
+# /docs fetches and bots read. A runtime dependency, not a development one:
+# Bundler.require only loads a gem's group, so with this in :development, :test
+# the unconditional Rswag references in config/routes.rb and
+# config/initializers/rswag_api.rb raise NameError on boot in every other
+# environment — production included.
+gem 'rswag-api', '~> 2.13'
 gem 'sanitize'
 gem 'valkyrie'
 
@@ -63,9 +70,9 @@ group :development, :test do
   gem 'rspec-rails'
   gem 'rubocop-rails'
 
-  # OpenAPI documentation: rspec DSL writes contract specs that double as docs;
-  # rswag-api serves the generated YAML/JSON for Scalar (humans) and bots.
-  gem 'rswag-api',   '~> 2.13'
+  # OpenAPI documentation: the rspec DSL that writes the contract specs and
+  # regenerates openapi.yaml. Spec-time only — the serving half is a runtime
+  # dependency and sits in the default group.
   gem 'rswag-specs', '~> 2.13'
 
   gem 'simplecov', require: false

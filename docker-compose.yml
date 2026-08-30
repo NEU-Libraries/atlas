@@ -2,6 +2,7 @@
 version: '3.7'
 volumes:
   db:
+  redis:
   storage:
   # The pool's second capacity unit. A storage root is bounded, so growth means
   # another root rather than a bigger one; this is that root for dev.
@@ -46,8 +47,25 @@ services:
       # handle, so keep its resolver base in step with this one or the two name
       # different hosts for one Work.
       HANDLE_RESOLVER_BASE: ${HANDLE_RESOLVER_BASE:-http://localhost:8000}
+      # Backs config.cache_store, which the response cache
+      # (app/lib/response_cache.rb) writes rendered bodies into. Reads fall
+      # back to rendering if it is unreachable, so the stack still works
+      # without it — just slower.
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
     ports:
       - 3000:3000
+  redis:
+    image: redis:7-alpine
+    # Response-cache entries are rebuildable by definition, so an eviction
+    # policy beats persistence: a full instance drops the coldest keys rather
+    # than refusing writes. No appendonly / RDB for the same reason.
+    command: redis-server --save "" --appendonly no --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis:/data
+    restart: always
+    # Deliberately not published to the host. Only `web` talks to it, over the
+    # compose network, and a developer running their own redis on 6379 (Cerberus
+    # does) would otherwise collide with this one on `up`.
   handle:
     # Handle.Net server (independent-service mode, unregistered local prefix)
     # for persistent-identifier work — the thing HandleMinter mints against.

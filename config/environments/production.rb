@@ -47,8 +47,23 @@ Rails.application.configure do
   # Prepend all log lines with the following tags.
   config.log_tags = [:request_id]
 
-  # Use a different cache store in production.
-  # config.cache_store = :mem_cache_store
+  # Shared cache store. The response cache (app/lib/response_cache.rb) holds
+  # rendered bodies keyed per resource and evicts them on write, so every
+  # container must see the same entries — a per-container file store would let
+  # one node keep serving a body another node has already evicted.
+  config.cache_store = :redis_cache_store, {
+    url:                ENV.fetch('REDIS_URL', 'redis://redis:6379/0'),
+    namespace:          'atlas',
+    # A cache outage must not take reads down: on a connection error Rails
+    # treats the store as a miss and renders, which is the pre-cache behaviour.
+    error_handler:      ->(method:, returning:, exception:) {
+      Rails.logger.warn("cache #{method} failed: #{exception.class} #{exception.message} -> #{returning.inspect}")
+    },
+    connect_timeout:    1,
+    read_timeout:       0.2,
+    write_timeout:      0.2,
+    reconnect_attempts: 1
+  }
 
   # Use a real queuing backend for Active Job (and separate queues per environment).
   # config.active_job.queue_adapter     = :resque

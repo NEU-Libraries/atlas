@@ -22,8 +22,12 @@ Rails.application.configure do
 
   # Enable/disable caching. By default caching is disabled.
   # Run rails dev:cache to toggle caching.
+  # Redis rather than :memory_store so `rails dev:cache` exercises the same
+  # store production uses — the response cache's eviction is the interesting
+  # part, and a per-process memory store hides a cross-process mistake.
   if Rails.root.join('tmp/caching-dev.txt').exist?
-    config.cache_store = :memory_store
+    config.cache_store = :redis_cache_store,
+                         { url: ENV.fetch('REDIS_URL', 'redis://redis:6379/0'), namespace: 'atlas' }
     config.public_file_server.headers = {
       'Cache-Control' => "public, max-age=#{2.days.to_i}"
     }

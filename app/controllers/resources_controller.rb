@@ -50,7 +50,7 @@ class ResourcesController < ApplicationController
   # MODS version history for any Modsable resource. The descriptor list
   # carries audit-derived actor attribution (who edited, when), the same
   # provenance /history exposes — so it is admin-gated identically
-  # (:read, AuditEvent), not on the public resource read floor. Empty/absent
+  # (:read, AuditEvent), not on the resource's own read gate. Empty/absent
   # MODS (or a non-Modsable / unresolvable id) yields an empty array, never a
   # 404 — mirrors /history's "no events" shape.
   def mods_versions
@@ -61,7 +61,8 @@ class ResourcesController < ApplicationController
 
   # Raw historical descMetadata.xml as of a given OCFL version. Same content
   # sensitivity as the public head /mods (it's the descriptive metadata
-  # itself, not the attribution), so it rides the resource read floor.
+  # itself, not the attribution), so it rides the resource's own read gate
+  # rather than the admin attribution gate #mods_versions uses.
   # Unknown version / absent MODS → 404.
   def mods_version
     resource = Resource.find(params[:id])
@@ -96,8 +97,9 @@ class ResourcesController < ApplicationController
 
   # Batch resolver. Given a list of NOIDs, return a lightweight digest per
   # resolvable resource in a single request, so a caller can resolve a set of
-  # ids without one find per id. Mirrors #show's class-level read floor (Atlas
-  # grants :read on every resource to any authenticated principal). Unknown/
+  # ids without one find per id. The class check here answers "may this
+  # principal use the resolver at all"; the read gate is applied per row below,
+  # because the ids are arbitrary caller input. Unknown/
   # unresolvable ids are dropped silently; tombstoned resources are kept but
   # flagged, so callers can render a placeholder rather than blow up. Resolution
   # is a single index-backed query (FindManyByAlternateIdentifiers), collapsing

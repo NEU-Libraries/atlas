@@ -13,8 +13,9 @@
 # The check is two-sided (Work AND target Collection) so intent stays
 # documented, but :link_member is granted to no role except :admin (via
 # `manage :all`) — there is deliberately no self-service path for a collection
-# manager to link a Work into their own collection. Listing only needs the
-# read floor.
+# manager to link a Work into their own collection. Listing only needs :read
+# on the Work, and the returned collections are filtered to the ones the
+# caller may read.
 #
 # All three return the updated list of linked collection noids (the affected
 # sub-resource), so atlas_rb and the Cerberus provenance panel see the result

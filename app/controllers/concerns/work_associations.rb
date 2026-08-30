@@ -14,8 +14,9 @@
 # Authorization on the mutations is admin and devolved-admin only, matching
 # :link_member rather than edit rights. An association is a curatorial claim
 # that shows up on BOTH Works' pages, including one the asserter may have no
-# rights over, so the assertion is an operator action. Listing needs only the
-# read floor.
+# rights over, so the assertion is an operator action. Listing needs only
+# :read on the Work, and both directions are filtered to the ends the caller
+# may read — the other Work is one they may hold no rights over.
 #
 # All three render the same body, as the linked-member endpoints do, so a
 # caller needs no follow-up GET.

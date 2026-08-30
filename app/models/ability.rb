@@ -147,11 +147,11 @@ class Ability
         # like :reindex below, not a user one — Cerberus's admin hub and the
         # deploy orchestrator reach it through the system token; admin reaches it
         # via the manage :all wildcard.
-        can :maintain,   :maintenance
+        can :maintain,       :maintenance
         can :read,           User
         can :read_directory, User
-        can :create,     Community
-        can :create,     Collection
+        can :create,         Community
+        can :create,         Collection
         # The container half of the seed carve-out: :create above says which
         # types :system may author, this says which containers it may write
         # into — unconditionally, since the seed bootstraps a tree it has no

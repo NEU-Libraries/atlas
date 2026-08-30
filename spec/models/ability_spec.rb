@@ -18,6 +18,13 @@ RSpec.describe Ability do
     )
   end
 
+  # :read is decided per resource, so "has the read floor" must be asserted
+  # against an INSTANCE. A bare `be_able_to(:read, Resource)` cannot evaluate
+  # the rule's condition and passes for every principal that holds the rule at
+  # all, which would make these assertions vacuous.
+  let(:public_resource)  { Work.new(read_groups: ['public']) }
+  let(:private_resource) { Work.new(read_groups: [], edit_groups: [], edit_users: []) }
+
   # Need at least one :guest row in the DB for the nil-user fallback path —
   # the Ability constructor calls User.find_by_role(:guest) when given nil.
   let!(:guest_fixture) do
@@ -29,7 +36,8 @@ RSpec.describe Ability do
     subject { described_class.new(nil) }
 
     it 'resolves to the :guest fixture (read floor only)' do
-      expect(subject).to     be_able_to(:read, Resource)
+      expect(subject).to     be_able_to(:read, public_resource)
+      expect(subject).not_to be_able_to(:read, private_resource)
       expect(subject).not_to be_able_to(:create, Work)
     end
   end
@@ -40,7 +48,7 @@ RSpec.describe Ability do
 
     # Floor: no abilities at all. require_auth 401s before Ability is reached;
     # this asserts the belt-and-suspenders early-return.
-    it { is_expected.not_to be_able_to(:read,   Resource) }
+    it { is_expected.not_to be_able_to(:read,   public_resource) }
     it { is_expected.not_to be_able_to(:read,   User) }
     it { is_expected.not_to be_able_to(:create, Work) }
   end
@@ -49,7 +57,8 @@ RSpec.describe Ability do
     let(:user) { build_user(role: :guest, nuid: '000000099') }
     subject { described_class.new(user) }
 
-    it { is_expected.to     be_able_to(:read,    Resource) }
+    it { is_expected.to     be_able_to(:read,    public_resource) }
+    it { is_expected.not_to be_able_to(:read,    private_resource) }
     it { is_expected.to     be_able_to(:read,    User) }
     it { is_expected.not_to be_able_to(:create,  Work) }
     it { is_expected.not_to be_able_to(:create,  Community) }
@@ -79,7 +88,11 @@ RSpec.describe Ability do
     it { is_expected.to     be_able_to(:provision,  User) }
     it { is_expected.to     be_able_to(:mint_token, User) }
     it { is_expected.to     be_able_to(:read,       User) }
-    it { is_expected.to     be_able_to(:read,       Resource) }
+    it { is_expected.to     be_able_to(:read,       public_resource) }
+    # The one carve-out past the per-resource read gate: a backend-to-backend
+    # credential only Cerberus holds, doing work on a depositor's behalf in
+    # containers it shares no group with. Every human principal is gated.
+    it { is_expected.to     be_able_to(:read,       private_resource) }
     it { is_expected.to     be_able_to(:create,     Community) }
     it { is_expected.to     be_able_to(:create,     Collection) }
     # Unconditional container half of the seed carve-out — the seed bootstraps a
@@ -152,7 +165,7 @@ RSpec.describe Ability do
       let(:user) { build_user(role: role_sym, nuid: "00000005#{role_sym.length}") }
       subject { described_class.new(user) }
 
-      it { is_expected.to     be_able_to(:read,    Resource) }
+      it { is_expected.to     be_able_to(:read,    public_resource) }
       it { is_expected.to     be_able_to(:read,    User) }
       it { is_expected.to     be_able_to(:create,  Work) }
       it { is_expected.to     be_able_to(:create,  Community) }
@@ -251,6 +264,86 @@ RSpec.describe Ability do
         expect(ability).not_to be_able_to(:reparent,      Collection.new)
         expect(ability).not_to be_able_to(:create,        AuditEvent)
         expect(ability).not_to be_able_to(:read_versions, Blob)
+      end
+    end
+  end
+
+  # The per-resource read gate. Atlas used to answer :read unconditionally for
+  # any authenticated principal, which made an unauthenticated caller — a blank
+  # token resolves to :guest — able to fetch every Work, Blob and ACL in the
+  # repository by NOID. These are the assertions that keep the gate honest; if
+  # the rule ever loses its condition again, the negative cases here fail.
+  describe 'the per-resource read gate' do
+    let(:user) do
+      build_user(role: :standard, nuid: '000000777',
+                 groups: ['northeastern:drs:dataset-editors'])
+    end
+    subject { described_class.new(user) }
+
+    it 'grants read on a public resource' do
+      expect(subject).to be_able_to(:read, Work.new(read_groups: ['public']))
+    end
+
+    it 'denies read on a resource the user shares no group with' do
+      expect(subject).not_to be_able_to(:read, Work.new(read_groups: ['some:other:group']))
+    end
+
+    it 'grants read on a read_groups match' do
+      expect(subject).to be_able_to(:read, Work.new(read_groups: user.groups))
+    end
+
+    # Edit implies read, and ownership counts separately from the ACL — the
+    # same two grants the write rules use (edit_grants?), so a depositor never
+    # loses sight of their own material.
+    it 'grants read via an edit grant or ownership' do
+      expect(subject).to be_able_to(:read, Work.new(read_groups: [], edit_groups: user.groups))
+      expect(subject).to be_able_to(:read, Work.new(read_groups: [], edit_users: [user.nuid]))
+      expect(subject).to be_able_to(:read, Work.new(read_groups: [], depositor: user.nuid))
+    end
+
+    it 'denies read on nil' do
+      expect(subject).not_to be_able_to(:read, nil)
+    end
+
+    # A leaf carries an ACL copied from its parent at creation and never
+    # refreshed, so the gate must walk to the Work instead of trusting it.
+    # These stub `parent` rather than persisting a tree: the walk is what is
+    # under test, not Valkyrie's containment queries.
+    describe 'leaves resolving through read_authority' do
+      let(:private_work) { Work.new(read_groups: [], edit_groups: [], edit_users: []) }
+      let(:public_work)  { Work.new(read_groups: ['public']) }
+
+      def leaf(klass, parent:)
+        klass.new(read_groups: ['public']).tap do |resource|
+          allow(resource).to receive(:parent).and_return(parent)
+        end
+      end
+
+      it 'denies a FileSet whose Work is private, despite its own public copy' do
+        expect(subject).not_to be_able_to(:read, leaf(FileSet, parent: private_work))
+      end
+
+      it 'grants a FileSet whose Work is public' do
+        expect(subject).to be_able_to(:read, leaf(FileSet, parent: public_work))
+      end
+
+      it 'walks two hops from a Blob through its FileSet to the Work' do
+        private_fs = leaf(FileSet, parent: private_work)
+        public_fs  = leaf(FileSet, parent: public_work)
+
+        expect(subject).not_to be_able_to(:read, leaf(Blob, parent: private_fs))
+        expect(subject).to     be_able_to(:read, leaf(Blob, parent: public_fs))
+      end
+
+      it 'denies a Delegate under a private Work' do
+        expect(subject).not_to be_able_to(:read, leaf(Delegate, parent: private_work))
+      end
+
+      # No Work above it means nobody answers for it, and guessing would
+      # defeat the gate — an unattached Blob is denied even though its own
+      # copied ACL says public.
+      it 'denies an unattached leaf' do
+        expect(subject).not_to be_able_to(:read, leaf(Blob, parent: nil))
       end
     end
   end
@@ -455,7 +548,8 @@ RSpec.describe Ability do
 
     # Wildcard.
     it { is_expected.to be_able_to(:manage,     :all) }
-    it { is_expected.to be_able_to(:read,       Resource) }
+    it { is_expected.to be_able_to(:read,       public_resource) }
+    it { is_expected.to be_able_to(:read,       private_resource) }
     it { is_expected.to be_able_to(:create,     Work) }
     it { is_expected.to be_able_to(:destroy,    Work.new) }
     it { is_expected.to be_able_to(:destroy,    FileSet) }

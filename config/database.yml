@@ -82,6 +82,17 @@ test:
 # Read https://guides.rubyonrails.org/configuring.html#configuring-a-database
 # for a full overview on how database connection configuration can be specified.
 #
+# Staging carries its own database on its own host. Same shape as production —
+# a named role and an env-supplied password — because staging exists to behave
+# like production, and a DATABASE_URL supplied by the stack overrides all of it
+# either way. Without this block Atlas cannot boot with RAILS_ENV=staging at
+# all: docker-entrypoint.sh runs db:create and db:migrate before the server.
+staging:
+  <<: *default
+  database: atlas_staging
+  username: atlas
+  password: <%= ENV["ATLAS_DATABASE_PASSWORD"] %>
+
 production:
   <<: *default
   database: atlas_production

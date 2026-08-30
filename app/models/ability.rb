@@ -17,12 +17,19 @@
 # Conventions for callers:
 #  - **Class-level check** (`authorize! :create, Work`) when the decision does
 #    NOT depend on the resource's state. Use for :create, admin-only :destroy,
-#    :read on resource classes, and verbs targeting models with no per-row
-#    ACL (User, AuditEvent).
+#    and verbs targeting models with no per-row ACL (User, AuditEvent).
+#    NOT for :read — see below.
 #  - **Instance-level check** (`authorize! :update, @work`) when the decision
 #    DOES depend on resource state. The group-ACL block-form rules below need
 #    a concrete resource to read edit_users / edit_groups from; bare class
 #    checks would silently pass for users who don't have ACL access.
+#
+#    :read is one of these. It reads the resource's own ACL, so a controller
+#    resolves the record FIRST and authorizes the instance — `authorize! :read,
+#    work || Work`, keeping the class fallback so an unresolvable id 404s
+#    instead of tripping the check_authorization hook. A list endpoint cannot
+#    do that per row and either filters the rows (`readable`) or is restricted
+#    to :index_all, which nobody but :admin holds.
 #
 # Creating a resource takes BOTH checks: `:create` on the class answers "may
 # this principal author this type at all" (a role question — :system may author
@@ -79,10 +86,27 @@ class Ability
     # belt-and-suspenders.
     return if user.nil? || user.anonymous?
 
-    # Read floor: any authenticated principal (incl. :guest) can read every
-    # repository resource. Visibility lives on the resource itself
-    # (Permissions concern); Atlas defers to it.
-    can :read, Resource
+    # Read gate: a resource is readable when its OWN access controls say so —
+    # public, a read-group match, or any edit grant (edit implies read).
+    #
+    # This is deliberately block-form, and every caller must pass an INSTANCE.
+    # A bare `authorize! :read, Work` cannot evaluate the block, so CanCan lets
+    # it through; that is what the class-level convention in this file's header
+    # warns about, and on :read it is the difference between a gate and no gate
+    # at all. The paired spec in spec/models/ability_spec.rb fails if this rule
+    # ever loses its condition.
+    #
+    # FileSet / Blob / Delegate answer via read_authority, which walks to the
+    # Work or container above them — their own ACL is a stale copy taken at
+    # creation (see LeafReadAuthority).
+    #
+    # Embargo is NOT consulted here. Cerberus does not gate on embargo state at
+    # its discovery layer and neither does WorkDigestQuery, so adding it here
+    # would put the two resolutions out of step. Embargo withholds downloads
+    # further up, in Cerberus.
+    can :read, Resource do |resource|
+      resource_readable?(resource, user)
+    end
 
     # The maintenance window's state, on the same authenticated read floor.
     # Cerberus polls it to render its banner and write gate, and must be able to
@@ -107,12 +131,25 @@ class Ability
         # resource, or tombstone/restore/destroy anything.
         can :provision,  User
         can :mint_token, User
+        # The one principal that reads past the per-resource gate. :system is a
+        # backend-to-backend credential held only by Cerberus (never a human,
+        # see resolve_system_user), and the work it does on a depositor's behalf
+        # — showcase publishing, provisioning, the operational reindexes — needs
+        # to read resources it shares no group with. It also renders the result
+        # of its own writes: linking a Work into a featured showcase answers
+        # with the membership list, which it could not see under the gate.
+        #
+        # Declared here rather than in the base rule so it comes LAST and wins:
+        # Cerberus is the layer that decides what a person may see, and this
+        # token never reaches one.
+        can :read, Resource
         # Open/close the repository-wide read-only window. An operational action
         # like :reindex below, not a user one — Cerberus's admin hub and the
         # deploy orchestrator reach it through the system token; admin reaches it
         # via the manage :all wildcard.
         can :maintain,   :maintenance
-        can :read,       User
+        can :read,           User
+        can :read_directory, User
         can :create,     Community
         can :create,     Collection
         # The container half of the seed carve-out: :create above says which
@@ -132,7 +169,7 @@ class Ability
         # (affiliation add/remove ride :update). Name authority and affiliations
         # are operational/curatorial, not a self-service user action, so they
         # live on the :system tier; admin reaches them via manage :all. Reads
-        # stay on the `can :read, Resource` floor above (Person < Resource).
+        # stay on the per-resource read gate above (Person < Resource).
         can %i[create update], Person
 
         # Showcase publishing (Cerberus's "Publish to my community" deposit
@@ -149,8 +186,11 @@ class Ability
           @on_behalf_of.present? && work.depositor == @on_behalf_of
         end
       when :guest
-        # Read floor only. Devise /user shape lets guests fetch their own
-        # session info — no resource-modifying ability.
+        # `GET /user` (the devise session shape) only — a guest may look up the
+        # principal it is already acting as. NOT :read_directory: the user
+        # directory answers name-and-NUID for any fragment, and NEU IT Security
+        # treats NUID disclosure as an enumeration risk, so it takes a real
+        # credential. No resource-modifying ability.
         can :read, User
       when :standard, :loader, :privileged
         # All three authenticate as standard humans at Atlas's wire. Their
@@ -160,8 +200,9 @@ class Ability
         # a future piece adds an Atlas-side rule keyed on :loader or
         # :privileged, split this case out then — don't pre-encode rules
         # for endpoints Atlas doesn't expose.
-        can :read,    User
-        can :preview, Resource
+        can :read,           User
+        can :read_directory, User
+        can :preview,        Resource
 
         # Container + Work creation — the type half only. Which container the
         # child may land in is decided per-instance by the `:create_child` rule
@@ -193,7 +234,7 @@ class Ability
       return if user.admin?      # wildcard already granted
       return if user.system?     # non-human; no group axis
       return if user.anonymous?  # never authenticates
-      return if user.guest?      # read floor only
+      return if user.guest?      # the read gate only; no write rules
 
       [Work, Collection, Community].each do |klass|
         can %i[update tombstone], klass do |resource|
@@ -210,11 +251,11 @@ class Ability
       end
     end
 
-    # Compilations (personal Sets) diverge from the `can :read, Resource`
-    # floor: visibility is per-row (owner / ACL / public), because public? is
-    # what anonymous (guest) CERES traffic rides on — so the :read rule is
-    # granted to :guest too. Unlike the resource read floor it leaks nothing
-    # non-public. Owner + explicit grants only on the write side; there is
+    # Compilations (personal Sets) carry their own per-row visibility (owner /
+    # ACL / public) rather than riding the resource gate, because a Compilation
+    # is an AR record and not a Resource. public? is what anonymous (guest)
+    # CERES traffic rides on, so the :read rule is granted to :guest too.
+    # Owner + explicit grants only on the write side; there is
     # deliberately NO staff default (F2) — :admin covers via the wildcard.
     def apply_compilation_abilities(user)
       return if user.admin?      # wildcard already granted
@@ -270,6 +311,21 @@ class Ability
       can :associate, Work
       can :create, AuditEvent
       can :read_versions, Blob
+    end
+
+    # Per-resource read visibility. Mirrors compilation_readable? below and
+    # Cerberus's Ability#apply_group_abilities, so the two layers agree on who
+    # may see what; divergence would mean Cerberus rendering a link that 403s.
+    #
+    # A nil authority denies. That covers an unresolvable resource and a leaf
+    # with no Work above it, and it is the safe answer for both.
+    def resource_readable?(resource, user)
+      authority = resource&.read_authority
+      return false if authority.nil?
+
+      authority.public? ||
+        (Array(authority.read_groups) & Array(user.groups)).any? ||
+        edit_grants?(authority, user)
     end
 
     # Per-row Set visibility: public, owned, read-group match, or any edit

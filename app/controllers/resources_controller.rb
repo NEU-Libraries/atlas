@@ -11,8 +11,11 @@ class ResourcesController < ApplicationController
   }.freeze
 
   def show
-    authorize! :read, Resource
-    @resource = Resource.find(params[:id]).decorate
+    resource = Resource.find(params[:id])
+    authorize! :read, resource || Resource
+    return head(:not_found) if resource.nil?
+
+    @resource = resource.decorate
     # Person has no resourceful route, so polymorphic redirect_to can't build
     # its path — send it to the NOID-keyed endpoint.
     return redirect_to(person_path(@resource.noid)) if @resource.is_a?(Person)
@@ -33,9 +36,15 @@ class ResourcesController < ApplicationController
     respond_to :html
   end
 
+  # The resource's own ACL. Gated on :read of that resource, not on the class:
+  # the envelope names the Grouper groups and the depositor's NUID, so handing
+  # it to a caller who may not read the resource discloses the rights of
+  # something they cannot see. Cerberus reads this to drive its own gate, and
+  # its callers hold either read or edit rights, both of which pass here.
   def permissions
-    authorize! :read, Resource
     @resource = Resource.find(params[:id])
+    authorize! :read, @resource || Resource
+    return head(:not_found) if @resource.nil?
   end
 
   # MODS version history for any Modsable resource. The descriptor list
@@ -55,8 +64,9 @@ class ResourcesController < ApplicationController
   # itself, not the attribution), so it rides the resource read floor.
   # Unknown version / absent MODS → 404.
   def mods_version
-    authorize! :read, Resource
-    xml = MODSVersionHistory.fetch_xml(resource: Resource.find(params[:id]), version_id: params[:version_id])
+    resource = Resource.find(params[:id])
+    authorize! :read, resource || Resource
+    xml = MODSVersionHistory.fetch_xml(resource: resource, version_id: params[:version_id])
     return head(:not_found) if xml.nil?
 
     render xml: xml
@@ -97,7 +107,11 @@ class ResourcesController < ApplicationController
     authorize! :read, Resource
     ids = Array(params[:ids]).map(&:to_s).uniq
     resources = Atlas.query.custom_queries.find_many_by_alternate_identifiers(alternate_identifiers: ids)
-    @resources = resources.map(&:decorate)
+    # Filtered per row: this resolves arbitrary caller-supplied ids, so without
+    # the filter it is a batch bypass of the single-resource read gate. The
+    # endpoint already contracts to drop ids it cannot resolve, so a withheld
+    # row reads the same as an absent one.
+    @resources = readable(resources).map(&:decorate)
     # The digest renders a title and a thumbnail per row, each of which is its
     # own read. Batch both, or the endpoint trades N round-trips for N*3
     # queries and only moves the fan-out from HTTP to Postgres.

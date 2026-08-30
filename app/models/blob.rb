@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 class Blob < Resource
+  include LeafReadAuthority
+
   attribute :mime_type, Valkyrie::Types::String
   attribute :original_filename, Valkyrie::Types::String
   attribute :file_identifiers, Valkyrie::Types::Set.of(Valkyrie::Types::ID).meta(ordered: true)

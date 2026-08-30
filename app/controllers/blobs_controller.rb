@@ -8,14 +8,17 @@ class BlobsController < ApplicationController
   include IdempotentCreate
   include Auditable
 
+  # The unfiltered roll of every Blob. :index_all is admin-only (via the
+  # manage :all wildcard) for the same reason as WorksController#index — a
+  # paginated list cannot honour the per-resource read gate row by row.
   def index
-    authorize! :read, Blob
+    authorize! :index_all, Blob
     @pagination, @blobs = paginate_model(Blob)
   end
 
   def show
-    authorize! :read, Blob
     @blob = Blob.find(params[:id])
+    authorize! :read, @blob || Blob
     return head(:not_found) if @blob.nil?
 
     render :show, status: (@blob.tombstoned ? :gone : :ok)
@@ -109,8 +112,8 @@ class BlobsController < ApplicationController
   # resolves through the version history so only listed content revisions are
   # addressable. Unknown id or version → 404.
   def version_content
-    authorize! :read, Blob
     blob = Blob.find(params[:id])
+    authorize! :read, blob || Blob
     return head(:not_found) if blob.nil?
 
     file = BinaryVersionHistory.find_file(blob: blob, version_id: params[:version_id])
@@ -172,8 +175,8 @@ class BlobsController < ApplicationController
   # un-comment the X-Accel-Redirect line in config/environments/production.rb
   # so nginx handles byte-serving — and Range — natively.
   def content
-    authorize! :read, Blob
     blob = Blob.find(params[:id])
+    authorize! :read, blob || Blob
     return head(:not_found) if blob.nil?
 
     file = blob.file
@@ -193,8 +196,8 @@ class BlobsController < ApplicationController
   # Blob floor (like #content / #show). Unknown id → 404; either ancestor is
   # null when unresolvable (e.g. an orphan blob with no FileSet parent).
   def ancestry
-    authorize! :read, Blob
     @blob = Blob.find(params[:id])
+    authorize! :read, @blob || Blob
     return head(:not_found) if @blob.nil?
 
     parent = @blob.parent

@@ -445,6 +445,8 @@ describe WorksController, type: :controller do
     end
 
     it 'lets any reader list the associations' do
+      codebook.publicize
+      Atlas.persister.save(resource: codebook)
       act_as!(curator)
 
       get :associations, params: { id: codebook.noid }, as: :json

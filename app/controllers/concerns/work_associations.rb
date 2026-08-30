@@ -24,7 +24,7 @@ module WorkAssociations
 
   def associations
     work = Work.find(params[:id])
-    authorize! :read, work
+    authorize! :read, work || Work
     return head(:not_found) if work.nil?
 
     render_associations(work)
@@ -66,7 +66,7 @@ module WorkAssociations
     end
 
     def render_associations(work)
-      @associations = WorkAssociationsQuery.call(work)
+      @associations = WorkAssociationsQuery.call(work, ability: current_ability)
       render 'works/associations'
     end
 end

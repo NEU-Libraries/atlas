@@ -10,7 +10,7 @@ class UsersController < ApplicationController
   # GET /users?nuids=a,b,c — batch NUID resolve, same response shape.
   # Minimal disclosure: entries carry nuid + name only.
   def index
-    authorize! :read, User
+    authorize! :read_directory, User
 
     @users = if params[:nuids].present?
                User.directory.where(nuid: batch_nuids).order(:name)
@@ -24,7 +24,7 @@ class UsersController < ApplicationController
   # GET /users/by_nuid/:nuid — single resolve. Excluded roles read as
   # absent (404), same as an unknown NUID.
   def show
-    authorize! :read, User
+    authorize! :read_directory, User
 
     @user = User.directory.find_by(nuid: params[:nuid])
     head(:not_found) if @user.nil?

@@ -15,16 +15,21 @@ class CommunitiesController < ApplicationController
   # lives in Ability#apply_role_abilities; it can be retired once a dedicated
   # container-creation role exists.
 
+  # The unfiltered roll of every Community. :index_all is admin-only (via the
+  # manage :all wildcard) for the same reason as WorksController#index — a
+  # paginated list cannot honour the per-resource read gate row by row.
   def index
-    authorize! :read, Community
+    authorize! :index_all, Community
     @pagination, @communities = paginate_model(Community)
     MODSPreloader.call(resources: @communities)
   end
 
   def show
-    authorize! :read, Community
-    @community = find_community(params[:id])&.decorate
-    return head(:not_found) if @community.nil?
+    resource = find_community(params[:id])
+    authorize! :read, resource || Community
+    return head(:not_found) if resource.nil?
+
+    @community = resource.decorate
 
     render :show, status: (@community.tombstoned ? :gone : :ok)
   end
@@ -47,21 +52,26 @@ class CommunitiesController < ApplicationController
   end
 
   def mods
-    authorize! :read, Community
     # TODO: support raw XML, in addition to JSON and HTML
     community = find_community(params[:id])
+    authorize! :read, community || Community
     return head(:not_found) if community.nil? || community.mods.nil?
 
     @community = community.decorate
   end
 
+  # Child NOIDs, filtered to the ones this caller may read. A public container
+  # can hold a restricted child, and listing that child's NOID here would hand
+  # back the id the gated single-resource route refuses to serve.
   def children
-    authorize! :read, Community
-    @community = find_community(params[:id])&.decorate
-    return head(:not_found) if @community.nil?
+    resource = find_community(params[:id])
+    authorize! :read, resource || Community
+    return head(:not_found) if resource.nil?
+
+    @community = resource.decorate
     return render(:show, status: :gone) if @community.tombstoned
 
-    @children = @community.filtered_children
+    @children = readable(@community.filtered_child_resources).map { |child| child.noid.to_s }
   end
 
   def update

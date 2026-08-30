@@ -144,9 +144,14 @@ RSpec.describe 'Binary version history endpoints', type: :request do
       expect(response.body.b).to eq(File.binread(fixture_b))
     end
 
-    it 'is readable on the resource read floor (guest allowed)' do
+    it 'is on the resource read gate, not an operator gate (a guest reads a public Work\'s bytes)' do
       noid = create_blob
       seed = versions_for(noid).first['version_id']
+      # The gate resolves the Blob through its FileSet to the Work, so it is the
+      # Work's ACL that decides — the Blob's own copy is never consulted.
+      work.publicize
+      Atlas.persister.save(resource: work)
+
       get "/files/#{noid}/versions/#{seed}/content", headers: guest_headers
       expect(response).to have_http_status(:ok)
     end

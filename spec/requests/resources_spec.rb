@@ -479,10 +479,19 @@ RSpec.describe 'Resources', type: :request do
                    nuid: '000000002', role: :standard, groups: [reader_group])
     end
 
-    let!(:community)        { Atlas.persister.save(resource: Community.new) }
-    let!(:collection)       { Atlas.persister.save(resource: Collection.new(a_member_of: community.id)) }
-    let!(:nested)           { Atlas.persister.save(resource: Collection.new(a_member_of: collection.id)) }
-    let!(:other_collection) { Atlas.persister.save(resource: Collection.new(a_member_of: community.id)) }
+    # The containers are public: the endpoint gates the ROOT on :read before it
+    # flattens, so a caller who cannot see the container cannot enumerate what
+    # is inside it. Per-Work gating below is what these examples exercise.
+    let!(:community) { Atlas.persister.save(resource: Community.new(read_groups: ['public'])) }
+    let!(:collection) do
+      Atlas.persister.save(resource: Collection.new(a_member_of: community.id, read_groups: ['public']))
+    end
+    let!(:nested) do
+      Atlas.persister.save(resource: Collection.new(a_member_of: collection.id, read_groups: ['public']))
+    end
+    let!(:other_collection) do
+      Atlas.persister.save(resource: Collection.new(a_member_of: community.id, read_groups: ['public']))
+    end
 
     let!(:work_in_collection) do
       Atlas.persister.save(resource: Work.new(a_member_of: collection.id, read_groups: ['public']))

@@ -158,8 +158,10 @@ RSpec.describe 'MODS version history endpoints', type: :request do
       expect(response.body).not_to include("What's New")
     end
 
-    it 'is readable on the resource read floor (guest allowed)' do
+    it 'is on the resource read gate, not an operator gate (a guest reads a public Work)' do
       work = WorkCreator.call(parent_id: collection.noid)
+      work.publicize
+      Atlas.persister.save(resource: work)
       seed = versions_for(work.noid).first['version_id']
 
       get "/resources/#{work.noid}/mods/versions/#{seed}", headers: guest_headers

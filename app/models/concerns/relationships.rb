@@ -84,8 +84,15 @@ module Relationships
     @preloaded_children = Array(list)
   end
 
+  # The children that are themselves addressable nodes of the content graph —
+  # the resources, so a caller that has to gate them (the /children endpoints
+  # consult :read per row) does not pay a second read to get them back.
+  def filtered_child_resources
+    children.select { |c| c.is_a?(Community) || c.is_a?(Collection) || c.is_a?(Work) }
+  end
+
   def filtered_children
-    children.select { |c| c.is_a?(Community) || c.is_a?(Collection) || c.is_a?(Work) }.map(&:noid).map(&:to_s).to_a
+    filtered_child_resources.map(&:noid).map(&:to_s).to_a
   end
 
   def live_children?

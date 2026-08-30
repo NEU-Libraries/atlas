@@ -7,22 +7,25 @@ class FileSetsController < ApplicationController
   include DelegateUris
   include StaleObjectRetry
 
+  # The unfiltered roll of every FileSet. :index_all is admin-only (via the
+  # manage :all wildcard) for the same reason as WorksController#index — a
+  # paginated list cannot honour the per-resource read gate row by row.
   def index
-    authorize! :read, FileSet
+    authorize! :index_all, FileSet
     @pagination, @file_sets = paginate_model(FileSet)
   end
 
   def show
-    authorize! :read, FileSet
     @file_set = FileSet.find(params[:id])
+    authorize! :read, @file_set || FileSet
     return head(:not_found) if @file_set.nil?
 
     render :show, status: (@file_set.tombstoned ? :gone : :ok)
   end
 
   def mets
-    authorize! :read, FileSet
     @file_set = FileSet.find(params[:id])
+    authorize! :read, @file_set || FileSet
     return head(:not_found) if @file_set.nil?
     return head(:not_found) if Classification.metadata?(@file_set.type)
     return head(:not_found) if @file_set.mets.nil?

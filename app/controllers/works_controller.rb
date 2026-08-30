@@ -22,16 +22,24 @@ class WorksController < ApplicationController
   # narrows to the Works that satisfy each.
   INDEX_FILTER_FLAGS = %i[in_progress incomplete].freeze
 
+  # The unfiltered roll of every Work, operator monitoring only (see
+  # INDEX_FILTER_FLAGS). :index_all is granted to nobody but :admin, via the
+  # manage :all wildcard — a paginated list cannot honour the per-resource read
+  # gate without resolving the ACL of every row, and no caller needs it to.
+  # Callers wanting a scoped list use /resources/:id/descendant_works, which is
+  # gated in Solr.
   def index
-    authorize! :read, Work
+    authorize! :index_all, Work
     @pagination, @works = paginate_model(Work, filters: index_filters)
     MODSPreloader.call(resources: @works)
   end
 
   def show
-    authorize! :read, Work
-    @work = find_work(params[:id])&.decorate
-    return head(:not_found) if @work.nil?
+    work = find_work(params[:id])
+    authorize! :read, work || Work
+    return head(:not_found) if work.nil?
+
+    @work = work.decorate
 
     render :show, status: (@work.tombstoned ? :gone : :ok)
   end
@@ -65,8 +73,8 @@ class WorksController < ApplicationController
   end
 
   def mods
-    authorize! :read, Work
     work = find_work(params[:id])
+    authorize! :read, work || Work
     return head(:not_found) if work.nil? || work.mods.nil?
 
     @work = work.decorate
@@ -75,16 +83,16 @@ class WorksController < ApplicationController
   # Work-level METS (physical structMap — the preservation record of page
   # order). Built at /complete; 404 until then.
   def mets
-    authorize! :read, Work
     work = find_work(params[:id])
+    authorize! :read, work || Work
     return head(:not_found) if work.nil? || work.mets.nil?
 
     @work = work
   end
 
   def assets
-    authorize! :read, Work
     @work = find_work(params[:id])
+    authorize! :read, @work || Work
     return head(:not_found) if @work.nil?
 
     # Pair each downloadable member with its FileSet's classification (fs.type)
@@ -106,8 +114,8 @@ class WorksController < ApplicationController
   # a IIIF manifest assembler needs. #assets flattens; this returns one
   # entry per page-bearing FileSet, position ASC.
   def file_sets
-    authorize! :read, Work
     @work = find_work(params[:id])
+    authorize! :read, @work || Work
     return head(:not_found) if @work.nil?
 
     pages  = @work.page_file_sets

@@ -15,16 +15,21 @@ class CollectionsController < ApplicationController
   # lives in Ability#apply_role_abilities; it can be retired once a dedicated
   # container-creation role exists.
 
+  # The unfiltered roll of every Collection. :index_all is admin-only (via the
+  # manage :all wildcard) for the same reason as WorksController#index — a
+  # paginated list cannot honour the per-resource read gate row by row.
   def index
-    authorize! :read, Collection
+    authorize! :index_all, Collection
     @pagination, @collections = paginate_model(Collection)
     MODSPreloader.call(resources: @collections)
   end
 
   def show
-    authorize! :read, Collection
-    @collection = find_collection(params[:id])&.decorate
-    return head(:not_found) if @collection.nil?
+    resource = find_collection(params[:id])
+    authorize! :read, resource || Collection
+    return head(:not_found) if resource.nil?
+
+    @collection = resource.decorate
 
     render :show, status: (@collection.tombstoned ? :gone : :ok)
   end
@@ -48,20 +53,25 @@ class CollectionsController < ApplicationController
   end
 
   def mods
-    authorize! :read, Collection
     collection = find_collection(params[:id])
+    authorize! :read, collection || Collection
     return head(:not_found) if collection.nil? || collection.mods.nil?
 
     @collection = collection.decorate
   end
 
+  # Child NOIDs, filtered to the ones this caller may read. A public container
+  # can hold a restricted child, and listing that child's NOID here would hand
+  # back the id the gated single-resource route refuses to serve.
   def children
-    authorize! :read, Collection
-    @collection = find_collection(params[:id])&.decorate
-    return head(:not_found) if @collection.nil?
+    resource = find_collection(params[:id])
+    authorize! :read, resource || Collection
+    return head(:not_found) if resource.nil?
+
+    @collection = resource.decorate
     return render(:show, status: :gone) if @collection.tombstoned
 
-    @children = @collection.filtered_children
+    @children = readable(@collection.filtered_child_resources).map { |child| child.noid.to_s }
   end
 
   def update

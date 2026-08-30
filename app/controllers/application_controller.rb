@@ -16,7 +16,7 @@ class ApplicationController < ActionController::API
   # beneath the resolved user's real Ability, checked in #authorize! below.
   # A new write-shaped action added anywhere is blocked by default; it need
   # not be enumerated here.
-  READ_ONLY_TOKEN_ACTIONS = %i[read preview read_versions].freeze
+  READ_ONLY_TOKEN_ACTIONS = %i[read read_directory read_versions index_all preview].freeze
 
   before_action :require_auth
 
@@ -163,6 +163,18 @@ class ApplicationController < ActionController::API
     # @current_user; override the CanCan helper to source from it.
     def current_ability
       @current_ability ||= Ability.new(@current_user, on_behalf_of: @on_behalf_of)
+    end
+
+    # Drop the rows this caller may not read.
+    #
+    # The per-resource read gate answers for one resource at a time, so any
+    # endpoint that returns a LIST has to apply it per row or it hands back
+    # exactly what the gate on the single-resource route refuses. Used by the
+    # /children listings and the batch resolver, whose contracts already allow
+    # a short result (both drop ids they cannot resolve), so a filtered row is
+    # indistinguishable from an absent one.
+    def readable(resources)
+      Array(resources).select { |resource| can?(:read, resource) }
     end
 
     # Read-only token floor: raises the same CanCan::AccessDenied a normal

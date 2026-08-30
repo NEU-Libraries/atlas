@@ -24,7 +24,7 @@ module LinkedMembers
 
   def linked_members
     work = Work.find(params[:id])
-    authorize! :read, work
+    authorize! :read, work || Work
     return head(:not_found) if work.nil?
 
     render_linked_members(work)
@@ -71,9 +71,12 @@ module LinkedMembers
       raise Exceptions::LinkedMemberError.new('target_not_found', "collection #{params[:collection_id]} not found")
     end
 
+    # Filtered per row: a Work can be linked into a Collection the caller may not
+    # read, and listing that Collection's NOID here would hand back an id the
+    # gated single-resource route refuses to serve.
     def render_linked_members(work)
       ids = Array(work.a_linked_member_of)
-      @linked_members = ids.empty? ? [] : Atlas.query.find_many_by_ids(ids: ids).map(&:noid)
+      @linked_members = ids.empty? ? [] : readable(Atlas.query.find_many_by_ids(ids: ids).to_a).map(&:noid)
       render 'works/linked_members'
     end
 end

@@ -139,6 +139,23 @@ module Permissions
     false
   end
 
+  # The resource whose ACL decides whether this one may be read.
+  #
+  # Works and containers answer for themselves. The leaves that hang off them
+  # — FileSet, Blob, Delegate — do not: every creator copies the parent's ACL
+  # down at creation, but nothing rewrites that copy afterwards. Cerberus's
+  # narrowing cascade (NarrowingTargets) walks Works and containers only, so a
+  # leaf privatised after its FileSets existed still carries `read: ['public']`
+  # on them. Reading a leaf's own copy would therefore serve the bytes of a
+  # Work that has since been closed, which is the whole failure this gate
+  # exists to stop.
+  #
+  # nil means no authority could be resolved, and callers must read that as
+  # "deny". An unattached leaf has nobody to answer for it.
+  def read_authority
+    self
+  end
+
   def privatize
     delete_read_group('public')
   end

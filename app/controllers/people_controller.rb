@@ -28,14 +28,17 @@ class PeopleController < ApplicationController
     else
       @pagination, items = paginate_model(Person, per_page: params[:per_page])
     end
-    @people = items.map(&:decorate)
+    # Persons are minted public (PersonCreator), so the filter is normally a
+    # no-op — it is here so a Person whose ACL is later narrowed stops showing
+    # up in the roster without anyone having to remember this endpoint.
+    @people = readable(items).map(&:decorate)
     PersonAffiliationPreloader.call(people: @people)
   end
 
   # GET /people/:noid
   def show
-    authorize! :read, Person
     @person = find_person
+    authorize! :read, @person || Person
     return head(:not_found) if @person.nil?
 
     @person = @person.decorate

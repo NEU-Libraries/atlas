@@ -54,7 +54,9 @@ RSpec.describe 'Auth matrix', type: :request, default_auth: false do
     end
 
     it 'falls through to guest when no Authorization header is sent' do
-      get '/communities', headers: auth_headers(token: nil)
+      # A public resource, not the roll of every Community: the index is
+      # operator-only now, and a guest is refused it whatever the auth path did.
+      get "/communities/#{public_community!.noid}", headers: auth_headers(token: nil)
       expect(response).to have_http_status(:ok)
     end
   end
@@ -401,7 +403,7 @@ RSpec.describe 'Auth matrix', type: :request, default_auth: false do
       # Nothing on this read action *uses* @on_behalf_of, so it simply falls
       # through to the normal :system read-floor 200 rather than 403ing at the
       # gate itself.
-      get '/communities',
+      get "/communities/#{public_community!.noid}",
           headers: auth_headers(token: system_token, nuid: system_user.nuid).merge(obo)
       expect(response).to have_http_status(:ok)
     end

@@ -73,9 +73,13 @@ RSpec.describe 'Work associations via atlas_rb', :atlas_rb_server do
     }.to raise_error(AtlasRb::ForbiddenError)
   end
 
-  # Listing sits on the read floor, so an ordinary staff principal can see the
-  # panel even though it cannot edit it.
+  # Listing sits on the resource read gate, not an operator gate, so an ordinary
+  # staff principal can see the panel of a Work it may read but not edit.
   it 'lets a non-admin principal list the associations' do
+    [codebook, dataset].each do |resource|
+      resource.publicize
+      Atlas.persister.save(resource: resource)
+    end
     AtlasRb::Work.associate(codebook.noid, dataset.noid, type: 'is_codebook_for', nuid: admin_nuid)
 
     listed = AtlasRb::Work.associations(codebook.noid, nuid: editor.nuid)

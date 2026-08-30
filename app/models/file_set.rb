@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 class FileSet < Resource
+  include LeafReadAuthority
   include Metsable
 
   attribute :type, Valkyrie::Types::String # no default - comes from assignment

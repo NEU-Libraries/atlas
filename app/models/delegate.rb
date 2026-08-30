@@ -12,6 +12,8 @@
 # derivatives, fungible from the original binary, and are excluded
 # from the OCFL envelope per the preservation-first principle.
 class Delegate < Resource
+  include LeafReadAuthority
+
   attribute :mime_type, Valkyrie::Types::String
   attribute :original_filename, Valkyrie::Types::String
   attribute :use, Valkyrie::Types::String

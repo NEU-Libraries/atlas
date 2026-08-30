@@ -8,6 +8,7 @@ class CollectionsController < ApplicationController
   include StaleObjectRetry
   include Reparentable
   include Auditable
+  include CachedResponses
   include ParentScopedCreate
 
   # Container creation is intentionally left open to :system so the seed task
@@ -29,9 +30,11 @@ class CollectionsController < ApplicationController
     authorize! :read, resource || Collection
     return head(:not_found) if resource.nil?
 
-    @collection = resource.decorate
+    cached_render('collections.show', resource) do
+      @collection = resource.decorate
 
-    render :show, status: (@collection.tombstoned ? :gone : :ok)
+      render :show, status: (@collection.tombstoned ? :gone : :ok)
+    end
   end
 
   # A Collection always has a parent, so a blank or unresolvable parent_id is
@@ -57,7 +60,10 @@ class CollectionsController < ApplicationController
     authorize! :read, collection || Collection
     return head(:not_found) if collection.nil? || collection.mods.nil?
 
-    @collection = collection.decorate
+    cached_render(format_scope('collections.mods'), collection) do
+      @collection = collection.decorate
+      render :mods
+    end
   end
 
   # Child NOIDs, filtered to the ones this caller may read. A public container

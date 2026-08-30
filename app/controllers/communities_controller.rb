@@ -8,6 +8,7 @@ class CommunitiesController < ApplicationController
   include StaleObjectRetry
   include Reparentable
   include Auditable
+  include CachedResponses
   include ParentScopedCreate
 
   # Container creation is intentionally left open to :system so the seed task
@@ -29,9 +30,11 @@ class CommunitiesController < ApplicationController
     authorize! :read, resource || Community
     return head(:not_found) if resource.nil?
 
-    @community = resource.decorate
+    cached_render('communities.show', resource) do
+      @community = resource.decorate
 
-    render :show, status: (@community.tombstoned ? :gone : :ok)
+      render :show, status: (@community.tombstoned ? :gone : :ok)
+    end
   end
 
   # A Community may legitimately be parentless (top of tree), so a blank
@@ -57,7 +60,10 @@ class CommunitiesController < ApplicationController
     authorize! :read, community || Community
     return head(:not_found) if community.nil? || community.mods.nil?
 
-    @community = community.decorate
+    cached_render(format_scope('communities.mods'), community) do
+      @community = community.decorate
+      render :mods
+    end
   end
 
   # Child NOIDs, filtered to the ones this caller may read. A public container

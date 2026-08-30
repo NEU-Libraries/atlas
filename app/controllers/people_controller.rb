@@ -11,6 +11,7 @@ class PeopleController < ApplicationController
   include LazyPagination
   include StaleObjectRetry
   include Auditable
+  include CachedResponses
 
   # GET /people            — paginated list of all Persons (?page, ?per_page).
   #                           The People-index source; each row carries the NOID
@@ -37,11 +38,14 @@ class PeopleController < ApplicationController
 
   # GET /people/:noid
   def show
-    @person = find_person
-    authorize! :read, @person || Person
-    return head(:not_found) if @person.nil?
+    person = find_person
+    authorize! :read, person || Person
+    return head(:not_found) if person.nil?
 
-    @person = @person.decorate
+    cached_render('people.show', person) do
+      @person = person.decorate
+      render :show
+    end
   end
 
   # POST /people — one Person per NUID; a duplicate is a 409.

@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 class ResourcesController < ApplicationController
+  include CachedResponses
+
   # Resolved-class → [ivar, template] for the current-MODS dispatch. Only the
   # three container/object types carry a MODS view; a FileSet/Blob/Person
   # resolves fine but has no MODS projection, so it falls through to 404.
@@ -42,9 +44,14 @@ class ResourcesController < ApplicationController
   # something they cannot see. Cerberus reads this to drive its own gate, and
   # its callers hold either read or edit rights, both of which pass here.
   def permissions
-    @resource = Resource.find(params[:id])
-    authorize! :read, @resource || Resource
-    return head(:not_found) if @resource.nil?
+    resource = Resource.find(params[:id])
+    authorize! :read, resource || Resource
+    return head(:not_found) if resource.nil?
+
+    cached_render('resources.permissions', resource) do
+      @resource = resource
+      render :permissions
+    end
   end
 
   # MODS version history for any Modsable resource. The descriptor list

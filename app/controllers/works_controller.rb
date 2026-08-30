@@ -15,6 +15,7 @@ class WorksController < ApplicationController
   include WorkAssociations
   include Auditable
   include ParentScopedCreate
+  include CachedResponses
 
   # The operator monitoring filters on GET /works, each an exact match on a
   # Work lifecycle flag. An absent param means "no filtering" on that flag, so
@@ -39,9 +40,10 @@ class WorksController < ApplicationController
     authorize! :read, work || Work
     return head(:not_found) if work.nil?
 
-    @work = work.decorate
-
-    render :show, status: (@work.tombstoned ? :gone : :ok)
+    cached_render('works.show', work) do
+      @work = work.decorate
+      render :show, status: (@work.tombstoned ? :gone : :ok)
+    end
   end
 
   # A Work always has a parent Collection, so a blank or unresolvable
@@ -77,7 +79,10 @@ class WorksController < ApplicationController
     authorize! :read, work || Work
     return head(:not_found) if work.nil? || work.mods.nil?
 
-    @work = work.decorate
+    cached_render(format_scope('works.mods'), work) do
+      @work = work.decorate
+      render :mods
+    end
   end
 
   # Work-level METS (physical structMap — the preservation record of page
@@ -87,7 +92,10 @@ class WorksController < ApplicationController
     authorize! :read, work || Work
     return head(:not_found) if work.nil? || work.mets.nil?
 
-    @work = work
+    cached_render('works.mets', work) do
+      @work = work
+      render :mets
+    end
   end
 
   def assets
@@ -95,18 +103,8 @@ class WorksController < ApplicationController
     authorize! :read, @work || Work
     return head(:not_found) if @work.nil?
 
-    # Pair each downloadable member with its FileSet's classification (fs.type)
-    # so the flattened view can surface it per asset — the grouped #file_sets
-    # read still has the FileSet in hand. Members come from one batched read
-    # for every FileSet at once: a many-page Work would otherwise cost a query
-    # per page.
-    file_sets = @work.children.reject { |fs| Classification.metadata?(fs.type) }
-    members   = Atlas.query.custom_queries.find_many_ordered_members(resources: file_sets)
-
-    @assets = file_sets.flat_map do |fs|
-      members.fetch(fs.id.to_s, [])
-             .select { |m| Role.downloadable?(m.use) }
-             .map    { |m| [m, fs.type] }
+    cached_render('works.assets', @work, audience: asset_audience) do
+      render_assets
     end
   end
 
@@ -118,9 +116,9 @@ class WorksController < ApplicationController
     authorize! :read, @work || Work
     return head(:not_found) if @work.nil?
 
-    pages  = @work.page_file_sets
-    assets = PageAssetsQuery.call(file_sets: pages)
-    @pages = pages.map { |fs| [fs, assets.fetch(fs.id.to_s, [])] }
+    cached_render('works.file_sets', @work, audience: asset_audience) do
+      render_file_sets
+    end
   end
 
   def update
@@ -300,6 +298,30 @@ class WorksController < ApplicationController
   end
 
   private
+
+    def render_assets
+      # Pair each downloadable member with its FileSet's classification (fs.type)
+      # so the flattened view can surface it per asset — the grouped #file_sets
+      # read still has the FileSet in hand. Members come from one batched read
+      # for every FileSet at once: a many-page Work would otherwise cost a query
+      # per page.
+      file_sets = @work.children.reject { |fs| Classification.metadata?(fs.type) }
+      members   = Atlas.query.custom_queries.find_many_ordered_members(resources: file_sets)
+
+      @assets = file_sets.flat_map do |fs|
+        members.fetch(fs.id.to_s, [])
+               .select { |m| Role.downloadable?(m.use) }
+               .map    { |m| [m, fs.type] }
+      end
+      render :assets
+    end
+
+    def render_file_sets
+      pages  = @work.page_file_sets
+      assets = PageAssetsQuery.call(file_sets: pages)
+      @pages = pages.map { |fs| [fs, assets.fetch(fs.id.to_s, [])] }
+      render :file_sets
+    end
 
     # Resolve :id to a Work, or nil if the id is absent OR names a resource of
     # another type. Valkyrie's `Work.find` is not type-scoped — it returns

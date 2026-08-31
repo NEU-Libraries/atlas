@@ -9,6 +9,14 @@ Rails.application.configure do
   # Code is not reloaded between requests.
   config.cache_classes = true
 
+  # YJIT is enabled from RUBYOPT in the Dockerfile, which is the only place
+  # its memory cap can be set — Rails passes `config.yjit` no further than
+  # `stats` and `log`. The cap is the whole point: uncapped, YJIT compiles
+  # enough code that the extra GC outweighs what it saves. Turning Rails'
+  # own enable off keeps a dropped RUBYOPT visible as "no YJIT" rather than
+  # silently re-enabling it at the default cap.
+  config.yjit = false
+
   # Eager load code on boot. This eager loads most of Rails and
   # your application in memory, allowing both threaded web servers
   # and those relying on copy on write to perform better.

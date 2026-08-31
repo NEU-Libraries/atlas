@@ -26,20 +26,26 @@ environment ENV.fetch('RAILS_ENV', 'development')
 # Specifies the `pidfile` that Puma will use.
 pidfile ENV.fetch('PIDFILE', 'tmp/pids/server.pid')
 
-# Specifies the number of `workers` to boot in clustered mode.
-# Workers are forked web server processes. If using threads and workers together
-# the concurrency of the application would be max `threads` * `workers`.
-# Workers do not work on JRuby or Windows (both of which do not support
-# processes).
+# Cerberus fans a Work show page out into four concurrent Atlas reads, and
+# threads cannot serve those in parallel: the GVL serialises Ruby execution
+# within a process, and this read path is allocation-bound rather than IO-bound.
+# Only workers give the batch real parallelism, and the count has to match the
+# fan-out — two workers recover 6% of it, four recover about 45%.
 #
-# workers ENV.fetch("WEB_CONCURRENCY") { 2 }
+# The default of 0 is single mode, so development and the test suite are
+# untouched; staging and production opt in with WEB_CONCURRENCY. Each worker
+# carries its own Active Record pool, so the connection ceiling is
+# WEB_CONCURRENCY * RAILS_MAX_THREADS, and its own memory: four workers measured
+# 581MB against single mode's 193MB. Size the host for that before opting in.
+web_concurrency = ENV.fetch('WEB_CONCURRENCY', 0).to_i
+workers web_concurrency
 
-# Use the `preload_app!` method when specifying a `workers` number.
-# This directive tells Puma to first boot the application and load code
-# before forking the application. This takes advantage of Copy On Write
-# process behavior so workers use less memory.
-#
-# preload_app!
+# Puma already preloads in cluster mode, so this states the default rather than
+# changing it — worth being explicit, because the memory figure above depends on
+# it. Measured at four workers it saves 126MB, or 95MB once YJIT is on: YJIT
+# compiles after the fork, so its code region is per-worker and copy-on-write
+# has nothing to share. YJIT costs about 200MB across four workers either way.
+preload_app! if web_concurrency.positive?
 
 # Allow puma to be restarted by `bin/rails restart` command.
 plugin :tmp_restart

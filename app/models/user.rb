@@ -9,13 +9,13 @@ class User < ApplicationRecord
          :recoverable, :rememberable, :validatable,
          :jwt_authenticatable, jwt_revocation_strategy: self
 
-  serialize(:groups, Array)
+  serialize(:groups, type: Array, coder: YAML)
 
   # Ordered by privilege gradient. anonymous and system are non-human bookends
   # (single-row each, seeded fixtures). The middle five are human roles, with
   # :loader / :privileged / :admin granted manually rather than derived from
   # IdP group membership.
-  enum role: {
+  enum :role, {
     anonymous:  0,
     guest:      1,
     standard:   2,

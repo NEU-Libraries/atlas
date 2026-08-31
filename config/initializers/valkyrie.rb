@@ -44,7 +44,7 @@ Rails.application.config.to_prepare do
 
   Valkyrie::MetadataAdapter.register(
       Valkyrie::Persistence::Solr::MetadataAdapter.new(
-        connection:  RSolr.connect(:url => 'http://solr:8983/solr/blacklight-core'),
+        connection: RSolr.connect(url: SolrCore::INDEX_URL),
         resource_indexer: Valkyrie::Persistence::Solr::CompositeIndexer.new(
           Valkyrie::Indexers::AccessControlsIndexer,
           MODSIndexer,
@@ -70,7 +70,7 @@ Rails.application.config.to_prepare do
 
     Valkyrie::MetadataAdapter.register(
       Valkyrie::Persistence::Solr::MetadataAdapter.new(
-        connection:  RSolr.connect(:url => 'http://solr:8983/solr/blacklight-test'),
+        connection: RSolr.connect(url: SolrCore.test_url),
         resource_indexer: Valkyrie::Persistence::Solr::CompositeIndexer.new(
           Valkyrie::Indexers::AccessControlsIndexer,
           MODSIndexer,

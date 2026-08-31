@@ -64,11 +64,9 @@ class MaintenanceController < ApplicationController
     DatabaseCleaner.strategy = :deletion
     DatabaseCleaner.clean
 
-    c = if Rails.env.test?
-          RSolr.connect(url: 'http://solr:8983/solr/blacklight-test')
-        else
-          RSolr.connect(url: 'http://solr:8983/solr/blacklight-core')
-        end
+    # SolrCore.url, not a literal: reset must wipe the core the composite
+    # persister writes to, and in test that core is env-driven per instance.
+    c = RSolr.connect(url: SolrCore.url)
 
     c.delete_by_query '*:*'
     c.commit

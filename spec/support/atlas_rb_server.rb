@@ -67,6 +67,10 @@ RSpec.configure do |config|
   config.after(:each, :atlas_rb_server) do
     AtlasRb.config.assertion_signing_key = nil
     AtlasRb.config.assertion_signing_kid = nil
+    # atlas_rb pools its sockets, so a connection opened by one example would
+    # otherwise stay open into the next — cross-example coupling that is much
+    # cheaper to prevent here than to diagnose later from a flaky failure.
+    AtlasRb::Transport.reset_connections!
     Atlas.persister.wipe!
   end
 end

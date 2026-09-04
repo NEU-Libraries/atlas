@@ -318,6 +318,42 @@ RSpec.describe MODSIndexer do
       end
     end
 
+    # The corpus pass added these two and they were indexed and unfindable
+    # until blacklight-solr named them in the keyword handler's qf.
+    it 'answers the query a reader types, for a subject title and a contents list' do
+      Work.find(work.noid).mods_xml = Rails.root.join('spec/fixtures/files/mods-coverage.xml').read
+      Atlas.persister.save(resource: Work.find(work.noid))
+
+      aggregate_failures do
+        expect(keyword_search('"The Great Gatsby"')).to eq([work.id.to_s])
+        expect(keyword_search('"Chapter 1"')).to eq([work.id.to_s])
+
+        # The control, for the reason the example above carries one: the schema
+        # copies every *_tesim field into a catch-all, so both queries could
+        # pass while qf named neither field.
+        expect(keyword_search('"The Great Gatsby"', fields: 'title_tsim')).to be_empty
+        expect(keyword_search('"Chapter 1"', fields: 'title_tsim')).to be_empty
+      end
+    end
+
+    # A subject title is a work the record is ABOUT. Boosting it would let it
+    # compete with the record's own title, which is why it is unboosted in qf.
+    it 'ranks a record matched on its own title above one matched on a subject title' do
+      Work.find(work.noid).mods_xml = Rails.root.join('spec/fixtures/files/mods-coverage.xml').read
+      Atlas.persister.save(resource: Work.find(work.noid))
+
+      titled = WorkCreator.call(parent_id: collection.noid)
+      Work.find(titled.noid).mods_xml = <<~XML
+        <?xml version="1.0" encoding="UTF-8"?>
+        <mods:mods xmlns:mods="http://www.loc.gov/mods/v3">
+          <mods:titleInfo usage="primary"><mods:title>The Great Gatsby</mods:title></mods:titleInfo>
+        </mods:mods>
+      XML
+      Atlas.persister.save(resource: Work.find(titled.noid))
+
+      expect(keyword_search('"The Great Gatsby"').first).to eq(titled.id.to_s)
+    end
+
     it 'makes the new fields facetable, which is the point of indexing them' do
       Work.find(work.noid).mods_xml = Rails.root.join('spec/fixtures/files/mods-coverage.xml').read
       Atlas.persister.save(resource: Work.find(work.noid))

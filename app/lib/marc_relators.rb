@@ -278,6 +278,14 @@ module MarcRelators
     'wit' => 'Witness'
   }.freeze
 
+  # Roles that mean "made this thing", after code translation. A record in the
+  # corpus writes Creator; a machine-generated one writes the MARC code aut,
+  # which reads Author. They are the same person to a citation, a creator facet
+  # and dc:creator -- a Contributor is not.
+  # Compared case-insensitively: a text roleTerm is free text, the corpus holds
+  # both "Creator" and "creator", and only the codes go through the table.
+  CREATOR_LABELS = %w[Creator Author].freeze
+
   # The label for a role, which may already be a text term ("Creator"), a code
   # ("aut"), or nil. Returns nil for a blank role so the caller can apply its
   # own default -- an absent role is not the same as an unrecognised one.
@@ -286,5 +294,20 @@ module MarcRelators
     return nil if key.empty?
 
     TERMS.fetch(key.downcase, key)
+  end
+
+  # Whether a role marks its name as a creator of the resource.
+  #
+  # Matching the literal string "creator" excluded `aut` and `Author`, which
+  # are the same claim written differently, so a record using either was
+  # missing from the creator facet and harvested as dc:contributor.
+  #
+  # An absent role counts as a creator. MODS makes mods:role optional, the
+  # display already labels a role-less name Creator, and mods_display treats an
+  # empty role the same way -- so this is where the rest of the system already
+  # was, rather than a new claim about those records.
+  def self.creator?(role)
+    term = label(role)
+    term.nil? || CREATOR_LABELS.any? { |candidate| candidate.casecmp?(term) }
   end
 end

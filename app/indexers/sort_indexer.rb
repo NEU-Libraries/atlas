@@ -62,9 +62,6 @@ class SortIndexer
   # An article a record carries in the title itself rather than in nonSort.
   LEADING_ARTICLE = /\A(?:a|an|the) /
 
-  # The MODS roleTerm marking an author/creator, as CitationIndexer reads it.
-  CREATOR_ROLE = 'creator'
-
   # v1's precedence for "the date this thing was made": the date of creation,
   # then the copyright date, then the date of issue. The first one present wins,
   # so a resource carrying only a copyright date still sorts chronologically.
@@ -172,7 +169,7 @@ class SortIndexer
 
     def creator_names
       @creator_names ||= Array(mods&.names)
-                         .select { |name| name.role.to_s.casecmp?(CREATOR_ROLE) }
+                         .select { |name| MarcRelators.creator?(name.role) }
                          .map(&:name).compact_blank
     end
 

@@ -122,8 +122,37 @@ RSpec.describe MODSIndexer do
       expect(fields[:resource_type_ssim]).to eq(['text', 'still image'])
     end
 
-    it 'indexes identifiers as text, so a pasted DOI matches' do
+    # Indexed as text so a DOI CAN be matched. Whether it IS depends on the
+    # request handler's qf, which the blacklight-solr image owns.
+    it 'indexes identifiers as text' do
       expect(fields[:identifier_tesim]).to eq(['10.17760/D20123456'])
+    end
+
+    # A reader searching an alternative title found nothing: the variants were
+    # projected and displayed but reachable by no query.
+    it 'gathers every title variant into one match-only field' do
+      variants = Metadata::MODS.new(
+        alternative_title: ['An Alternative Title'],
+        uniform_title:     ['A Uniform Title'],
+        translated_title:  ['A Translated Title'],
+        abbreviated_title: ['An Abbrev. Title']
+      )
+      resource = Work.new.tap { |w| allow(w).to receive(:mods).and_return(variants) }
+
+      expect(described_class.new(resource: resource).to_solr[:title_variant_tesim])
+        .to contain_exactly('An Alternative Title', 'A Uniform Title',
+                            'A Translated Title', 'An Abbrev. Title')
+    end
+
+    # title_tsim is the heading a result row renders. A variant joining it
+    # would change what a reader sees, not just what they can find.
+    it 'keeps the variants out of the display title' do
+      resource = work_titled('The Real Title')
+      allow(resource.mods).to receive(:alternative_title).and_return(['An Alternative Title'])
+
+      result = described_class.new(resource: resource).to_solr
+      expect(result[:title_tsim]).to eq('The Real Title')
+      expect(result[:title_variant_tesim]).to eq(['An Alternative Title'])
     end
 
     it 'omits a field whose source is empty, so a sparse record carries no empty facets' do

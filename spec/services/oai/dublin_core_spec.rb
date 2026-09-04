@@ -29,6 +29,27 @@ RSpec.describe OAI::DublinCore do
     expect(result[:contributor]).to eq(['Ali, N.'])
   end
 
+  # The split matched the literal string "creator", so `aut` and `Author` --
+  # the same claim written differently -- harvested as contributors.
+  it 'reads a MARC relator code as the role it names' do
+    record = mods(names: [name('Ito, K.', 'aut'), name('Ali, N.', 'ths')])
+    result = described_class.call(record)
+
+    expect(result[:creator]).to eq(['Ito, K.'])
+    expect(result[:contributor]).to eq(['Ali, N.'])
+  end
+
+  # MODS makes mods:role optional. An empty role never matched "creator", so
+  # every unroled name was silently demoted -- while the display labelled the
+  # same name Creator.
+  it 'harvests a role-less name as a creator, matching the display' do
+    record = mods(names: [name('Center for Atypical Language Interpreting', nil)])
+    result = described_class.call(record)
+
+    expect(result[:creator]).to eq(['Center for Atypical Language Interpreting'])
+    expect(result).not_to have_key(:contributor)
+  end
+
   it 'flattens all five subject axes into dc:subject' do
     record = mods(topical_subjects: ['Physics'], geographic_subjects: ['Boston'],
                   temporal_subjects: ['1920s'], personal_name_subjects: ['Curie, M.'],

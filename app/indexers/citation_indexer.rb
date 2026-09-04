@@ -27,12 +27,6 @@
 # for a Work missing the data — the fields appear once the data is set and the
 # Work is next saved / reindexed (same lifecycle as genre_ssim).
 class CitationIndexer
-  # MODS roleTerm display value marking an author/creator (corporate and
-  # personal creators both carry this in the corpus). Contributors and other
-  # roles are excluded — Scholar's citation_author is authors only, matching
-  # v1's creator-only gate.
-  CREATOR_ROLE = 'creator'
-
   attr_reader :resource
 
   def initialize(resource:)
@@ -56,7 +50,7 @@ class CitationIndexer
 
     def creators
       @creators ||= Array(mods&.names)
-                    .select { |n| n.role.to_s.casecmp?(CREATOR_ROLE) }
+                    .select { |n| MarcRelators.creator?(n.role) }
                     .map(&:name).compact_blank.uniq
     end
 

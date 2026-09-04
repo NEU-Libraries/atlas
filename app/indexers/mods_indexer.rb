@@ -11,6 +11,13 @@ class MODSIndexer
   # The names follow what Cerberus's Blacklight config already declares, so
   # repointing a facet is a config change there rather than a rename here.
   SOLR_FIELDS = {
+    # The four variant titles share one match-only field. They must not join
+    # title_tsim: that is the heading a result row renders, so adding a variant
+    # to it would change what a reader sees rather than what they can find.
+    alternative_title:       :title_variant_tesim,
+    uniform_title:           :title_variant_tesim,
+    translated_title:        :title_variant_tesim,
+    abbreviated_title:       :title_variant_tesim,
     languages:               :language_ssim,
     resource_type:           :resource_type_ssim,
     topical_subjects:        :subject_ssim,
@@ -21,8 +28,10 @@ class MODSIndexer
     publication_information: :publisher_ssim,
     related_series:          :series_ssim,
     host_collections:        :host_collection_ssim,
-    # Searchable, not facetable: a reader pastes a DOI into the search box.
-    # Faceting on an identifier would make one bucket per record.
+    # Searchable, not facetable: faceting on an identifier would make one
+    # bucket per record. Being *searched* also needs the field in the request
+    # handler's qf, which the blacklight-solr image owns -- indexing it here is
+    # necessary and not sufficient.
     identifiers:             :identifier_tesim
   }.freeze
 
@@ -42,10 +51,6 @@ class MODSIndexer
     date_created_precision:   'chooses a display format; not a value a reader searches',
     date_issued_precision:    'chooses a display format; not a value a reader searches',
     copyright_date_precision: 'chooses a display format; not a value a reader searches',
-    alternative_title:        'no discovery value yet -- a variant-title search field is a separate call',
-    uniform_title:            'no discovery value yet -- a variant-title search field is a separate call',
-    translated_title:         'no discovery value yet -- a variant-title search field is a separate call',
-    abbreviated_title:        'no discovery value yet -- a variant-title search field is a separate call',
     edition:                  'display only',
     format:                   'display only',
     extent:                   'display only',
@@ -107,8 +112,12 @@ class MODSIndexer
       return if mods.nil?
 
       SOLR_FIELDS.each do |field, solr_field|
-        values = Array(mods.public_send(field)).compact_blank.uniq
-        fields[solr_field] = values if values.any?
+        values = Array(mods.public_send(field)).compact_blank
+        next if values.empty?
+
+        # Accumulated, not assigned: several projected fields can share one
+        # Solr field, as the four variant titles do.
+        fields[solr_field] = (fields.fetch(solr_field, []) + values).uniq
       end
     end
 

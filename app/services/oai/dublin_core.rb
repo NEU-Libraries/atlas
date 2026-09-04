@@ -22,11 +22,10 @@ module OAI
   #     Object#type.
   #   - Only creator-role names become dc:creator; every other role becomes
   #     dc:contributor. Flattening a thesis advisor into dc:creator would put
-  #     wrong attribution into a downstream catalogue. The role test matches
-  #     CitationIndexer::CREATOR_ROLE.
+  #     wrong attribution into a downstream catalogue. MarcRelators.creator?
+  #     decides, so the code `aut`, the term `Author` and an absent role all
+  #     land where the display and the creator facet already put them.
   class DublinCore
-    CREATOR_ROLE = 'creator'
-
     # Emission order is free — oai_dc.xsd is an unbounded choice — but a fixed
     # order keeps responses diffable.
     ELEMENTS = %i[title creator contributor subject description
@@ -63,16 +62,20 @@ module OAI
         [part.present? ? "#{main}. #{part}" : main]
       end
 
+      # A role-less name harvested as dc:contributor, because "" never matched
+      # "creator". MODS makes mods:role optional, so that silently demoted
+      # every name a record did not bother to role -- and a name roled `aut`
+      # with it.
       def creator
-        names_with_role { |role| role.casecmp?(CREATOR_ROLE) }
+        names_with_role { |role| MarcRelators.creator?(role) }
       end
 
       def contributor
-        names_with_role { |role| !role.casecmp?(CREATOR_ROLE) }
+        names_with_role { |role| !MarcRelators.creator?(role) }
       end
 
       def names_with_role
-        Array(mods&.names).select { |n| yield(n.role.to_s) }.map(&:name)
+        Array(mods&.names).select { |n| yield(n.role) }.map(&:name)
       end
 
       # All five MODS subject axes flatten into dc:subject — simple Dublin

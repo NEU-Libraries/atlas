@@ -294,17 +294,17 @@ module OpenapiSchemas
         {
           type:        :object,
           properties:  {
-            noid:       { type: :string },
-            mime_type:  { type: :string, nullable: true },
-            use:        { type: :string, nullable: true, description: 'Human display label for the role (e.g. "Service File"); match on `role` for a stable token' },
-            uri:        { type: :string, nullable: true },
-            label:      { type: :string, nullable: true },
-            role:       { type: :string, nullable: true, description: 'Stable machine token for the asset role — the Role key (e.g. service_file, small_image). Match on this, not the human `use` label' },
+            noid:           { type: :string },
+            mime_type:      { type: :string, nullable: true },
+            use:            { type: :string, nullable: true, description: 'Human display label for the role (e.g. "Service File"); match on `role` for a stable token' },
+            uri:            { type: :string, nullable: true },
+            label:          { type: :string, nullable: true },
+            role:           { type: :string, nullable: true, description: 'Stable machine token for the asset role — the Role key (e.g. service_file, small_image). Match on this, not the human `use` label' },
             classification: { type: :string, nullable: true,
                               description: 'Classification name of the containing FileSet (e.g. Derivative for IIIF tiers)' },
-            gated:      { type:        :boolean,
-                          description: 'True if this derivative tier must be authorized rather than linked directly (its audience is not public)' },
-            permission: { type: :array, items: { type: :string }, nullable: true,
+            gated:          { type:        :boolean,
+                              description: 'True if this derivative tier must be authorized rather than linked directly (its audience is not public)' },
+            permission:     { type: :array, items: { type: :string }, nullable: true,
                           description: 'Effective read-group set gating this tier (public / Grouper groups / [] private); null for guests, to whom group names are not disclosed' }
           },
           required:    %w[noid],
@@ -705,17 +705,17 @@ module OpenapiSchemas
   # MODS fields whose members are objects rather than strings; everything else
   # is a string, singular or an array according to its registry cardinality.
   MODS_OBJECT_PROPS = {
-    main_title:    %i[title subtitle part_number part_name non_sort],
-    names:         %i[name role],
-    notes:         %i[type value],
-    location:      %i[physical_location shelf_location url],
-    map_data:      %i[scale projection coordinates],
-    related_items: %i[type title],
-    identifiers:   %i[type value],
-    record_info:   %i[content_source origin description_standard creation_date
-                      change_date language_of_cataloging],
-    hierarchical_geographic_subjects: %i[continent country province region state
-                                         territory county city city_section island area]
+    main_title:                       %i[title subtitle part_number part_name non_sort],
+    names:                            %i[name role],
+    notes:                            %i[type value],
+    location:                         %i[physical_location shelf_location url],
+    map_data:                         %i[scale projection coordinates],
+    related_items:                    %i[type title],
+    identifiers:                      %i[type value],
+    record_info:                      %i[content_source origin description_standard creation_date
+                                         change_date language_of_cataloging],
+    hierarchical_geographic_subjects: %i[continent country province region state territory
+                                         county city city_section island area]
   }.freeze
 
   # The originInfo dates serialise as timestamps, both ends of a range alike.

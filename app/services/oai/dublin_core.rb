@@ -26,6 +26,23 @@ module OAI
   #     decides, so the code `aut`, the term `Author` and an absent role all
   #     land where the display and the creator facet already put them.
   class DublinCore
+    # Every projected subject axis. Simple Dublin Core has one dc:subject and no
+    # way to say which kind, so they all flatten into it.
+    #
+    # Named rather than inlined because this is a fourth list that has to agree
+    # with NEU::MODS::FIELDS and nothing made it: a new axis passed every spec
+    # and was silently absent from oai_dc. A spec derives this from the
+    # registry now, which is the same guard DISPLAY and SOLR_FIELDS have.
+    #
+    # hierarchical_geographic_subjects is excluded deliberately: its members are
+    # structured, and flattening a hash into dc:subject would emit an object
+    # where a harvester expects a string. Its narrowest level is already in
+    # geographic terms through the Solr index; a dc:subject rendering of it is
+    # a composition decision, not a list membership one.
+    SUBJECT_AXES = %i[topical_subjects personal_name_subjects corporate_name_subjects
+                      temporal_subjects geographic_subjects genre_subjects
+                      geographic_code_subjects title_subjects].freeze
+
     # Emission order is free — oai_dc.xsd is an unbounded choice — but a fixed
     # order keeps responses diffable.
     ELEMENTS = %i[title creator contributor subject description
@@ -81,8 +98,7 @@ module OAI
       # All five MODS subject axes flatten into dc:subject — simple Dublin
       # Core has one subject element and no way to say which kind.
       def subject
-        %i[topical_subjects personal_name_subjects corporate_name_subjects
-           temporal_subjects geographic_subjects].flat_map { |field| Array(mods&.public_send(field)) }
+        SUBJECT_AXES.flat_map { |field| Array(mods&.public_send(field)) }
       end
 
       def description

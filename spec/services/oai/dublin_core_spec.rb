@@ -50,6 +50,19 @@ RSpec.describe OAI::DublinCore do
     expect(result).not_to have_key(:contributor)
   end
 
+  # A new subject axis passed every spec and was silently absent from oai_dc,
+  # because the axes were asserted by name rather than derived. This is the
+  # guard DISPLAY and SOLR_FIELDS already have, for the fourth consumer.
+  it 'flattens every projected subject axis into dc:subject' do
+    axes = NEU::MODS::FIELDS.keys.grep(/_subjects\z/) - [:hierarchical_geographic_subjects]
+
+    expect(axes - described_class::SUBJECT_AXES).to be_empty
+  end
+
+  it 'names no axis the gem does not project' do
+    expect(described_class::SUBJECT_AXES - NEU::MODS::FIELDS.keys).to be_empty
+  end
+
   it 'flattens all five subject axes into dc:subject' do
     record = mods(topical_subjects: ['Physics'], geographic_subjects: ['Boston'],
                   temporal_subjects: ['1920s'], personal_name_subjects: ['Curie, M.'],

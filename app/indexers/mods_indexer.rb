@@ -35,33 +35,50 @@ class MODSIndexer
     identifiers:             :identifier_tesim
   }.freeze
 
+  # Fields whose members are models rather than strings: the member attribute
+  # that carries the indexable text. A DOI has to reach Solr as the digits a
+  # reader pastes, not as the model's inspect output.
+  SOLR_MEMBER_VALUES = { identifiers: :value }.freeze
+
   # Projected fields this indexer does not write, and why. Kept as a map rather
   # than a list so "another indexer owns it" is distinguishable from "no
   # discovery value" -- the two are different decisions, and only the second is
   # one to revisit.
   NOT_INDEXED = {
-    main_title:               'title_tsim / title_plain_tsim here, title_ssi in SortIndexer',
-    names:                    'creator_ssim in CitationIndexer, creator_ssi in SortIndexer',
-    abstract:                 'description_tsim here',
-    genres:                   'genre_ssim in GenreIndexer',
-    permanent_url:            'permanent_url_ssi here',
-    date_created:             'date_ssi in SortIndexer, pub_date_ssim in CitationIndexer',
-    date_issued:              'SortIndexer::DATE_FIELDS falls back through it into date_ssi',
-    copyright_date:           'SortIndexer::DATE_FIELDS falls back through it into date_ssi',
-    date_created_precision:   'chooses a display format; not a value a reader searches',
-    date_issued_precision:    'chooses a display format; not a value a reader searches',
-    copyright_date_precision: 'chooses a display format; not a value a reader searches',
-    edition:                  'display only',
-    format:                   'display only',
-    extent:                   'display only',
-    digital_origin:           'display only',
-    notes:                    'display only; free text already reachable through full_text_tesimv',
-    map_data:                 'display only; coordinates need a spatial field, not a string one',
-    related_items:            'display only; the relationship types have no browse',
-    location:                 'display only; a shelf mark is not a search term',
-    access_condition:         'rights text is not a search term',
-    use_and_reproduction:     'rights text is not a search term',
-    restriction_on_access:    'rights text is not a search term'
+    main_title:                   'title_tsim / title_plain_tsim here, title_ssi in SortIndexer',
+    names:                        'creator_ssim in CitationIndexer, creator_ssi in SortIndexer',
+    abstract:                     'description_tsim here',
+    genres:                       'genre_ssim in GenreIndexer',
+    permanent_url:                'permanent_url_ssi here',
+    date_created:                 'date_ssi in SortIndexer, pub_date_ssim in CitationIndexer',
+    date_issued:                  'SortIndexer::DATE_FIELDS falls back through it into date_ssi',
+    copyright_date:               'SortIndexer::DATE_FIELDS falls back through it into date_ssi',
+    date_created_precision:       'chooses a display format; not a value a reader searches',
+    date_created_end:             'the far end of a range; a range sorts and facets on its start',
+    date_created_end_precision:   'chooses a display format; not a value a reader searches',
+    date_created_qualifier:       'renders into the date string; not a value a reader searches',
+    date_created_key_date:        'chooses which date SortIndexer sorts on; not a facet',
+    date_issued_precision:        'chooses a display format; not a value a reader searches',
+    date_issued_end:              'the far end of a range; a range sorts and facets on its start',
+    date_issued_end_precision:    'chooses a display format; not a value a reader searches',
+    date_issued_qualifier:        'renders into the date string; not a value a reader searches',
+    date_issued_key_date:         'chooses which date SortIndexer sorts on; not a facet',
+    copyright_date_precision:     'chooses a display format; not a value a reader searches',
+    copyright_date_end:           'the far end of a range; a range sorts and facets on its start',
+    copyright_date_end_precision: 'chooses a display format; not a value a reader searches',
+    copyright_date_qualifier:     'renders into the date string; not a value a reader searches',
+    copyright_date_key_date:      'chooses which date SortIndexer sorts on; not a facet',
+    edition:                      'display only',
+    format:                       'display only',
+    extent:                       'display only',
+    digital_origin:               'display only',
+    notes:                        'display only; free text already reachable through full_text_tesimv',
+    map_data:                     'display only; coordinates need a spatial field, not a string one',
+    related_items:                'display only; the relationship types have no browse',
+    location:                     'display only; a shelf mark is not a search term',
+    access_condition:             'rights text is not a search term',
+    use_and_reproduction:         'rights text is not a search term',
+    restriction_on_access:        'rights text is not a search term'
   }.freeze
 
   attr_reader :resource
@@ -86,13 +103,7 @@ class MODSIndexer
       fields[:incomplete_reason_ssi] = resource.incomplete_reason
     end
 
-    if decorated_resource.try(:plain_title)
-      fields[:title_tsim] = decorated_resource.plain_title
-      fields[:description_tsim] = decorated_resource.plain_description
-      fields[:permanent_url_ssi] = decorated_resource.mods&.permanent_url
-      add_match_title(fields, decorated_resource.plain_title)
-      add_descriptive_fields(fields)
-    end
+    add_mods_fields(fields) if decorated_resource.try(:plain_title)
 
     fields
   end
@@ -103,6 +114,14 @@ class MODSIndexer
 
   private
 
+    def add_mods_fields(fields)
+      fields[:title_tsim] = decorated_resource.plain_title
+      fields[:description_tsim] = decorated_resource.plain_description
+      fields[:permanent_url_ssi] = decorated_resource.mods&.permanent_url
+      add_match_title(fields, decorated_resource.plain_title)
+      add_descriptive_fields(fields)
+    end
+
     # One Solr field per SOLR_FIELDS row. A field is written only when it has a
     # value, so a sparse record does not carry empty facet entries; it appears
     # the next time the resource is saved or reindexed, the same lifecycle
@@ -112,7 +131,10 @@ class MODSIndexer
       return if mods.nil?
 
       SOLR_FIELDS.each do |field, solr_field|
-        values = Array(mods.public_send(field)).compact_blank
+        values = Array(mods.public_send(field))
+        member = SOLR_MEMBER_VALUES[field]
+        values = values.map { |value| value.public_send(member) } if member
+        values = values.compact_blank
         next if values.empty?
 
         # Accumulated, not assigned: several projected fields can share one

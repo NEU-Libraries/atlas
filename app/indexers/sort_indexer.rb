@@ -173,7 +173,22 @@ class SortIndexer
                          .map(&:name).compact_blank
     end
 
+    # MODS lets a record nominate its own principal date with keyDate="yes", and
+    # DATE_FIELDS overruled it with a fixed preference for dateCreated. A
+    # flagged date wins now; the order is kept for the records that set no flag,
+    # which is most of them, and for the ones that flag the date it would have
+    # picked anyway.
+    #
+    # A ranged date sorts on its start. That is what it did before by accident,
+    # because the gem returned the first node; it is deliberate now, so the
+    # behaviour survives the gem reading the points by attribute.
     def sort_date
-      @sort_date ||= DATE_FIELDS.filter_map { |field| mods&.public_send(field) }.first
+      @sort_date ||= key_date || DATE_FIELDS.filter_map { |field| mods&.public_send(field) }.first
+    end
+
+    def key_date
+      DATE_FIELDS.filter_map do |field|
+        mods.public_send(field) if mods&.public_send(:"#{field}_key_date")
+      end.first
     end
 end

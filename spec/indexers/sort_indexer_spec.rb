@@ -176,18 +176,48 @@ RSpec.describe SortIndexer do
         .not_to eq(Time.current.utc.strftime('%Y-%m-%dT%H:%M:%SZ'))
     end
 
+    # MODS lets a record nominate its own principal date, and DATE_FIELDS
+    # overruled it with a hardcoded preference for dateCreated. 21 of the MODS
+    # fixtures across the two repos set the flag.
+    it 'sorts on the date the record flagged, not the first in the fallback order' do
+      resource = work_with_mods(date_created:         Time.zone.parse('1923-05-01'),
+                                date_issued:          Time.zone.parse('1960-01-01'),
+                                date_issued_key_date: true)
+
+      expect(described_class.new(resource: resource).to_solr[:date_ssi]).to eq('1960-01-01T00:00:00Z')
+    end
+
+    it 'keeps the fallback order for a record that flags nothing' do
+      resource = work_with_mods(date_created: Time.zone.parse('1923-05-01'),
+                                date_issued:  Time.zone.parse('1960-01-01'))
+
+      expect(described_class.new(resource: resource).to_solr[:date_ssi]).to eq('1923-05-01T00:00:00Z')
+    end
+
+    # A range sorts on its start. That was true before by accident, because the
+    # gem returned the first node; this makes it a decision that survives the
+    # gem reading the points by attribute.
+    it 'sorts a ranged date on its start' do
+      resource = work_with_mods(date_created:     Time.zone.parse('1935-01-01'),
+                                date_created_end: Time.zone.parse('1940-01-01'))
+
+      expect(described_class.new(resource: resource).to_solr[:date_ssi]).to eq('1935-01-01T00:00:00Z')
+    end
+
     # The fallback chain was specced against stubbed models while it could not
     # run: neu-mods projected neither copyrightDate nor dateIssued, so every
-    # real record fell to the first field or to nothing. This asserts it from
-    # XML, over a record that carries the other two and no dateCreated.
-    it 'falls back from real MODS, not just from a stubbed access copy' do
+    # real record fell to the first field or to nothing. This asserts both the
+    # flag and the chain from XML, over the coverage record -- which flags
+    # dateIssued while carrying a ranged dateCreated.
+    it 'honours the flag from real MODS, not just from a stubbed access copy' do
       xml = Rails.root.join('spec/fixtures/files/mods-coverage.xml').read
       mods = Metadata::MODS.new.tap { |m| m.assign_attributes(NEU::MODS::Document.parse(xml).to_h) }
       resource = Work.new.tap { |w| allow(w).to receive(:mods).and_return(mods) }
 
       aggregate_failures do
-        expect(mods.date_created).to be_nil
-        expect(described_class.new(resource: resource).to_solr[:date_ssi]).to eq('2025-01-01T00:00:00Z')
+        expect(mods.date_created).to eq(Time.zone.parse('1935-06-01'))
+        expect(mods.date_issued_key_date).to be true
+        expect(described_class.new(resource: resource).to_solr[:date_ssi]).to eq('2025-06-01T00:00:00Z')
       end
     end
   end

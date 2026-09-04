@@ -135,7 +135,10 @@ RSpec.describe MODSIndexer do
 
     # Indexed as text so a DOI CAN be matched. Whether it IS depends on the
     # request handler's qf, which the blacklight-solr image owns.
-    it 'indexes identifiers as text' do
+    #
+    # The value alone reaches Solr, not the model: a reader pastes the digits,
+    # and indexing the type beside them would only add noise to the match.
+    it 'indexes identifiers as text, taking the value off the entry' do
       expect(fields[:identifier_tesim]).to eq(['10.17760/D20123456'])
     end
 

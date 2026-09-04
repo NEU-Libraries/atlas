@@ -1,0 +1,7 @@
+-# The MODS display, rendered by both works/mods.html.haml and
+-# resources/preview.html.haml. Those two were byte-identical apart from the
+-# ivar, so a new field had to be added to both and adding it to one was a
+-# silent half-fix. The rows come from WorkDecorator::DISPLAY.
+#mods
+  %dl
+    = resource.mods_rows

@@ -2,11 +2,11 @@
 
 require 'rails_helper'
 
-# The MODS HTML projection (works/mods.html.haml) is just a concatenation of
-# these decorator methods, so asserting each method's output IS asserting the
-# rendered HTML. Single-value fields must omit the whole field for blank values
-# rather than emitting an empty <dd> under a label, matching how the multivalued
-# loop_field branch behaves.
+# The MODS HTML projection is WorkDecorator::DISPLAY rendered in order, so
+# asserting a row IS asserting the rendered HTML. Rows are asserted one field at
+# a time rather than as one blob, so a failure names the field that regressed.
+# A blank field must omit the whole row -- label and value -- rather than emit
+# an empty <dd> under a heading.
 RSpec.describe WorkDecorator do
   # Decorate a bare Work whose #mods returns a controlled access copy, so the
   # gating is asserted directly without depending on the WorkCreator template.
@@ -15,46 +15,197 @@ RSpec.describe WorkDecorator do
     Work.new.tap { |w| allow(w).to receive(:mods).and_return(mods) }.decorate
   end
 
-  context 'when the single-value fields are blank (a sparse record)' do
+  def from_fixture
+    xml = file_fixture('mods-coverage.xml').read
+    mods = Metadata::MODS.new.tap { |m| m.assign_attributes(NEU::MODS::Document.parse(xml).to_h) }
+    Work.new.tap { |w| allow(w).to receive(:mods).and_return(mods) }.decorate
+  end
+
+  context 'when every field is blank (a sparse record)' do
     subject(:work) { decorate_with }
 
-    it 'omits the whole field (no label, no value) for each blank single-value field' do
-      expect(work.date_created).to eq('')
-      expect(work.resource_type).to eq('')
-      expect(work.digital_origin).to eq('')
-      expect(work.permanent_url).to eq('')
-      expect(work.access_condition).to eq('')
-      expect(work.abstract).to eq('')
+    it 'omits every row, so the whole list renders empty' do
+      expect(work.mods_rows).to eq('')
+    end
+
+    it 'omits the label as well as the value, field by field' do
+      aggregate_failures do
+        WorkDecorator::DISPLAY.each do |row|
+          expect(work.mods_row(row[:field])).to eq(''), "#{row[:field]} rendered something"
+        end
+      end
     end
   end
 
-  context 'when the single-value fields are populated (a described record)' do
-    subject(:work) do
-      decorate_with(
-        date_created:     Time.zone.parse('2017-09-19'),
-        resource_type:    'sound recording',
-        digital_origin:   'born digital',
-        permanent_url:    'http://hdl.handle.net/2047/D20254217',
-        access_condition: 'Copyright restrictions may apply.',
-        abstract:         'How communities respond to disaster.'
+  # A date parses to 1 January when the record gave only a year, so formatting
+  # every date as %Y-%m-%d prints a month and a day the record never claimed --
+  # indistinguishable from a record that did claim them.
+  describe 'a date renders only as finely as the record declared it' do
+    def date_row(precision)
+      decorate_with(date_created:           Time.zone.parse('2026-02-20'),
+                    date_created_precision: precision).mods_row(:date_created)
+    end
+
+    it 'renders a day-precision date in full' do
+      expect(date_row('day')).to eq('<dt>Date created</dt><dd>2026-02-20</dd>')
+    end
+
+    it 'renders a month-precision date without the day' do
+      expect(date_row('month')).to eq('<dt>Date created</dt><dd>2026-02</dd>')
+    end
+
+    it 'renders a year-precision date as the year alone, never 2026-01-01' do
+      expect(date_row('year')).to eq('<dt>Date created</dt><dd>2026</dd>')
+    end
+
+    it 'falls back to the full date when the precision is absent or unknown' do
+      aggregate_failures do
+        expect(date_row(nil)).to eq('<dt>Date created</dt><dd>2026-02-20</dd>')
+        expect(date_row('century')).to eq('<dt>Date created</dt><dd>2026-02-20</dd>')
+      end
+    end
+
+    it 'formats the other two dates from their own precision' do
+      work = decorate_with(date_issued: Time.zone.parse('2025-06-01'), date_issued_precision: 'month',
+                           copyright_date: Time.zone.parse('2025-01-01'), copyright_date_precision: 'year')
+      aggregate_failures do
+        expect(work.mods_row(:date_issued)).to eq('<dt>Date issued</dt><dd>2025-06</dd>')
+        expect(work.mods_row(:copyright_date)).to eq('<dt>Copyright date</dt><dd>2025</dd>')
+      end
+    end
+  end
+
+  # A nil label rendered an empty <dt>, so the name read as a value of the field
+  # above it and a screen reader announced it under an empty term.
+  describe 'a name renders under a real label' do
+    def named(*names)
+      decorate_with(names: names.map { |n| Metadata::Fields::Name.new(**n) }).mods_row(:names)
+    end
+
+    it 'labels a role-less name Creator rather than nothing' do
+      expect(named({ name: 'Center for Atypical Language Interpreting', role: nil }))
+        .to eq('<dt>Creator</dt><dd><p>Center for Atypical Language Interpreting</p></dd>')
+    end
+
+    it 'merges a role-less name into an explicit Creator group' do
+      expect(named({ name: 'Doe, Jane', role: 'Creator' }, { name: 'Roe, Ann', role: nil }))
+        .to eq('<dt>Creator</dt><dd><p>Doe, Jane</p></dd><dd><p>Roe, Ann</p></dd>')
+    end
+
+    it 'renders two role-less names under one Creator label, not two empty ones' do
+      expect(named({ name: 'One', role: nil }, { name: 'Two', role: nil }))
+        .to eq('<dt>Creator</dt><dd><p>One</p></dd><dd><p>Two</p></dd>')
+    end
+
+    it 'translates a MARC relator code into its label' do
+      expect(named({ name: 'Doe, Jane', role: 'aut' }))
+        .to eq('<dt>Author</dt><dd><p>Doe, Jane</p></dd>')
+    end
+
+    it 'groups a code and its text term together, since they name one role' do
+      expect(named({ name: 'Doe, Jane', role: 'aut' }, { name: 'Roe, Ann', role: 'Author' }))
+        .to eq('<dt>Author</dt><dd><p>Doe, Jane</p></dd><dd><p>Roe, Ann</p></dd>')
+    end
+
+    it 'leaves an unrecognised role as the record wrote it' do
+      expect(named({ name: 'Doe, Jane', role: 'Wrangler' }))
+        .to eq('<dt>Wrangler</dt><dd><p>Doe, Jane</p></dd>')
+    end
+  end
+
+  describe 'the rows that carry a repeatable element' do
+    subject(:work) { from_fixture }
+
+    it 'renders every typeOfResource, not just the first' do
+      expect(work.mods_row(:resource_type))
+        .to eq('<dt>Resource type</dt><dd><p>Text</p></dd><dd><p>Still Image</p></dd>')
+    end
+
+    it 'renders the three fields that were stored and never displayed' do
+      aggregate_failures do
+        expect(work.mods_row(:format)).to eq('<dt>Format</dt><dd><p>Electronic</p></dd>')
+        expect(work.mods_row(:extent))
+          .to eq('<dt>Extent</dt><dd><p>1 online resource (24 pages)</p></dd>')
+        expect(work.mods_row(:identifiers))
+          .to eq('<dt>Identifiers</dt><dd><p>10.17760/D20123456</p></dd>')
+      end
+    end
+
+    it 'labels the series field Series, not Related Items' do
+      expect(work.mods_row(:related_series)).to eq('<dt>Series</dt><dd><p>A Series</p></dd>')
+    end
+
+    it 'renders the host collection, which had no row at all' do
+      expect(work.mods_row(:host_collections))
+        .to eq('<dt>Host collections</dt><dd><p>A Host Collection</p></dd>')
+    end
+
+    it 'renders a code-only language as its name' do
+      expect(work.mods_row(:languages)).to eq('<dt>Languages</dt><dd><p>English</p></dd>')
+    end
+  end
+
+  describe 'the rows whose markup is more than a label and a value' do
+    subject(:work) { from_fixture }
+
+    it 'groups a note under its own type' do
+      expect(work.mods_row(:notes)).to eq(
+        '<dt>Statement of responsibility</dt><dd><p>Prepared by the Working Group.</p></dd>' \
+        '<dt>Notes</dt><dd><p>A general note.</p></dd>'
       )
     end
 
-    it 'renders the label and value for each populated field' do
-      expect(work.date_created).to eq('<dt>Date created</dt><dd>2017-09-19</dd>')
-      expect(work.resource_type).to eq('<dt>Resource Type</dt><dd>Sound Recording</dd>')
-      expect(work.digital_origin).to eq('<dt>Digital Origin</dt><dd>Born Digital</dd>')
-      expect(work.abstract).to eq('<dt>Abstract</dt><dd><p>How communities respond to disaster.</p></dd>')
+    it 'leads a related item with the relationship it declares' do
+      expect(work.mods_row(:related_items))
+        .to eq('<dt>Related items</dt><dd><p>Other Format: The Print Edition</p></dd>')
     end
 
-    it 'linkifies the permanent_url and access_condition values' do
-      expect(work.permanent_url).to eq(
-        '<dt>Permanent URL</dt><dd><p>' \
-        '<a href="http://hdl.handle.net/2047/D20254217" rel="nofollow noopener" ' \
-        'target="_blank">http://hdl.handle.net/2047/D20254217</a></p></dd>'
+    it 'renders a location part by part, so a URL linkifies and a shelf mark does not' do
+      located = decorate_with(location: [Metadata::Fields::Location.new(
+        physical_location: 'Snell Library', shelf_location: 'PS3552 .E1', url: 'https://example.org/i'
+      )])
+      expect(located.mods_row(:location)).to include(
+        '<dt>Location</dt><dd><p>Snell Library</p></dd><dd><p>PS3552 .E1</p></dd>',
+        '<a href="https://example.org/i"'
       )
-      expect(work.access_condition)
-        .to eq('<dt>Use and reproduction</dt><dd><p>Copyright restrictions may apply.</p></dd>')
+    end
+
+    it 'composes cartographics for display, which the gem leaves structured' do
+      mapped = decorate_with(map_data: [Metadata::Fields::MapData.new(
+        scale: '1:24,000', projection: 'UTM', coordinates: 'W 71 03 00'
+      )])
+      expect(mapped.mods_row(:map_data))
+        .to eq('<dt>Map data</dt><dd><p>1:24,000 ; UTM W 71 03 00</p></dd>')
+    end
+
+    it 'says so when a map gives no scale, rather than rendering a bare projection' do
+      mapped = decorate_with(map_data: [Metadata::Fields::MapData.new(coordinates: 'W 71 03 00')])
+      expect(mapped.mods_row(:map_data))
+        .to eq('<dt>Map data</dt><dd><p>Scale not given ; W 71 03 00</p></dd>')
+    end
+  end
+
+  # Collapsing every accessCondition under one label presented an access
+  # restriction to a reader as a licence.
+  describe 'access conditions render apart' do
+    it 'labels a restriction and a licence separately' do
+      work = from_fixture
+      aggregate_failures do
+        expect(work.mods_row(:restriction_on_access))
+          .to eq('<dt>Restriction on access</dt><dd><p>Northeastern University only.</p></dd>')
+        expect(work.mods_row(:use_and_reproduction))
+          .to eq('<dt>Use and reproduction</dt><dd><p>CC BY 4.0</p></dd>')
+      end
+    end
+
+    it 'suppresses the combined value when a typed one already rendered' do
+      expect(from_fixture.mods_row(:access_condition)).to eq('')
+    end
+
+    it 'falls back to the combined value, which alone carries an untyped condition' do
+      work = decorate_with(access_condition: 'No known restrictions.')
+      expect(work.mods_row(:access_condition))
+        .to eq('<dt>Access condition</dt><dd><p>No known restrictions.</p></dd>')
     end
   end
 
@@ -87,9 +238,7 @@ RSpec.describe WorkDecorator do
     end
 
     it 'leaves plain_title raw -- the JSON views and the indexers read it as a value' do
-      work = decorate_with(
-        main_title: Metadata::Fields::TitleInfo.new(title: 'H<sub>2</sub>O')
-      )
+      work = decorate_with(main_title: Metadata::Fields::TitleInfo.new(title: 'H<sub>2</sub>O'))
 
       expect(work.plain_title).to eq('H<sub>2</sub>O')
     end

@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mods:mods xmlns:mods="http://www.loc.gov/mods/v3">
+  <mods:titleInfo type="alternative"><mods:title>An Alternative Title</mods:title></mods:titleInfo>
+  <mods:titleInfo usage="primary"><mods:title>The Real Title</mods:title></mods:titleInfo>
+  <mods:name type="personal">
+    <mods:namePart type="family">Doe</mods:namePart>
+    <mods:namePart type="given">Jane</mods:namePart>
+    <mods:role><mods:roleTerm type="code" authority="marcrelator">aut</mods:roleTerm></mods:role>
+  </mods:name>
+  <mods:originInfo>
+    <mods:publisher>Northeastern University Press</mods:publisher>
+    <mods:dateIssued encoding="w3cdtf">2025-06-01</mods:dateIssued>
+    <mods:copyrightDate encoding="w3cdtf">2025</mods:copyrightDate>
+    <mods:place><mods:placeTerm type="text">Boston</mods:placeTerm></mods:place>
+    <mods:edition>2nd ed.</mods:edition>
+  </mods:originInfo>
+  <mods:language><mods:languageTerm type="code" authority="iso639-2b">eng</mods:languageTerm></mods:language>
+  <mods:typeOfResource>text</mods:typeOfResource>
+  <mods:typeOfResource>still image</mods:typeOfResource>
+  <mods:physicalDescription>
+    <mods:form authority="marcform">electronic</mods:form>
+    <mods:extent>1 online resource (24 pages)</mods:extent>
+    <mods:digitalOrigin>born digital</mods:digitalOrigin>
+  </mods:physicalDescription>
+  <mods:note type="statement of responsibility">Prepared by the Working Group.</mods:note>
+  <mods:note>A general note.</mods:note>
+  <mods:subject><mods:topic>Interpreting</mods:topic></mods:subject>
+  <mods:subject><mods:geographic>Boston (Mass.)</mods:geographic></mods:subject>
+  <mods:subject><mods:temporal>21st century</mods:temporal></mods:subject>
+  <mods:subject><mods:name type="personal"><mods:namePart>Smith, John</mods:namePart></mods:name></mods:subject>
+  <mods:relatedItem type="host"><mods:titleInfo><mods:title>A Host Collection</mods:title></mods:titleInfo></mods:relatedItem>
+  <mods:relatedItem type="series"><mods:titleInfo><mods:title>A Series</mods:title></mods:titleInfo></mods:relatedItem>
+  <mods:relatedItem type="otherFormat"><mods:titleInfo><mods:title>The Print Edition</mods:title></mods:titleInfo></mods:relatedItem>
+  <mods:identifier type="doi">10.17760/D20123456</mods:identifier>
+  <mods:location><mods:physicalLocation>Snell Library</mods:physicalLocation></mods:location>
+  <mods:accessCondition type="restriction on access">Northeastern University only.</mods:accessCondition>
+  <mods:accessCondition type="use and reproduction">CC BY 4.0</mods:accessCondition>
+</mods:mods>

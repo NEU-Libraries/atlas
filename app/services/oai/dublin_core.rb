@@ -91,8 +91,10 @@ module OAI
         [(mods&.date_issued || mods&.date_created)&.to_date&.iso8601]
       end
 
+      # typeOfResource repeats in MODS, so this is already a list. Wrapping it
+      # in another array would ship a stringified array into dc:type.
       def type
-        [mods&.resource_type]
+        Array(mods&.resource_type)
       end
 
       def language

@@ -282,6 +282,57 @@ RSpec.describe WorkDecorator do
     end
   end
 
+  # A cataloguer was given a spreadsheet column for each of these and the value
+  # reached no reader.
+  describe 'the corpus fields that had no row' do
+    subject(:work) { from_fixture }
+
+    it 'renders the plain rows' do
+      aggregate_failures do
+        expect(work.mods_row(:place_of_publication))
+          .to eq('<dt>Place of publication</dt><dd><p>Boston</p></dd>')
+        expect(work.mods_row(:issuance)).to eq('<dt>Issuance</dt><dd><p>Monographic</p></dd>')
+        expect(work.mods_row(:frequency)).to eq('<dt>Frequency</dt><dd><p>Quarterly</p></dd>')
+        expect(work.mods_row(:reformatting_quality))
+          .to eq('<dt>Reformatting quality</dt><dd><p>Preservation</p></dd>')
+        expect(work.mods_row(:table_of_contents))
+          .to eq('<dt>Contents</dt><dd><p>Chapter 1 -- Chapter 2</p></dd>')
+        expect(work.mods_row(:classification))
+          .to eq('<dt>Classification</dt><dd><p>PS3552.E1</p></dd>')
+      end
+    end
+
+    it 'renders the subject axes that had no row' do
+      aggregate_failures do
+        expect(work.mods_row(:genre_subjects))
+          .to eq('<dt>Subject genres</dt><dd><p>Field recordings</p></dd>')
+        expect(work.mods_row(:geographic_code_subjects))
+          .to eq('<dt>Geographic codes</dt><dd><p>n-us-ny</p></dd>')
+      end
+    end
+
+    # Composed by the gem through the same port as the main title, so the
+    # nonSort survives: "The Great Gatsby", not "Great Gatsby".
+    it 'renders a subject title with its non-sort article intact' do
+      expect(work.mods_row(:title_subjects))
+        .to eq('<dt>Subject titles</dt><dd><p>The Great Gatsby</p></dd>')
+    end
+
+    # Most specific first, the way a reader reads a place. The absent levels
+    # are skipped rather than emitting separators for them.
+    it 'reads a hierarchical place narrowest first, skipping the absent levels' do
+      expect(work.mods_row(:hierarchical_geographic_subjects))
+        .to eq('<dt>Places</dt><dd><p>Parksville, New York, United States</p></dd>')
+    end
+
+    # Describes the cataloguing rather than the resource, and sits on nearly
+    # every record. Where it renders is an open design question; that it does
+    # not sit beside Publisher is the decision recorded in NOT_DISPLAYED.
+    it 'keeps the cataloguing provenance out of the descriptive list' do
+      expect(work.mods_rows).not_to include('Northeastern University Libraries')
+    end
+  end
+
   # Collapsing every accessCondition under one label presented an access
   # restriction to a reader as a licence.
   describe 'access conditions render apart' do

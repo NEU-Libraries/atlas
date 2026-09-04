@@ -30,24 +30,34 @@ module WorkDecorator
     { field: :date_issued, render: :date_issued },
     { field: :copyright_date, render: :copyright_date },
     { field: :publication_information, label: 'Publisher' },
+    { field: :place_of_publication, label: 'Place of publication' },
     { field: :edition, label: 'Edition' },
+    { field: :issuance, label: 'Issuance', titleize: true },
+    { field: :frequency, label: 'Frequency' },
     { field: :resource_type, label: 'Resource type', titleize: true },
     { field: :genres, label: 'Genres' },
     { field: :format, label: 'Format', titleize: true },
     { field: :extent, label: 'Extent' },
     { field: :digital_origin, label: 'Digital origin', titleize: true },
+    { field: :reformatting_quality, label: 'Reformatting quality', titleize: true },
     { field: :abstract, render: :abstract },
+    { field: :table_of_contents, label: 'Contents' },
     { field: :notes, render: :notes },
     { field: :related_series, label: 'Series' },
     { field: :host_collections, label: 'Host collections' },
     { field: :related_items, render: :related_items },
     { field: :topical_subjects, label: 'Subjects and keywords' },
     { field: :geographic_subjects, label: 'Places' },
+    { field: :hierarchical_geographic_subjects, render: :hierarchical_geographic_subjects },
+    { field: :geographic_code_subjects, label: 'Geographic codes' },
     { field: :temporal_subjects, label: 'Time periods' },
     { field: :personal_name_subjects, label: 'People' },
     { field: :corporate_name_subjects, label: 'Organizations' },
+    { field: :genre_subjects, label: 'Subject genres' },
+    { field: :title_subjects, label: 'Subject titles' },
     { field: :map_data, render: :map_data },
     { field: :identifiers, render: :identifiers },
+    { field: :classification, label: 'Classification' },
     { field: :permanent_url, label: 'Permanent URL', link: true },
     { field: :location, render: :location },
     { field: :use_and_reproduction, label: 'Use and reproduction', link: true },
@@ -64,7 +74,15 @@ module WorkDecorator
   # The precisions choose the format, the end value and the qualifier are
   # composed into the date string, and the key-date flag chooses which date
   # sorts.
+  # record_info describes the CATALOGUING rather than the resource, and v1
+  # hardcoded it on every load, so it appears in 37 of the 41 MODS fixtures
+  # across the two repos. Five rows of identical text beside Publisher on every
+  # work page buy a reader nothing. Dropping a preservation repository's
+  # provenance statement is wrong too, so it is stored and projected; WHERE it
+  # renders -- a collapsed "About this record" block, or the audit history tab
+  # -- is an open design question, and this entry is where that is recorded.
   NOT_DISPLAYED = %i[
+    record_info
     date_created_precision date_created_end date_created_end_precision
     date_created_qualifier date_created_key_date
     date_issued_precision date_issued_end date_issued_end_precision
@@ -97,6 +115,12 @@ module WorkDecorator
   # labelled these "Creator", so this restores a convention rather than
   # inventing one; a role-less name merges with an explicit Creator group.
   NO_ROLE_LABEL = 'Creator'
+
+  # hierarchicalGeographic levels, broadest to narrowest. Reversed for display
+  # and read from the narrow end for the facet, so a record naming a city is
+  # browsed by its city rather than by its continent.
+  PLACE_LEVELS = %i[continent country province region state territory county
+                    island city city_section area].freeze
 
   def mods_rows
     safe_join(DISPLAY.map { |row| mods_row(row[:field]) })
@@ -132,6 +156,17 @@ module WorkDecorator
       entry.type.present? ? "#{entry.type.upcase}: #{entry.value}" : entry.value
     end
     loop_field('Identifiers', values)
+  end
+
+  # Most specific first, which is the MODS display convention and the order a
+  # reader reads a place in: "Parksville, New York, United States". The absent
+  # levels are skipped rather than emitting separators for them.
+  def hierarchical_geographic_subjects
+    values = Array(mods&.hierarchical_geographic_subjects).filter_map do |entry|
+      parts = PLACE_LEVELS.reverse.filter_map { |level| entry.public_send(level).presence }
+      parts.join(', ') if parts.any?
+    end
+    loop_field('Places', values)
   end
 
   def date_created = mods_date('Date created', :date_created)

@@ -1157,6 +1157,157 @@ components:
       required:
       - resource_id
       - versions
+    WorkMods:
+      type: object
+      properties:
+        work:
+          type: object
+          properties:
+            id:
+              type: string
+              description: NOID of the work
+            mods:
+              type: object
+              properties:
+                main_title:
+                  type: object
+                  nullable: true
+                alternative_title:
+                  type: array
+                  items:
+                    type: string
+                uniform_title:
+                  type: array
+                  items:
+                    type: string
+                translated_title:
+                  type: array
+                  items:
+                    type: string
+                abbreviated_title:
+                  type: array
+                  items:
+                    type: string
+                names:
+                  type: array
+                  items:
+                    type: object
+                languages:
+                  type: array
+                  items:
+                    type: string
+                abstract:
+                  type: string
+                  nullable: true
+                publication_information:
+                  type: array
+                  items:
+                    type: string
+                edition:
+                  type: array
+                  items:
+                    type: string
+                date_created:
+                  type: string
+                  format: date-time
+                  nullable: true
+                date_created_precision:
+                  type: string
+                  nullable: true
+                date_issued:
+                  type: string
+                  format: date-time
+                  nullable: true
+                date_issued_precision:
+                  type: string
+                  nullable: true
+                copyright_date:
+                  type: string
+                  format: date-time
+                  nullable: true
+                copyright_date_precision:
+                  type: string
+                  nullable: true
+                resource_type:
+                  type: array
+                  items:
+                    type: string
+                genres:
+                  type: array
+                  items:
+                    type: string
+                format:
+                  type: array
+                  items:
+                    type: string
+                extent:
+                  type: array
+                  items:
+                    type: string
+                digital_origin:
+                  type: array
+                  items:
+                    type: string
+                notes:
+                  type: array
+                  items:
+                    type: object
+                topical_subjects:
+                  type: array
+                  items:
+                    type: string
+                geographic_subjects:
+                  type: array
+                  items:
+                    type: string
+                temporal_subjects:
+                  type: array
+                  items:
+                    type: string
+                personal_name_subjects:
+                  type: array
+                  items:
+                    type: string
+                corporate_name_subjects:
+                  type: array
+                  items:
+                    type: string
+                map_data:
+                  type: array
+                  items:
+                    type: object
+                related_series:
+                  type: array
+                  items:
+                    type: string
+                host_collections:
+                  type: array
+                  items:
+                    type: string
+                related_items:
+                  type: array
+                  items:
+                    type: object
+                identifiers:
+                  type: array
+                  items:
+                    type: string
+                permanent_url:
+                  type: string
+                  nullable: true
+                location:
+                  type: array
+                  items:
+                    type: object
+                access_condition:
+                  type: string
+                  nullable: true
+                use_and_reproduction:
+                  type: string
+                  nullable: true
+                restriction_on_access:
+                  type: string
+                  nullable: true
     BlobVersions:
       type: object
       properties:
@@ -4575,7 +4726,14 @@ paths:
         the JSON projection.'
       responses:
         '200':
-          description: mods returned
+          description: mods returned as the JSON access copy
+          content:
+            application/xml:
+              schema:
+                "$ref": "#/components/schemas/WorkMods"
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/WorkMods"
   "/works/{id}/mets":
     parameters:
     - name: id

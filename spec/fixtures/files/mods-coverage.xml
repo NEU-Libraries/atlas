@@ -9,7 +9,9 @@
   </mods:name>
   <mods:originInfo>
     <mods:publisher>Northeastern University Press</mods:publisher>
-    <mods:dateIssued encoding="w3cdtf">2025-06-01</mods:dateIssued>
+    <mods:dateCreated encoding="w3cdtf" point="start" qualifier="approximate">1935-06</mods:dateCreated>
+    <mods:dateCreated encoding="w3cdtf" point="end" qualifier="approximate">1940</mods:dateCreated>
+    <mods:dateIssued encoding="w3cdtf" keyDate="yes">2025-06-01</mods:dateIssued>
     <mods:copyrightDate encoding="w3cdtf">2025</mods:copyrightDate>
     <mods:place><mods:placeTerm type="text">Boston</mods:placeTerm></mods:place>
     <mods:edition>2nd ed.</mods:edition>

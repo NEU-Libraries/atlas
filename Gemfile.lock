@@ -256,7 +256,7 @@ GEM
       timeout
     net-smtp (0.5.1)
       net-protocol
-    neu-mods (0.8.0)
+    neu-mods (0.9.0)
       nokogiri (>= 1.13)
     nio4r (2.7.5)
     noid (0.9.0)
@@ -512,7 +512,7 @@ DEPENDENCIES
   jbuilder
   marcel
   namae
-  neu-mods (>= 0.8.0)
+  neu-mods (>= 0.9.0)
   noid-rails
   pagy (= 6.0.4)
   pg (~> 1.1)

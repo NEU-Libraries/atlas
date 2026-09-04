@@ -380,23 +380,20 @@ RSpec.describe 'Works', type: :request do
     get 'Retrieve MODS metadata for a work' do
       tags 'Works'
       produces 'application/xml', 'application/json'
-      description 'Returns MODS XML by default; pass Accept: application/json for the JSON projection.'
+      description <<~DESC
+        Returns MODS XML by default; pass `Accept: application/json` for the
+        JSON access copy, whose body is the `WorkMods` schema.
+      DESC
+
+      # No `schema` here: rswag applies one schema to every media type an
+      # operation produces, so declaring it would document the XML body as
+      # JSON. spec/requests/works_mods_json_spec.rb validates the JSON body
+      # against the same registered WorkMods entry instead.
 
       response '200', 'mods returned' do
         let(:work) { WorkCreator.call(parent_id: collection.noid) }
         let(:id)   { work.noid }
         let(:Accept) { 'application/xml' }
-        run_test!
-      end
-
-      # The JSON projection had no schema, so its shape was contract-free and a
-      # field could appear or vanish with nothing to notice. ModsDocument is
-      # derived from the gem's registry, so this pins the whole field set.
-      response '200', 'mods returned as the JSON access copy' do
-        schema '$ref' => '#/components/schemas/WorkMods'
-        let(:work) { WorkCreator.call(parent_id: collection.noid) }
-        let(:id)   { work.noid }
-        let(:Accept) { 'application/json' }
         run_test!
       end
     end

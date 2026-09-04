@@ -4722,18 +4722,12 @@ paths:
       summary: Retrieve MODS metadata for a work
       tags:
       - Works
-      description: 'Returns MODS XML by default; pass Accept: application/json for
-        the JSON projection.'
+      description: |
+        Returns MODS XML by default; pass `Accept: application/json` for the
+        JSON access copy, whose body is the `WorkMods` schema.
       responses:
         '200':
-          description: mods returned as the JSON access copy
-          content:
-            application/xml:
-              schema:
-                "$ref": "#/components/schemas/WorkMods"
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/WorkMods"
+          description: mods returned
   "/works/{id}/mets":
     parameters:
     - name: id

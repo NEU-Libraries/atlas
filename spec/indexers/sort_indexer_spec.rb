@@ -175,6 +175,21 @@ RSpec.describe SortIndexer do
       expect(described_class.new(resource: resource).to_solr[:date_ssi])
         .not_to eq(Time.current.utc.strftime('%Y-%m-%dT%H:%M:%SZ'))
     end
+
+    # The fallback chain was specced against stubbed models while it could not
+    # run: neu-mods projected neither copyrightDate nor dateIssued, so every
+    # real record fell to the first field or to nothing. This asserts it from
+    # XML, over a record that carries the other two and no dateCreated.
+    it 'falls back from real MODS, not just from a stubbed access copy' do
+      xml = Rails.root.join('spec/fixtures/files/mods-coverage.xml').read
+      mods = Metadata::MODS.new.tap { |m| m.assign_attributes(NEU::MODS::Document.parse(xml).to_h) }
+      resource = Work.new.tap { |w| allow(w).to receive(:mods).and_return(mods) }
+
+      aggregate_failures do
+        expect(mods.date_created).to be_nil
+        expect(described_class.new(resource: resource).to_solr[:date_ssi]).to eq('2025-01-01T00:00:00Z')
+      end
+    end
   end
 
   describe '#to_solr' do

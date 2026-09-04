@@ -23,7 +23,7 @@ RSpec.describe CitationIndexer do
   def citation_fields_in_solr(resource)
     Atlas.index_adapter.connection.get(
       'select',
-      params: { q: %(id:"#{resource.id}"), fl: 'creator_ssim,keyword_ssim,pub_date_ssim' }
+      params: { q: %(id:"#{resource.id}"), fl: 'creator_ssim,pub_date_ssim' }
     ).dig('response', 'docs').first
   end
 
@@ -43,30 +43,31 @@ RSpec.describe CitationIndexer do
         .to contain_exactly('Lee, Wen-Han', 'Northeastern University. Libraries')
     end
 
-    it 'projects topical subjects onto keyword_ssim' do
-      resource = work_with_mods(topical_subjects: ['Civil society', 'First responders'])
-
-      expect(described_class.new(resource: resource).to_solr[:keyword_ssim])
-        .to contain_exactly('Civil society', 'First responders')
-    end
-
     it 'projects the publication year (single value, as a string) onto pub_date_ssim' do
       resource = work_with_mods(date_created: Time.zone.parse('2017-09-19'))
 
       expect(described_class.new(resource: resource).to_solr[:pub_date_ssim]).to eq('2017')
     end
 
-    it 'de-duplicates and drops blank creators and keywords' do
+    it 'de-duplicates and drops blank creators' do
       resource = work_with_mods(
-        names:            [{ name: 'Lee, Wen-Han', role: 'Creator' },
-                           { name: 'Lee, Wen-Han', role: 'Creator' },
-                           { name: '', role: 'Creator' }],
-        topical_subjects: ['Civil society', 'Civil society', '']
+        names: [{ name: 'Lee, Wen-Han', role: 'Creator' },
+                { name: 'Lee, Wen-Han', role: 'Creator' },
+                { name: '', role: 'Creator' }]
       )
 
+      expect(described_class.new(resource: resource).to_solr[:creator_ssim]).to eq(['Lee, Wen-Han'])
+    end
+
+    # Subjects moved to MODSIndexer, which writes them for every Modsable
+    # resource rather than Works alone. Asserted here so the move is not undone
+    # by someone re-adding the field where it used to live.
+    it 'leaves the subject field to MODSIndexer' do
+      resource = work_with_mods(topical_subjects: ['Civil society'])
+
       result = described_class.new(resource: resource).to_solr
-      expect(result[:creator_ssim]).to eq(['Lee, Wen-Han'])
-      expect(result[:keyword_ssim]).to eq(['Civil society'])
+      expect(result).not_to have_key(:keyword_ssim)
+      expect(result).not_to have_key(:subject_ssim)
     end
 
     it 'omits a field whose source is absent' do
@@ -74,7 +75,6 @@ RSpec.describe CitationIndexer do
 
       result = described_class.new(resource: resource).to_solr
       expect(result).to have_key(:creator_ssim)
-      expect(result).not_to have_key(:keyword_ssim)
       expect(result).not_to have_key(:pub_date_ssim)
     end
 
@@ -96,7 +96,6 @@ RSpec.describe CitationIndexer do
       # (Flynn) is excluded.
       expect(doc['creator_ssim'].size).to eq(2)
       expect(doc['creator_ssim'].join).not_to match(/Flynn/)
-      expect(doc['keyword_ssim']).to include('Civil society', 'First responders')
       expect(doc['pub_date_ssim']).to eq(['2017'])
     end
 
@@ -105,7 +104,6 @@ RSpec.describe CitationIndexer do
 
       doc = citation_fields_in_solr(work)
       expect(doc).not_to have_key('creator_ssim')
-      expect(doc).not_to have_key('keyword_ssim')
       expect(doc).not_to have_key('pub_date_ssim')
     end
   end

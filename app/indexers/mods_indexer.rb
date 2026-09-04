@@ -1,6 +1,64 @@
 # frozen_string_literal: true
 
 class MODSIndexer
+  # Projected MODS field => the Solr field it lands in. This mirrors
+  # WorkDecorator::DISPLAY: one declarative row per indexed field, so a field
+  # cannot be projected, stored, displayed and then silently absent from
+  # discovery. That is exactly what happened to `languages` -- extracted,
+  # rendered, and zero values in Solr across every document, so a language
+  # facet was impossible rather than merely unconfigured.
+  #
+  # The names follow what Cerberus's Blacklight config already declares, so
+  # repointing a facet is a config change there rather than a rename here.
+  SOLR_FIELDS = {
+    languages:               :language_ssim,
+    resource_type:           :resource_type_ssim,
+    topical_subjects:        :subject_ssim,
+    geographic_subjects:     :subject_geo_ssim,
+    temporal_subjects:       :subject_era_ssim,
+    personal_name_subjects:  :subject_person_ssim,
+    corporate_name_subjects: :subject_corporate_ssim,
+    publication_information: :publisher_ssim,
+    related_series:          :series_ssim,
+    host_collections:        :host_collection_ssim,
+    # Searchable, not facetable: a reader pastes a DOI into the search box.
+    # Faceting on an identifier would make one bucket per record.
+    identifiers:             :identifier_tesim
+  }.freeze
+
+  # Projected fields this indexer does not write, and why. Kept as a map rather
+  # than a list so "another indexer owns it" is distinguishable from "no
+  # discovery value" -- the two are different decisions, and only the second is
+  # one to revisit.
+  NOT_INDEXED = {
+    main_title:               'title_tsim / title_plain_tsim here, title_ssi in SortIndexer',
+    names:                    'creator_ssim in CitationIndexer, creator_ssi in SortIndexer',
+    abstract:                 'description_tsim here',
+    genres:                   'genre_ssim in GenreIndexer',
+    permanent_url:            'permanent_url_ssi here',
+    date_created:             'date_ssi in SortIndexer, pub_date_ssim in CitationIndexer',
+    date_issued:              'SortIndexer::DATE_FIELDS falls back through it into date_ssi',
+    copyright_date:           'SortIndexer::DATE_FIELDS falls back through it into date_ssi',
+    date_created_precision:   'chooses a display format; not a value a reader searches',
+    date_issued_precision:    'chooses a display format; not a value a reader searches',
+    copyright_date_precision: 'chooses a display format; not a value a reader searches',
+    alternative_title:        'no discovery value yet -- a variant-title search field is a separate call',
+    uniform_title:            'no discovery value yet -- a variant-title search field is a separate call',
+    translated_title:         'no discovery value yet -- a variant-title search field is a separate call',
+    abbreviated_title:        'no discovery value yet -- a variant-title search field is a separate call',
+    edition:                  'display only',
+    format:                   'display only',
+    extent:                   'display only',
+    digital_origin:           'display only',
+    notes:                    'display only; free text already reachable through full_text_tesimv',
+    map_data:                 'display only; coordinates need a spatial field, not a string one',
+    related_items:            'display only; the relationship types have no browse',
+    location:                 'display only; a shelf mark is not a search term',
+    access_condition:         'rights text is not a search term',
+    use_and_reproduction:     'rights text is not a search term',
+    restriction_on_access:    'rights text is not a search term'
+  }.freeze
+
   attr_reader :resource
 
   def initialize(resource:)
@@ -28,6 +86,7 @@ class MODSIndexer
       fields[:description_tsim] = decorated_resource.plain_description
       fields[:permanent_url_ssi] = decorated_resource.mods&.permanent_url
       add_match_title(fields, decorated_resource.plain_title)
+      add_descriptive_fields(fields)
     end
 
     fields
@@ -38,6 +97,20 @@ class MODSIndexer
   end
 
   private
+
+    # One Solr field per SOLR_FIELDS row. A field is written only when it has a
+    # value, so a sparse record does not carry empty facet entries; it appears
+    # the next time the resource is saved or reindexed, the same lifecycle
+    # genre_ssim has.
+    def add_descriptive_fields(fields)
+      mods = decorated_resource.mods
+      return if mods.nil?
+
+      SOLR_FIELDS.each do |field, solr_field|
+        values = Array(mods.public_send(field)).compact_blank.uniq
+        fields[solr_field] = values if values.any?
+      end
+    end
 
     # title_tsim is both the match field and the display field a result row
     # renders, so it keeps the record's <sub>/<sup> markup -- which makes Solr

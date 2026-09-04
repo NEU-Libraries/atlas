@@ -83,6 +83,89 @@ RSpec.describe MODSIndexer do
     end
   end
 
+  # A field can be projected, stored and displayed and still be absent from
+  # Solr, which is a third direction of drift that neither the attr_json
+  # derivation nor the display guard catches. `languages` was the proof: read
+  # from the record, rendered on the page, and zero values across every indexed
+  # document, so a language facet was impossible rather than unconfigured.
+  describe 'the descriptive fields discovery needs' do
+    def work_from_coverage_fixture
+      xml = Rails.root.join('spec/fixtures/files/mods-coverage.xml').read
+      mods = Metadata::MODS.new.tap { |m| m.assign_attributes(NEU::MODS::Document.parse(xml).to_h) }
+      Work.new.tap { |w| allow(w).to receive(:mods).and_return(mods) }
+    end
+
+    subject(:fields) { described_class.new(resource: work_from_coverage_fixture).to_solr }
+
+    it 'indexes the language, which nothing wrote before' do
+      expect(fields[:language_ssim]).to eq(['English'])
+    end
+
+    it 'indexes every subject axis under its own field' do
+      aggregate_failures do
+        expect(fields[:subject_ssim]).to eq(['Interpreting'])
+        expect(fields[:subject_geo_ssim]).to eq(['Boston (Mass.)'])
+        expect(fields[:subject_era_ssim]).to eq(['21st century'])
+        expect(fields[:subject_person_ssim]).to eq(['Smith, John'])
+      end
+    end
+
+    it 'indexes the provenance fields' do
+      aggregate_failures do
+        expect(fields[:publisher_ssim]).to eq(['Northeastern University Press'])
+        expect(fields[:series_ssim]).to eq(['A Series'])
+        expect(fields[:host_collection_ssim]).to eq(['A Host Collection'])
+      end
+    end
+
+    it 'indexes every value of a repeatable element, not just the first' do
+      expect(fields[:resource_type_ssim]).to eq(['text', 'still image'])
+    end
+
+    it 'indexes identifiers as text, so a pasted DOI matches' do
+      expect(fields[:identifier_tesim]).to eq(['10.17760/D20123456'])
+    end
+
+    it 'omits a field whose source is empty, so a sparse record carries no empty facets' do
+      sparse = described_class.new(resource: work_titled('Bare')).to_solr
+
+      aggregate_failures do
+        MODSIndexer::SOLR_FIELDS.each_value do |solr_field|
+          expect(sparse).not_to have_key(solr_field), "#{solr_field} was written for a bare record"
+        end
+      end
+    end
+
+    it 'de-duplicates and drops blank members' do
+      mods = Metadata::MODS.new(topical_subjects: ['Civil society', 'Civil society', ''])
+      resource = Work.new.tap { |w| allow(w).to receive(:mods).and_return(mods) }
+
+      expect(described_class.new(resource: resource).to_solr[:subject_ssim]).to eq(['Civil society'])
+    end
+  end
+
+  # The guard. Without it a field lands in the projection and no one notices it
+  # never reached discovery; that is how languages went unindexed for the life
+  # of the index.
+  describe 'index coverage' do
+    it 'accounts for every projected field, as indexed here or as an explicit omission' do
+      expect(NEU::MODS::FIELDS.keys - described_class::SOLR_FIELDS.keys - described_class::NOT_INDEXED.keys)
+        .to be_empty
+    end
+
+    it 'indexes nothing the gem does not project' do
+      expect(described_class::SOLR_FIELDS.keys - NEU::MODS::FIELDS.keys).to be_empty
+    end
+
+    it 'omits nothing it also indexes' do
+      expect(described_class::NOT_INDEXED.keys & described_class::SOLR_FIELDS.keys).to be_empty
+    end
+
+    it 'gives a reason for every omission, so the list stays a decision' do
+      expect(described_class::NOT_INDEXED.values.select(&:blank?)).to be_empty
+    end
+  end
+
   describe 'end-to-end through the composite indexer' do
     it 'lands the flag and its reason on the Work doc' do
       work.incomplete        = true
@@ -124,6 +207,43 @@ RSpec.describe MODSIndexer do
         'select', params: { q: 'title_plain_tsim:"Bi2Sr2CaCu2O8"', fl: 'id' }
       ).dig('response', 'docs')
       expect(hits.pluck('id')).to eq([work.id.to_s])
+    end
+
+    # The indexer spec alone cannot prove a field reaches the collection: it
+    # asserts the hash the indexer returns, not what Solr stored. This is the
+    # check that would have caught the language gap.
+    it 'lands the descriptive fields on the Work doc, where a facet can read them' do
+      Work.find(work.noid).mods_xml = Rails.root.join('spec/fixtures/files/mods-coverage.xml').read
+      Atlas.persister.save(resource: Work.find(work.noid))
+
+      doc = Atlas.index_adapter.connection.get(
+        'select',
+        params: { q:  %(id:"#{work.id}"),
+                  fl: 'language_ssim,subject_ssim,subject_geo_ssim,resource_type_ssim,publisher_ssim' }
+      ).dig('response', 'docs').first
+
+      aggregate_failures do
+        expect(doc['language_ssim']).to eq(['English'])
+        expect(doc['subject_ssim']).to eq(['Interpreting'])
+        expect(doc['subject_geo_ssim']).to eq(['Boston (Mass.)'])
+        expect(doc['resource_type_ssim']).to contain_exactly('text', 'still image')
+        expect(doc['publisher_ssim']).to eq(['Northeastern University Press'])
+      end
+    end
+
+    it 'makes the new fields facetable, which is the point of indexing them' do
+      Work.find(work.noid).mods_xml = Rails.root.join('spec/fixtures/files/mods-coverage.xml').read
+      Atlas.persister.save(resource: Work.find(work.noid))
+
+      facets = Atlas.index_adapter.connection.get(
+        'select',
+        params: { q: '*:*', rows: 0, facet: true, 'facet.field' => %w[language_ssim subject_geo_ssim] }
+      ).dig('facet_counts', 'facet_fields')
+
+      aggregate_failures do
+        expect(facets['language_ssim']).to include('English')
+        expect(facets['subject_geo_ssim']).to include('Boston (Mass.)')
+      end
     end
   end
 end

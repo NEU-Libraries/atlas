@@ -7,10 +7,11 @@ module OAI
   # Deliberately off the JSON copy and never off the XML. Reading MODS XML per
   # record would put a Nokogiri parse on an access endpoint, which this project
   # does not do; the JSON row exists precisely so a projection like this is a
-  # cheap read. Solr cannot supply it either — resource_type reaches no
-  # indexer, and only topical_subjects is projected (as keyword_ssim) — so the
-  # caller batches the rows with one Metadata::MODS.where(valkyrie_id: noids)
-  # per page.
+  # cheap read. Solr cannot supply it either: the index carries the fields
+  # discovery needs, not the fifteen this crosswalk wants, and reassembling a
+  # record from facet fields would be a second projection to keep in step. So
+  # the caller batches the rows with one Metadata::MODS.where(valkyrie_id:
+  # noids) per page.
   #
   # It is a minimum-viable projection. MODS is the format Boston Public
   # Library consumes; oai_dc exists because OAI-PMH requires every repository

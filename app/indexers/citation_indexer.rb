@@ -13,9 +13,14 @@
 # resource — no Nokogiri, same read-path discipline as GenreIndexer:
 #
 #   creator_ssim  <- creator-role names, display form (one citation_author each)
-#   keyword_ssim  <- topical subjects / keywords (keywords meta)
 #   pub_date_ssim <- publication year (citation_publication_date); single value,
 #                    reusing Cerberus's existing "Publication Year" facet field.
+#
+# The keywords meta reads subject_ssim, which MODSIndexer writes for every
+# Modsable resource rather than for Works alone. This indexer used to write the
+# same values as keyword_ssim; that name said "keyword" while carrying
+# topical_subjects, which are a wider set than the gem's #keywords, and having
+# two indexers write one concept meant either could drift.
 #
 # The field names are the contract the Cerberus consumer reads. Each projects
 # only when its source is present; empty hash for anything that isn't a Work and
@@ -39,7 +44,6 @@ class CitationIndexer
 
     fields = {}
     fields[:creator_ssim] = creators if creators.any?
-    fields[:keyword_ssim] = keywords if keywords.any?
     fields[:pub_date_ssim] = pub_year if pub_year
     fields
   end
@@ -54,10 +58,6 @@ class CitationIndexer
       @creators ||= Array(mods&.names)
                     .select { |n| n.role.to_s.casecmp?(CREATOR_ROLE) }
                     .map(&:name).compact_blank.uniq
-    end
-
-    def keywords
-      @keywords ||= Array(mods&.topical_subjects).compact_blank.uniq
     end
 
     def pub_year

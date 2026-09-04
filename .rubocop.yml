@@ -10,6 +10,8 @@ AllCops:
     # Template naturally long
     - 'app/lib/mods_builder.rb'
     - 'app/lib/mets_builder.rb'
+    # Vendored MARC relator table: 264 code/label pairs, data not logic.
+    - 'app/lib/marc_relators.rb'
 Lint/MissingSuper:
   Exclude:
     - 'app/services/**/*'
@@ -36,6 +38,11 @@ Metrics/ModuleLength:
     # Flat schema-definition map — length tracks the OpenAPI surface, not
     # logic worth decomposing.
     - 'spec/support/openapi_schemas.rb'
+    # Mostly the DISPLAY table: one declarative row per MODS field, so length
+    # tracks the MODS surface. Splitting the table off would put a field's row
+    # and its renderer in different files, which is the split that let fields
+    # go missing in the first place.
+    - 'app/decorators/work_decorator.rb'
 Metrics/AbcSize:
   Max: 30
   Exclude:

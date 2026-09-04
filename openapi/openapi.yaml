@@ -1214,6 +1214,19 @@ components:
                 date_created_precision:
                   type: string
                   nullable: true
+                date_created_end:
+                  type: string
+                  format: date-time
+                  nullable: true
+                date_created_end_precision:
+                  type: string
+                  nullable: true
+                date_created_qualifier:
+                  type: string
+                  nullable: true
+                date_created_key_date:
+                  type: boolean
+                  nullable: true
                 date_issued:
                   type: string
                   format: date-time
@@ -1221,12 +1234,38 @@ components:
                 date_issued_precision:
                   type: string
                   nullable: true
+                date_issued_end:
+                  type: string
+                  format: date-time
+                  nullable: true
+                date_issued_end_precision:
+                  type: string
+                  nullable: true
+                date_issued_qualifier:
+                  type: string
+                  nullable: true
+                date_issued_key_date:
+                  type: boolean
+                  nullable: true
                 copyright_date:
                   type: string
                   format: date-time
                   nullable: true
                 copyright_date_precision:
                   type: string
+                  nullable: true
+                copyright_date_end:
+                  type: string
+                  format: date-time
+                  nullable: true
+                copyright_date_end_precision:
+                  type: string
+                  nullable: true
+                copyright_date_qualifier:
+                  type: string
+                  nullable: true
+                copyright_date_key_date:
+                  type: boolean
                   nullable: true
                 resource_type:
                   type: array
@@ -1291,7 +1330,7 @@ components:
                 identifiers:
                   type: array
                   items:
-                    type: string
+                    type: object
                 permanent_url:
                   type: string
                   nullable: true

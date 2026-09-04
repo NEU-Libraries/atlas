@@ -710,12 +710,20 @@ module OpenapiSchemas
     notes:         %i[type value],
     location:      %i[physical_location shelf_location url],
     map_data:      %i[scale projection coordinates],
-    related_items: %i[type title]
+    related_items: %i[type title],
+    identifiers:   %i[type value]
   }.freeze
 
-  # The three originInfo dates serialise as timestamps. Their precision
-  # siblings are plain strings: "year", "month" or "day".
-  MODS_DATE_PROPS = %i[date_created date_issued copyright_date].freeze
+  # The originInfo dates serialise as timestamps, both ends of a range alike.
+  # Their precision and qualifier siblings are plain strings.
+  MODS_DATE_PROPS = %i[date_created date_created_end
+                       date_issued date_issued_end
+                       copyright_date copyright_date_end].freeze
+
+  # keyDate="yes" is the record nominating its own principal date, so it
+  # crosses the wire as a boolean rather than as the string "yes".
+  MODS_BOOLEAN_PROPS = %i[date_created_key_date date_issued_key_date
+                          copyright_date_key_date].freeze
 
   def mods_property(field, cardinality)
     member = mods_member(field)
@@ -732,6 +740,8 @@ module OpenapiSchemas
       { type: :object }
     elsif MODS_DATE_PROPS.include?(field)
       { type: :string, format: 'date-time' }
+    elsif MODS_BOOLEAN_PROPS.include?(field)
+      { type: :boolean }
     else
       { type: :string }
     end

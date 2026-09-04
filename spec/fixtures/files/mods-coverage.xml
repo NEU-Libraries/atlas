@@ -15,6 +15,8 @@
     <mods:copyrightDate encoding="w3cdtf">2025</mods:copyrightDate>
     <mods:place><mods:placeTerm type="text">Boston</mods:placeTerm></mods:place>
     <mods:edition>2nd ed.</mods:edition>
+    <mods:issuance>monographic</mods:issuance>
+    <mods:frequency authority="marcfrequency">Quarterly</mods:frequency>
   </mods:originInfo>
   <mods:language><mods:languageTerm type="code" authority="iso639-2b">eng</mods:languageTerm></mods:language>
   <mods:typeOfResource>text</mods:typeOfResource>
@@ -23,18 +25,41 @@
     <mods:form authority="marcform">electronic</mods:form>
     <mods:extent>1 online resource (24 pages)</mods:extent>
     <mods:digitalOrigin>born digital</mods:digitalOrigin>
+    <mods:reformattingQuality>preservation</mods:reformattingQuality>
   </mods:physicalDescription>
+  <mods:tableOfContents>Chapter 1 -- Chapter 2</mods:tableOfContents>
+  <mods:classification authority="lcc">PS3552.E1</mods:classification>
   <mods:note type="statement of responsibility">Prepared by the Working Group.</mods:note>
   <mods:note>A general note.</mods:note>
   <mods:subject><mods:topic>Interpreting</mods:topic></mods:subject>
   <mods:subject><mods:geographic>Boston (Mass.)</mods:geographic></mods:subject>
   <mods:subject><mods:temporal>21st century</mods:temporal></mods:subject>
   <mods:subject><mods:name type="personal"><mods:namePart>Smith, John</mods:namePart></mods:name></mods:subject>
+  <mods:subject><mods:genre>Field recordings</mods:genre></mods:subject>
+  <mods:subject><mods:geographicCode authority="marcgac">n-us-ny</mods:geographicCode></mods:subject>
+  <mods:subject>
+    <mods:titleInfo><mods:nonSort>The</mods:nonSort><mods:title>Great Gatsby</mods:title></mods:titleInfo>
+  </mods:subject>
+  <mods:subject>
+    <mods:hierarchicalGeographic>
+      <mods:country>United States</mods:country>
+      <mods:state>New York</mods:state>
+      <mods:city>Parksville</mods:city>
+    </mods:hierarchicalGeographic>
+  </mods:subject>
   <mods:relatedItem type="host"><mods:titleInfo><mods:title>A Host Collection</mods:title></mods:titleInfo></mods:relatedItem>
   <mods:relatedItem type="series"><mods:titleInfo><mods:title>A Series</mods:title></mods:titleInfo></mods:relatedItem>
   <mods:relatedItem type="otherFormat"><mods:titleInfo><mods:title>The Print Edition</mods:title></mods:titleInfo></mods:relatedItem>
   <mods:identifier type="doi">10.17760/D20123456</mods:identifier>
   <mods:location><mods:physicalLocation>Snell Library</mods:physicalLocation></mods:location>
+  <mods:recordInfo>
+    <mods:recordContentSource>Northeastern University Libraries</mods:recordContentSource>
+    <mods:recordOrigin>Created by a batch load</mods:recordOrigin>
+    <mods:descriptionStandard>rda</mods:descriptionStandard>
+    <mods:recordCreationDate encoding="w3cdtf">2025-01-15</mods:recordCreationDate>
+    <mods:recordChangeDate encoding="w3cdtf">2025-02-01</mods:recordChangeDate>
+    <mods:languageOfCataloging><mods:languageTerm type="text">English</mods:languageTerm></mods:languageOfCataloging>
+  </mods:recordInfo>
   <mods:accessCondition type="restriction on access">Northeastern University only.</mods:accessCondition>
   <mods:accessCondition type="use and reproduction">CC BY 4.0</mods:accessCondition>
 </mods:mods>

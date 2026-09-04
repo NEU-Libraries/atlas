@@ -14,31 +14,62 @@ class MODSIndexer
     # The four variant titles share one match-only field. They must not join
     # title_tsim: that is the heading a result row renders, so adding a variant
     # to it would change what a reader sees rather than what they can find.
-    alternative_title:       :title_variant_tesim,
-    uniform_title:           :title_variant_tesim,
-    translated_title:        :title_variant_tesim,
-    abbreviated_title:       :title_variant_tesim,
-    languages:               :language_ssim,
-    resource_type:           :resource_type_ssim,
-    topical_subjects:        :subject_ssim,
-    geographic_subjects:     :subject_geo_ssim,
-    temporal_subjects:       :subject_era_ssim,
-    personal_name_subjects:  :subject_person_ssim,
-    corporate_name_subjects: :subject_corporate_ssim,
-    publication_information: :publisher_ssim,
-    related_series:          :series_ssim,
-    host_collections:        :host_collection_ssim,
+    alternative_title:                :title_variant_tesim,
+    uniform_title:                    :title_variant_tesim,
+    translated_title:                 :title_variant_tesim,
+    abbreviated_title:                :title_variant_tesim,
+    languages:                        :language_ssim,
+    place_of_publication:             :place_ssim,
+
+    # A subject genre and a resource genre are the same vocabulary, so they
+    # share the facet a reader already browses.
+    genre_subjects:                   :genre_ssim,
+
+    # Joins the Places facet at its narrowest named level. bdr_43888.mods.xml
+    # uses this axis INSTEAD of subject/geographic, so without this row that
+    # record is browsable by no place at all.
+    hierarchical_geographic_subjects: :subject_geo_ssim,
+
+    # NOT classification_ssim. That field carries the FileSet content-type
+    # vocabulary (Image, Map, Musical Notation) and drives Cerberus's shipped
+    # Content facet; MODS classification is a call number, and mixing the two
+    # would corrupt a working facet. The name collision is accidental.
+    classification:                   :call_number_ssim,
+
+    # Searchable, not facetable: a subject title is a work, so faceting would
+    # make one bucket per record. Its own field rather than description_tsim,
+    # for the reason table_of_contents has one.
+    title_subjects:                   :subject_title_tesim,
+
+    # Its own field rather than folded into description_tsim. A chapter list is
+    # long and keyword-dense, so sharing the abstract's field would let it
+    # outrank real abstracts in relevance scoring.
+    table_of_contents:                :contents_tesim,
+
+    resource_type:                    :resource_type_ssim,
+    topical_subjects:                 :subject_ssim,
+    geographic_subjects:              :subject_geo_ssim,
+    temporal_subjects:                :subject_era_ssim,
+    personal_name_subjects:           :subject_person_ssim,
+    corporate_name_subjects:          :subject_corporate_ssim,
+    publication_information:          :publisher_ssim,
+    related_series:                   :series_ssim,
+    host_collections:                 :host_collection_ssim,
     # Searchable, not facetable: faceting on an identifier would make one
     # bucket per record. Being *searched* also needs the field in the request
     # handler's qf, which the blacklight-solr image owns -- indexing it here is
     # necessary and not sufficient.
-    identifiers:             :identifier_tesim
+    identifiers:                      :identifier_tesim
   }.freeze
 
   # Fields whose members are models rather than strings: the member attribute
   # that carries the indexable text. A DOI has to reach Solr as the digits a
   # reader pastes, not as the model's inspect output.
   SOLR_MEMBER_VALUES = { identifiers: :value }.freeze
+
+  # Fields whose members need composing rather than reading: the private method
+  # that turns one entry into the string Solr should hold.
+  SOLR_MEMBER_COMPOSERS = { hierarchical_geographic_subjects: :narrowest_place }.freeze
 
   # Projected fields this indexer does not write, and why. Kept as a map rather
   # than a list so "another indexer owns it" is distinguishable from "no
@@ -53,6 +84,11 @@ class MODSIndexer
     date_created:                 'date_ssi in SortIndexer, pub_date_ssim in CitationIndexer',
     date_issued:                  'SortIndexer::DATE_FIELDS falls back through it into date_ssi',
     copyright_date:               'SortIndexer::DATE_FIELDS falls back through it into date_ssi',
+    issuance:                     'a closed MODS vocabulary of six values; display only',
+    frequency:                    'serials only; no browse until the repository holds serials',
+    reformatting_quality:         'preservation metadata, not a term a reader searches',
+    geographic_code_subjects:     'a MARC GAC code is not a term a reader types; the place name is faceted already',
+    record_info:                  'cataloguing provenance; on nearly every record, so it has no discriminating power',
     date_created_precision:       'chooses a display format; not a value a reader searches',
     date_created_end:             'the far end of a range; a range sorts and facets on its start',
     date_created_end_precision:   'chooses a display format; not a value a reader searches',
@@ -122,6 +158,26 @@ class MODSIndexer
       add_descriptive_fields(fields)
     end
 
+    # One field's indexable strings. A member may be a model rather than a
+    # string, in which case it is either read (an identifier's value) or
+    # composed (a hierarchical place's narrowest level).
+    def solr_values(mods, field)
+      values = Array(mods.public_send(field))
+      member = SOLR_MEMBER_VALUES[field]
+      composer = SOLR_MEMBER_COMPOSERS[field]
+      values = values.map { |value| value.public_send(member) } if member
+      values = values.map { |value| send(composer, value) } if composer
+      values.compact_blank
+    end
+
+    # The narrowest level a hierarchical place names. A reader browsing Places
+    # wants Parksville, not United States -- and the broader levels are implied
+    # by the narrow one, so indexing all of them would bury the useful value
+    # under a continent every record shares.
+    def narrowest_place(entry)
+      WorkDecorator::PLACE_LEVELS.reverse.filter_map { |level| entry.public_send(level).presence }.first
+    end
+
     # One Solr field per SOLR_FIELDS row. A field is written only when it has a
     # value, so a sparse record does not carry empty facet entries; it appears
     # the next time the resource is saved or reindexed, the same lifecycle
@@ -131,14 +187,11 @@ class MODSIndexer
       return if mods.nil?
 
       SOLR_FIELDS.each do |field, solr_field|
-        values = Array(mods.public_send(field))
-        member = SOLR_MEMBER_VALUES[field]
-        values = values.map { |value| value.public_send(member) } if member
-        values = values.compact_blank
+        values = solr_values(mods, field)
         next if values.empty?
 
         # Accumulated, not assigned: several projected fields can share one
-        # Solr field, as the four variant titles do.
+        # Solr field, as the four variant titles and the two place axes do.
         fields[solr_field] = (fields.fetch(solr_field, []) + values).uniq
       end
     end

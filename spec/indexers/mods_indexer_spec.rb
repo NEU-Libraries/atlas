@@ -115,10 +115,34 @@ RSpec.describe MODSIndexer do
     it 'indexes every subject axis under its own field' do
       aggregate_failures do
         expect(fields[:subject_ssim]).to eq(['Interpreting'])
-        expect(fields[:subject_geo_ssim]).to eq(['Boston (Mass.)'])
+        expect(fields[:subject_geo_ssim]).to contain_exactly('Parksville', 'Boston (Mass.)')
         expect(fields[:subject_era_ssim]).to eq(['21st century'])
         expect(fields[:subject_person_ssim]).to eq(['Smith, John'])
       end
+    end
+
+    # bdr_43888.mods.xml uses this axis INSTEAD of subject/geographic, so
+    # without the join that record is browsable by no place at all.
+    it 'browses a hierarchical place at its narrowest level, in the Places facet' do
+      aggregate_failures do
+        expect(fields[:subject_geo_ssim]).to include('Parksville')
+        expect(fields[:subject_geo_ssim]).not_to include('United States', 'New York')
+      end
+    end
+
+    it 'indexes the remaining corpus fields discovery needs' do
+      aggregate_failures do
+        expect(fields[:place_ssim]).to eq(['Boston'])
+        expect(fields[:call_number_ssim]).to eq(['PS3552.E1'])
+        expect(fields[:subject_title_tesim]).to eq(['The Great Gatsby'])
+        expect(fields[:contents_tesim]).to eq(['Chapter 1 -- Chapter 2'])
+      end
+    end
+
+    # A subject genre and a resource genre are the same vocabulary, so they
+    # share the facet a reader already browses.
+    it 'folds a subject genre into the genre facet' do
+      expect(fields[:genre_ssim]).to include('Field recordings')
     end
 
     it 'indexes the provenance fields' do
@@ -268,7 +292,7 @@ RSpec.describe MODSIndexer do
       aggregate_failures do
         expect(doc['language_ssim']).to eq(['English'])
         expect(doc['subject_ssim']).to eq(['Interpreting'])
-        expect(doc['subject_geo_ssim']).to eq(['Boston (Mass.)'])
+        expect(doc['subject_geo_ssim']).to contain_exactly('Parksville', 'Boston (Mass.)')
         expect(doc['resource_type_ssim']).to contain_exactly('text', 'still image')
         expect(doc['publisher_ssim']).to eq(['Northeastern University Press'])
       end

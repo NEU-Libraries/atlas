@@ -46,6 +46,21 @@ RSpec.describe 'Work MODS JSON', type: :request do
     expect(errors).to be_empty
   end
 
+  # A Work built from the MODS template carries almost nothing, so the example
+  # above validates a body where most fields are null. This validates the
+  # coverage record, which carries every element the fields claim to support --
+  # without it, a wrongly typed object field passes for want of a value.
+  it 'matches the schema for a record that fills every field' do
+    work = WorkCreator.call(parent_id: collection.noid)
+    Work.find(work.noid).mods_xml = file_fixture('mods-coverage.xml').read
+
+    get "/works/#{work.noid}/mods", headers: { 'Accept' => 'application/json' }
+
+    expect(response).to have_http_status(:ok)
+    errors = JSON::Validator.fully_validate(json_schema(work_mods_schema), response.body)
+    expect(errors).to be_empty
+  end
+
   # The registry is the reason the schema cannot silently fall behind the
   # projection; this is the assertion that says so out loud.
   it 'documents every field the gem projects, and nothing it does not' do

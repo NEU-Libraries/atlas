@@ -711,7 +711,11 @@ module OpenapiSchemas
     location:      %i[physical_location shelf_location url],
     map_data:      %i[scale projection coordinates],
     related_items: %i[type title],
-    identifiers:   %i[type value]
+    identifiers:   %i[type value],
+    record_info:   %i[content_source origin description_standard creation_date
+                      change_date language_of_cataloging],
+    hierarchical_geographic_subjects: %i[continent country province region state
+                                         territory county city city_section island area]
   }.freeze
 
   # The originInfo dates serialise as timestamps, both ends of a range alike.

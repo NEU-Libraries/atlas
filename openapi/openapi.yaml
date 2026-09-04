@@ -1203,7 +1203,19 @@ components:
                   type: array
                   items:
                     type: string
+                place_of_publication:
+                  type: array
+                  items:
+                    type: string
                 edition:
+                  type: array
+                  items:
+                    type: string
+                issuance:
+                  type: array
+                  items:
+                    type: string
+                frequency:
                   type: array
                   items:
                     type: string
@@ -1287,10 +1299,18 @@ components:
                   type: array
                   items:
                     type: string
+                reformatting_quality:
+                  type: array
+                  items:
+                    type: string
                 notes:
                   type: array
                   items:
                     type: object
+                table_of_contents:
+                  type: array
+                  items:
+                    type: string
                 topical_subjects:
                   type: array
                   items:
@@ -1311,6 +1331,22 @@ components:
                   type: array
                   items:
                     type: string
+                genre_subjects:
+                  type: array
+                  items:
+                    type: string
+                geographic_code_subjects:
+                  type: array
+                  items:
+                    type: string
+                title_subjects:
+                  type: array
+                  items:
+                    type: string
+                hierarchical_geographic_subjects:
+                  type: array
+                  items:
+                    type: object
                 map_data:
                   type: array
                   items:
@@ -1331,8 +1367,15 @@ components:
                   type: array
                   items:
                     type: object
+                classification:
+                  type: array
+                  items:
+                    type: string
                 permanent_url:
                   type: string
+                  nullable: true
+                record_info:
+                  type: object
                   nullable: true
                 location:
                   type: array

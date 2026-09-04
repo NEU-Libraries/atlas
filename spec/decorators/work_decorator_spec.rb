@@ -46,6 +46,12 @@ RSpec.describe WorkDecorator do
                     date_created_precision: precision).mods_row(:date_created)
     end
 
+    def qualified_row(qualifier)
+      decorate_with(date_created:           Time.zone.parse('1935-01-01'),
+                    date_created_precision: 'year',
+                    date_created_qualifier: qualifier).mods_row(:date_created)
+    end
+
     it 'renders a day-precision date in full' do
       expect(date_row('day')).to eq('<dt>Date created</dt><dd>2026-02-20</dd>')
     end
@@ -63,6 +69,47 @@ RSpec.describe WorkDecorator do
         expect(date_row(nil)).to eq('<dt>Date created</dt><dd>2026-02-20</dd>')
         expect(date_row('century')).to eq('<dt>Date created</dt><dd>2026-02-20</dd>')
       end
+    end
+
+    # A cataloguer marked the date doubtful and the page stated it as fact.
+    # These are the conventions cataloguers already use, so they read as
+    # intended rather than as a rendering bug. A qualifier hidden in a title
+    # attribute leaves a reader with a bare date they take as certain.
+    it 'renders the qualifier into the date string, not into a tooltip' do
+      aggregate_failures do
+        expect(qualified_row('approximate')).to eq('<dt>Date created</dt><dd>circa 1935</dd>')
+        expect(qualified_row('inferred')).to eq('<dt>Date created</dt><dd>[1935]</dd>')
+        expect(qualified_row('questionable')).to eq('<dt>Date created</dt><dd>1935?</dd>')
+      end
+    end
+
+    it 'shows an unrecognised qualifier rather than dropping what the record said' do
+      expect(qualified_row('guessed')).to eq('<dt>Date created</dt><dd>1935 (guessed)</dd>')
+    end
+
+    it 'renders nothing extra when the record asserted certainty' do
+      expect(qualified_row(nil)).to eq('<dt>Date created</dt><dd>1935</dd>')
+    end
+
+    # A ranged record rendered as a single year, indistinguishable from one
+    # that claimed a single certain date.
+    it 'renders both ends of a range, each at its own precision' do
+      work = decorate_with(date_created:               Time.zone.parse('1935-06-01'),
+                           date_created_precision:     'month',
+                           date_created_end:           Time.zone.parse('1940-01-01'),
+                           date_created_end_precision: 'year')
+
+      expect(work.mods_row(:date_created)).to eq('<dt>Date created</dt><dd>1935-06-1940</dd>')
+    end
+
+    it 'wraps the whole range in the qualifier, not just its start' do
+      work = decorate_with(date_created:               Time.zone.parse('1935-01-01'),
+                           date_created_precision:     'year',
+                           date_created_end:           Time.zone.parse('1940-01-01'),
+                           date_created_end_precision: 'year',
+                           date_created_qualifier:     'approximate')
+
+      expect(work.mods_row(:date_created)).to eq('<dt>Date created</dt><dd>circa 1935-1940</dd>')
     end
 
     it 'formats the other two dates from their own precision' do
@@ -127,7 +174,7 @@ RSpec.describe WorkDecorator do
         expect(work.mods_row(:extent))
           .to eq('<dt>Extent</dt><dd><p>1 online resource (24 pages)</p></dd>')
         expect(work.mods_row(:identifiers))
-          .to eq('<dt>Identifiers</dt><dd><p>10.17760/D20123456</p></dd>')
+          .to eq('<dt>Identifiers</dt><dd><p>DOI: 10.17760/D20123456</p></dd>')
       end
     end
 
@@ -182,6 +229,56 @@ RSpec.describe WorkDecorator do
       mapped = decorate_with(map_data: [Metadata::Fields::MapData.new(coordinates: 'W 71 03 00')])
       expect(mapped.mods_row(:map_data))
         .to eq('<dt>Map data</dt><dd><p>Scale not given ; W 71 03 00</p></dd>')
+    end
+  end
+
+  # A reader shown a bare 10.1234/x cannot tell it is a DOI, and a display
+  # cannot decide to linkify it.
+  describe 'an identifier says what kind of identifier it is' do
+    def identified(*entries)
+      decorate_with(identifiers: entries.map { |e| Metadata::Fields::Identifier.new(**e) })
+        .mods_row(:identifiers)
+    end
+
+    it 'leads the value with its type, upcased because these are codes' do
+      expect(identified({ type: 'doi', value: '10.1234/x' }))
+        .to eq('<dt>Identifiers</dt><dd><p>DOI: 10.1234/x</p></dd>')
+    end
+
+    it 'renders an untyped identifier as the bare value' do
+      expect(identified({ type: nil, value: '2047/D1' }))
+        .to eq('<dt>Identifiers</dt><dd><p>2047/D1</p></dd>')
+    end
+
+    it 'renders each identifier on its own line' do
+      expect(identified({ type: 'doi', value: '10.1234/x' }, { type: 'COLID', value: 'bdr:1' }))
+        .to eq('<dt>Identifiers</dt><dd><p>DOI: 10.1234/x</p></dd><dd><p>COLID: bdr:1</p></dd>')
+    end
+  end
+
+  # "Doe, J., Department of Physics" is how a reader tells one J. Doe from
+  # another, and it is the basis of any future department browse.
+  describe 'a creator carries its affiliation' do
+    def named(*names)
+      decorate_with(names: names.map { |n| Metadata::Fields::Name.new(**n) }).mods_row(:names)
+    end
+
+    it 'attaches the affiliation to the name it belongs to' do
+      expect(named({ name: 'Doe, Jane', role: 'Creator',
+                     affiliation: ['Department of Physics', 'Northeastern University'] }))
+        .to eq('<dt>Creator</dt><dd><p>Doe, Jane — Department of Physics, Northeastern University</p></dd>')
+    end
+
+    # Two physicists in different departments still belong under one heading.
+    it 'does not let the affiliation become a grouping key' do
+      expect(named({ name: 'Doe, Jane', role: 'Creator', affiliation: ['Physics'] },
+                   { name: 'Roe, Ann', role: 'Creator', affiliation: ['Chemistry'] }))
+        .to eq('<dt>Creator</dt><dd><p>Doe, Jane — Physics</p></dd><dd><p>Roe, Ann — Chemistry</p></dd>')
+    end
+
+    it 'renders a bare name when there is no affiliation' do
+      expect(named({ name: 'Doe, Jane', role: 'Creator', affiliation: [] }))
+        .to eq('<dt>Creator</dt><dd><p>Doe, Jane</p></dd>')
     end
   end
 

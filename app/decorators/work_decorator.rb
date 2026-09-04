@@ -47,7 +47,7 @@ module WorkDecorator
     { field: :personal_name_subjects, label: 'People' },
     { field: :corporate_name_subjects, label: 'Organizations' },
     { field: :map_data, render: :map_data },
-    { field: :identifiers, label: 'Identifiers' },
+    { field: :identifiers, render: :identifiers },
     { field: :permanent_url, label: 'Permanent URL', link: true },
     { field: :location, render: :location },
     { field: :use_and_reproduction, label: 'Use and reproduction', link: true },
@@ -58,7 +58,20 @@ module WorkDecorator
   # Projected fields with no row of their own, listed so the coverage spec can
   # tell a deliberate omission from a forgotten one. The three precisions are
   # not values a reader wants; they choose the format of the date beside them.
-  NOT_DISPLAYED = %i[date_created_precision date_issued_precision copyright_date_precision].freeze
+  # Projected fields with no row of their own, listed so the coverage spec can
+  # tell a deliberate omission from a forgotten one. None of these is a value a
+  # reader wants on its own: each one changes how the date beside it renders.
+  # The precisions choose the format, the end value and the qualifier are
+  # composed into the date string, and the key-date flag chooses which date
+  # sorts.
+  NOT_DISPLAYED = %i[
+    date_created_precision date_created_end date_created_end_precision
+    date_created_qualifier date_created_key_date
+    date_issued_precision date_issued_end date_issued_end_precision
+    date_issued_qualifier date_issued_key_date
+    copyright_date_precision copyright_date_end copyright_date_end_precision
+    copyright_date_qualifier copyright_date_key_date
+  ].freeze
 
   # A date renders only as finely as the record declared it. A year-only date
   # parses to 1 January, so a hardcoded '%Y-%m-%d' would print a month and a day
@@ -66,6 +79,17 @@ module WorkDecorator
   # unrecognised precision keeps the full-date format, so a record stored before
   # the gem carried precision renders exactly as it used to.
   DATE_FORMATS = { 'year' => '%Y', 'month' => '%Y-%m', 'day' => '%Y-%m-%d' }.freeze
+
+  # A qualifier changes the string a reader sees, not a tooltip. These are the
+  # conventions cataloguers already use, so they read as intended rather than
+  # as a rendering bug. Hiding the doubt in a title attribute leaves a reader
+  # scanning the page with a bare date they take as certain, and a screen
+  # reader may not announce it at all.
+  DATE_QUALIFIERS = {
+    'approximate'  => ->(rendered) { "circa #{rendered}" },
+    'inferred'     => ->(rendered) { "[#{rendered}]" },
+    'questionable' => ->(rendered) { "#{rendered}?" }
+  }.freeze
 
   # The label for a name that declares no role. MODS makes mods:role optional,
   # and a nil label rendered an empty <dt>, so the name read as a value of the
@@ -92,9 +116,22 @@ module WorkDecorator
     return '' if mods&.names.blank?
 
     grouped = mods.names.each_with_object({}) do |pn, hsh|
-      (hsh[MarcRelators.label(pn.role) || NO_ROLE_LABEL] ||= []) << pn.name
+      (hsh[MarcRelators.label(pn.role) || NO_ROLE_LABEL] ||= []) << name_with_affiliation(pn)
     end
     safe_join(grouped.map { |label, values| loop_field(label, values) })
+  end
+
+  # The type leads the value, because a DOI and a local accession number are
+  # not the same kind of thing and a reader cannot tell them apart from the
+  # digits. Upcased rather than titleized: these are codes, so "DOI" reads
+  # right where "Doi" does not.
+  def identifiers
+    values = Array(mods&.identifiers).filter_map do |entry|
+      next if entry.value.blank?
+
+      entry.type.present? ? "#{entry.type.upcase}: #{entry.value}" : entry.value
+    end
+    loop_field('Identifiers', values)
   end
 
   def date_created = mods_date('Date created', :date_created)
@@ -172,11 +209,44 @@ module WorkDecorator
       value.is_a?(Array) ? value.map(&:titleize) : value&.titleize
     end
 
+    # A date renders everything the record declared about it: the value at its
+    # own granularity, the other end of a range at the end's own granularity,
+    # and the qualifier around the whole thing. "circa 1935-1940" is honest
+    # where "1935" and "1935-1940" both are not.
     def mods_date(label, attribute)
       value = mods&.public_send(attribute)
       return field(label, nil) if value.blank?
 
-      precision = mods.public_send(:"#{attribute}_precision")
-      field(label, value.strftime(DATE_FORMATS.fetch(precision, '%Y-%m-%d')))
+      rendered = [formatted_date(value, part(attribute, 'precision')),
+                  formatted_date(part(attribute, 'end'), part(attribute, 'end_precision'))]
+                 .compact_blank.join('-')
+      field(label, qualified(rendered, part(attribute, 'qualifier')))
+    end
+
+    def part(attribute, name) = mods.public_send(:"#{attribute}_#{name}")
+
+    def formatted_date(value, precision)
+      return nil if value.blank?
+
+      value.strftime(DATE_FORMATS.fetch(precision, '%Y-%m-%d'))
+    end
+
+    # An unrecognised qualifier is shown rather than dropped, the rule the gem
+    # applies to an unknown language code: the record still said something.
+    def qualified(rendered, qualifier)
+      return rendered if qualifier.blank?
+
+      formatter = DATE_QUALIFIERS[qualifier]
+      formatter ? formatter.call(rendered) : "#{rendered} (#{qualifier})"
+    end
+
+    # The affiliation attaches to the name it belongs to and never becomes a
+    # grouping key: two physicists in different departments still belong under
+    # one Creator heading.
+    def name_with_affiliation(entry)
+      affiliation = Array(entry.affiliation).compact_blank
+      return entry.name if affiliation.empty?
+
+      "#{entry.name} — #{affiliation.join(', ')}"
     end
 end

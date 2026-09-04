@@ -19,6 +19,17 @@ RSpec.describe MODSIndexer do
     ).dig('response', 'docs').first
   end
 
+  # The default keyword search a reader gets from the search box: no defType
+  # and no qf, so the request handler's own defaults decide, exactly as they do
+  # for a real query. Pass fields: to narrow the qf, which is how the control case
+  # below proves a match came from the qf entry and not from somewhere else.
+  def keyword_search(query, fields: nil)
+    params = { q: query, fl: 'id' }
+    params[:qf] = fields if fields
+    Atlas.index_adapter.connection.get('select', params: params)
+         .dig('response', 'docs').pluck('id')
+  end
+
   def title_fields_in_solr(resource)
     Atlas.index_adapter.connection.get(
       'select', params: { q: %(id:"#{resource.id}"), fl: 'title_tsim,title_plain_tsim' }
@@ -257,6 +268,26 @@ RSpec.describe MODSIndexer do
         expect(doc['subject_geo_ssim']).to eq(['Boston (Mass.)'])
         expect(doc['resource_type_ssim']).to contain_exactly('text', 'still image')
         expect(doc['publisher_ssim']).to eq(['Northeastern University Press'])
+      end
+    end
+
+    # Indexing a text field does not make it searched: the keyword handler only
+    # matches what its qf names, and that lives in the blacklight-solr image.
+    # These two queries are the only proof that the pair actually works, and
+    # they fail if the image drifts from the fields written here.
+    it 'answers the query a reader types, for a variant title and a pasted identifier' do
+      Work.find(work.noid).mods_xml = Rails.root.join('spec/fixtures/files/mods-coverage.xml').read
+      Atlas.persister.save(resource: Work.find(work.noid))
+
+      aggregate_failures do
+        expect(keyword_search('"An Alternative Title"')).to eq([work.id.to_s])
+        expect(keyword_search('"10.17760/D20123456"')).to eq([work.id.to_s])
+
+        # The control. The schema copies every *_tesim field into a catch-all,
+        # so without this the two assertions above could pass while qf named
+        # neither field. Restricted to the primary title, both find nothing.
+        expect(keyword_search('"An Alternative Title"', fields: 'title_tsim')).to be_empty
+        expect(keyword_search('"10.17760/D20123456"', fields: 'title_tsim')).to be_empty
       end
     end
 

@@ -47,7 +47,7 @@ gem 'enumerations'
 gem 'hamlit'
 gem 'marcel'
 gem 'namae'
-gem 'neu-mods', '>= 0.7.1'
+gem 'neu-mods', '>= 0.8.0'
 gem 'noid-rails'
 gem 'pagy', '= 6.0.4' # TODO: port LazyPagination to the pagy 9+/43 API
 gem 'rack-cors'

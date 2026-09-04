@@ -388,6 +388,17 @@ RSpec.describe 'Works', type: :request do
         let(:Accept) { 'application/xml' }
         run_test!
       end
+
+      # The JSON projection had no schema, so its shape was contract-free and a
+      # field could appear or vanish with nothing to notice. ModsDocument is
+      # derived from the gem's registry, so this pins the whole field set.
+      response '200', 'mods returned as the JSON access copy' do
+        schema '$ref' => '#/components/schemas/WorkMods'
+        let(:work) { WorkCreator.call(parent_id: collection.noid) }
+        let(:id)   { work.noid }
+        let(:Accept) { 'application/json' }
+        run_test!
+      end
     end
   end
 

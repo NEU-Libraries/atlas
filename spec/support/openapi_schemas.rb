@@ -39,6 +39,7 @@ module OpenapiSchemas
       ResourceRef:        resource_ref,
       ResourceDigests:    resource_digests,
       ModsVersions:       mods_versions,
+      WorkMods:           work_mods,
       BlobVersions:       blob_versions,
       BlobVersionsBatch:  blob_versions_batch,
       BlobAncestry:       blob_ancestry,
@@ -668,6 +669,72 @@ module OpenapiSchemas
       },
       required:   %w[resource_id versions]
     }
+  end
+
+  # GET /{resource}/{id}/mods with Accept: application/json — the JSON access
+  # copy of a resource's descriptive metadata. The preservation copy is the
+  # MODS XML; this is the fast read over it.
+  #
+  # Derived from the gem's field registry rather than restated, for the same
+  # reason Metadata::MODS derives its attr_json set: a second hand-kept list of
+  # the field names is what let fields drift out of a reader's sight. A new
+  # field in neu-mods appears here with no edit, and the response body and this
+  # schema cannot disagree about which fields exist.
+  def work_mods
+    {
+      type:       :object,
+      properties: {
+        work: {
+          type:       :object,
+          properties: {
+            id:   { type: :string, description: 'NOID of the work' },
+            mods: mods_document
+          }
+        }
+      }
+    }
+  end
+
+  def mods_document
+    {
+      type:       :object,
+      properties: NEU::MODS::FIELDS.to_h { |field, cardinality| [field, mods_property(field, cardinality)] }
+    }
+  end
+
+  # MODS fields whose members are objects rather than strings; everything else
+  # is a string, singular or an array according to its registry cardinality.
+  MODS_OBJECT_PROPS = {
+    main_title:    %i[title subtitle part_number part_name non_sort],
+    names:         %i[name role],
+    notes:         %i[type value],
+    location:      %i[physical_location shelf_location url],
+    map_data:      %i[scale projection coordinates],
+    related_items: %i[type title]
+  }.freeze
+
+  # The three originInfo dates serialise as timestamps. Their precision
+  # siblings are plain strings: "year", "month" or "day".
+  MODS_DATE_PROPS = %i[date_created date_issued copyright_date].freeze
+
+  def mods_property(field, cardinality)
+    member = mods_member(field)
+    cardinality == :many ? { type: :array, items: member } : member.merge(nullable: true)
+  end
+
+  def mods_member(field)
+    if MODS_OBJECT_PROPS.key?(field)
+      # The member keys are documented in MODS_OBJECT_PROPS but not enumerated
+      # here: attr_json stores only the keys a value actually set, so a name
+      # with no role serialises without the key at all, and strict validation
+      # would demand every part of every member. The field set above is the
+      # contract that matters -- it is the one that drifts.
+      { type: :object }
+    elsif MODS_DATE_PROPS.include?(field)
+      { type: :string, format: 'date-time' }
+    else
+      { type: :string }
+    end
   end
 
   # GET /files/:id/versions — binary version-history envelope. The counterpart

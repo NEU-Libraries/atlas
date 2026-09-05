@@ -3959,6 +3959,26 @@ paths:
       summary: Permission flags for a resource
       tags:
       - Resources
+      description: |
+        The resource's own ACL envelope, gated on the caller's `:read` right
+        over that resource rather than on the class — the envelope names the
+        Grouper groups and the depositor's NUID, so handing it to a caller who
+        may not read the resource would disclose the rights of something they
+        cannot see.
+
+        A caller refused the read gets **403** with the `{ error, action,
+        subject }` ability envelope; an id that resolves to nothing gets
+        **404**. The two are distinct at the wire, and a client is expected to
+        keep them distinct: "may not see it" is a sign-in prompt, "is not
+        there" is a dead link.
+      security:
+      - BearerAuth: []
+      parameters:
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          type: string
       responses:
         '200':
           description: permissions returned
@@ -3966,6 +3986,10 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Permissions"
+        '403':
+          description: caller may not read the resource
+        '404':
+          description: unknown id
   "/resources/{id}/mods":
     parameters:
     - name: id

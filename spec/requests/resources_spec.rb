@@ -38,6 +38,25 @@ RSpec.describe 'Resources', type: :request do
     get 'Permission flags for a resource' do
       tags 'Resources'
       produces 'application/json'
+      description <<~DESC
+        The resource's own ACL envelope, gated on the caller's `:read` right
+        over that resource rather than on the class — the envelope names the
+        Grouper groups and the depositor's NUID, so handing it to a caller who
+        may not read the resource would disclose the rights of something they
+        cannot see.
+
+        A caller refused the read gets **403** with the `{ error, action,
+        subject }` ability envelope; an id that resolves to nothing gets
+        **404**. The two are distinct at the wire, and a client is expected to
+        keep them distinct: "may not see it" is a sign-in prompt, "is not
+        there" is a dead link.
+      DESC
+      security [{ BearerAuth: [] }]
+      parameter name: :Authorization, in: :header, type: :string, required: false
+      # Declaring the header makes it a required `let` for every example here,
+      # and an rswag-sent value wins over the suite default — so restate the
+      # default admin assertion and let the 403 example override it.
+      let(:Authorization) { "Bearer #{DefaultAuthHeaders.admin_assertion}" }
 
       # Wire contract: a resource with no embargo reports null, even though the
       # attribute itself may be holding the setter's '' — clients read one shape
@@ -48,6 +67,25 @@ RSpec.describe 'Resources', type: :request do
         run_test! do |response|
           expect(response.parsed_body.dig('resource', 'embargo')).to be_nil
         end
+      end
+
+      response '403', 'caller may not read the resource' do
+        let!(:outsider) do
+          User.create!(email: 'outsider@example.edu', password: SecureRandom.hex(16),
+                       nuid: '009999998', name: 'Student, Sam', role: :standard)
+        end
+        let(:id) { work.noid }
+        # A real authenticated principal holding no grant on this tree: the
+        # fixture Community is born private and WorkCreator copies that down.
+        let(:Authorization) { "Bearer #{DefaultAuthHeaders.assertion_for('009999998')}" }
+        run_test! do |response|
+          expect(response.parsed_body['action']).to eq('read')
+        end
+      end
+
+      response '404', 'unknown id' do
+        let(:id) { 'does-not-exist' }
+        run_test!
       end
     end
   end

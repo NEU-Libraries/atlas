@@ -11,6 +11,10 @@ RSpec.describe OAI::DublinCore do
     Metadata::Fields::Name.new(name: value, role: role)
   end
 
+  def identifier(type, value)
+    Metadata::Fields::Identifier.new(type: type, value: value)
+  end
+
   it 'assembles the primary title from its parts' do
     record = mods(main_title: Metadata::Fields::TitleInfo.new(
       non_sort: 'The', title: 'Long Road', subtitle: 'a study', part_number: 'Volume 2'
@@ -86,6 +90,44 @@ RSpec.describe OAI::DublinCore do
 
   it 'falls back to date_created' do
     expect(described_class.call(mods(date_created: Time.utc(2019, 1, 1)))[:date]).to eq(['2019-01-01'])
+  end
+
+  # DCMI names the slash interval for dc:date, and the display side already
+  # renders the span; shipping the start alone asserts a single date the record
+  # never claimed.
+  it 'ships a date range as an ISO 8601 interval' do
+    record = mods(date_created: Time.utc(1935, 1, 1), date_created_end: Time.utc(1940, 12, 31))
+
+    expect(described_class.call(record)[:date]).to eq(['1935-01-01/1940-12-31'])
+  end
+
+  it 'prefers the issued range over the created range' do
+    record = mods(date_issued: Time.utc(2020, 5, 4), date_issued_end: Time.utc(2021, 6, 5),
+                  date_created: Time.utc(1935, 1, 1), date_created_end: Time.utc(1940, 12, 31))
+
+    expect(described_class.call(record)[:date]).to eq(['2020-05-04/2021-06-05'])
+  end
+
+  it 'emits no date at all when the record carries neither' do
+    expect(described_class.call(mods(abstract: 'A summary'))).not_to have_key(:date)
+  end
+
+  # dc:identifier repeats, so a citable DOI rides beside the handle. A local
+  # accession number resolves nowhere outside the repository that minted it, so
+  # a harvester could only discard it.
+  it 'emits a DOI beside the handle and leaves local accession numbers out' do
+    ids = [identifier('doi', '10.17760/D20123456'), identifier('COLID', 'neu:123'),
+           identifier('BDR_METSID', 'bdr:43888')]
+    record = mods(permanent_url: 'https://hdl.handle.net/2047/abc', identifiers: ids)
+
+    expect(described_class.call(record)[:identifier])
+      .to eq(['https://hdl.handle.net/2047/abc', '10.17760/D20123456'])
+  end
+
+  it 'matches the DOI type regardless of case' do
+    record = mods(identifiers: [identifier('DOI', '10.17760/D20123456')])
+
+    expect(described_class.call(record)[:identifier]).to eq(['10.17760/D20123456'])
   end
 
   it 'maps the remaining simple fields' do

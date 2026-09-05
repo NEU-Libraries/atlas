@@ -106,10 +106,20 @@ module OAI
       end
 
       # Publication date first, falling back to creation. Day precision: the
-      # underlying column is a datetime, but a DC consumer wants a date.
+      # underlying column is a datetime, but a DC consumer wants a date. A
+      # ranged record ships the whole span as the ISO 8601 interval 1935/1940,
+      # the form DCMI names for dc:date; emitting the start alone would assert a
+      # single date the record never claimed. The qualifier is dropped on
+      # purpose, because simple Dublin Core cannot say "approximate".
       def date
-        [(mods&.date_issued || mods&.date_created)&.to_date&.iso8601]
+        start, finish = mods&.date_issued.present? ? issued_range : created_range
+        return [] if start.blank?
+
+        [[start, finish].compact_blank.map { |value| value.to_date.iso8601 }.join('/')]
       end
+
+      def issued_range  = [mods.date_issued, mods.date_issued_end]
+      def created_range = [mods&.date_created, mods&.date_created_end]
 
       # typeOfResource repeats in MODS, so this is already a list. Wrapping it
       # in another array would ship a stringified array into dc:type.
@@ -121,8 +131,17 @@ module OAI
         Array(mods&.languages)
       end
 
+      # dc:identifier repeats, so a DOI ships beside the handle: both are
+      # citable and both resolve for anyone who harvests them. The local
+      # accession types -- COLID, BDR_METSID -- stay out, because they resolve
+      # nowhere outside the repository that minted them and a harvester can only
+      # discard them.
       def identifier
-        [mods&.permanent_url]
+        [mods&.permanent_url, *dois]
+      end
+
+      def dois
+        Array(mods&.identifiers).filter_map { |entry| entry.value if entry.type&.casecmp?('doi') }
       end
 
       def rights

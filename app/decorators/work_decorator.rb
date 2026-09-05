@@ -34,7 +34,6 @@ module WorkDecorator
     { field: :edition, label: 'Edition' },
     { field: :issuance, label: 'Issuance', titleize: true },
     { field: :frequency, label: 'Frequency' },
-    { field: :resource_type, label: 'Resource type', titleize: true },
     { field: :genres, label: 'Genres' },
     { field: :format, label: 'Format', titleize: true },
     { field: :extent, label: 'Extent' },
@@ -57,7 +56,7 @@ module WorkDecorator
     { field: :title_subjects, label: 'Subject titles' },
     { field: :map_data, render: :map_data },
     { field: :identifiers, render: :identifiers },
-    { field: :classification, label: 'Classification' },
+    { field: :classification, label: 'Photo category' },
     { field: :permanent_url, label: 'Permanent URL', link: true },
     { field: :location, render: :location },
     { field: :use_and_reproduction, label: 'Use and reproduction', link: true },
@@ -66,22 +65,27 @@ module WorkDecorator
   ].freeze
 
   # Projected fields with no row of their own, listed so the coverage spec can
-  # tell a deliberate omission from a forgotten one. The three precisions are
-  # not values a reader wants; they choose the format of the date beside them.
-  # Projected fields with no row of their own, listed so the coverage spec can
-  # tell a deliberate omission from a forgotten one. None of these is a value a
-  # reader wants on its own: each one changes how the date beside it renders.
-  # The precisions choose the format, the end value and the qualifier are
-  # composed into the date string, and the key-date flag chooses which date
-  # sorts.
+  # tell a deliberate omission from a forgotten one.
+  #
+  # None of the date parts is a value a reader wants on its own: the precisions
+  # choose the format, the end value and the qualifier are composed into the
+  # date string, and the key-date flag chooses which date sorts.
+  #
   # record_info is cataloguing and preservation provenance rather than a
   # description of the resource, so it renders nowhere: v1 hardcoded it on every
   # load, and five rows of identical text beside Publisher buy a reader nothing.
   # It is still projected onto the access copy rather than left in the
   # preservation XML alone, so the API and the OAI crosswalk can read that
   # provenance without a Nokogiri parse on a read path.
+  #
+  # resource_type is a closed vocabulary of about ten values that tells a reader
+  # what they can already see: a photograph's record says "still image", and the
+  # Content facet answers the same question in the words a reader uses. It stays
+  # projected and indexed, because dc:type wants exactly this controlled
+  # vocabulary and a harvester has no picture in front of it.
   NOT_DISPLAYED = %i[
     record_info
+    resource_type
     date_created_precision date_created_end date_created_end_precision
     date_created_qualifier date_created_key_date
     date_issued_precision date_issued_end date_issued_end_precision

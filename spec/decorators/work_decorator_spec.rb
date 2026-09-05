@@ -163,9 +163,12 @@ RSpec.describe WorkDecorator do
   describe 'the rows that carry a repeatable element' do
     subject(:work) { from_fixture }
 
-    it 'renders every typeOfResource, not just the first' do
-      expect(work.mods_row(:resource_type))
-        .to eq('<dt>Resource type</dt><dd><p>Text</p></dd><dd><p>Still Image</p></dd>')
+    # A :many field renders one <dd> per value. Built inline because the
+    # coverage fixture carries no plain repeatable row with two values.
+    it 'renders every value of a repeatable element, not just the first' do
+      row = decorate_with(languages: %w[English French]).mods_row(:languages)
+
+      expect(row).to eq('<dt>Languages</dt><dd><p>English</p></dd><dd><p>French</p></dd>')
     end
 
     it 'renders the three fields that were stored and never displayed' do
@@ -298,7 +301,7 @@ RSpec.describe WorkDecorator do
         expect(work.mods_row(:table_of_contents))
           .to eq('<dt>Contents</dt><dd><p>Chapter 1 -- Chapter 2</p></dd>')
         expect(work.mods_row(:classification))
-          .to eq('<dt>Classification</dt><dd><p>PS3552.E1</p></dd>')
+          .to eq('<dt>Photo category</dt><dd><p>PS3552.E1</p></dd>')
       end
     end
 
@@ -325,11 +328,21 @@ RSpec.describe WorkDecorator do
         .to eq('<dt>Places</dt><dd><p>Parksville, New York, United States</p></dd>')
     end
 
-    # Describes the cataloguing rather than the resource, and sits on nearly
-    # every record. Where it renders is an open design question; that it does
-    # not sit beside Publisher is the decision recorded in NOT_DISPLAYED.
+    # Cataloguing provenance rather than description, so it renders nowhere.
+    # It stays projected onto the access copy for the API and the OAI
+    # crosswalk; NOT_DISPLAYED records that split.
     it 'keeps the cataloguing provenance out of the descriptive list' do
       expect(work.mods_rows).not_to include('Northeastern University Libraries')
+    end
+
+    # typeOfResource says "still image" where the Content facet says "Image",
+    # and a reader looking at a photograph needs neither. The value stays
+    # indexed and stays in dc:type, where a harvester wants the vocabulary.
+    it 'keeps the resource type out of the descriptive list' do
+      aggregate_failures do
+        expect(work.mods_row(:resource_type)).to eq('')
+        expect(work.mods_rows).not_to include('Resource type')
+      end
     end
   end
 

@@ -133,10 +133,22 @@ RSpec.describe MODSIndexer do
     it 'indexes the remaining corpus fields discovery needs' do
       aggregate_failures do
         expect(fields[:place_ssim]).to eq(['Boston'])
-        expect(fields[:call_number_ssim]).to eq(['PS3552.E1'])
+        expect(fields[:photo_category_ssim]).to eq(['PS3552.E1'])
         expect(fields[:subject_title_tesim]).to eq(['The Great Gatsby'])
         expect(fields[:contents_tesim]).to eq(['Chapter 1 -- Chapter 2'])
       end
+    end
+
+    # The fixture's classification is a genuine LC call number, which the
+    # migrated corpus does carry, but the field is named for the value DRS
+    # writes on every photo ingest: an IPTC category mapped through Cerberus's
+    # CATEGORY_LABELS.
+    it 'indexes an IPTC photo category under the field named for it' do
+      mods = Metadata::MODS.new(classification: ['community outreach'])
+      work = Work.new.tap { |w| allow(w).to receive(:mods).and_return(mods) }
+
+      expect(described_class.new(resource: work).to_solr[:photo_category_ssim])
+        .to eq(['community outreach'])
     end
 
     # A subject genre and a resource genre are the same vocabulary, so they

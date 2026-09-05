@@ -30,11 +30,13 @@ class MODSIndexer
     # record is browsable by no place at all.
     hierarchical_geographic_subjects: :subject_geo_ssim,
 
-    # NOT classification_ssim. That field carries the FileSet content-type
+    # DRS writes IPTC photo categories here -- portraits, community outreach --
+    # rather than the classification-scheme value MODS defines the element for,
+    # so the Solr field is named for what it actually holds. NOT
+    # classification_ssim: that field carries the FileSet content-type
     # vocabulary (Image, Map, Musical Notation) and drives Cerberus's shipped
-    # Content facet; MODS classification is a call number, and mixing the two
-    # would corrupt a working facet. The name collision is accidental.
-    classification:                   :call_number_ssim,
+    # Content facet, so mixing the two would corrupt a working facet.
+    classification:                   :photo_category_ssim,
 
     # Searchable, not facetable: a subject title is a work, so faceting would
     # make one bucket per record. Its own field rather than description_tsim,

@@ -74,13 +74,12 @@ module WorkDecorator
   # The precisions choose the format, the end value and the qualifier are
   # composed into the date string, and the key-date flag chooses which date
   # sorts.
-  # record_info describes the CATALOGUING rather than the resource, and v1
-  # hardcoded it on every load, so it appears in 37 of the 41 MODS fixtures
-  # across the two repos. Five rows of identical text beside Publisher on every
-  # work page buy a reader nothing. Dropping a preservation repository's
-  # provenance statement is wrong too, so it is stored and projected; WHERE it
-  # renders -- a collapsed "About this record" block, or the audit history tab
-  # -- is an open design question, and this entry is where that is recorded.
+  # record_info is cataloguing and preservation provenance rather than a
+  # description of the resource, so it renders nowhere: v1 hardcoded it on every
+  # load, and five rows of identical text beside Publisher buy a reader nothing.
+  # It is still projected onto the access copy rather than left in the
+  # preservation XML alone, so the API and the OAI crosswalk can read that
+  # provenance without a Nokogiri parse on a read path.
   NOT_DISPLAYED = %i[
     record_info
     date_created_precision date_created_end date_created_end_precision

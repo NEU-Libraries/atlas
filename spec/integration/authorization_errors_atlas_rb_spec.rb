@@ -9,7 +9,9 @@ require 'rails_helper'
 # Both matter because of what the bindings do WITHOUT a typed error: a create
 # unwraps `["collection"]` and hands back nil, so the caller's next `.id` is an
 # unhandled 500; a refused permissions write parses into a Mash that reads like
-# success, so the edit is silently discarded. The negative case at the end pins
+# success, so the edit is silently discarded; a refused permissions read parses
+# into the same nil an unknown id gives, so a refusal renders as a dead link.
+# The negative case at the end pins
 # the discriminator gating — the same PATCH endpoint's other 422s must still
 # pass through as plain envelopes.
 RSpec.describe 'Authorization and ACL errors via atlas_rb', :atlas_rb_server do
@@ -99,6 +101,35 @@ RSpec.describe 'Authorization and ACL errors via atlas_rb', :atlas_rb_server do
                                             nuid: admin_nuid)
 
       expect(result['collection']['id']).to eq(restricted_collection.noid)
+    end
+  end
+
+  # The ACL READ, the counterpart to the refused ACL write above. Atlas gates
+  # /resources/:id/permissions on the caller's read right over the resource
+  # itself and answers a real 403, whose envelope carries no "resource" key —
+  # so a binding that parses the body without consulting the status hands back
+  # the same nil an unknown id gives, and the caller renders "not found" for
+  # something the reader is merely not allowed to see.
+  describe 'an ACL read refused by the resource gate' do
+    let(:private_collection) do
+      community = CommunityCreator.call
+      CollectionCreator.call(parent_id: community.noid)
+    end
+
+    it 'raises ResourceError carrying the 403, not nil' do
+      expect { AtlasRb::Resource.permissions(private_collection.noid, nuid: outsider.nuid) }
+        .to raise_error(AtlasRb::ResourceError) { |error| expect(error.status).to eq(403) }
+    end
+
+    it 'still returns nil for an id that resolves to nothing' do
+      expect(AtlasRb::Resource.permissions('nosuchnoid', nuid: outsider.nuid)).to be_nil
+    end
+
+    it 'still returns the ACL envelope to a caller who may read it' do
+      acl = AtlasRb::Resource.permissions(private_collection.noid, nuid: admin_nuid)
+
+      expect(acl['type']).to eq('Collection')
+      expect(acl).to have_key('read')
     end
   end
 

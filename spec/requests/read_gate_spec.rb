@@ -72,6 +72,16 @@ RSpec.describe 'Per-resource read gate', type: :request, default_auth: false do
       get '/works/nosuchnoid'
       expect(response).to have_http_status(:not_found)
     end
+
+    # The same distinction on the ACL envelope, which is the one endpoint whose
+    # 403 a client reads to decide what page to render. Guest holds the
+    # block-form :read rule, and a class-level check cannot evaluate the block,
+    # so the fallback passes and absence answers 404 — a typo must not surface
+    # downstream as a permission page.
+    it 'still answers 404 for an unknown id on the ACL envelope' do
+      get '/resources/nosuchnoid/permissions'
+      expect(response).to have_http_status(:not_found)
+    end
   end
 
   describe 'binaries, which the gate resolves through the containing Work' do

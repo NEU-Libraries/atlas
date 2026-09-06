@@ -64,6 +64,14 @@ module WorkDecorator
   # choose the format, the end value and the qualifier are composed into the
   # date string, and the key-date flag chooses which date sorts.
   #
+  # Four whole dates render nowhere either. dateCaptured is when the object was
+  # digitised and dateModified is when the resource changed -- preservation and
+  # cataloguing provenance rather than description, so they follow record_info
+  # below. dateValid and dateOther are descriptive, and a librarian decided
+  # against a row for both: neither answers a question a reader of this
+  # repository asks, and dateOther means whatever the cataloguer meant. All
+  # four stay projected, so the API and the OAI crosswalk can read them.
+  #
   # record_info is cataloguing and preservation provenance rather than a
   # description of the resource, so it renders nowhere: v1 hardcoded it on every
   # load, and five rows of identical text beside Publisher buy a reader nothing.
@@ -98,6 +106,14 @@ module WorkDecorator
     date_issued_qualifier date_issued_key_date
     copyright_date_precision copyright_date_end copyright_date_end_precision
     copyright_date_qualifier copyright_date_key_date
+    date_captured date_captured_precision date_captured_end
+    date_captured_end_precision date_captured_qualifier date_captured_key_date
+    date_valid date_valid_precision date_valid_end
+    date_valid_end_precision date_valid_qualifier date_valid_key_date
+    date_other date_other_precision date_other_end
+    date_other_end_precision date_other_qualifier date_other_key_date
+    date_modified date_modified_precision date_modified_end
+    date_modified_end_precision date_modified_qualifier date_modified_key_date
   ].freeze
 
   # A date renders only as finely as the record declared it. A year-only date

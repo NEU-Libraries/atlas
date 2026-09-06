@@ -75,7 +75,7 @@ describe CollectionsController, type: :controller do
     it 'updates a collection with provided XML binary' do
       patch :update, params: { id: collection.noid, binary: Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/work-mods.xml')) }, as: :json
       expect(response).to have_http_status(:success)
-      expect(collection.decorate.plain_title).to eq("What's New - How We Respond to Disaster, Episode 1")
+      expect(collection.decorate.plain_title).to eq("What's New, Episode 1 - How We Respond to Disaster")
       expect(collection.parent.noid).to eq(community.noid)
       # TODO: - switch to collection specific fixture XML
     end

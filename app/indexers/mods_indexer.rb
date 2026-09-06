@@ -75,54 +75,63 @@ class MODSIndexer
   # that turns one entry into the string Solr should hold.
   SOLR_MEMBER_COMPOSERS = { hierarchical_geographic_subjects: :narrowest_place }.freeze
 
+  # The five parts every projected date carries beside its value, and why none
+  # of them is indexed. Derived onto each date below rather than written out:
+  # seven dates times five parts is thirty-five near-identical rows, and a date
+  # added to the gem would need five more of them or the coverage guard fails
+  # on fields nobody meant to index.
+  DATE_PART_REASONS = {
+    'precision'     => 'chooses a display format; not a value a reader searches',
+    'end'           => 'the far end of a range; a range sorts and facets on its start',
+    'end_precision' => 'chooses a display format; not a value a reader searches',
+    'qualifier'     => 'renders into the date string; not a value a reader searches',
+    'key_date'      => 'chooses which date SortIndexer sorts on; not a facet'
+  }.freeze
+
+  # Every date the gem projects, found by its key-date flag, times the five
+  # parts above.
+  DATE_PARTS_NOT_INDEXED = NEU::MODS::FIELDS.keys.grep(/_key_date\z/).each_with_object({}) do |flag, hsh|
+    prefix = flag.to_s.delete_suffix('_key_date')
+    DATE_PART_REASONS.each { |part, reason| hsh[:"#{prefix}_#{part}"] = reason }
+  end.freeze
+
   # Projected fields this indexer does not write, and why. Kept as a map rather
   # than a list so "another indexer owns it" is distinguishable from "no
   # discovery value" -- the two are different decisions, and only the second is
   # one to revisit.
   NOT_INDEXED = {
-    main_title:                   'title_tsim / title_plain_tsim here, title_ssi in SortIndexer',
-    names:                        'creator_ssim in CitationIndexer, creator_ssi in SortIndexer',
-    abstract:                     'description_tsim here',
-    genres:                       'genre_ssim in GenreIndexer',
-    permanent_url:                'permanent_url_ssi here',
-    date_created:                 'date_ssi in SortIndexer, pub_date_ssim in CitationIndexer',
-    date_issued:                  'SortIndexer::DATE_FIELDS falls back through it into date_ssi',
-    copyright_date:               'SortIndexer::DATE_FIELDS falls back through it into date_ssi',
-    issuance:                     'a closed MODS vocabulary of six values; display only',
-    frequency:                    'serials only; no browse until the repository holds serials',
-    reformatting_quality:         'preservation metadata, not a term a reader searches',
-    geographic_code_subjects:     'a MARC GAC code is not a term a reader types; the place name is faceted already',
-    record_info:                  'cataloguing provenance; on nearly every record, so it has no discriminating power',
-    date_created_precision:       'chooses a display format; not a value a reader searches',
-    date_created_end:             'the far end of a range; a range sorts and facets on its start',
-    date_created_end_precision:   'chooses a display format; not a value a reader searches',
-    date_created_qualifier:       'renders into the date string; not a value a reader searches',
-    date_created_key_date:        'chooses which date SortIndexer sorts on; not a facet',
-    date_issued_precision:        'chooses a display format; not a value a reader searches',
-    date_issued_end:              'the far end of a range; a range sorts and facets on its start',
-    date_issued_end_precision:    'chooses a display format; not a value a reader searches',
-    date_issued_qualifier:        'renders into the date string; not a value a reader searches',
-    date_issued_key_date:         'chooses which date SortIndexer sorts on; not a facet',
-    copyright_date_precision:     'chooses a display format; not a value a reader searches',
-    copyright_date_end:           'the far end of a range; a range sorts and facets on its start',
-    copyright_date_end_precision: 'chooses a display format; not a value a reader searches',
-    copyright_date_qualifier:     'renders into the date string; not a value a reader searches',
-    copyright_date_key_date:      'chooses which date SortIndexer sorts on; not a facet',
-    edition:                      'display only',
-    format:                       'display only',
-    extent:                       'display only',
-    digital_origin:               'display only',
-    notes:                        'display only; free text already reachable through full_text_tesimv',
-    map_data:                     'display only; coordinates need a spatial field, not a string one',
-    related_items:                'display only; the relationship types have no browse',
-    location:                     'display only; a shelf mark is not a search term',
-    access_condition:             'rights text is not a search term',
-    use_and_reproduction:         'rights text is not a search term',
-    restriction_on_access:        'rights text is not a search term',
-    subject_headings:             'the display sibling; the per-axis fields above are what a facet buckets on',
-    occupation_subjects:          'no browse asked for; the term reaches search through full_text_tesimv',
-    physical_description_notes:   'preservation detail, not a term a reader searches'
-  }.freeze
+    main_title:                 'title_tsim / title_plain_tsim here, title_ssi in SortIndexer',
+    names:                      'creator_ssim in CitationIndexer, creator_ssi in SortIndexer',
+    abstract:                   'description_tsim here',
+    genres:                     'genre_ssim in GenreIndexer',
+    permanent_url:              'permanent_url_ssi here',
+    date_created:               'date_ssi in SortIndexer, pub_date_ssim in CitationIndexer',
+    date_issued:                'SortIndexer::DATE_FIELDS falls back through it into date_ssi',
+    copyright_date:             'SortIndexer::DATE_FIELDS falls back through it into date_ssi',
+    issuance:                   'a closed MODS vocabulary of six values; display only',
+    frequency:                  'serials only; no browse until the repository holds serials',
+    reformatting_quality:       'preservation metadata, not a term a reader searches',
+    geographic_code_subjects:   'a MARC GAC code is not a term a reader types; the place name is faceted already',
+    record_info:                'cataloguing provenance; on nearly every record, so it has no discriminating power',
+    date_captured:              'the digitisation date; provenance, not a term a reader searches',
+    date_valid:                 'no browse asked for; display only if a row is ever added',
+    date_other:                 'means whatever the cataloguer meant, so it buckets nothing',
+    date_modified:              'cataloguing provenance, like record_info',
+    edition:                    'display only',
+    format:                     'display only',
+    extent:                     'display only',
+    digital_origin:             'display only',
+    notes:                      'display only; free text already reachable through full_text_tesimv',
+    map_data:                   'display only; coordinates need a spatial field, not a string one',
+    related_items:              'display only; the relationship types have no browse',
+    location:                   'display only; a shelf mark is not a search term',
+    access_condition:           'rights text is not a search term',
+    use_and_reproduction:       'rights text is not a search term',
+    restriction_on_access:      'rights text is not a search term',
+    subject_headings:           'the display sibling; the per-axis fields above are what a facet buckets on',
+    occupation_subjects:        'no browse asked for; the term reaches search through full_text_tesimv',
+    physical_description_notes: 'preservation detail, not a term a reader searches'
+  }.merge(DATE_PARTS_NOT_INDEXED).freeze
 
   attr_reader :resource
 

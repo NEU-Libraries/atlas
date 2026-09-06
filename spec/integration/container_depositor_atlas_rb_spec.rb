@@ -54,6 +54,6 @@ RSpec.describe 'Container depositor via atlas_rb', :atlas_rb_server do
 
     expect(created['depositor']).to eq(anonymous_nuid)
     expect(created['featured']).to be(true)
-    expect(created['title']).to eq("What's New - How We Respond to Disaster, Episode 1")
+    expect(created['title']).to eq("What's New, Episode 1 - How We Respond to Disaster")
   end
 end

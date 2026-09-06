@@ -23,7 +23,7 @@ RSpec.describe 'Collections via atlas_rb', :atlas_rb_server do
     AtlasRb::Collection.update(collection.noid, Rails.root.join('spec/fixtures/files/work-mods.xml').to_s, nuid: admin_nuid)
 
     found = AtlasRb::Collection.find(collection.noid, nuid: admin_nuid)
-    expect(found['title']).to eq("What's New - How We Respond to Disaster, Episode 1")
+    expect(found['title']).to eq("What's New, Episode 1 - How We Respond to Disaster")
   end
 
   it 'lists child Work noids of a Collection via HTTP' do

@@ -24,7 +24,7 @@ RSpec.describe 'Works via atlas_rb', :atlas_rb_server do
     AtlasRb::Work.update(work.noid, Rails.root.join('spec/fixtures/files/work-mods.xml').to_s, nuid: admin_nuid)
 
     found = AtlasRb::Work.find(work.noid, nuid: admin_nuid)
-    expect(found['title']).to eq("What's New - How We Respond to Disaster, Episode 1")
+    expect(found['title']).to eq("What's New, Episode 1 - How We Respond to Disaster")
   end
 
   it 'destroys a Work via HTTP' do

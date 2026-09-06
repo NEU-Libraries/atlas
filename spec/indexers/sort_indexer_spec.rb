@@ -238,7 +238,7 @@ RSpec.describe SortIndexer do
       doc = sort_fields_in_solr(work)
       # Each field comes back as a scalar, not an array — a multi-valued field
       # is what Solr refuses to sort on.
-      expect(doc['title_ssi']).to eq('whats new how we respond to disaster episode 000001')
+      expect(doc['title_ssi']).to eq('whats new episode 000001 how we respond to disaster')
       expect(doc['creator_ssi']).to start_with('cohen') # the first creator-role name, not the Contributor
       expect(doc['date_ssi']).to eq('2017-09-19T00:00:00Z')
     end

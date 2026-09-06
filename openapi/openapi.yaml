@@ -1279,6 +1279,86 @@ components:
                 copyright_date_key_date:
                   type: boolean
                   nullable: true
+                date_captured:
+                  type: string
+                  format: date-time
+                  nullable: true
+                date_captured_precision:
+                  type: string
+                  nullable: true
+                date_captured_end:
+                  type: string
+                  format: date-time
+                  nullable: true
+                date_captured_end_precision:
+                  type: string
+                  nullable: true
+                date_captured_qualifier:
+                  type: string
+                  nullable: true
+                date_captured_key_date:
+                  type: boolean
+                  nullable: true
+                date_valid:
+                  type: string
+                  format: date-time
+                  nullable: true
+                date_valid_precision:
+                  type: string
+                  nullable: true
+                date_valid_end:
+                  type: string
+                  format: date-time
+                  nullable: true
+                date_valid_end_precision:
+                  type: string
+                  nullable: true
+                date_valid_qualifier:
+                  type: string
+                  nullable: true
+                date_valid_key_date:
+                  type: boolean
+                  nullable: true
+                date_other:
+                  type: string
+                  format: date-time
+                  nullable: true
+                date_other_precision:
+                  type: string
+                  nullable: true
+                date_other_end:
+                  type: string
+                  format: date-time
+                  nullable: true
+                date_other_end_precision:
+                  type: string
+                  nullable: true
+                date_other_qualifier:
+                  type: string
+                  nullable: true
+                date_other_key_date:
+                  type: boolean
+                  nullable: true
+                date_modified:
+                  type: string
+                  format: date-time
+                  nullable: true
+                date_modified_precision:
+                  type: string
+                  nullable: true
+                date_modified_end:
+                  type: string
+                  format: date-time
+                  nullable: true
+                date_modified_end_precision:
+                  type: string
+                  nullable: true
+                date_modified_qualifier:
+                  type: string
+                  nullable: true
+                date_modified_key_date:
+                  type: boolean
+                  nullable: true
                 resource_type:
                   type: array
                   items:

@@ -708,7 +708,8 @@ module OpenapiSchemas
     main_title:                       %i[title subtitle part_number part_name non_sort],
     names:                            %i[name roles affiliation],
     notes:                            %i[type value],
-    host_collections:                 %i[title volume issue start_page end_page],
+    host_collections:                 %i[title volume issue start_page end_page date text
+                                         details extents],
     subject_headings:                 %i[parts],
     location:                         %i[physical_location shelf_location url],
     map_data:                         %i[scale projection coordinates],
@@ -721,15 +722,23 @@ module OpenapiSchemas
   }.freeze
 
   # The originInfo dates serialise as timestamps, both ends of a range alike.
-  # Their precision and qualifier siblings are plain strings.
+  # Their precision and qualifier siblings are plain strings. All seven MODS
+  # dates are here, including the four that render nowhere -- the response body
+  # carries them whether or not a page does.
   MODS_DATE_PROPS = %i[date_created date_created_end
                        date_issued date_issued_end
-                       copyright_date copyright_date_end].freeze
+                       copyright_date copyright_date_end
+                       date_captured date_captured_end
+                       date_valid date_valid_end
+                       date_other date_other_end
+                       date_modified date_modified_end].freeze
 
   # keyDate="yes" is the record nominating its own principal date, so it
   # crosses the wire as a boolean rather than as the string "yes".
   MODS_BOOLEAN_PROPS = %i[date_created_key_date date_issued_key_date
-                          copyright_date_key_date].freeze
+                          copyright_date_key_date date_captured_key_date
+                          date_valid_key_date date_other_key_date
+                          date_modified_key_date].freeze
 
   def mods_property(field, cardinality)
     member = mods_member(field)

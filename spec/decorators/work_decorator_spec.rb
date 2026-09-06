@@ -161,9 +161,54 @@ RSpec.describe WorkDecorator do
                '<dt>Contributor</dt><dd><p>Doe, Jane</p></dd>')
     end
 
-    it 'leaves an unrecognised role as the record wrote it' do
+    # A text roleTerm is free text a cataloguer wrote, and it has to survive as
+    # itself -- the corpus carries Photographer, Wrangler and the rest.
+    it 'leaves an unrecognised role term as the record wrote it' do
       expect(named({ name: 'Doe, Jane', roles: ['Wrangler'] }))
         .to eq('<dt>Wrangler</dt><dd><p>Doe, Jane</p></dd>')
+    end
+
+    # An unlisted CODE is a typo, not a label. It fell through to itself, so
+    # "zzz" became a row heading -- the outcome suppressing displayLabel exists
+    # to prevent. The name still renders; losing it over a typo is worse.
+    it 'files a name under an unlisted MARC code apart, rather than labelling the row with it' do
+      expect(named({ name: 'Delta, Dee', roles: ['zzz'] }))
+        .to eq('<dt>Other contributors</dt><dd><p>Delta, Dee</p></dd>')
+    end
+
+    # MODS makes the namePart optional, so a name element carrying only a role
+    # rendered a labelled empty row. An access copy stored before neu-mods
+    # dropped these still carries one.
+    it 'skips a name with a role and no name text' do
+      aggregate_failures do
+        expect(named({ name: nil, roles: ['edt'] })).to eq('')
+        expect(named({ name: '   ', roles: ['edt'] })).to eq('')
+        expect(named({ name: nil, roles: ['edt'] }, { name: 'Roe, Ann', roles: ['edt'] }))
+          .to eq('<dt>Editor</dt><dd><p>Roe, Ann</p></dd>')
+      end
+    end
+  end
+
+  # ActiveSupport#titleize splits on hyphens and capitalises every word, so an
+  # authorised term came back as one that is not in the vocabulary.
+  describe 'a controlled term is capitalised, not titleized' do
+    it 'leaves the inside of a hyphenated authority term alone' do
+      expect(decorate_with(format: ['black-and-white negatives']).mods_row(:format))
+        .to eq('<dt>Format</dt><dd><p>Black-and-white negatives</p></dd>')
+    end
+
+    it 'upcases only the first word of a closed-vocabulary value' do
+      aggregate_failures do
+        expect(decorate_with(issuance: ['single unit']).mods_row(:issuance))
+          .to eq('<dt>Issuance</dt><dd><p>Single unit</p></dd>')
+        expect(decorate_with(digital_origin: ['reformatted digital']).mods_row(:digital_origin))
+          .to eq('<dt>Digital origin</dt><dd><p>Reformatted digital</p></dd>')
+      end
+    end
+
+    it 'leaves a value that opens on a digit untouched' do
+      expect(decorate_with(format: ['1 online resource']).mods_row(:format))
+        .to eq('<dt>Format</dt><dd><p>1 online resource</p></dd>')
     end
   end
 
@@ -227,18 +272,97 @@ RSpec.describe WorkDecorator do
       )
     end
 
+    # Projection and coordinates used to share one slot and collide on a
+    # space, so a reader could not see where the projection name ended.
     it 'composes cartographics for display, which the gem leaves structured' do
       mapped = decorate_with(map_data: [Metadata::Fields::MapData.new(
         scale: '1:24,000', projection: 'UTM', coordinates: 'W 71 03 00'
       )])
       expect(mapped.mods_row(:map_data))
-        .to eq('<dt>Map data</dt><dd><p>1:24,000 ; UTM W 71 03 00</p></dd>')
+        .to eq('<dt>Map data</dt><dd><p>1:24,000 ; UTM ; W 71 03 00</p></dd>')
     end
 
-    it 'says so when a map gives no scale, rather than rendering a bare projection' do
+    # A geotagged photograph is an ordinary record and never claimed a scale,
+    # so "Scale not given" put an editorial complaint on the page -- the
+    # mistake DATE_FORMATS exists to avoid, in a new place.
+    it 'renders only the parts a map gives, asserting nothing about a missing scale' do
       mapped = decorate_with(map_data: [Metadata::Fields::MapData.new(coordinates: 'W 71 03 00')])
       expect(mapped.mods_row(:map_data))
-        .to eq('<dt>Map data</dt><dd><p>Scale not given ; W 71 03 00</p></dd>')
+        .to eq('<dt>Map data</dt><dd><p>W 71 03 00</p></dd>')
+    end
+
+    it 'omits a cartographics entry that carries nothing at all' do
+      expect(decorate_with(map_data: [Metadata::Fields::MapData.new]).mods_row(:map_data)).to eq('')
+    end
+  end
+
+  # "Estuaries, 24(3), pp. 210-218, 1998" -- the citation. Every part is
+  # optional, and each branch has to degrade without leaving punctuation behind.
+  describe "a work's position in its host" do
+    def hosted(**attrs)
+      decorate_with(host_collections: [Metadata::Fields::HostCollection.new(**attrs)])
+        .mods_row(:host_collections)
+    end
+
+    def host_value(**attrs)
+      hosted(**attrs).sub('<dt>Host collections</dt><dd><p>', '').sub('</p></dd>', '')
+    end
+
+    it 'parenthesises the issue when a volume precedes it' do
+      expect(host_value(title: 'Estuaries', volume: '24', issue: '3')).to eq('Estuaries, 24(3)')
+    end
+
+    # "(3)" reads as an issue only after a volume. Alone it is a bare
+    # parenthesis, so the issue is spelled out instead.
+    it 'spells out an issue that stands without a volume' do
+      expect(host_value(title: 'Estuaries', issue: '3')).to eq('Estuaries, no. 3')
+    end
+
+    it 'renders a volume alone and a page range alone' do
+      aggregate_failures do
+        expect(host_value(title: 'Estuaries', volume: '24')).to eq('Estuaries, 24')
+        expect(host_value(title: 'Estuaries', start_page: '210', end_page: '218'))
+          .to eq('Estuaries, pp. 210-218')
+        expect(host_value(title: 'Estuaries', start_page: '210')).to eq('Estuaries, p. 210')
+      end
+    end
+
+    # The position describes this work and no other record holds it, so a host
+    # block that named no title must not take it down with it.
+    it 'renders the position alone when the host names no title' do
+      expect(host_value(issue: '3', start_page: '210')).to eq('no. 3, p. 210')
+    end
+
+    it 'renders nothing for a host entry carrying neither title nor position' do
+      expect(hosted).to eq('')
+    end
+
+    # part/date is the article's year within the host, and it closes the
+    # citation.
+    it 'closes the citation with the date the record gave' do
+      expect(host_value(title: 'Estuaries', volume: '24', issue: '3',
+                        start_page: '210', end_page: '218', date: '1998'))
+        .to eq('Estuaries, 24(3), pp. 210-218, 1998')
+    end
+
+    # detail/@type is an open string, so the caption is the label the
+    # cataloguer wrote and the type is the fallback when they wrote none.
+    it 'labels a detail with its caption, falling back to its type' do
+      aggregate_failures do
+        expect(host_value(title: 'Salt Marshes', details: [
+                            Metadata::Fields::HostDetail.new(type: 'chapter', caption: 'chap.',
+                                                             number: '7', title: 'Tidal Range')
+                          ])).to eq('Salt Marshes, chap. 7, Tidal Range')
+        expect(host_value(title: 'Salt Marshes', details: [
+                            Metadata::Fields::HostDetail.new(type: 'section', number: '2')
+                          ])).to eq('Salt Marshes, Section 2')
+      end
+    end
+
+    it 'keeps the unit on an extent measured in something other than pages' do
+      expect(host_value(title: 'Field Recordings', extents: [
+                          Metadata::Fields::HostExtent.new(unit: 'minutes', start: '0', end: '45')
+                        ])).to eq('Field Recordings, minutes 0-45')
     end
   end
 

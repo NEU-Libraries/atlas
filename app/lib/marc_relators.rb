@@ -286,6 +286,22 @@ module MarcRelators
   # both "Creator" and "creator", and only the codes go through the table.
   CREATOR_LABELS = %w[Creator Author].freeze
 
+  # The shape of a MARC relator code: exactly three ASCII letters. It is the
+  # only thing separating an unlisted CODE from a free-text roleTerm, because
+  # neu-mods projects the text term in preference to the code and does not say
+  # which it gave. "Photographer" is a role a cataloguer wrote and must survive
+  # as itself; "zzz" is a typo and must not become a display heading.
+  RELATOR_CODE = /\A[a-z]{3}\z/
+
+  # Whether the role is code-shaped and absent from the table. A caller that
+  # renders the label decides what to put in its place; #label keeps falling
+  # through to the role itself, because .creator? reads the same value and an
+  # unlisted code is still not a creator.
+  def self.unknown_code?(role)
+    key = role.to_s.strip.downcase
+    RELATOR_CODE.match?(key) && !TERMS.key?(key)
+  end
+
   # The label for a role, which may already be a text term ("Creator"), a code
   # ("aut"), or nil. Returns nil for a blank role so the caller can apply its
   # own default -- an absent role is not the same as an unrecognised one.

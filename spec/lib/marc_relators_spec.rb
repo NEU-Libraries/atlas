@@ -33,6 +33,53 @@ RSpec.describe MarcRelators do
     end
   end
 
+  # An unlisted code fell through to itself and #names used the result as a row
+  # heading, so a typo'd "zzz" became a label -- the outcome suppressing
+  # displayLabel exists to prevent. The shape is the only thing separating an
+  # unlisted CODE from a free-text roleTerm, because neu-mods projects the text
+  # term in preference to the code and does not say which it gave.
+  describe '.unknown_code?' do
+    it 'recognises a code-shaped role the table does not hold' do
+      aggregate_failures do
+        expect(described_class.unknown_code?('zzz')).to be true
+        expect(described_class.unknown_code?('ZZZ')).to be true
+      end
+    end
+
+    it 'rejects a code the table does hold' do
+      aggregate_failures do
+        expect(described_class.unknown_code?('aut')).to be false
+        expect(described_class.unknown_code?('pht')).to be false
+      end
+    end
+
+    # A cataloguer writes these into a text roleTerm and they have to survive
+    # as themselves.
+    it 'rejects a free-text role term, whatever the table knows of it' do
+      aggregate_failures do
+        expect(described_class.unknown_code?('Photographer')).to be false
+        expect(described_class.unknown_code?('Wrangler')).to be false
+        expect(described_class.unknown_code?('Creator')).to be false
+      end
+    end
+
+    it 'rejects an absent role, which is not the same as an unrecognised one' do
+      aggregate_failures do
+        expect(described_class.unknown_code?(nil)).to be false
+        expect(described_class.unknown_code?('  ')).to be false
+      end
+    end
+
+    # .creator? reads the same value through .label, and an unlisted code is
+    # not a creator either way -- so the classification is unchanged.
+    it 'leaves .label and .creator? alone' do
+      aggregate_failures do
+        expect(described_class.label('zzz')).to eq('zzz')
+        expect(described_class.creator?('zzz')).to be false
+      end
+    end
+  end
+
   # Matching the literal string "creator" excluded `aut` and `Author`, which
   # are the same claim written differently, so a record using either was
   # missing from the creator facet and harvested as dc:contributor.

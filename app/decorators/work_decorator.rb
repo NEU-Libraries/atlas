@@ -12,8 +12,8 @@ module WorkDecorator
   #
   # :label is what a reader sees. :render names a method for a field whose
   # markup is more than a label and a value -- a grouped label, a composed
-  # title, a date formatted to its declared precision. :titleize and :link are
-  # the two per-value transforms plain rows need.
+  # title, a date formatted to its declared precision. :capitalize and :link
+  # are the two per-value transforms plain rows need.
   #
   # Labels live here and not in neu-mods on purpose. A label is display
   # vocabulary, and Cerberus's edit form words the same field differently; the
@@ -32,13 +32,13 @@ module WorkDecorator
     { field: :publication_information, label: 'Publisher' },
     { field: :place_of_publication, label: 'Place of publication' },
     { field: :edition, label: 'Edition' },
-    { field: :issuance, label: 'Issuance', titleize: true },
+    { field: :issuance, label: 'Issuance', capitalize: true },
     { field: :frequency, label: 'Frequency' },
     { field: :genres, label: 'Genres' },
-    { field: :format, label: 'Format', titleize: true },
+    { field: :format, label: 'Format', capitalize: true },
     { field: :extent, label: 'Extent' },
-    { field: :digital_origin, label: 'Digital origin', titleize: true },
-    { field: :reformatting_quality, label: 'Reformatting quality', titleize: true },
+    { field: :digital_origin, label: 'Digital origin', capitalize: true },
+    { field: :reformatting_quality, label: 'Reformatting quality', capitalize: true },
     { field: :physical_description_notes, label: 'Physical description note' },
     { field: :abstract, render: :abstract },
     { field: :table_of_contents, label: 'Contents' },
@@ -141,6 +141,14 @@ module WorkDecorator
   # inventing one; a role-less name merges with an explicit Creator group.
   NO_ROLE_LABEL = 'Creator'
 
+  # The label for a name whose role is a MARC code this system does not hold.
+  # An unlisted code fell through to itself, so a typo'd "zzz" became a row
+  # heading -- exactly the outcome suppressing displayLabel exists to prevent,
+  # since labels come from one list the system controls. The name still
+  # renders, because losing it over a typo is worse than filing it loosely, and
+  # it is kept apart from Creator because the record did not say creator.
+  UNKNOWN_ROLE_LABEL = 'Other contributors'
+
   # hierarchicalGeographic levels, broadest to narrowest. MODSIndexer reads them
   # from the narrow end, so a record naming a city is browsed by its city rather
   # than by its continent.
@@ -150,6 +158,11 @@ module WorkDecorator
   # The separator a cataloguer builds an LCSH heading with, and the one v1 ran
   # for years. Display policy, so it lives here rather than in the gem.
   SUBJECT_HEADING_SEPARATOR = ' -- '
+
+  # The separator between a map's scale, projection and coordinates, which is
+  # the MODS display convention. Display policy, so it lives here rather than
+  # in the gem.
+  MAP_DATA_SEPARATOR = ' ; '
 
   def mods_rows
     safe_join(DISPLAY.map { |row| mods_row(row[:field]) })
@@ -168,11 +181,17 @@ module WorkDecorator
   # A name appears under every role it declares. A person recorded as both
   # author and contributor is two assertions, so the repetition is what the
   # record says rather than a duplicate.
+  # A nameless name is skipped. neu-mods drops one now, but an access copy
+  # stored before that still carries { name: nil, roles: ["edt"] }, which
+  # rendered a labelled empty row -- the guard #identifiers, #related_items and
+  # #host_collections all already have.
   def names
     return '' if mods&.names.blank?
 
     grouped = mods.names.each_with_object({}) do |pn, hsh|
-      labels = Array(pn.roles).filter_map { |role| MarcRelators.label(role) }.presence || [NO_ROLE_LABEL]
+      next if pn.name.blank?
+
+      labels = Array(pn.roles).filter_map { |role| role_label(role) }.presence || [NO_ROLE_LABEL]
       labels.each { |label| (hsh[label] ||= []) << name_with_affiliation(pn) }
     end
     safe_join(grouped.map { |label, values| loop_field(label, values) })
@@ -211,6 +230,11 @@ module WorkDecorator
   # relatedItem types that have no field of their own. The type leads the value
   # because "the print edition" and "reviewed in" are different relationships
   # and the title alone cannot tell a reader which one this is.
+  #
+  # Only a TOP-LEVEL relatedItem reaches here: the gem scopes its XPath to the
+  # document root, so a relatedItem nested inside another does not display.
+  # That is the same call as suppressing a host's own metadata -- it describes
+  # the other record, not this one.
   def related_items
     values = Array(mods&.related_items).filter_map do |item|
       next if item.title.blank?
@@ -230,9 +254,6 @@ module WorkDecorator
     loop_field('Location', values.compact_blank)
   end
 
-  # Composing "scale ; projection coordinates" is display policy, which is why
-  # the gem leaves cartographics structured and it happens here. The separator
-  # follows the MODS display convention.
   # One row per subject, its parts joined back into the heading a cataloguer
   # built. The parts also render as facets, which is why the gem keeps them
   # apart and this joins them: a facet wants "Massachusetts", a reader wants
@@ -244,23 +265,34 @@ module WorkDecorator
     loop_field('Subjects and keywords', values)
   end
 
-  # "Estuaries, 24(3), pp. 210-218". The host's editor, publisher and ISSN stay
-  # out: they are the other record's metadata, and a reader who wants them
-  # should reach that record rather than read a copy that goes stale.
+  # "Estuaries, 24(3), pp. 210-218, 1998". The host's editor, publisher and
+  # ISSN stay out: they are the other record's metadata, and a reader who wants
+  # them should reach that record rather than read a copy that goes stale.
+  #
+  # A host that names no title renders its position alone. The position
+  # describes this work and no other record holds it, so dropping it because
+  # the host block carried no titleInfo would lose the one part that was ours.
   def host_collections
     values = Array(mods&.host_collections).filter_map do |host|
-      next if host.title.blank?
-
-      [host.title, host_position(host)].compact_blank.join(', ')
+      [host.title, host_position(host)].compact_blank.join(', ').presence
     end
     loop_field('Host collections', values)
   end
 
+  # Composing "scale ; projection ; coordinates" is display policy, which is
+  # why the gem leaves cartographics structured and it happens here. The
+  # separator follows the MODS display convention.
+  #
+  # Every part takes it. Projection and coordinates shared one slot and
+  # collided on a space, so a reader could not see where the projection name
+  # ended and the coordinates began.
+  #
+  # A record that gave no scale gets no scale. Printing "Scale not given" put
+  # an editorial complaint on a geotagged photograph that never claimed to have
+  # one -- the mistake DATE_FORMATS above exists to avoid, in a new place.
   def map_data
     values = Array(mods&.map_data).filter_map do |entry|
-      scale = entry.scale.presence || 'Scale not given'
-      rest = [entry.projection, entry.coordinates].compact_blank.join(' ')
-      rest.present? ? "#{scale} ; #{rest}" : scale
+      [entry.scale, entry.projection, entry.coordinates].compact_blank.join(MAP_DATA_SEPARATOR).presence
     end
     loop_field('Map data', values)
   end
@@ -276,17 +308,54 @@ module WorkDecorator
 
   private
 
-    # Volume, issue and pages in citation order. Every part is optional, so a
-    # record giving only a page range renders only that.
+    # The whole of this work's position in its host, in citation order. Every
+    # part is optional, so a record giving only a page range renders only that.
     def host_position(host)
-      volume = [host.volume, host.issue.presence && "(#{host.issue})"].compact_blank.join
-      [volume.presence, host_pages(host)].compact_blank.join(', ')
+      [host_number(host), host_pages(host), host_details(host), host_extents(host), host.date]
+        .compact_blank.join(', ')
+    end
+
+    # "24(3)" for a volume and an issue together. A bare "(3)" reads as an
+    # issue only when a volume precedes it, so an issue standing alone takes
+    # the spelled-out form instead of a naked parenthesis.
+    def host_number(host)
+      return "#{host.volume}(#{host.issue})" if host.volume.present? && host.issue.present?
+      return host.volume if host.volume.present?
+
+      host.issue.presence && "no. #{host.issue}"
     end
 
     def host_pages(host)
       return nil if host.start_page.blank?
 
       host.end_page.present? ? "pp. #{host.start_page}-#{host.end_page}" : "p. #{host.start_page}"
+    end
+
+    # A detail beyond volume and issue: "chap. 7" from the caption a cataloguer
+    # wrote, falling back to the @type when they wrote none. detail/@type is an
+    # open string, so the type is the only label available for an unforeseen one.
+    def host_details(host)
+      Array(host.details).filter_map do |detail|
+        numbered = [detail.caption.presence || detail.type&.titleize, detail.number].compact_blank.join(' ')
+        [numbered.presence, detail.title].compact_blank.join(', ').presence
+      end.join(', ')
+    end
+
+    # "minutes 0-45". An extent at a unit other than page means nothing without
+    # its unit, so the unit leads the numbers rather than being dropped.
+    def host_extents(host)
+      Array(host.extents).filter_map do |extent|
+        span = [extent.start, extent.end].compact_blank.join('-')
+        [extent.unit, span.presence || extent.total || extent.list].compact_blank.join(' ').presence
+      end.join(', ')
+    end
+
+    # An unlisted MARC code is not a label. #names groups on the result, so a
+    # code the table does not hold would become the heading itself.
+    def role_label(role)
+      return UNKNOWN_ROLE_LABEL if MarcRelators.unknown_code?(role)
+
+      MarcRelators.label(role)
     end
 
     def render_plain_row(row)
@@ -296,10 +365,16 @@ module WorkDecorator
       field(row[:label], transform(value, row), link: row.fetch(:link, false))
     end
 
+    # The first letter is upcased and the rest of the term is left alone.
+    # titleize split on hyphens and capitalised every word, so the authorised
+    # AAT form "black-and-white negatives" was rewritten to "Black And White
+    # Negatives" -- a term that is not in the vocabulary and not the one the
+    # cataloguer typed. physicalDescription/form takes authority terms, and the
+    # siblings a reader compares it against (extent, genres) are untouched.
     def transform(value, row)
-      return value unless row[:titleize]
+      return value unless row[:capitalize]
 
-      value.is_a?(Array) ? value.map(&:titleize) : value&.titleize
+      value.is_a?(Array) ? value.map { |member| member&.upcase_first } : value&.upcase_first
     end
 
     # A date renders everything the record declared about it: the value at its

@@ -1303,6 +1303,10 @@ components:
                   type: array
                   items:
                     type: string
+                physical_description_notes:
+                  type: array
+                  items:
+                    type: string
                 notes:
                   type: array
                   items:
@@ -1311,6 +1315,10 @@ components:
                   type: array
                   items:
                     type: string
+                subject_headings:
+                  type: array
+                  items:
+                    type: object
                 topical_subjects:
                   type: array
                   items:
@@ -1328,6 +1336,10 @@ components:
                   items:
                     type: string
                 corporate_name_subjects:
+                  type: array
+                  items:
+                    type: string
+                occupation_subjects:
                   type: array
                   items:
                     type: string
@@ -1358,7 +1370,7 @@ components:
                 host_collections:
                   type: array
                   items:
-                    type: string
+                    type: object
                 related_items:
                   type: array
                   items:

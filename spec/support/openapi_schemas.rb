@@ -706,8 +706,10 @@ module OpenapiSchemas
   # is a string, singular or an array according to its registry cardinality.
   MODS_OBJECT_PROPS = {
     main_title:                       %i[title subtitle part_number part_name non_sort],
-    names:                            %i[name role],
+    names:                            %i[name roles affiliation],
     notes:                            %i[type value],
+    host_collections:                 %i[title volume issue start_page end_page],
+    subject_headings:                 %i[parts],
     location:                         %i[physical_location shelf_location url],
     map_data:                         %i[scale projection coordinates],
     related_items:                    %i[type title],

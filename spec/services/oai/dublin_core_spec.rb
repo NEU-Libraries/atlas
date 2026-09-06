@@ -7,8 +7,8 @@ RSpec.describe OAI::DublinCore do
     Metadata::MODS.new(**attrs)
   end
 
-  def name(value, role)
-    Metadata::Fields::Name.new(name: value, role: role)
+  def name(value, *roles)
+    Metadata::Fields::Name.new(name: value, roles: roles.compact)
   end
 
   def identifier(type, value)
@@ -41,6 +41,17 @@ RSpec.describe OAI::DublinCore do
 
     expect(result[:creator]).to eq(['Ito, K.'])
     expect(result[:contributor]).to eq(['Ali, N.'])
+  end
+
+  # Two roles is two assertions, so the name belongs in both elements.
+  it 'harvests a name declaring both roles as creator and contributor' do
+    record = mods(names: [name('Ito, K.', 'aut', 'ths')])
+    result = described_class.call(record)
+
+    aggregate_failures do
+      expect(result[:creator]).to eq(['Ito, K.'])
+      expect(result[:contributor]).to eq(['Ito, K.'])
+    end
   end
 
   # MODS makes mods:role optional. An empty role never matched "creator", so

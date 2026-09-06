@@ -39,9 +39,12 @@ module OAI
     # where a harvester expects a string. Its narrowest level is already in
     # geographic terms through the Solr index; a dc:subject rendering of it is
     # a composition decision, not a list membership one.
+    # subject_headings is excluded for the opposite reason to the display: a
+    # harvester wants discrete terms it can match, not one composed string, and
+    # every part of a heading is already here through its own axis.
     SUBJECT_AXES = %i[topical_subjects personal_name_subjects corporate_name_subjects
                       temporal_subjects geographic_subjects genre_subjects
-                      geographic_code_subjects title_subjects].freeze
+                      occupation_subjects geographic_code_subjects title_subjects].freeze
 
     # Emission order is free — oai_dc.xsd is an unbounded choice — but a fixed
     # order keeps responses diffable.
@@ -91,8 +94,18 @@ module OAI
         names_with_role { |role| !MarcRelators.creator?(role) }
       end
 
+      # A name matches on any of its roles, so one recorded as both author and
+      # thesis advisor harvests as both dc:creator and dc:contributor -- which
+      # is what the record asserts, and what the display shows.
       def names_with_role
-        Array(mods&.names).select { |n| yield(n.role) }.map(&:name)
+        Array(mods&.names).select { |n| roles_of(n).any? { |role| yield(role) } }.map(&:name)
+      end
+
+      # A role-less name keeps the single nil this crosswalk was written around:
+      # MarcRelators.creator? reads nil as a creator, matching the display. An
+      # empty array would match neither branch and drop the name entirely.
+      def roles_of(name)
+        Array(name.roles).presence || [nil]
       end
 
       # All five MODS subject axes flatten into dc:subject — simple Dublin

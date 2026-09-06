@@ -125,21 +125,21 @@ RSpec.describe SortIndexer do
 
   describe 'creator_ssi' do
     it 'projects the first creator-role name, case-folded' do
-      resource = work_with_mods(names: [{ name: 'Smith, Editor', role: 'Contributor' },
-                                        { name: 'Lee, Wen-Han', role: 'Creator' },
-                                        { name: 'Flynn, Second', role: 'creator' }])
+      resource = work_with_mods(names: [{ name: 'Smith, Editor', roles: ['Contributor'] },
+                                        { name: 'Lee, Wen-Han', roles: ['Creator'] },
+                                        { name: 'Flynn, Second', roles: ['creator'] }])
 
       expect(described_class.new(resource: resource).to_solr[:creator_ssi]).to eq('lee, wen-han')
     end
 
     it 'falls back to the first name of any role when no name declares creator' do
-      resource = work_with_mods(names: [{ name: 'Smith, Editor', role: 'Contributor' }])
+      resource = work_with_mods(names: [{ name: 'Smith, Editor', roles: ['Contributor'] }])
 
       expect(described_class.new(resource: resource).to_solr[:creator_ssi]).to eq('smith, editor')
     end
 
     it 'folds an accented name so it files under its own letter, not after Z' do
-      resource = work_with_mods(names: [{ name: 'Ångström, Anders', role: 'Creator' }])
+      resource = work_with_mods(names: [{ name: 'Ångström, Anders', roles: ['Creator'] }])
 
       expect(described_class.new(resource: resource).to_solr[:creator_ssi]).to eq('angstrom, anders')
     end

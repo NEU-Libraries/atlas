@@ -112,11 +112,14 @@ RSpec.describe MODSIndexer do
       expect(fields[:language_ssim]).to eq(['English'])
     end
 
+    # A pre-coordinated heading facets on its parts even though it displays as
+    # one row: a reader browsing Places wants Massachusetts, not the whole
+    # heading. That split is why the per-axis projections stayed.
     it 'indexes every subject axis under its own field' do
       aggregate_failures do
-        expect(fields[:subject_ssim]).to eq(['Interpreting'])
-        expect(fields[:subject_geo_ssim]).to contain_exactly('Parksville', 'Boston (Mass.)')
-        expect(fields[:subject_era_ssim]).to eq(['21st century'])
+        expect(fields[:subject_ssim]).to contain_exactly('Interpreting', 'Salt marshes')
+        expect(fields[:subject_geo_ssim]).to contain_exactly('Parksville', 'Boston (Mass.)', 'Massachusetts')
+        expect(fields[:subject_era_ssim]).to contain_exactly('21st century', '20th century')
         expect(fields[:subject_person_ssim]).to eq(['Smith, John'])
       end
     end
@@ -161,7 +164,7 @@ RSpec.describe MODSIndexer do
       aggregate_failures do
         expect(fields[:publisher_ssim]).to eq(['Northeastern University Press'])
         expect(fields[:series_ssim]).to eq(['A Series'])
-        expect(fields[:host_collection_ssim]).to eq(['A Host Collection'])
+        expect(fields[:host_collection_ssim]).to eq(['Estuaries'])
       end
     end
 
@@ -303,8 +306,8 @@ RSpec.describe MODSIndexer do
 
       aggregate_failures do
         expect(doc['language_ssim']).to eq(['English'])
-        expect(doc['subject_ssim']).to eq(['Interpreting'])
-        expect(doc['subject_geo_ssim']).to contain_exactly('Parksville', 'Boston (Mass.)')
+        expect(doc['subject_ssim']).to contain_exactly('Interpreting', 'Salt marshes')
+        expect(doc['subject_geo_ssim']).to contain_exactly('Parksville', 'Boston (Mass.)', 'Massachusetts')
         expect(doc['resource_type_ssim']).to contain_exactly('text', 'still image')
         expect(doc['publisher_ssim']).to eq(['Northeastern University Press'])
       end

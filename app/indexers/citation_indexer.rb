@@ -50,7 +50,7 @@ class CitationIndexer
 
     def creators
       @creators ||= Array(mods&.names)
-                    .select { |n| MarcRelators.creator?(n.role) }
+                    .select { |n| Array(n.roles).any? { |role| MarcRelators.creator?(role) } }
                     .map(&:name).compact_blank.uniq
     end
 

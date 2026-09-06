@@ -66,8 +66,10 @@ class MODSIndexer
 
   # Fields whose members are models rather than strings: the member attribute
   # that carries the indexable text. A DOI has to reach Solr as the digits a
-  # reader pastes, not as the model's inspect output.
-  SOLR_MEMBER_VALUES = { identifiers: :value }.freeze
+  # reader pastes, not as the model's inspect output. A host facets on its title
+  # alone -- bucketing on the composed citation would make one bucket per
+  # article, since the volume and pages differ on every record.
+  SOLR_MEMBER_VALUES = { identifiers: :value, host_collections: :title }.freeze
 
   # Fields whose members need composing rather than reading: the private method
   # that turns one entry into the string Solr should hold.
@@ -116,7 +118,10 @@ class MODSIndexer
     location:                     'display only; a shelf mark is not a search term',
     access_condition:             'rights text is not a search term',
     use_and_reproduction:         'rights text is not a search term',
-    restriction_on_access:        'rights text is not a search term'
+    restriction_on_access:        'rights text is not a search term',
+    subject_headings:             'the display sibling; the per-axis fields above are what a facet buckets on',
+    occupation_subjects:          'no browse asked for; the term reaches search through full_text_tesimv',
+    physical_description_notes:   'preservation detail, not a term a reader searches'
   }.freeze
 
   attr_reader :resource

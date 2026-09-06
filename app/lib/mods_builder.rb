@@ -48,22 +48,6 @@ module MODSBuilder
           xml.form
         end
 
-        xml.extension('displayLabel' => 'scholarly_object') do
-          xml.scholarly_object do
-            xml.parent.namespace = nil
-
-            xml.category { xml.parent.namespace = nil }
-            xml.department { xml.parent.namespace = nil }
-            xml.degree { xml.parent.namespace = nil }
-            xml.college { xml.parent.namespace = nil }
-
-            xml.course_info do
-              xml.parent.namespace = nil
-              xml.course_number { xml.parent.namespace = nil }
-              xml.course_title { xml.parent.namespace = nil }
-            end
-          end
-        end
         xml['mods'].extension do
           xml['niec'].niec
           xml['dwr'].SimpleDarwinRecord

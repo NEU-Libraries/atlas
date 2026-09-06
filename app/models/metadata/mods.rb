@@ -24,6 +24,8 @@ module Metadata
       location:                         Metadata::Fields::Location.to_type,
       map_data:                         Metadata::Fields::MapData.to_type,
       related_items:                    Metadata::Fields::RelatedItem.to_type,
+      host_collections:                 Metadata::Fields::HostCollection.to_type,
+      subject_headings:                 Metadata::Fields::SubjectHeading.to_type,
       identifiers:                      Metadata::Fields::Identifier.to_type,
       record_info:                      Metadata::Fields::RecordInfo.to_type,
       hierarchical_geographic_subjects: Metadata::Fields::HierarchicalGeographic.to_type,

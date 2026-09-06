@@ -169,7 +169,7 @@ class SortIndexer
 
     def creator_names
       @creator_names ||= Array(mods&.names)
-                         .select { |name| MarcRelators.creator?(name.role) }
+                         .select { |name| Array(name.roles).any? { |role| MarcRelators.creator?(role) } }
                          .map(&:name).compact_blank
     end
 

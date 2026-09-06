@@ -34,9 +34,9 @@ RSpec.describe CitationIndexer do
 
     it 'projects creator-role names onto creator_ssim and excludes other roles' do
       resource = work_with_mods(names: [
-                                  { name: 'Lee, Wen-Han', role: 'Creator' },
-                                  { name: 'Northeastern University. Libraries', role: 'creator' },
-                                  { name: 'Smith, Editor', role: 'Contributor' }
+                                  { name: 'Lee, Wen-Han', roles: ['Creator'] },
+                                  { name: 'Northeastern University. Libraries', roles: ['creator'] },
+                                  { name: 'Smith, Editor', roles: ['Contributor'] }
                                 ])
 
       expect(described_class.new(resource: resource).to_solr[:creator_ssim])
@@ -51,9 +51,9 @@ RSpec.describe CitationIndexer do
 
     it 'de-duplicates and drops blank creators' do
       resource = work_with_mods(
-        names: [{ name: 'Lee, Wen-Han', role: 'Creator' },
-                { name: 'Lee, Wen-Han', role: 'Creator' },
-                { name: '', role: 'Creator' }]
+        names: [{ name: 'Lee, Wen-Han', roles: ['Creator'] },
+                { name: 'Lee, Wen-Han', roles: ['Creator'] },
+                { name: '', roles: ['Creator'] }]
       )
 
       expect(described_class.new(resource: resource).to_solr[:creator_ssim]).to eq(['Lee, Wen-Han'])
@@ -71,7 +71,7 @@ RSpec.describe CitationIndexer do
     end
 
     it 'omits a field whose source is absent' do
-      resource = work_with_mods(names: [{ name: 'Lee, Wen-Han', role: 'Creator' }])
+      resource = work_with_mods(names: [{ name: 'Lee, Wen-Han', roles: ['Creator'] }])
 
       result = described_class.new(resource: resource).to_solr
       expect(result).to have_key(:creator_ssim)

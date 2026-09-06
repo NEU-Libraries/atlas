@@ -26,6 +26,7 @@
     <mods:extent>1 online resource (24 pages)</mods:extent>
     <mods:digitalOrigin>born digital</mods:digitalOrigin>
     <mods:reformattingQuality>preservation</mods:reformattingQuality>
+    <mods:note>Scanned at 600 dpi.</mods:note>
   </mods:physicalDescription>
   <mods:tableOfContents>Chapter 1 -- Chapter 2</mods:tableOfContents>
   <mods:classification authority="lcc">PS3552.E1</mods:classification>
@@ -36,6 +37,12 @@
   <mods:subject><mods:temporal>21st century</mods:temporal></mods:subject>
   <mods:subject><mods:name type="personal"><mods:namePart>Smith, John</mods:namePart></mods:name></mods:subject>
   <mods:subject><mods:genre>Field recordings</mods:genre></mods:subject>
+  <mods:subject><mods:occupation>Cabinetmakers</mods:occupation></mods:subject>
+  <mods:subject authority="lcsh">
+    <mods:topic>Salt marshes</mods:topic>
+    <mods:geographic>Massachusetts</mods:geographic>
+    <mods:temporal>20th century</mods:temporal>
+  </mods:subject>
   <mods:subject><mods:geographicCode authority="marcgac">n-us-ny</mods:geographicCode></mods:subject>
   <mods:subject>
     <mods:titleInfo><mods:nonSort>The</mods:nonSort><mods:title>Great Gatsby</mods:title></mods:titleInfo>
@@ -47,7 +54,14 @@
       <mods:city>Parksville</mods:city>
     </mods:hierarchicalGeographic>
   </mods:subject>
-  <mods:relatedItem type="host"><mods:titleInfo><mods:title>A Host Collection</mods:title></mods:titleInfo></mods:relatedItem>
+  <mods:relatedItem type="host">
+    <mods:titleInfo><mods:title>Estuaries</mods:title></mods:titleInfo>
+    <mods:part>
+      <mods:detail type="volume"><mods:number>24</mods:number></mods:detail>
+      <mods:detail type="issue"><mods:number>3</mods:number></mods:detail>
+      <mods:extent unit="page"><mods:start>210</mods:start><mods:end>218</mods:end></mods:extent>
+    </mods:part>
+  </mods:relatedItem>
   <mods:relatedItem type="series"><mods:titleInfo><mods:title>A Series</mods:title></mods:titleInfo></mods:relatedItem>
   <mods:relatedItem type="otherFormat"><mods:titleInfo><mods:title>The Print Edition</mods:title></mods:titleInfo></mods:relatedItem>
   <mods:identifier type="doi">10.17760/D20123456</mods:identifier>

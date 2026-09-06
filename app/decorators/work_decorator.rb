@@ -39,21 +39,14 @@ module WorkDecorator
     { field: :extent, label: 'Extent' },
     { field: :digital_origin, label: 'Digital origin', titleize: true },
     { field: :reformatting_quality, label: 'Reformatting quality', titleize: true },
+    { field: :physical_description_notes, label: 'Physical description note' },
     { field: :abstract, render: :abstract },
     { field: :table_of_contents, label: 'Contents' },
     { field: :notes, render: :notes },
     { field: :related_series, label: 'Series' },
-    { field: :host_collections, label: 'Host collections' },
+    { field: :host_collections, render: :host_collections },
     { field: :related_items, render: :related_items },
-    { field: :topical_subjects, label: 'Subjects and keywords' },
-    { field: :geographic_subjects, label: 'Places' },
-    { field: :hierarchical_geographic_subjects, render: :hierarchical_geographic_subjects },
-    { field: :geographic_code_subjects, label: 'Geographic codes' },
-    { field: :temporal_subjects, label: 'Time periods' },
-    { field: :personal_name_subjects, label: 'People' },
-    { field: :corporate_name_subjects, label: 'Organizations' },
-    { field: :genre_subjects, label: 'Subject genres' },
-    { field: :title_subjects, label: 'Subject titles' },
+    { field: :subject_headings, render: :subject_headings },
     { field: :map_data, render: :map_data },
     { field: :identifiers, render: :identifiers },
     { field: :classification, label: 'Photo category' },
@@ -83,9 +76,22 @@ module WorkDecorator
   # Content facet answers the same question in the words a reader uses. It stays
   # projected and indexed, because dc:type wants exactly this controlled
   # vocabulary and a harvester has no picture in front of it.
+  # The subject axes have no row because #subject_headings renders them, joined
+  # back into the heading the cataloguer built. Split apart they asserted
+  # independent subjects the record never claimed: one LCSH heading became rows
+  # under three labels, and the string a cataloguer typed appeared nowhere. They
+  # stay projected because the Solr facets and the OAI crosswalk read them --
+  # those consumers want the parts, and a reader wants the heading.
+  #
+  # geographic_code_subjects is the exception within the exception: a MARC GAC
+  # code is not heading text, so it is neither a row nor a part of one.
   NOT_DISPLAYED = %i[
     record_info
     resource_type
+    topical_subjects geographic_subjects temporal_subjects
+    personal_name_subjects corporate_name_subjects occupation_subjects
+    genre_subjects geographic_code_subjects title_subjects
+    hierarchical_geographic_subjects
     date_created_precision date_created_end date_created_end_precision
     date_created_qualifier date_created_key_date
     date_issued_precision date_issued_end date_issued_end_precision
@@ -119,11 +125,15 @@ module WorkDecorator
   # inventing one; a role-less name merges with an explicit Creator group.
   NO_ROLE_LABEL = 'Creator'
 
-  # hierarchicalGeographic levels, broadest to narrowest. Reversed for display
-  # and read from the narrow end for the facet, so a record naming a city is
-  # browsed by its city rather than by its continent.
+  # hierarchicalGeographic levels, broadest to narrowest. MODSIndexer reads them
+  # from the narrow end, so a record naming a city is browsed by its city rather
+  # than by its continent.
   PLACE_LEVELS = %i[continent country province region state territory county
                     island city city_section area].freeze
+
+  # The separator a cataloguer builds an LCSH heading with, and the one v1 ran
+  # for years. Display policy, so it lives here rather than in the gem.
+  SUBJECT_HEADING_SEPARATOR = ' -- '
 
   def mods_rows
     safe_join(DISPLAY.map { |row| mods_row(row[:field]) })
@@ -139,11 +149,15 @@ module WorkDecorator
     render_plain_row(row)
   end
 
+  # A name appears under every role it declares. A person recorded as both
+  # author and contributor is two assertions, so the repetition is what the
+  # record says rather than a duplicate.
   def names
     return '' if mods&.names.blank?
 
     grouped = mods.names.each_with_object({}) do |pn, hsh|
-      (hsh[MarcRelators.label(pn.role) || NO_ROLE_LABEL] ||= []) << name_with_affiliation(pn)
+      labels = Array(pn.roles).filter_map { |role| MarcRelators.label(role) }.presence || [NO_ROLE_LABEL]
+      labels.each { |label| (hsh[label] ||= []) << name_with_affiliation(pn) }
     end
     safe_join(grouped.map { |label, values| loop_field(label, values) })
   end
@@ -159,17 +173,6 @@ module WorkDecorator
       entry.type.present? ? "#{entry.type.upcase}: #{entry.value}" : entry.value
     end
     loop_field('Identifiers', values)
-  end
-
-  # Most specific first, which is the MODS display convention and the order a
-  # reader reads a place in: "Parksville, New York, United States". The absent
-  # levels are skipped rather than emitting separators for them.
-  def hierarchical_geographic_subjects
-    values = Array(mods&.hierarchical_geographic_subjects).filter_map do |entry|
-      parts = PLACE_LEVELS.reverse.filter_map { |level| entry.public_send(level).presence }
-      parts.join(', ') if parts.any?
-    end
-    loop_field('Places', values)
   end
 
   def date_created = mods_date('Date created', :date_created)
@@ -214,6 +217,29 @@ module WorkDecorator
   # Composing "scale ; projection coordinates" is display policy, which is why
   # the gem leaves cartographics structured and it happens here. The separator
   # follows the MODS display convention.
+  # One row per subject, its parts joined back into the heading a cataloguer
+  # built. The parts also render as facets, which is why the gem keeps them
+  # apart and this joins them: a facet wants "Massachusetts", a reader wants
+  # "Salt marshes -- Massachusetts -- 20th century".
+  def subject_headings
+    values = Array(mods&.subject_headings).filter_map do |heading|
+      Array(heading.parts).compact_blank.join(SUBJECT_HEADING_SEPARATOR).presence
+    end
+    loop_field('Subjects and keywords', values)
+  end
+
+  # "Estuaries, 24(3), pp. 210-218". The host's editor, publisher and ISSN stay
+  # out: they are the other record's metadata, and a reader who wants them
+  # should reach that record rather than read a copy that goes stale.
+  def host_collections
+    values = Array(mods&.host_collections).filter_map do |host|
+      next if host.title.blank?
+
+      [host.title, host_position(host)].compact_blank.join(', ')
+    end
+    loop_field('Host collections', values)
+  end
+
   def map_data
     values = Array(mods&.map_data).filter_map do |entry|
       scale = entry.scale.presence || 'Scale not given'
@@ -233,6 +259,19 @@ module WorkDecorator
   end
 
   private
+
+    # Volume, issue and pages in citation order. Every part is optional, so a
+    # record giving only a page range renders only that.
+    def host_position(host)
+      volume = [host.volume, host.issue.presence && "(#{host.issue})"].compact_blank.join
+      [volume.presence, host_pages(host)].compact_blank.join(', ')
+    end
+
+    def host_pages(host)
+      return nil if host.start_page.blank?
+
+      host.end_page.present? ? "pp. #{host.start_page}-#{host.end_page}" : "p. #{host.start_page}"
+    end
 
     def render_plain_row(row)
       value = mods&.public_send(row[:field])

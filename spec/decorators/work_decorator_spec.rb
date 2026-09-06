@@ -130,32 +130,39 @@ RSpec.describe WorkDecorator do
     end
 
     it 'labels a role-less name Creator rather than nothing' do
-      expect(named({ name: 'Center for Atypical Language Interpreting', role: nil }))
+      expect(named({ name: 'Center for Atypical Language Interpreting', roles: [] }))
         .to eq('<dt>Creator</dt><dd><p>Center for Atypical Language Interpreting</p></dd>')
     end
 
     it 'merges a role-less name into an explicit Creator group' do
-      expect(named({ name: 'Doe, Jane', role: 'Creator' }, { name: 'Roe, Ann', role: nil }))
+      expect(named({ name: 'Doe, Jane', roles: ['Creator'] }, { name: 'Roe, Ann', roles: [] }))
         .to eq('<dt>Creator</dt><dd><p>Doe, Jane</p></dd><dd><p>Roe, Ann</p></dd>')
     end
 
     it 'renders two role-less names under one Creator label, not two empty ones' do
-      expect(named({ name: 'One', role: nil }, { name: 'Two', role: nil }))
+      expect(named({ name: 'One', roles: [] }, { name: 'Two', roles: [] }))
         .to eq('<dt>Creator</dt><dd><p>One</p></dd><dd><p>Two</p></dd>')
     end
 
     it 'translates a MARC relator code into its label' do
-      expect(named({ name: 'Doe, Jane', role: 'aut' }))
+      expect(named({ name: 'Doe, Jane', roles: ['aut'] }))
         .to eq('<dt>Author</dt><dd><p>Doe, Jane</p></dd>')
     end
 
     it 'groups a code and its text term together, since they name one role' do
-      expect(named({ name: 'Doe, Jane', role: 'aut' }, { name: 'Roe, Ann', role: 'Author' }))
+      expect(named({ name: 'Doe, Jane', roles: ['aut'] }, { name: 'Roe, Ann', roles: ['Author'] }))
         .to eq('<dt>Author</dt><dd><p>Doe, Jane</p></dd><dd><p>Roe, Ann</p></dd>')
     end
 
+    # Two roles is two assertions, so the name belongs under both headings.
+    it 'renders a name under every role it declares' do
+      expect(named({ name: 'Doe, Jane', roles: %w[aut ctb] }))
+        .to eq('<dt>Author</dt><dd><p>Doe, Jane</p></dd>' \
+               '<dt>Contributor</dt><dd><p>Doe, Jane</p></dd>')
+    end
+
     it 'leaves an unrecognised role as the record wrote it' do
-      expect(named({ name: 'Doe, Jane', role: 'Wrangler' }))
+      expect(named({ name: 'Doe, Jane', roles: ['Wrangler'] }))
         .to eq('<dt>Wrangler</dt><dd><p>Doe, Jane</p></dd>')
     end
   end
@@ -187,7 +194,7 @@ RSpec.describe WorkDecorator do
 
     it 'renders the host collection, which had no row at all' do
       expect(work.mods_row(:host_collections))
-        .to eq('<dt>Host collections</dt><dd><p>A Host Collection</p></dd>')
+        .to eq('<dt>Host collections</dt><dd><p>Estuaries, 24(3), pp. 210-218</p></dd>')
     end
 
     it 'renders a code-only language as its name' do
@@ -267,20 +274,20 @@ RSpec.describe WorkDecorator do
     end
 
     it 'attaches the affiliation to the name it belongs to' do
-      expect(named({ name: 'Doe, Jane', role: 'Creator',
+      expect(named({ name: 'Doe, Jane', roles: ['Creator'],
                      affiliation: ['Department of Physics', 'Northeastern University'] }))
         .to eq('<dt>Creator</dt><dd><p>Doe, Jane — Department of Physics, Northeastern University</p></dd>')
     end
 
     # Two physicists in different departments still belong under one heading.
     it 'does not let the affiliation become a grouping key' do
-      expect(named({ name: 'Doe, Jane', role: 'Creator', affiliation: ['Physics'] },
-                   { name: 'Roe, Ann', role: 'Creator', affiliation: ['Chemistry'] }))
+      expect(named({ name: 'Doe, Jane', roles: ['Creator'], affiliation: ['Physics'] },
+                   { name: 'Roe, Ann', roles: ['Creator'], affiliation: ['Chemistry'] }))
         .to eq('<dt>Creator</dt><dd><p>Doe, Jane — Physics</p></dd><dd><p>Roe, Ann — Chemistry</p></dd>')
     end
 
     it 'renders a bare name when there is no affiliation' do
-      expect(named({ name: 'Doe, Jane', role: 'Creator', affiliation: [] }))
+      expect(named({ name: 'Doe, Jane', roles: ['Creator'], affiliation: [] }))
         .to eq('<dt>Creator</dt><dd><p>Doe, Jane</p></dd>')
     end
   end
@@ -305,27 +312,48 @@ RSpec.describe WorkDecorator do
       end
     end
 
-    it 'renders the subject axes that had no row' do
-      aggregate_failures do
-        expect(work.mods_row(:genre_subjects))
-          .to eq('<dt>Subject genres</dt><dd><p>Field recordings</p></dd>')
-        expect(work.mods_row(:geographic_code_subjects))
-          .to eq('<dt>Geographic codes</dt><dd><p>n-us-ny</p></dd>')
+    it 'renders a note about the object apart from a note about the work' do
+      expect(work.mods_row(:physical_description_notes))
+        .to eq('<dt>Physical description note</dt><dd><p>Scanned at 600 dpi.</p></dd>')
+    end
+
+    # One row per subject, not one per axis. Split apart, a fragment of a
+    # heading and a whole heading read as two independent subjects.
+    describe 'the assembled subject heading' do
+      it 'joins a pre-coordinated heading the way a cataloguer built it' do
+        expect(work.mods_row(:subject_headings))
+          .to include('<dd><p>Salt marshes -- Massachusetts -- 20th century</p></dd>')
       end
-    end
 
-    # Composed by the gem through the same port as the main title, so the
-    # nonSort survives: "The Great Gatsby", not "Great Gatsby".
-    it 'renders a subject title with its non-sort article intact' do
-      expect(work.mods_row(:title_subjects))
-        .to eq('<dt>Subject titles</dt><dd><p>The Great Gatsby</p></dd>')
-    end
+      it 'gives every axis one row under one label' do
+        expect(work.mods_row(:subject_headings))
+          .to eq('<dt>Subjects and keywords</dt>' \
+                 '<dd><p>Interpreting</p></dd>' \
+                 '<dd><p>Boston (Mass.)</p></dd>' \
+                 '<dd><p>21st century</p></dd>' \
+                 '<dd><p>Smith, John</p></dd>' \
+                 '<dd><p>Field recordings</p></dd>' \
+                 '<dd><p>Cabinetmakers</p></dd>' \
+                 '<dd><p>Salt marshes -- Massachusetts -- 20th century</p></dd>' \
+                 '<dd><p>The Great Gatsby</p></dd>' \
+                 '<dd><p>United States -- New York -- Parksville</p></dd>')
+      end
 
-    # Most specific first, the way a reader reads a place. The absent levels
-    # are skipped rather than emitting separators for them.
-    it 'reads a hierarchical place narrowest first, skipping the absent levels' do
-      expect(work.mods_row(:hierarchical_geographic_subjects))
-        .to eq('<dt>Places</dt><dd><p>Parksville, New York, United States</p></dd>')
+      # A MARC GAC code is not heading text, so v1 showed it nowhere and this
+      # does not either -- it stays projected for the index alone.
+      it 'leaves the geographic code out of the heading' do
+        expect(work.mods_row(:subject_headings)).not_to include('n-us-ny')
+      end
+
+      it 'gives the per-axis fields no row of their own' do
+        aggregate_failures do
+          %i[topical_subjects geographic_subjects temporal_subjects title_subjects
+             personal_name_subjects genre_subjects occupation_subjects
+             geographic_code_subjects hierarchical_geographic_subjects].each do |field|
+            expect(work.mods_row(field)).to eq('')
+          end
+        end
+      end
     end
 
     # Cataloguing provenance rather than description, so it renders nowhere.

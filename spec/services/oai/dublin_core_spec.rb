@@ -142,13 +142,16 @@ RSpec.describe OAI::DublinCore do
   end
 
   it 'maps the remaining simple fields' do
-    record = mods(abstract: 'A summary', languages: %w[eng fra],
-                  permanent_url: 'https://hdl.handle.net/2047/abc',
+    record = mods(abstract:         'A summary',
+                  languages:        [{ term: 'English' }, { term: 'Spanish', object_part: 'subtitles' }],
+                  permanent_url:    'https://hdl.handle.net/2047/abc',
                   access_condition: 'In copyright')
     result = described_class.call(record)
 
     expect(result[:description]).to eq(['A summary'])
-    expect(result[:language]).to eq(%w[eng fra])
+    # The term alone: dc:language takes a language name, so the display's
+    # "Spanish (subtitles)" is not a value a harvester can read.
+    expect(result[:language]).to eq(%w[English Spanish])
     expect(result[:identifier]).to eq(['https://hdl.handle.net/2047/abc'])
     expect(result[:rights]).to eq(['In copyright'])
   end

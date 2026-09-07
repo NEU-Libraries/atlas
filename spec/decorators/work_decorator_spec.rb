@@ -120,6 +120,42 @@ RSpec.describe WorkDecorator do
         expect(work.mods_row(:copyright_date)).to eq('<dt>Copyright date</dt><dd>2025</dd>')
       end
     end
+
+    # "sometime before 1921" is a real encoding and the whole date some records
+    # have. It rendered nothing at all, because the row keyed off the start.
+    it 'spells out an end point that stands alone' do
+      work = decorate_with(date_created_end:           Time.zone.parse('1921-01-01'),
+                           date_created_end_precision: 'year')
+
+      expect(work.mods_row(:date_created)).to eq('<dt>Date created</dt><dd>before 1921</dd>')
+    end
+
+    it 'still qualifies an end-only date' do
+      work = decorate_with(date_created_end:           Time.zone.parse('1921-01-01'),
+                           date_created_end_precision: 'year',
+                           date_created_qualifier:     'approximate')
+
+      expect(work.mods_row(:date_created)).to eq('<dt>Date created</dt><dd>before circa 1921</dd>')
+    end
+
+    # A record whose date is not w3cdtf has no value to format. Showing what
+    # the cataloguer wrote beats a row they filled in that no reader sees.
+    it 'renders the literal a record wrote in something other than w3cdtf' do
+      expect(decorate_with(date_created_text: '19uu').mods_row(:date_created))
+        .to eq('<dt>Date created</dt><dd>19uu</dd>')
+    end
+
+    it 'prefers the parsed date over the literal when it has both' do
+      work = decorate_with(date_created:           Time.zone.parse('1935-01-01'),
+                           date_created_precision: 'year',
+                           date_created_text:      'ignored')
+
+      expect(work.mods_row(:date_created)).to eq('<dt>Date created</dt><dd>1935</dd>')
+    end
+
+    it 'omits the row entirely when the record gave no date at all' do
+      expect(decorate_with.mods_row(:date_created)).to eq('')
+    end
   end
 
   # A nil label rendered an empty <dt>, so the name read as a value of the field
@@ -176,6 +212,19 @@ RSpec.describe WorkDecorator do
         .to eq('<dt>Other contributors</dt><dd><p>Delta, Dee</p></dd>')
     end
 
+    # The unknown-role label is a last resort, not a per-role one. Applied per
+    # role, a name carrying "aut" and a typo'd "qqq" appeared twice -- the
+    # second time under a role the record never asserted.
+    it 'does not repeat a name under the unknown-role label when one role resolved' do
+      expect(named({ name: 'Multi, M', roles: %w[aut qqq] }))
+        .to eq('<dt>Author</dt><dd><p>Multi, M</p></dd>')
+    end
+
+    it 'still uses the unknown-role label when every role on the name is unlisted' do
+      expect(named({ name: 'Multi, M', roles: %w[qqq zzz] }))
+        .to eq('<dt>Other contributors</dt><dd><p>Multi, M</p></dd>')
+    end
+
     # MODS makes the namePart optional, so a name element carrying only a role
     # rendered a labelled empty row. An access copy stored before neu-mods
     # dropped these still carries one.
@@ -218,9 +267,9 @@ RSpec.describe WorkDecorator do
     # A :many field renders one <dd> per value. Built inline because the
     # coverage fixture carries no plain repeatable row with two values.
     it 'renders every value of a repeatable element, not just the first' do
-      row = decorate_with(languages: %w[English French]).mods_row(:languages)
+      row = decorate_with(genres: %w[Photographs Negatives]).mods_row(:genres)
 
-      expect(row).to eq('<dt>Languages</dt><dd><p>English</p></dd><dd><p>French</p></dd>')
+      expect(row).to eq('<dt>Genres</dt><dd><p>Photographs</p></dd><dd><p>Negatives</p></dd>')
     end
 
     it 'renders the three fields that were stored and never displayed' do
@@ -244,6 +293,40 @@ RSpec.describe WorkDecorator do
 
     it 'renders a code-only language as its name' do
       expect(work.mods_row(:languages)).to eq('<dt>Languages</dt><dd><p>English</p></dd>')
+    end
+
+    # objectPart="subtitles" says the SUBTITLES are Spanish. Rendered flat, the
+    # row said the resource was -- which is what a captioned video carries.
+    it 'qualifies a language the record attached to part of the object' do
+      row = decorate_with(languages: [{ term: 'English' },
+                                      { term: 'Spanish', object_part: 'subtitles' }]).mods_row(:languages)
+
+      expect(row).to eq('<dt>Languages</dt><dd><p>English</p></dd><dd><p>Spanish (subtitles)</p></dd>')
+    end
+
+    it 'joins a script into the same qualification rather than a second bracket' do
+      row = decorate_with(languages: [{ term: 'Russian', script: 'Cyrillic' }]).mods_row(:languages)
+
+      expect(row).to eq('<dt>Languages</dt><dd><p>Russian (Cyrillic)</p></dd>')
+    end
+
+    # In MODS @invalid means cancelled, superseded or wrong. Unmarked, a dead
+    # ISBN is what a reader chasing an old citation will try to use.
+    it 'marks an identifier the record calls invalid' do
+      row = decorate_with(identifiers: [{ type: 'isbn', value: '0000000000', invalid: true },
+                                        { type: 'doi', value: '10.1/x', invalid: false }]).mods_row(:identifiers)
+
+      expect(row).to eq('<dt>Identifiers</dt><dd><p>ISBN: 0000000000 (invalid)</p></dd>' \
+                        '<dd><p>DOI: 10.1/x</p></dd>')
+    end
+
+    # The gem keeps a legacy contents list's line breaks because there the
+    # break is the structure. linkify would collapse a lone newline to a space.
+    it 'renders a newline-separated contents list as one value per line' do
+      row = decorate_with(table_of_contents: ["Ch 1\nCh 2", 'Ch 3 -- Ch 4']).mods_row(:table_of_contents)
+
+      expect(row).to eq('<dt>Contents</dt><dd><p>Ch 1</p></dd><dd><p>Ch 2</p></dd>' \
+                        '<dd><p>Ch 3 -- Ch 4</p></dd>')
     end
   end
 
@@ -554,6 +637,33 @@ RSpec.describe WorkDecorator do
       work = decorate_with(main_title: Metadata::Fields::TitleInfo.new(title: 'H<sub>2</sub>O'))
 
       expect(work.plain_title).to eq('H<sub>2</sub>O')
+    end
+  end
+
+  # A record whose only titleInfo is a variant still gets a main_title model,
+  # holding five empty strings. An object is never blank, so the row rendered a
+  # bold "Title" heading over blank space -- a title the system looked to have
+  # lost rather than one the record never gave.
+  context 'when the record gives no primary title' do
+    it 'omits the row for a parts model that composes to nothing' do
+      work = decorate_with(main_title:        Metadata::Fields::TitleInfo.new(title: '', non_sort: ''),
+                           alternative_title: ['Only Alternative'])
+
+      aggregate_failures do
+        expect(work.title).to eq('')
+        expect(work.mods_row(:alternative_title))
+          .to eq('<dt>Alternative title</dt><dd><p>Only Alternative</p></dd>')
+      end
+    end
+
+    it 'omits the row for a titleInfo carrying only a subTitle' do
+      work = decorate_with(main_title: Metadata::Fields::TitleInfo.new(title: '', subtitle: 'A Subtitle'))
+
+      expect(work.title).to eq('')
+    end
+
+    it 'omits the row when there is no access copy at all' do
+      expect(Work.new.decorate.title).to eq('')
     end
   end
 end

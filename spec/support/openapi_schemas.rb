@@ -707,6 +707,7 @@ module OpenapiSchemas
   MODS_OBJECT_PROPS = {
     main_title:                       %i[title subtitle part_number part_name non_sort],
     names:                            %i[name roles affiliation],
+    languages:                        %i[term object_part script],
     notes:                            %i[type value],
     host_collections:                 %i[title volume issue start_page end_page date text
                                          details extents],
@@ -714,7 +715,7 @@ module OpenapiSchemas
     location:                         %i[physical_location shelf_location url],
     map_data:                         %i[scale projection coordinates],
     related_items:                    %i[type title],
-    identifiers:                      %i[type value],
+    identifiers:                      %i[type value invalid],
     record_info:                      %i[content_source origin description_standard creation_date
                                          change_date language_of_cataloging],
     hierarchical_geographic_subjects: %i[continent country province region state territory

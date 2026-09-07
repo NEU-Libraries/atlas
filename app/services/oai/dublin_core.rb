@@ -140,8 +140,13 @@ module OAI
         Array(mods&.resource_type)
       end
 
+      # The term alone, part-qualified or not. dc:language takes a language
+      # code or name and nothing else, so the display's "Spanish (subtitles)"
+      # is not a value to ship; a harvester that read it would have a string
+      # matching no vocabulary. The Solr facet makes the same call for the same
+      # reason -- one language, one value.
       def language
-        Array(mods&.languages)
+        Array(mods&.languages).filter_map { |entry| entry.term.presence }
       end
 
       # dc:identifier repeats, so a DOI ships beside the handle: both are

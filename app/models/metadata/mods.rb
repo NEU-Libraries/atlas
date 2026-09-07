@@ -20,6 +20,7 @@ module Metadata
     TYPES = {
       main_title:                       Metadata::Fields::TitleInfo.to_type,
       names:                            Metadata::Fields::Name.to_type,
+      languages:                        Metadata::Fields::Language.to_type,
       notes:                            Metadata::Fields::Note.to_type,
       location:                         Metadata::Fields::Location.to_type,
       map_data:                         Metadata::Fields::MapData.to_type,

@@ -69,26 +69,31 @@ class MODSIndexer
   # reader pastes, not as the model's inspect output. A host facets on its title
   # alone -- bucketing on the composed citation would make one bucket per
   # article, since the volume and pages differ on every record.
-  SOLR_MEMBER_VALUES = { identifiers: :value, host_collections: :title }.freeze
+  # A language facets on its term alone. The @objectPart qualifies the row a
+  # reader sees, but bucketing "Spanish (subtitles)" apart from "Spanish" would
+  # split one language across two facet entries and hide the record from a
+  # reader browsing either.
+  SOLR_MEMBER_VALUES = { identifiers: :value, host_collections: :title, languages: :term }.freeze
 
   # Fields whose members need composing rather than reading: the private method
   # that turns one entry into the string Solr should hold.
   SOLR_MEMBER_COMPOSERS = { hierarchical_geographic_subjects: :narrowest_place }.freeze
 
-  # The five parts every projected date carries beside its value, and why none
+  # The six parts every projected date carries beside its value, and why none
   # of them is indexed. Derived onto each date below rather than written out:
-  # seven dates times five parts is thirty-five near-identical rows, and a date
-  # added to the gem would need five more of them or the coverage guard fails
+  # seven dates times six parts is forty-two near-identical rows, and a date
+  # added to the gem would need six more of them or the coverage guard fails
   # on fields nobody meant to index.
   DATE_PART_REASONS = {
     'precision'     => 'chooses a display format; not a value a reader searches',
     'end'           => 'the far end of a range; a range sorts and facets on its start',
     'end_precision' => 'chooses a display format; not a value a reader searches',
     'qualifier'     => 'renders into the date string; not a value a reader searches',
-    'key_date'      => 'chooses which date SortIndexer sorts on; not a facet'
+    'key_date'      => 'chooses which date SortIndexer sorts on; not a facet',
+    'text'          => 'the literal of a date that is not w3cdtf; a display value, and unsortable'
   }.freeze
 
-  # Every date the gem projects, found by its key-date flag, times the five
+  # Every date the gem projects, found by its key-date flag, times the six
   # parts above.
   DATE_PARTS_NOT_INDEXED = NEU::MODS::FIELDS.keys.grep(/_key_date\z/).each_with_object({}) do |flag, hsh|
     prefix = flag.to_s.delete_suffix('_key_date')

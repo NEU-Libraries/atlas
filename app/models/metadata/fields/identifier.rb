@@ -10,6 +10,11 @@ module Metadata
 
       attr_json :type, :string
       attr_json :value, :string
+
+      # MODS @invalid: the identifier is cancelled, superseded or wrong. Kept
+      # because unmarked it read exactly like a live one and invited a reader
+      # to go and use it.
+      attr_json :invalid, :boolean
     end
   end
 end

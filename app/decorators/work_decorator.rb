@@ -25,7 +25,7 @@ module WorkDecorator
     { field: :translated_title, label: 'Translated title' },
     { field: :uniform_title, label: 'Uniform title' },
     { field: :abbreviated_title, label: 'Abbreviated title' },
-    { field: :languages, label: 'Languages' },
+    { field: :languages, render: :languages },
     { field: :date_created, render: :date_created },
     { field: :date_issued, render: :date_issued },
     { field: :copyright_date, render: :copyright_date },
@@ -41,7 +41,7 @@ module WorkDecorator
     { field: :reformatting_quality, label: 'Reformatting quality', capitalize: true },
     { field: :physical_description_notes, label: 'Physical description note' },
     { field: :abstract, render: :abstract },
-    { field: :table_of_contents, label: 'Contents' },
+    { field: :table_of_contents, render: :table_of_contents },
     { field: :notes, render: :notes },
     { field: :related_series, label: 'Series' },
     { field: :host_collections, render: :host_collections },
@@ -62,7 +62,9 @@ module WorkDecorator
   #
   # None of the date parts is a value a reader wants on its own: the precisions
   # choose the format, the end value and the qualifier are composed into the
-  # date string, and the key-date flag chooses which date sorts.
+  # date string, the key-date flag chooses which date sorts, and the text
+  # carries the literal a record wrote in something other than w3cdtf, which
+  # the date row renders when there is no date to format.
   #
   # Four whole dates render nowhere either. dateCaptured is when the object was
   # digitised and dateModified is when the resource changed -- preservation and
@@ -101,19 +103,23 @@ module WorkDecorator
     genre_subjects geographic_code_subjects title_subjects
     hierarchical_geographic_subjects
     date_created_precision date_created_end date_created_end_precision
-    date_created_qualifier date_created_key_date
+    date_created_qualifier date_created_key_date date_created_text
     date_issued_precision date_issued_end date_issued_end_precision
-    date_issued_qualifier date_issued_key_date
+    date_issued_qualifier date_issued_key_date date_issued_text
     copyright_date_precision copyright_date_end copyright_date_end_precision
-    copyright_date_qualifier copyright_date_key_date
+    copyright_date_qualifier copyright_date_key_date copyright_date_text
     date_captured date_captured_precision date_captured_end
     date_captured_end_precision date_captured_qualifier date_captured_key_date
+    date_captured_text
     date_valid date_valid_precision date_valid_end
     date_valid_end_precision date_valid_qualifier date_valid_key_date
+    date_valid_text
     date_other date_other_precision date_other_end
     date_other_end_precision date_other_qualifier date_other_key_date
+    date_other_text
     date_modified date_modified_precision date_modified_end
     date_modified_end_precision date_modified_qualifier date_modified_key_date
+    date_modified_text
   ].freeze
 
   # A date renders only as finely as the record declared it. A year-only date
@@ -133,6 +139,11 @@ module WorkDecorator
     'inferred'     => ->(rendered) { "[#{rendered}]" },
     'questionable' => ->(rendered) { "#{rendered}?" }
   }.freeze
+
+  # How a date that is an end with no beginning reads. `<dateCreated
+  # point="end">1921</>` says the resource is no later than 1921 and nothing
+  # more, so the bare year would assert a date the record refused to give.
+  END_ONLY_DATE_PREFIX = 'before'
 
   # The label for a name that declares no role. MODS makes mods:role optional,
   # and a nil label rendered an empty <dt>, so the name read as a value of the
@@ -158,6 +169,12 @@ module WorkDecorator
   # The separator a cataloguer builds an LCSH heading with, and the one v1 ran
   # for years. Display policy, so it lives here rather than in the gem.
   SUBJECT_HEADING_SEPARATOR = ' -- '
+
+  # What follows an identifier the record flagged invalid. Words rather than a
+  # symbol, and beside the value rather than in a tooltip, for the reason
+  # DATE_QUALIFIERS gives: a reader scanning the page must not take a dead
+  # number for a live one, and a screen reader may not announce an attribute.
+  INVALID_IDENTIFIER_MARK = '(invalid)'
 
   # The separator between a map's scale, projection and coordinates, which is
   # the MODS display convention. Display policy, so it lives here rather than
@@ -191,8 +208,7 @@ module WorkDecorator
     grouped = mods.names.each_with_object({}) do |pn, hsh|
       next if pn.name.blank?
 
-      labels = Array(pn.roles).filter_map { |role| role_label(role) }.presence || [NO_ROLE_LABEL]
-      labels.each { |label| (hsh[label] ||= []) << name_with_affiliation(pn) }
+      name_labels(pn).each { |label| (hsh[label] ||= []) << name_with_affiliation(pn) }
     end
     safe_join(grouped.map { |label, values| loop_field(label, values) })
   end
@@ -201,13 +217,46 @@ module WorkDecorator
   # not the same kind of thing and a reader cannot tell them apart from the
   # digits. Upcased rather than titleized: these are codes, so "DOI" reads
   # right where "Doi" does not.
+  #
+  # An identifier the record calls invalid is marked, not suppressed. In MODS
+  # the attribute means cancelled, superseded or wrong, and a cancelled ISBN is
+  # exactly what a reader chasing an old citation has in hand -- so it is worth
+  # showing, and worth saying it will not resolve.
   def identifiers
     values = Array(mods&.identifiers).filter_map do |entry|
       next if entry.value.blank?
 
-      entry.type.present? ? "#{entry.type.upcase}: #{entry.value}" : entry.value
+      rendered = entry.type.present? ? "#{entry.type.upcase}: #{entry.value}" : entry.value
+      entry.invalid ? "#{rendered} #{INVALID_IDENTIFIER_MARK}" : rendered
     end
     loop_field('Identifiers', values)
+  end
+
+  # "Spanish (subtitles)". An @objectPart says the language belongs to part of
+  # the object, not to the object -- a captioned video is not in the language
+  # of its captions -- so the row must carry the qualification or it makes a
+  # claim the record did not. The Solr facet still gets the bare term, so a
+  # search for Spanish finds this record either way.
+  #
+  # The script joins the same parenthesis. It qualifies the term for the same
+  # reason and a second bracket beside the first would read as two things.
+  def languages
+    values = Array(mods&.languages).filter_map do |entry|
+      next if entry.term.blank?
+
+      qualifiers = [entry.object_part, entry.script].compact_blank
+      qualifiers.empty? ? entry.term : "#{entry.term} (#{qualifiers.join(', ')})"
+    end
+    loop_field('Languages', values)
+  end
+
+  # One <dd> per entry. The gem keeps a legacy contents list's line breaks
+  # because there the break is the structure, and linkify would collapse a lone
+  # newline back into a space -- so the lines are split here and rendered as
+  # the list they are.
+  def table_of_contents
+    values = Array(mods&.table_of_contents).flat_map { |entry| entry.to_s.split("\n") }
+    loop_field('Contents', values.compact_blank)
   end
 
   def date_created = mods_date('Date created', :date_created)
@@ -350,12 +399,23 @@ module WorkDecorator
       end.join(', ')
     end
 
-    # An unlisted MARC code is not a label. #names groups on the result, so a
-    # code the table does not hold would become the heading itself.
-    def role_label(role)
-      return UNKNOWN_ROLE_LABEL if MarcRelators.unknown_code?(role)
+    # The labels one name files under. A name declaring no role at all takes
+    # the Creator default; a name whose roles are all unrecognised takes the
+    # unknown-role label.
+    #
+    # The unknown-role label is a LAST resort, not a per-role one. A name
+    # carrying "aut" and a typo'd "qqq" was filed under both, so a reader saw
+    # the same person twice -- the second time under a role the record never
+    # asserted. A name with at least one role this system knows is already
+    # filed correctly, and the unrecognised code adds nothing but the
+    # duplicate.
+    def name_labels(entry)
+      roles = Array(entry.roles).compact_blank
+      return [NO_ROLE_LABEL] if roles.empty?
 
-      MarcRelators.label(role)
+      known = roles.reject { |role| MarcRelators.unknown_code?(role) }
+                   .filter_map { |role| MarcRelators.label(role) }.uniq
+      known.presence || [UNKNOWN_ROLE_LABEL]
     end
 
     def render_plain_row(row)
@@ -381,14 +441,35 @@ module WorkDecorator
     # own granularity, the other end of a range at the end's own granularity,
     # and the qualifier around the whole thing. "circa 1935-1940" is honest
     # where "1935" and "1935-1940" both are not.
+    #
+    # A record whose date is not a w3cdtf one has no value to format, and the
+    # gem hands over the literal instead. Showing "19uu" is what the record
+    # says; the alternative is a row a cataloguer filled in that no reader ever
+    # sees.
     def mods_date(label, attribute)
-      value = mods&.public_send(attribute)
-      return field(label, nil) if value.blank?
+      return field(label, part(attribute, 'text')) unless dated?(attribute)
 
-      rendered = [formatted_date(value, part(attribute, 'precision')),
-                  formatted_date(part(attribute, 'end'), part(attribute, 'end_precision'))]
-                 .compact_blank.join('-')
-      field(label, qualified(rendered, part(attribute, 'qualifier')))
+      field(label, composed_date(attribute))
+    end
+
+    # Whether the record gave a date this can format. An end point with no
+    # beginning counts: "sometime before 1921" is a real encoding and the whole
+    # date some records have.
+    def dated?(attribute)
+      mods&.public_send(attribute).present? || part(attribute, 'end').present?
+    end
+
+    # "1935-06-1940", "circa 1935" or "before circa 1921". An end standing
+    # alone is spelled out, because a leading hyphen reads as a typo and the
+    # bare year would assert a date the record did not give. The prefix sits
+    # OUTSIDE the qualifier so the two read as English in that order.
+    def composed_date(attribute)
+      start = formatted_date(mods.public_send(attribute), part(attribute, 'precision'))
+      finish = formatted_date(part(attribute, 'end'), part(attribute, 'end_precision'))
+      qualifier = part(attribute, 'qualifier')
+      return "#{END_ONLY_DATE_PREFIX} #{qualified(finish, qualifier)}" if start.blank?
+
+      qualified([start, finish].compact_blank.join('-'), qualifier)
     end
 
     def part(attribute, name) = mods.public_send(:"#{attribute}_#{name}")

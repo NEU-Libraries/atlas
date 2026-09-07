@@ -1195,7 +1195,7 @@ components:
                 languages:
                   type: array
                   items:
-                    type: string
+                    type: object
                 abstract:
                   type: string
                   nullable: true
@@ -1239,6 +1239,9 @@ components:
                 date_created_key_date:
                   type: boolean
                   nullable: true
+                date_created_text:
+                  type: string
+                  nullable: true
                 date_issued:
                   type: string
                   format: date-time
@@ -1258,6 +1261,9 @@ components:
                   nullable: true
                 date_issued_key_date:
                   type: boolean
+                  nullable: true
+                date_issued_text:
+                  type: string
                   nullable: true
                 copyright_date:
                   type: string
@@ -1279,6 +1285,9 @@ components:
                 copyright_date_key_date:
                   type: boolean
                   nullable: true
+                copyright_date_text:
+                  type: string
+                  nullable: true
                 date_captured:
                   type: string
                   format: date-time
@@ -1298,6 +1307,9 @@ components:
                   nullable: true
                 date_captured_key_date:
                   type: boolean
+                  nullable: true
+                date_captured_text:
+                  type: string
                   nullable: true
                 date_valid:
                   type: string
@@ -1319,6 +1331,9 @@ components:
                 date_valid_key_date:
                   type: boolean
                   nullable: true
+                date_valid_text:
+                  type: string
+                  nullable: true
                 date_other:
                   type: string
                   format: date-time
@@ -1339,6 +1354,9 @@ components:
                 date_other_key_date:
                   type: boolean
                   nullable: true
+                date_other_text:
+                  type: string
+                  nullable: true
                 date_modified:
                   type: string
                   format: date-time
@@ -1358,6 +1376,9 @@ components:
                   nullable: true
                 date_modified_key_date:
                   type: boolean
+                  nullable: true
+                date_modified_text:
+                  type: string
                   nullable: true
                 resource_type:
                   type: array

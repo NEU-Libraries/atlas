@@ -15,14 +15,30 @@ RSpec.describe MarcRelators do
       expect(described_class.label('AUT')).to eq('Author')
     end
 
-    it 'leaves a text term alone' do
+    it 'leaves a text term in the authorised form alone' do
       expect(described_class.label('Creator')).to eq('Creator')
     end
 
+    # "author" and "aut" are the same claim written two ways. Passed through as
+    # typed, they became two headings, so one capital letter decided whether
+    # two names grouped into one row or split into two.
+    it 'matches a text term against the vocabulary by name, whatever its case' do
+      aggregate_failures do
+        expect(described_class.label('author')).to eq('Author')
+        expect(described_class.label('AUTHOR')).to eq('Author')
+        expect(described_class.label('  photographer  ')).to eq('Photographer')
+      end
+    end
+
     # Losing an unrecognised value would be worse than showing it: the record
-    # still said something, and nothing downstream could recover it.
-    it 'returns an unrecognised role unchanged' do
-      expect(described_class.label('Wrangler')).to eq('Wrangler')
+    # still said something, and nothing downstream could recover it. Its case
+    # survives too -- there is no authorised form to normalise it towards, so
+    # rewriting it would only be guessing at what the cataloguer meant.
+    it 'returns an unrecognised role unchanged, case and all' do
+      aggregate_failures do
+        expect(described_class.label('Wrangler')).to eq('Wrangler')
+        expect(described_class.label('wrangler')).to eq('wrangler')
+      end
     end
 
     it 'returns nil for an absent role, so a caller can apply its own default' do

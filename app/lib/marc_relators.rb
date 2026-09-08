@@ -302,14 +302,29 @@ module MarcRelators
     RELATOR_CODE.match?(key) && !TERMS.key?(key)
   end
 
-  # The label for a role, which may already be a text term ("Creator"), a code
-  # ("aut"), or nil. Returns nil for a blank role so the caller can apply its
-  # own default -- an absent role is not the same as an unrecognised one.
+  # The authorised labels, keyed by the label itself downcased, so a text
+  # roleTerm can reach the same entry its code does. Built from TERMS rather
+  # than listed, because a second copy of a 300-row vocabulary drifts.
+  LABELS_BY_NAME = TERMS.values.index_by(&:downcase).freeze
+
+  # The label for a role, which may be a code ("aut"), a text term ("author"),
+  # or nil. Returns nil for a blank role so the caller can apply its own
+  # default -- an absent role is not the same as an unrecognised one.
+  #
+  # A text term is matched against the vocabulary by NAME. Passed through as
+  # typed, "author" and "aut" are the same claim under two headings, so one
+  # capital letter decided whether two names grouped into one row or split into
+  # two -- and the lowercase one read as a rendering fault beside "Publisher".
+  #
+  # A term the vocabulary does not hold survives exactly as written. This
+  # normalises only where an authorised form already exists to normalise to;
+  # "Wrangler" is what the cataloguer meant and there is nothing to match it
+  # against.
   def self.label(role)
     key = role.to_s.strip
     return nil if key.empty?
 
-    TERMS.fetch(key.downcase, key)
+    TERMS[key.downcase] || LABELS_BY_NAME.fetch(key.downcase, key)
   end
 
   # Whether a role marks its name as a creator of the resource.

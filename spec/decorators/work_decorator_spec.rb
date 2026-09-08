@@ -197,11 +197,20 @@ RSpec.describe WorkDecorator do
                '<dt>Contributor</dt><dd><p>Doe, Jane</p></dd>')
     end
 
-    # A text roleTerm is free text a cataloguer wrote, and it has to survive as
-    # itself -- the corpus carries Photographer, Wrangler and the rest.
+    # A text roleTerm the vocabulary does not hold is free text a cataloguer
+    # wrote, and it has to survive as itself -- the corpus carries Wrangler and
+    # the rest, and there is no authorised form to normalise it towards.
     it 'leaves an unrecognised role term as the record wrote it' do
       expect(named({ name: 'Doe, Jane', roles: ['Wrangler'] }))
         .to eq('<dt>Wrangler</dt><dd><p>Doe, Jane</p></dd>')
+    end
+
+    # A text term and its code are one role, so they belong under one heading.
+    # Matched only on the cataloguer's capitalisation, "author" and "aut" split
+    # into two rows and the lowercase one read as a rendering fault.
+    it 'groups a lowercase text term with the code that names the same role' do
+      expect(named({ name: 'Doe, Jane', roles: ['aut'] }, { name: 'Roe, Ann', roles: ['author'] }))
+        .to eq('<dt>Author</dt><dd><p>Doe, Jane</p></dd><dd><p>Roe, Ann</p></dd>')
     end
 
     # An unlisted CODE is a typo, not a label. It fell through to itself, so

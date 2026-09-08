@@ -153,11 +153,15 @@ module WorkDecorator
   NO_ROLE_LABEL = 'Creator'
 
   # The label for a name whose role is a MARC code this system does not hold.
-  # An unlisted code fell through to itself, so a typo'd "zzz" became a row
-  # heading -- exactly the outcome suppressing displayLabel exists to prevent,
-  # since labels come from one list the system controls. The name still
-  # renders, because losing it over a typo is worse than filing it loosely, and
-  # it is kept apart from Creator because the record did not say creator.
+  # A heading comes from one list the system controls, so an unlisted code must
+  # not become one -- that is the outcome suppressing displayLabel exists to
+  # prevent. The name still renders, because losing it over a typo is worse
+  # than filing it loosely, and it is kept apart from Creator because the
+  # record did not say creator.
+  #
+  # The code itself is shown nowhere, and that is settled rather than pending.
+  # A curator proofing a record reads the XML for what the record literally
+  # says; a reader has no use for a relator code this system cannot name.
   UNKNOWN_ROLE_LABEL = 'Other contributors'
 
   # hierarchicalGeographic levels, broadest to narrowest. MODSIndexer reads them

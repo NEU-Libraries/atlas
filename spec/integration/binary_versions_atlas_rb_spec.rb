@@ -41,9 +41,13 @@ RSpec.describe 'Binary version history via atlas_rb', :atlas_rb_server do
 
     # Streaming the seed version yields the original bytes, byte-for-byte.
     chunks = []
-    headers = AtlasRb::Blob.version_content(blob['id'], seed_label, nuid: admin_nuid) { |c| chunks << c }
+    streamed = AtlasRb::Blob.version_content(blob['id'], seed_label, nuid: admin_nuid) { |c| chunks << c }
     expect(chunks.join.b).to eq(File.binread(fixture_a))
-    expect(headers).to be_a(Hash)
+    # The status rides back with the headers because a streamed read cannot
+    # raise: a caller writing these chunks to a download has to be able to tell
+    # them from an error body.
+    expect(streamed[:status]).to eq(200)
+    expect(streamed[:headers]).to be_a(Hash)
 
     # Rollback reinstates the seed bytes as a new revision (NOID stable).
     rolled = AtlasRb::Blob.rollback(blob['id'], seed_label, nuid: admin_nuid)

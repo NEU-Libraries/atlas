@@ -70,10 +70,12 @@ RSpec.describe 'JWT-direct access via atlas_rb', :atlas_rb_server do
     token = mint_jwt(librarian)
     User.revoke_jwt(nil, librarian) # rotate jti → outstanding tokens die
 
+    # The refusal reaches the caller as a typed error naming the status. It
+    # used to arrive as a Mash carrying the 401 envelope, which reads like a
+    # user record with no nuid — a dead token that looked like a live guest.
     with_jwt(token) do
-      me = AtlasRb::Authentication.login('000000077')
-      expect(me['nuid']).to be_nil       # not authenticated as the user
-      expect(me['error']).to be_present  # 401 envelope surfaced
+      expect { AtlasRb::Authentication.login('000000077') }
+        .to raise_error(AtlasRb::ResourceError) { |error| expect(error.status).to eq(401) }
     end
   end
 end

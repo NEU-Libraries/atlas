@@ -67,9 +67,10 @@ RSpec.describe 'Personal-access token lifecycle via atlas_rb', :atlas_rb_server 
     expect(AtlasRb::System::Token.revoke(nuid: librarian.nuid)).to be(true)
 
     with_jwt(token) do
-      me = AtlasRb::Authentication.login(librarian.nuid)
-      expect(me['nuid']).to be_nil      # jti rotated → token no longer valid
-      expect(me['error']).to be_present # 401 envelope surfaced
+      # jti rotated → the token no longer authenticates, and the 401 reaches
+      # the caller as a typed error rather than an envelope shaped like data.
+      expect { AtlasRb::Authentication.login(librarian.nuid) }
+        .to raise_error(AtlasRb::ResourceError) { |error| expect(error.status).to eq(401) }
     end
   end
 
@@ -82,7 +83,7 @@ RSpec.describe 'Personal-access token lifecycle via atlas_rb', :atlas_rb_server 
       expect(AtlasRb::Authentication.login('x')['nuid']).to eq(librarian.nuid)
     end
     with_jwt(old) do
-      expect(AtlasRb::Authentication.login('x')['nuid']).to be_nil
+      expect { AtlasRb::Authentication.login('x') }.to raise_error(AtlasRb::ResourceError)
     end
   end
 

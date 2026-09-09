@@ -14,10 +14,38 @@ info:
 
     ### Authentication
 
-    Most write endpoints require a Cerberus system bearer token plus a
-    `User` header carrying the acting NUID. Read endpoints generally
-    allow unauthenticated guest access. Endpoints that require auth
-    declare it explicitly below.
+    Every request resolves its principal from the bearer token. Four
+    credentials are recognised:
+
+    - **No token** — the guest principal. Most reads fall through here.
+    - **A Cerberus signed assertion** (ES256, `iss=cerberus`,
+      `aud=atlas`) — the relay path. Identity is the proven `sub`;
+      acting-as rides a signed `obo` claim, never a header.
+    - **A devise-JWT** minted by `POST /nuid` — the standalone path, for
+      a librarian's own scripts. Identity is the token's, so the `User`
+      header is ignored.
+    - **The system token** plus a `User: NUID <system>` header — the
+      backend-to-backend path, valid only as the system principal.
+
+    Anything else is a `401`. Endpoints that need more than the read
+    floor declare it explicitly below.
+
+    ### Errors
+
+    Failures carry a JSON body with an `error` key, and several are
+    machine-readable discriminators a client is expected to branch on —
+    `read_only_mode` on the maintenance window, `stale_resource` on an
+    optimistic-lock conflict, `fixity_mismatch` on a rejected upload.
+
+    Two shapes are not documented per operation, because they apply to
+    all of them. **Any endpoint can answer `5xx`**, and a proxy in front
+    of Atlas can answer `502` / `504` with a body that is not JSON at
+    all — see the `ServerError` response below. And **any write can
+    answer `503` with `error: "read_only_mode"` and a `Retry-After`
+    header** while the repository-wide read-only window is open. A
+    client must consult the status before it reads the body; the
+    `Retry-After` on that `503` is measured in minutes, so it is a
+    "come back later", not a "try again now".
 servers:
 - url: "{scheme}://{host}"
   variables:
@@ -43,7 +71,9 @@ components:
     BearerAuth:
       type: http
       scheme: bearer
-      description: Cerberus system token or a devise-jwt user token. Both are accepted.
+      description: A Cerberus signed assertion, a devise-jwt user token, or the Cerberus
+        system token. All three are accepted; see the Authentication note above for
+        which identity each one proves.
     NuidHeader:
       type: apiKey
       in: header
@@ -54,13 +84,27 @@ components:
       type: apiKey
       in: header
       name: On-Behalf-Of
-      description: 'Acting-as attribution target, in the form `NUID <nuid>`. Sent
-        on writes during an acting-as session: the `User` header (the operator) authorizes
-        the request and must be an admin; this header names the user the write is
-        attributed to. On a create, the resulting resource reads as a pure deposit
+      description: 'Acting-as attribution target, in the form `NUID <nuid>`. Honoured
+        only on the system-token path, which is backend-to-backend; human acting-as
+        rides a signed `obo` claim inside the Cerberus assertion instead, so the target
+        cannot be forged onto a stolen credential. The header names the user a write
+        is attributed to: on a create the resulting resource reads as a pure deposit
         by the target — `depositor` = target, `proxy_uploader` left null — with the
-        operator recorded only in the AuditEvent. A non-admin operator presenting
-        this header is rejected (403).'
+        operator recorded only in the AuditEvent. Presented on any other path it is
+        rejected (403), admin or not.'
+  responses:
+    ServerError:
+      description: 'Atlas, or a proxy in front of it, failed to serve the request.
+        Applies to every operation. Atlas''s own 5xx carries a JSON `{ "error": …
+        }` body; a proxy''s 502/504 may carry HTML or plain text, so a client must
+        key on the status rather than parsing the body first.'
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
   schemas:
     Work:
       type: object

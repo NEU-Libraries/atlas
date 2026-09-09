@@ -67,6 +67,13 @@ RSpec.configure do |config|
   config.after(:each, :atlas_rb_server) do
     AtlasRb.config.assertion_signing_key = nil
     AtlasRb.config.assertion_signing_kid = nil
+    # The transport-policy slots too, since they are read at connection-build
+    # time: a spec that tightens the read budget and then fails would otherwise
+    # leave every later example on its number.
+    AtlasRb.config.open_timeout        = nil
+    AtlasRb.config.read_timeout        = nil
+    AtlasRb.config.upload_read_timeout = nil
+    AtlasRb.config.read_retries        = nil
     # atlas_rb pools its sockets, so a connection opened by one example would
     # otherwise stay open into the next — cross-example coupling that is much
     # cheaper to prevent here than to diagnose later from a flaky failure.

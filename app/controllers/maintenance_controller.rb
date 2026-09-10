@@ -95,6 +95,11 @@ class MaintenanceController < ApplicationController
     # DELETE rather than TRUNCATE, and with referential integrity disabled, so
     # the wipe is order-independent across the tables' foreign keys.
     def delete_all_rows!
+      # Independent of the caller's guard, mirroring purge_storage!: this empties
+      # every table Atlas has, so it must never be reachable outside a resettable
+      # env even if a future caller forgets to check.
+      raise "refusing to wipe the database outside a resettable env (#{Rails.env})" unless resettable_env?
+
       conn   = ActiveRecord::Base.connection
       tables = conn.tables - RETAINED_TABLES
 

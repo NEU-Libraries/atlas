@@ -91,6 +91,15 @@ RSpec.describe MaintenanceController do
       end
     end
 
+    it 'refuses to wipe — leaving rows intact — outside a resettable env' do
+      User.create!(email: 'keep-me@example.invalid', password: SecureRandom.hex(16),
+                   nuid: '000009004', name: 'User, Spared', role: :guest)
+      allow(Rails).to receive(:env).and_return(ActiveSupport::StringInquirer.new('production'))
+
+      expect { controller.send(:delete_all_rows!) }.to raise_error(/resettable env/)
+      expect(User.count).to be_positive
+    end
+
     it 'deletes across a foreign key regardless of table order' do
       user = User.create!(email: 'parent@example.invalid', password: SecureRandom.hex(16),
                           nuid: '000009002', name: 'User, Parent', role: :guest)

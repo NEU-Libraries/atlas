@@ -21,6 +21,10 @@ class MaintenanceController < ApplicationController
   # Reset is restricted to ephemeral environments; production is never wiped.
   RESETTABLE_ENVS = %w[development staging test].freeze
 
+  # Rails' own bookkeeping. The reset wipes content, not the migration state —
+  # emptying these would leave the app looking un-migrated.
+  RETAINED_TABLES = %w[ar_internal_metadata schema_migrations].freeze
+
   # GET /maintenance — the window's state. On the authenticated read floor, and
   # deliberately so: if this were refused during maintenance, Cerberus could
   # never see the flag it is meant to be honouring.
@@ -61,8 +65,7 @@ class MaintenanceController < ApplicationController
   def reset
     raise "Wrong env - #{Rails.env} - must not be production" unless resettable_env?
 
-    DatabaseCleaner.strategy = :deletion
-    DatabaseCleaner.clean
+    delete_all_rows!
 
     # SolrCore.url, not a literal: reset must wipe the core the composite
     # persister writes to, and in test that core is env-driven per instance.
@@ -83,6 +86,22 @@ class MaintenanceController < ApplicationController
   end
 
   private
+
+    # Empty every application table. Reset is reachable in staging, so it must
+    # not route through database_cleaner: that gem sits in the :development,
+    # :test bundle group, and Bundler.require loads only the running
+    # environment's groups, leaving the constant undefined in staging.
+    #
+    # DELETE rather than TRUNCATE, and with referential integrity disabled, so
+    # the wipe is order-independent across the tables' foreign keys.
+    def delete_all_rows!
+      conn   = ActiveRecord::Base.connection
+      tables = conn.tables - RETAINED_TABLES
+
+      conn.disable_referential_integrity do
+        tables.each { |table| conn.execute("DELETE FROM #{conn.quote_table_name(table)}") }
+      end
+    end
 
     def refuse_during_maintenance
       raise Exceptions::ReadOnlyMode if MaintenanceMode.read_only?

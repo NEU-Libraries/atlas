@@ -12,11 +12,11 @@ require 'rails_helper'
 # a resource's MODS history with other resources' content across reset runs.
 #
 # These specs deliberately do NOT drive the full reset action against the real
-# storage adapter: that would (a) wipe the suite's shared tmp/files OCFL store
-# mid-run and (b) trip the DatabaseCleaner :deletion vs transactional-fixtures
-# connection conflict. Instead the destructive purge is exercised against an
-# isolated throwaway root, and the action-level env guard is asserted via the
-# HTTP path where it raises before touching anything.
+# storage adapter: that would wipe the suite's shared tmp/files OCFL store
+# mid-run. Instead the destructive purge is exercised against an isolated
+# throwaway root, the DB wipe is exercised on its own inside the example's
+# fixture transaction (so it rolls back), and the action-level env guard is
+# asserted via the HTTP path where it raises before touching anything.
 RSpec.describe MaintenanceController do
   subject(:controller) { described_class.new }
 
@@ -70,6 +70,37 @@ RSpec.describe MaintenanceController do
     end
   end
 
+  # The wipe runs inside the example's fixture transaction, so every DELETE here
+  # rolls back and the suite's own rows survive.
+  describe '#delete_all_rows! (the DB wipe)' do
+    it 'empties the application tables' do
+      User.create!(email: 'wipe-me@example.invalid', password: SecureRandom.hex(16),
+                   nuid: '000009001', name: 'User, Doomed', role: :guest)
+
+      expect { controller.send(:delete_all_rows!) }.to change(User, :count).to(0)
+    end
+
+    # Regression: reset must not depend on database_cleaner, which is absent
+    # from the staging bundle. The replacement has to keep its two guarantees.
+    it "keeps Rails' bookkeeping tables so the app stays migrated" do
+      controller.send(:delete_all_rows!)
+
+      described_class::RETAINED_TABLES.each do |table|
+        count = ActiveRecord::Base.connection.select_value("SELECT COUNT(*) FROM #{table}")
+        expect(count).to be_positive, "expected #{table} to survive the wipe"
+      end
+    end
+
+    it 'deletes across a foreign key regardless of table order' do
+      user = User.create!(email: 'parent@example.invalid', password: SecureRandom.hex(16),
+                          nuid: '000009002', name: 'User, Parent', role: :guest)
+      IdempotencyKey.create!(user: user, key: 'k-1', resource_type: 'Work', resource_noid: 'neu:abc123')
+
+      expect { controller.send(:delete_all_rows!) }.not_to raise_error
+      expect(IdempotencyKey.count).to eq(0)
+    end
+  end
+
   describe '#guard_storage_root! (refuses a dangerous target)' do
     it 'rejects a dangerously shallow root (e.g. a single-segment path)' do
       expect { controller.send(:guard_storage_root!, Pathname.new('/tmp')) }
@@ -85,8 +116,8 @@ end
 
 # The reset endpoint is an unauthenticated GET; its only gate against running in
 # production is the env guard. Assert it fires at the HTTP boundary. This raises
-# before any DB/Solr/storage mutation, so it neither pollutes the suite's shared
-# storage nor hits the DatabaseCleaner connection conflict.
+# before any DB/Solr/storage mutation, so it does not pollute the suite's shared
+# storage.
 RSpec.describe 'GET /reset env guard', type: :request do
   it 'refuses to run in production' do
     allow(Rails).to receive(:env).and_return(ActiveSupport::StringInquirer.new('production'))

@@ -13,6 +13,7 @@ module Metadata
     # structured, since detail/@type and extent/@unit are open strings.
     class HostCollection
       include AttrJson::Model
+      include Displayable
 
       attr_json :title, :string
       attr_json :volume, :string

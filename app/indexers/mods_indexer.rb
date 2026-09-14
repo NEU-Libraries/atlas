@@ -73,17 +73,30 @@ class MODSIndexer
   # reader sees, but bucketing "Spanish (subtitles)" apart from "Spanish" would
   # split one language across two facet entries and hide the record from a
   # reader browsing either.
-  SOLR_MEMBER_VALUES = { identifiers: :value, host_collections: :title, languages: :term }.freeze
+  # Every field a record can re-head with @displayLabel projects as
+  # { value:, display_label:, href: }, and Solr takes the value: a record that
+  # re-heads its place row has not moved the place. Those rows are DERIVED from
+  # the access copy's own declaration rather than restated, so a field that
+  # gains a header cannot start indexing a model's inspect output.
+  LABELED_MEMBER_VALUES =
+    (Metadata::MODS::LABELED_VALUE_FIELDS + Metadata::MODS::ORIGIN_VALUE_FIELDS)
+    .index_with { :value }.freeze
+
+  SOLR_MEMBER_VALUES = {
+    identifiers: :value, host_collections: :title, languages: :term,
+    place_of_publication: :value
+  }.merge(LABELED_MEMBER_VALUES).freeze
 
   # Fields whose members need composing rather than reading: the private method
   # that turns one entry into the string Solr should hold.
   SOLR_MEMBER_COMPOSERS = { hierarchical_geographic_subjects: :narrowest_place }.freeze
 
-  # The six parts every projected date carries beside its value, and why none
-  # of them is indexed. Derived onto each date below rather than written out:
+  # The parts every projected date carries beside its value, and why none of
+  # them is indexed. Derived onto each date below rather than written out:
   # seven dates times six parts is forty-two near-identical rows, and a date
   # added to the gem would need six more of them or the coverage guard fails
-  # on fields nobody meant to index.
+  # on fields nobody meant to index. The date's own header and event type are
+  # not here -- COMPANIONS_NOT_INDEXED covers every field's, dates included.
   DATE_PART_REASONS = {
     'precision'     => 'chooses a display format; not a value a reader searches',
     'end'           => 'the far end of a range; a range sorts and facets on its start',
@@ -99,6 +112,18 @@ class MODSIndexer
     prefix = flag.to_s.delete_suffix('_key_date')
     DATE_PART_REASONS.each { |part, reason| hsh[:"#{prefix}_#{part}"] = reason }
   end.freeze
+
+  # A header or a link a record attached to a field, found by its suffix. None
+  # is indexed, for the reason the date parts are not: a display value is not a
+  # term a reader types, and faceting on one would bucket records by their
+  # cataloguer's wording rather than by what they are about. Derived so a field
+  # that gains a companion cannot go unlisted and fail the coverage guard.
+  COMPANION_SUFFIXES = /_(display_label|href|event_type)\z/
+
+  COMPANION_REASON = 'a header or a link a record asked for; not a term a reader searches'
+
+  COMPANIONS_NOT_INDEXED =
+    NEU::MODS::FIELDS.keys.grep(COMPANION_SUFFIXES).index_with { COMPANION_REASON }.freeze
 
   # Projected fields this indexer does not write, and why. Kept as a map rather
   # than a list so "another indexer owns it" is distinguishable from "no
@@ -135,8 +160,10 @@ class MODSIndexer
     restriction_on_access:      'rights text is not a search term',
     subject_headings:           'the display sibling; the per-axis fields above are what a facet buckets on',
     occupation_subjects:        'no browse asked for; the term reaches search through full_text_tesimv',
-    physical_description_notes: 'preservation detail, not a term a reader searches'
-  }.merge(DATE_PARTS_NOT_INDEXED).freeze
+    physical_description_notes: 'preservation detail, not a term a reader searches',
+    target_audience:            'display only; the audience is a curatorial note, not a browse',
+    origin_agents:              'display only; a creator reaches search through CitationIndexer'
+  }.merge(DATE_PARTS_NOT_INDEXED).merge(COMPANIONS_NOT_INDEXED).freeze
 
   attr_reader :resource
 

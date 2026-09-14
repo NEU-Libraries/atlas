@@ -9,6 +9,7 @@ module Metadata
     # no consumer can recover it from the term.
     class Language
       include AttrJson::Model
+      include Displayable
 
       attr_json :term, :string
       attr_json :object_part, :string

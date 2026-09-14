@@ -147,7 +147,7 @@ RSpec.describe MODSIndexer do
     # writes on every photo ingest: an IPTC category mapped through Cerberus's
     # CATEGORY_LABELS.
     it 'indexes an IPTC photo category under the field named for it' do
-      mods = Metadata::MODS.new(classification: ['community outreach'])
+      mods = Metadata::MODS.new(classification: labeled_values('community outreach'))
       work = Work.new.tap { |w| allow(w).to receive(:mods).and_return(mods) }
 
       expect(described_class.new(resource: work).to_solr[:photo_category_ssim])
@@ -185,10 +185,10 @@ RSpec.describe MODSIndexer do
     # projected and displayed but reachable by no query.
     it 'gathers every title variant into one match-only field' do
       variants = Metadata::MODS.new(
-        alternative_title: ['An Alternative Title'],
-        uniform_title:     ['A Uniform Title'],
-        translated_title:  ['A Translated Title'],
-        abbreviated_title: ['An Abbrev. Title']
+        alternative_title: labeled_values('An Alternative Title'),
+        uniform_title:     labeled_values('A Uniform Title'),
+        translated_title:  labeled_values('A Translated Title'),
+        abbreviated_title: labeled_values('An Abbrev. Title')
       )
       resource = Work.new.tap { |w| allow(w).to receive(:mods).and_return(variants) }
 
@@ -201,7 +201,8 @@ RSpec.describe MODSIndexer do
     # would change what a reader sees, not just what they can find.
     it 'keeps the variants out of the display title' do
       resource = work_titled('The Real Title')
-      allow(resource.mods).to receive(:alternative_title).and_return(['An Alternative Title'])
+      allow(resource.mods).to receive(:alternative_title)
+        .and_return([Metadata::Fields::LabeledValue.new(value: 'An Alternative Title')])
 
       result = described_class.new(resource: resource).to_solr
       expect(result[:title_tsim]).to eq('The Real Title')

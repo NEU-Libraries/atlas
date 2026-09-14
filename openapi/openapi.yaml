@@ -1216,22 +1216,25 @@ components:
                 main_title:
                   type: object
                   nullable: true
+                main_title_display_label:
+                  type: string
+                  nullable: true
                 alternative_title:
                   type: array
                   items:
-                    type: string
+                    type: object
                 uniform_title:
                   type: array
                   items:
-                    type: string
+                    type: object
                 translated_title:
                   type: array
                   items:
-                    type: string
+                    type: object
                 abbreviated_title:
                   type: array
                   items:
-                    type: string
+                    type: object
                 names:
                   type: array
                   items:
@@ -1243,26 +1246,36 @@ components:
                 abstract:
                   type: string
                   nullable: true
+                abstract_display_label:
+                  type: string
+                  nullable: true
+                abstract_href:
+                  type: string
+                  nullable: true
                 publication_information:
                   type: array
                   items:
-                    type: string
+                    type: object
                 place_of_publication:
                   type: array
                   items:
-                    type: string
+                    type: object
+                origin_agents:
+                  type: array
+                  items:
+                    type: object
                 edition:
                   type: array
                   items:
-                    type: string
+                    type: object
                 issuance:
                   type: array
                   items:
-                    type: string
+                    type: object
                 frequency:
                   type: array
                   items:
-                    type: string
+                    type: object
                 date_created:
                   type: string
                   format: date-time
@@ -1284,6 +1297,12 @@ components:
                   type: boolean
                   nullable: true
                 date_created_text:
+                  type: string
+                  nullable: true
+                date_created_display_label:
+                  type: string
+                  nullable: true
+                date_created_event_type:
                   type: string
                   nullable: true
                 date_issued:
@@ -1309,6 +1328,12 @@ components:
                 date_issued_text:
                   type: string
                   nullable: true
+                date_issued_display_label:
+                  type: string
+                  nullable: true
+                date_issued_event_type:
+                  type: string
+                  nullable: true
                 copyright_date:
                   type: string
                   format: date-time
@@ -1330,6 +1355,12 @@ components:
                   type: boolean
                   nullable: true
                 copyright_date_text:
+                  type: string
+                  nullable: true
+                copyright_date_display_label:
+                  type: string
+                  nullable: true
+                copyright_date_event_type:
                   type: string
                   nullable: true
                 date_captured:
@@ -1355,6 +1386,12 @@ components:
                 date_captured_text:
                   type: string
                   nullable: true
+                date_captured_display_label:
+                  type: string
+                  nullable: true
+                date_captured_event_type:
+                  type: string
+                  nullable: true
                 date_valid:
                   type: string
                   format: date-time
@@ -1376,6 +1413,12 @@ components:
                   type: boolean
                   nullable: true
                 date_valid_text:
+                  type: string
+                  nullable: true
+                date_valid_display_label:
+                  type: string
+                  nullable: true
+                date_valid_event_type:
                   type: string
                   nullable: true
                 date_other:
@@ -1401,6 +1444,12 @@ components:
                 date_other_text:
                   type: string
                   nullable: true
+                date_other_display_label:
+                  type: string
+                  nullable: true
+                date_other_event_type:
+                  type: string
+                  nullable: true
                 date_modified:
                   type: string
                   format: date-time
@@ -1424,34 +1473,44 @@ components:
                 date_modified_text:
                   type: string
                   nullable: true
+                date_modified_display_label:
+                  type: string
+                  nullable: true
+                date_modified_event_type:
+                  type: string
+                  nullable: true
                 resource_type:
                   type: array
                   items:
-                    type: string
+                    type: object
+                target_audience:
+                  type: array
+                  items:
+                    type: object
                 genres:
                   type: array
                   items:
-                    type: string
+                    type: object
                 format:
                   type: array
                   items:
-                    type: string
+                    type: object
                 extent:
                   type: array
                   items:
-                    type: string
+                    type: object
                 digital_origin:
                   type: array
                   items:
-                    type: string
+                    type: object
                 reformatting_quality:
                   type: array
                   items:
-                    type: string
+                    type: object
                 physical_description_notes:
                   type: array
                   items:
-                    type: string
+                    type: object
                 notes:
                   type: array
                   items:
@@ -1459,7 +1518,7 @@ components:
                 table_of_contents:
                   type: array
                   items:
-                    type: string
+                    type: object
                 subject_headings:
                   type: array
                   items:
@@ -1511,7 +1570,7 @@ components:
                 related_series:
                   type: array
                   items:
-                    type: string
+                    type: object
                 host_collections:
                   type: array
                   items:
@@ -1527,8 +1586,11 @@ components:
                 classification:
                   type: array
                   items:
-                    type: string
+                    type: object
                 permanent_url:
+                  type: string
+                  nullable: true
+                permanent_url_display_label:
                   type: string
                   nullable: true
                 record_info:
@@ -1541,10 +1603,28 @@ components:
                 access_condition:
                   type: string
                   nullable: true
+                access_condition_display_label:
+                  type: string
+                  nullable: true
+                access_condition_href:
+                  type: string
+                  nullable: true
                 use_and_reproduction:
                   type: string
                   nullable: true
+                use_and_reproduction_display_label:
+                  type: string
+                  nullable: true
+                use_and_reproduction_href:
+                  type: string
+                  nullable: true
                 restriction_on_access:
+                  type: string
+                  nullable: true
+                restriction_on_access_display_label:
+                  type: string
+                  nullable: true
+                restriction_on_access_href:
                   type: string
                   nullable: true
     BlobVersions:

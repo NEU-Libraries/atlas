@@ -8,6 +8,7 @@ module Metadata
     # title alone cannot tell them apart.
     class RelatedItem
       include AttrJson::Model
+      include Displayable
 
       attr_json :type, :string
       attr_json :title, :string

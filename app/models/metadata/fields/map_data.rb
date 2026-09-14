@@ -6,6 +6,7 @@ module Metadata
     # the coordinates does not have to unpick a composed sentence to get them.
     class MapData
       include AttrJson::Model
+      include Displayable
 
       attr_json :scale, :string
       attr_json :projection, :string

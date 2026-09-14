@@ -36,7 +36,7 @@ RSpec.describe Metadata::MODS do
     end
 
     it 'keeps a repeatable element as an array, not its first value' do
-      expect(record.resource_type).to eq(['text', 'still image'])
+      expect(record.resource_type.map(&:value)).to eq(['text', 'still image'])
     end
 
     it 'stores a date as a datetime beside the precision that formats it' do

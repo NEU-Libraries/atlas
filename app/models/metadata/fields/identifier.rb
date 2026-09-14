@@ -7,6 +7,7 @@ module Metadata
     # them apart from the digits alone -- the same reason Note keeps its type.
     class Identifier
       include AttrJson::Model
+      include Displayable
 
       attr_json :type, :string
       attr_json :value, :string

@@ -90,7 +90,7 @@ RSpec.describe OAI::DublinCore do
   # v1's dc:type was always empty: the `oai` gem skips a field called `type`
   # to dodge Ruby's deprecated Object#type.
   it 'populates dc:type from resource_type' do
-    expect(described_class.call(mods(resource_type: 'text'))[:type]).to eq(['text'])
+    expect(described_class.call(mods(resource_type: labeled_values('text')))[:type]).to eq(['text'])
   end
 
   it 'prefers date_issued over date_created, at day precision' do
@@ -159,7 +159,7 @@ RSpec.describe OAI::DublinCore do
   # An empty element is not just noise: oai_dc:dc would carry <dc:type/> with
   # nothing in it, which says the record has an empty type rather than none.
   it 'drops empty elements entirely' do
-    expect(described_class.call(mods(resource_type: 'text')).keys).to eq([:type])
+    expect(described_class.call(mods(resource_type: labeled_values('text'))).keys).to eq([:type])
   end
 
   it 'survives a Work with no MODS row at all' do

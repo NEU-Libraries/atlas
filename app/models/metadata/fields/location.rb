@@ -7,6 +7,7 @@ module Metadata
     # decide to linkify it.
     class Location
       include AttrJson::Model
+      include Displayable
 
       attr_json :physical_location, :string
       attr_json :shelf_location, :string

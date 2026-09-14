@@ -6,10 +6,12 @@
 # mods:genre. Drives the themed homepage gateways, the per-person
 # published-by-category breakdown, and a Content/Genre narrow on browse.
 #
-# Genre lives in the JSON access copy (Metadata::MODS#genres, an array
-# extracted from /mods:mods/mods:genre), reachable on any Modsable resource via
-# resource.mods. This indexer reads it straight off the resource and writes a
-# multivalued string field — the projected values ARE the genre strings, so the
+# Genre lives in the JSON access copy (Metadata::MODS#genres, extracted from
+# /mods:mods/mods:genre), reachable on any Modsable resource via resource.mods.
+# Each entry carries the header and link its element asked for; the facet takes
+# the value alone, because a record re-heading its genre row has not changed
+# which bucket the term belongs in. This indexer writes a multivalued string
+# field — the projected values ARE the genre strings, so the
 # facet needs no value-mapping downstream. Mirrors ClassificationIndexer's
 # "project a metadata value onto the Work doc" shape, but sourced from MODS
 # genre rather than child FileSet format types (a distinct dimension).
@@ -27,7 +29,7 @@ class GenreIndexer
   def to_solr
     return {} unless resource.is_a?(Work)
 
-    genres = Array(resource.mods&.genres).compact.uniq
+    genres = Array(resource.mods&.genres).filter_map { |entry| entry.value.presence }.uniq
     return {} if genres.empty?
 
     { genre_ssim: genres }

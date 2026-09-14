@@ -137,7 +137,7 @@ module OAI
       # typeOfResource repeats in MODS, so this is already a list. Wrapping it
       # in another array would ship a stringified array into dc:type.
       def type
-        Array(mods&.resource_type)
+        Array(mods&.resource_type).filter_map { |entry| entry.value.presence }
       end
 
       # The term alone, part-qualified or not. dc:language takes a language

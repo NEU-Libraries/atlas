@@ -702,25 +702,43 @@ module OpenapiSchemas
     }
   end
 
-  # MODS fields whose members are objects rather than strings; everything else
-  # is a string, singular or an array according to its registry cardinality.
-  MODS_OBJECT_PROPS = {
+  # The two members every DISPLAYED field carries: the header the record asked
+  # for (@displayLabel) and the link it attached (xlink:href). Spelled once and
+  # merged in below, the way the projection reads them as one pair.
+  MODS_DISPLAY_MEMBERS = %i[display_label href].freeze
+
+  # The three object fields that carry NEITHER: MODS puts no @displayLabel on
+  # hierarchicalGeographic, recordInfo takes one but describes the cataloguing
+  # rather than the resource, and a primary title's label is a scalar companion
+  # because the title itself is a parts model.
+  MODS_UNLABELED_OBJECT_PROPS = {
     main_title:                       %i[title subtitle part_number part_name non_sort],
-    names:                            %i[name roles affiliation],
-    languages:                        %i[term object_part script],
-    notes:                            %i[type value],
-    host_collections:                 %i[title volume issue start_page end_page date text
-                                         details extents],
-    subject_headings:                 %i[parts],
-    location:                         %i[physical_location shelf_location url],
-    map_data:                         %i[scale projection coordinates],
-    related_items:                    %i[type title],
-    identifiers:                      %i[type value invalid],
     record_info:                      %i[content_source origin description_standard creation_date
                                          change_date language_of_cataloging],
     hierarchical_geographic_subjects: %i[continent country province region state territory
                                          county city city_section island area]
   }.freeze
+
+  # MODS fields whose members are objects rather than strings; everything else
+  # is a string, singular or an array according to its registry cardinality.
+  MODS_OBJECT_PROPS = {
+    names:                %i[name roles affiliation usage alternative_names],
+    languages:            %i[term object_part script],
+    notes:                %i[type value],
+    host_collections:     %i[title volume issue start_page end_page date text
+                             details extents],
+    subject_headings:     %i[parts],
+    location:             %i[physical_location shelf_location url],
+    map_data:             %i[scale projection coordinates],
+    related_items:        %i[type title],
+    identifiers:          %i[type value invalid],
+    place_of_publication: %i[value event_type date_elements],
+    origin_agents:        %i[name roles affiliation usage alternative_names event_type]
+  }.merge(Metadata::MODS::LABELED_VALUE_FIELDS.index_with { %i[value] })
+                      .merge(Metadata::MODS::ORIGIN_VALUE_FIELDS.index_with { %i[value event_type] })
+                      .transform_values { |members| members + MODS_DISPLAY_MEMBERS }
+                      .merge(MODS_UNLABELED_OBJECT_PROPS)
+                      .freeze
 
   # The originInfo dates serialise as timestamps, both ends of a range alike.
   # Their precision and qualifier siblings are plain strings. All seven MODS

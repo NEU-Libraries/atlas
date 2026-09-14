@@ -15,10 +15,25 @@ module Metadata
   class MODS < ApplicationRecord
     include AttrJson::Record
 
+    # Fields that project as { value:, display_label:, href: } -- every plain
+    # string field a record can re-head with @displayLabel. Listed rather than
+    # mapped one by one so adding a displayed field is one line.
+    LABELED_VALUE_FIELDS = %i[
+      alternative_title uniform_title translated_title abbreviated_title
+      genres classification table_of_contents resource_type target_audience
+      format extent digital_origin reformatting_quality
+      physical_description_notes related_series
+    ].freeze
+
+    # Fields inside an originInfo block, which also carry its @eventType.
+    ORIGIN_VALUE_FIELDS = %i[publication_information edition issuance frequency].freeze
+
     # Fields whose value is not a plain string. Everything absent from this map
     # is :string, single or array according to its FIELDS cardinality.
     TYPES = {
       main_title:                       Metadata::Fields::TitleInfo.to_type,
+      place_of_publication:             Metadata::Fields::OriginPlace.to_type,
+      origin_agents:                    Metadata::Fields::OriginAgent.to_type,
       names:                            Metadata::Fields::Name.to_type,
       languages:                        Metadata::Fields::Language.to_type,
       notes:                            Metadata::Fields::Note.to_type,
@@ -44,7 +59,9 @@ module Metadata
       copyright_date:                   :datetime,
       copyright_date_end:               :datetime,
       copyright_date_key_date:          :boolean
-    }.freeze
+    }.merge(LABELED_VALUE_FIELDS.index_with { Metadata::Fields::LabeledValue.to_type })
+            .merge(ORIGIN_VALUE_FIELDS.index_with { Metadata::Fields::OriginValue.to_type })
+            .freeze
 
     NEU::MODS::FIELDS.each do |field, cardinality|
       attr_json field, TYPES.fetch(field, :string), array: cardinality == :many

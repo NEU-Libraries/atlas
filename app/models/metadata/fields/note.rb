@@ -7,6 +7,7 @@ module Metadata
     # away -- an untyped note keeps a nil type.
     class Note
       include AttrJson::Model
+      include Displayable
 
       attr_json :type, :string
       attr_json :value, :string

@@ -8,6 +8,7 @@ module Metadata
     # stay apart because the separator between them is display policy.
     class SubjectHeading
       include AttrJson::Model
+      include Displayable
 
       attr_json :parts, :string, array: true, default: -> { [] }
     end

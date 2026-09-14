@@ -12,7 +12,7 @@ xml.tag!('record') do
   next if body.blank?
 
   # The MODS goes in verbatim: it is the preservation copy, and Atlas already
-  # stores it rooted at <mods:mods> with a mods-3-5 schemaLocation, so it
+  # stores it rooted at <mods:mods> with a mods-3-8 schemaLocation, so it
   # needs no transform beyond dropping its XML declaration.
   xml.metadata { xml << body }
 end

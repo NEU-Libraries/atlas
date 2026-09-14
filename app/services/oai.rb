@@ -11,7 +11,7 @@ module OAI
   FORMATS = {
     'oai_dc' => { schema:    'http://www.openarchives.org/OAI/2.0/oai_dc.xsd',
                   namespace: 'http://www.openarchives.org/OAI/2.0/oai_dc/' },
-    'mods'   => { schema:    'http://www.loc.gov/standards/mods/v3/mods-3-5.xsd',
+    'mods'   => { schema:    'http://www.loc.gov/standards/mods/v3/mods-3-8.xsd',
                   namespace: 'http://www.loc.gov/mods/v3' }
   }.freeze
 

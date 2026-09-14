@@ -14,7 +14,7 @@
 module OAISchemaHelper
   SCHEMA_PATH = Rails.root.join('spec/fixtures/schemas/atlas-oai.xsd').freeze
 
-  # mods-3-5.xsd alone is 50KB of schema; compile it once for the whole run.
+  # mods-3-8.xsd alone is 60KB of schema; compile it once for the whole run.
   def self.schema
     @schema ||= Nokogiri::XML::Schema.from_document(
       Nokogiri::XML(File.read(SCHEMA_PATH), SCHEMA_PATH.to_s)

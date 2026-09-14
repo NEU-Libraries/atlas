@@ -21,5 +21,5 @@
   <xs:import namespace="http://www.openarchives.org/OAI/2.0/oai-identifier"
              schemaLocation="oai-identifier.xsd"/>
   <xs:import namespace="http://www.loc.gov/mods/v3"
-             schemaLocation="mods-3-5.xsd"/>
+             schemaLocation="mods-3-8.xsd"/>
 </xs:schema>

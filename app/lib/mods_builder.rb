@@ -4,7 +4,7 @@ module MODSBuilder
   def mods_template
     builder = Nokogiri::XML::Builder.new(encoding: 'UTF-8') do |xml|
       xml.mods('xmlns:drs' => 'https://repository.neu.edu/spec/v1', 'xmlns:mods' => 'http://www.loc.gov/mods/v3', 'xmlns:xsi' => 'http://www.w3.org/2001/XMLSchema-instance',
-               'xsi:schemaLocation' => 'http://www.loc.gov/mods/v3 http://www.loc.gov/standards/mods/v3/mods-3-5.xsd',
+               'xsi:schemaLocation' => 'http://www.loc.gov/mods/v3 http://www.loc.gov/standards/mods/v3/mods-3-8.xsd',
                'xmlns:niec' => 'http://repository.neu.edu/schema/niec',
                'xmlns:dcterms' => 'http://purl.org/dc/terms/',
                'xmlns:dwc' => 'http://rs.tdwg.org/dwc/terms/',

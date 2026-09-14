@@ -516,8 +516,8 @@ module WorkDecorator
 
     # One row per header, in the order the headers first appear. A record that
     # labels one of two values asks for two headers, so values group by the
-    # header they carry rather than by the field they came from -- which is why
-    # every row in this file goes through here rather than through loop_field.
+    # header they carry rather than by the field they came from, which is why
+    # no row in this file heads itself.
     #
     # The block answers with [header, value] for one entry, or nil to drop it.
     # A value may be a list, for a row whose entry renders several <dd>s.

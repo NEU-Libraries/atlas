@@ -60,19 +60,21 @@ RSpec.describe WorkDecorator, 'the 2026-09-14 UAT display changes' do
   end
 
   describe 'xlink:href hyperlinks the text beside it' do
+    # mods:note is one of the fourteen elements MODS lets carry an xlink:href;
+    # mods:genre is not, so a genre is the wrong element to demonstrate it on.
     it 'wraps the value in the link the record attached' do
-      row = decorate_with(genres: [{ value: 'photographs', href: 'https://vocab.getty.edu/aat/1' }])
-            .mods_row(:genres)
+      row = decorate_with(notes: [{ value: 'See the finding aid.',
+                                    href:  'https://example.org/finding-aid' }]).mods_row(:notes)
 
-      expect(row).to eq('<dt>Genres</dt>' \
-                        '<dd><a href="https://vocab.getty.edu/aat/1" rel="nofollow noopener" ' \
-                        'target="_blank"><p>photographs</p></a></dd>')
+      expect(row).to eq('<dt>Notes</dt>' \
+                        '<dd><a href="https://example.org/finding-aid" rel="nofollow noopener" ' \
+                        'target="_blank"><p>See the finding aid.</p></a></dd>')
     end
 
     # The librarians asked that a link require textual content. An element with
     # an href and no text projects no value at all, so no row appears.
     it 'renders nothing for a link with no text' do
-      expect(decorate_with(genres: [{ value: '', href: 'https://example.org' }]).mods_row(:genres))
+      expect(decorate_with(notes: [{ value: '', href: 'https://example.org' }]).mods_row(:notes))
         .to eq('')
     end
 

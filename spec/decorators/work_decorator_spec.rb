@@ -175,9 +175,28 @@ RSpec.describe WorkDecorator do
         .to eq('<dt>Creator</dt><dd><p>Doe, Jane</p></dd><dd><p>Roe, Ann</p></dd>')
     end
 
-    it 'renders two role-less names under one Creator label, not two empty ones' do
-      expect(named({ name: 'One', roles: [] }, { name: 'Two', roles: [] }))
-        .to eq('<dt>Creator</dt><dd><p>One</p></dd><dd><p>Two</p></dd>')
+    # A record listing names and marking none of them said that these people
+    # were involved. Filing all of them as creators asserts a creator per name,
+    # which is the claim the librarians asked to stop making.
+    it 'leads with the first role-less name and files the rest as contributors' do
+      expect(named({ name: 'One', roles: [] }, { name: 'Two', roles: [] }, { name: 'Three', roles: [] }))
+        .to eq('<dt>Creator</dt><dd><p>One</p></dd>' \
+               '<dt>Contributor</dt><dd><p>Two</p></dd><dd><p>Three</p></dd>')
+    end
+
+    # usage is fixed="primary" in the schema and exists to nominate the
+    # principal name, so a record that sets it has said which name leads and
+    # the first-in-document rule does not apply.
+    it 'lets usage="primary" lead instead of the first name' do
+      expect(named({ name: 'One', roles: [] }, { name: 'Two', roles: [], usage: 'primary' }))
+        .to eq('<dt>Contributor</dt><dd><p>One</p></dd><dt>Creator</dt><dd><p>Two</p></dd>')
+    end
+
+    # The rule is about names the record left unmarked. A declared role is an
+    # assertion, and nothing here may move it.
+    it 'leaves a name that declares a role where its role puts it' do
+      expect(named({ name: 'One', roles: [] }, { name: 'Two', roles: ['aut'] }))
+        .to eq('<dt>Creator</dt><dd><p>One</p></dd><dt>Author</dt><dd><p>Two</p></dd>')
     end
 
     it 'translates a MARC relator code into its label' do
@@ -251,22 +270,20 @@ RSpec.describe WorkDecorator do
   # authorised term came back as one that is not in the vocabulary.
   describe 'a controlled term is capitalised, not titleized' do
     it 'leaves the inside of a hyphenated authority term alone' do
-      expect(decorate_with(format: ['black-and-white negatives']).mods_row(:format))
-        .to eq('<dt>Format</dt><dd><p>Black-and-white negatives</p></dd>')
+      expect(decorate_with(resource_type: labeled_values('three-dimensional object'))
+               .mods_row(:resource_type))
+        .to eq('<dt>Type of resource</dt><dd><p>Three-dimensional object</p></dd>')
     end
 
     it 'upcases only the first word of a closed-vocabulary value' do
-      aggregate_failures do
-        expect(decorate_with(issuance: ['single unit']).mods_row(:issuance))
-          .to eq('<dt>Issuance</dt><dd><p>Single unit</p></dd>')
-        expect(decorate_with(digital_origin: ['reformatted digital']).mods_row(:digital_origin))
-          .to eq('<dt>Digital origin</dt><dd><p>Reformatted digital</p></dd>')
-      end
+      expect(decorate_with(issuance: labeled_values('single unit')).mods_row(:issuance))
+        .to eq('<dt>Issuance</dt><dd><p>Single unit</p></dd>')
     end
 
     it 'leaves a value that opens on a digit untouched' do
-      expect(decorate_with(format: ['1 online resource']).mods_row(:format))
-        .to eq('<dt>Format</dt><dd><p>1 online resource</p></dd>')
+      expect(decorate_with(reformatting_quality: labeled_values('1st pass'))
+               .mods_row(:reformatting_quality))
+        .to eq('<dt>Reformatting quality</dt><dd><p>1st pass</p></dd>')
     end
   end
 
@@ -276,19 +293,48 @@ RSpec.describe WorkDecorator do
     # A :many field renders one <dd> per value. Built inline because the
     # coverage fixture carries no plain repeatable row with two values.
     it 'renders every value of a repeatable element, not just the first' do
-      row = decorate_with(genres: %w[Photographs Negatives]).mods_row(:genres)
+      row = decorate_with(genres: labeled_values('Photographs', 'Negatives')).mods_row(:genres)
 
       expect(row).to eq('<dt>Genres</dt><dd><p>Photographs</p></dd><dd><p>Negatives</p></dd>')
     end
 
-    it 'renders the three fields that were stored and never displayed' do
+    it 'renders the fields that were stored and never displayed' do
       aggregate_failures do
-        expect(work.mods_row(:format)).to eq('<dt>Format</dt><dd><p>Electronic</p></dd>')
         expect(work.mods_row(:extent))
-          .to eq('<dt>Extent</dt><dd><p>1 online resource (24 pages)</p></dd>')
+          .to eq('<dt>Physical description</dt><dd><p>1 online resource (24 pages)</p></dd>' \
+                 '<dd><p>Born digital</p></dd>')
         expect(work.mods_row(:identifiers))
           .to eq('<dt>Identifiers</dt><dd><p>DOI: 10.17760/D20123456</p></dd>')
       end
+    end
+
+    # The MODS vocabulary describes a workflow; the librarians asked for the
+    # words a reader wants, and for the value to sit under the physical
+    # description rather than under a heading of its own.
+    it 'renders the digital origin in the librarians words, under one heading' do
+      row = decorate_with(extent:         labeled_values('24 pages'),
+                          digital_origin: labeled_values('reformatted digital')).mods_row(:digital_origin)
+
+      expect(row).to eq('<dt>Physical description</dt><dd><p>24 pages</p></dd><dd><p>Digitized</p></dd>')
+    end
+
+    it 'maps each controlled digital origin and leaves an unlisted one as written' do
+      aggregate_failures do
+        { 'reformatted digital' => 'Digitized', 'born digital' => 'Born digital',
+          'digitized microfilm' => 'Digitized microfilm',
+          'digitized other analog' => 'Digitized copy',
+          'etched in stone' => 'Etched in stone' }.each do |term, rendered|
+          expect(decorate_with(digital_origin: labeled_values(term)).mods_row(:digital_origin))
+            .to eq("<dt>Physical description</dt><dd><p>#{rendered}</p></dd>"), term
+        end
+      end
+    end
+
+    # mods:form duplicates the extent and the digital origin beside it in
+    # vocabulary a reader does not use, so the librarians took its row away.
+    # It stays projected and stays in the preservation XML.
+    it 'renders no row for physicalDescription/form' do
+      expect(work.mods_row(:format)).to eq('')
     end
 
     it 'labels the series field Series, not Related Items' do
@@ -297,7 +343,7 @@ RSpec.describe WorkDecorator do
 
     it 'renders the host collection, which had no row at all' do
       expect(work.mods_row(:host_collections))
-        .to eq('<dt>Host collections</dt><dd><p>Estuaries, 24(3), pp. 210-218</p></dd>')
+        .to eq('<dt>Host collection</dt><dd><p>Estuaries, 24(3), pp. 210-218</p></dd>')
     end
 
     it 'renders a code-only language as its name' do
@@ -332,7 +378,8 @@ RSpec.describe WorkDecorator do
     # The gem keeps a legacy contents list's line breaks because there the
     # break is the structure. linkify would collapse a lone newline to a space.
     it 'renders a newline-separated contents list as one value per line' do
-      row = decorate_with(table_of_contents: ["Ch 1\nCh 2", 'Ch 3 -- Ch 4']).mods_row(:table_of_contents)
+      row = decorate_with(table_of_contents: labeled_values("Ch 1\nCh 2", 'Ch 3 -- Ch 4'))
+            .mods_row(:table_of_contents)
 
       expect(row).to eq('<dt>Contents</dt><dd><p>Ch 1</p></dd><dd><p>Ch 2</p></dd>' \
                         '<dd><p>Ch 3 -- Ch 4</p></dd>')
@@ -349,9 +396,19 @@ RSpec.describe WorkDecorator do
       )
     end
 
-    it 'leads a related item with the relationship it declares' do
+    # The type used to lead the VALUE ("Other Format: The Print Edition"),
+    # which put a camelCased attribute in front of a title and still left every
+    # relationship under one heading.
+    it 'heads a related item with the relationship it declares' do
       expect(work.mods_row(:related_items))
-        .to eq('<dt>Related items</dt><dd><p>Other Format: The Print Edition</p></dd>')
+        .to eq('<dt>Other formats</dt><dd><p>The Print Edition</p></dd>')
+    end
+
+    it 'falls back to one generic heading for a type it cannot name' do
+      row = decorate_with(related_items: [{ type: 'unheardOf', title: 'A Thing' },
+                                          { type: nil, title: 'Another' }]).mods_row(:related_items)
+
+      expect(row).to eq('<dt>Related resources</dt><dd><p>A Thing</p></dd><dd><p>Another</p></dd>')
     end
 
     it 'renders a location part by part, so a URL linkifies and a shelf mark does not' do
@@ -359,7 +416,7 @@ RSpec.describe WorkDecorator do
         physical_location: 'Snell Library', shelf_location: 'PS3552 .E1', url: 'https://example.org/i'
       )])
       expect(located.mods_row(:location)).to include(
-        '<dt>Location</dt><dd><p>Snell Library</p></dd><dd><p>PS3552 .E1</p></dd>',
+        '<dt>Physical location</dt><dd><p>Snell Library</p></dd><dd><p>PS3552 .E1</p></dd>',
         '<a href="https://example.org/i"'
       )
     end
@@ -397,7 +454,7 @@ RSpec.describe WorkDecorator do
     end
 
     def host_value(**attrs)
-      hosted(**attrs).sub('<dt>Host collections</dt><dd><p>', '').sub('</p></dd>', '')
+      hosted(**attrs).sub('<dt>Host collection</dt><dd><p>', '').sub('</p></dd>', '')
     end
 
     it 'parenthesises the issue when a volume precedes it' do
@@ -492,14 +549,14 @@ RSpec.describe WorkDecorator do
     it 'attaches the affiliation to the name it belongs to' do
       expect(named({ name: 'Doe, Jane', roles: ['Creator'],
                      affiliation: ['Department of Physics', 'Northeastern University'] }))
-        .to eq('<dt>Creator</dt><dd><p>Doe, Jane — Department of Physics, Northeastern University</p></dd>')
+        .to eq('<dt>Creator</dt><dd><p>Doe, Jane [Department of Physics, Northeastern University]</p></dd>')
     end
 
     # Two physicists in different departments still belong under one heading.
     it 'does not let the affiliation become a grouping key' do
       expect(named({ name: 'Doe, Jane', roles: ['Creator'], affiliation: ['Physics'] },
                    { name: 'Roe, Ann', roles: ['Creator'], affiliation: ['Chemistry'] }))
-        .to eq('<dt>Creator</dt><dd><p>Doe, Jane — Physics</p></dd><dd><p>Roe, Ann — Chemistry</p></dd>')
+        .to eq('<dt>Creator</dt><dd><p>Doe, Jane [Physics]</p></dd><dd><p>Roe, Ann [Chemistry]</p></dd>')
     end
 
     it 'renders a bare name when there is no affiliation' do
@@ -516,7 +573,7 @@ RSpec.describe WorkDecorator do
     it 'renders the plain rows' do
       aggregate_failures do
         expect(work.mods_row(:place_of_publication))
-          .to eq('<dt>Place of publication</dt><dd><p>Boston</p></dd>')
+          .to eq('<dt>Publication place</dt><dd><p>Boston</p></dd>')
         expect(work.mods_row(:issuance)).to eq('<dt>Issuance</dt><dd><p>Monographic</p></dd>')
         expect(work.mods_row(:frequency)).to eq('<dt>Frequency</dt><dd><p>Quarterly</p></dd>')
         expect(work.mods_row(:reformatting_quality))
@@ -579,14 +636,11 @@ RSpec.describe WorkDecorator do
       expect(work.mods_rows).not_to include('Northeastern University Libraries')
     end
 
-    # typeOfResource says "still image" where the Content facet says "Image",
-    # and a reader looking at a photograph needs neither. The value stays
-    # indexed and stays in dc:type, where a harvester wants the vocabulary.
-    it 'keeps the resource type out of the descriptive list' do
-      aggregate_failures do
-        expect(work.mods_row(:resource_type)).to eq('')
-        expect(work.mods_rows).not_to include('Resource type')
-      end
+    # typeOfResource is in the librarians' display order, so it has a row
+    # again. MODS repeats the element, and a record that is both gets both.
+    it 'renders the resource type the librarians asked back into the list' do
+      expect(work.mods_row(:resource_type))
+        .to eq('<dt>Type of resource</dt><dd><p>Text</p></dd><dd><p>Still image</p></dd>')
     end
   end
 
@@ -656,7 +710,7 @@ RSpec.describe WorkDecorator do
   context 'when the record gives no primary title' do
     it 'omits the row for a parts model that composes to nothing' do
       work = decorate_with(main_title:        Metadata::Fields::TitleInfo.new(title: '', non_sort: ''),
-                           alternative_title: ['Only Alternative'])
+                           alternative_title: labeled_values('Only Alternative'))
 
       aggregate_failures do
         expect(work.title).to eq('')

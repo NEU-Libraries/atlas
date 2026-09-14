@@ -234,22 +234,22 @@ describe DecoratorHelper do
     end
   end
 
-  describe '#field' do
+  describe '#labeled_field' do
     it 'renders a dt/dd pair for a present value' do
-      expect(helper.field('Date created', '2017-09-19'))
+      expect(helper.labeled_field('Date created', '2017-09-19', paragraphs: false))
         .to eq('<dt>Date created</dt><dd>2017-09-19</dd>')
     end
 
     it 'omits the whole field (label + value) for a nil value' do
-      expect(helper.field('Date created', nil)).to eq('')
+      expect(helper.labeled_field('Date created', nil)).to eq('')
     end
 
     it 'omits the whole field for a blank value' do
-      expect(helper.field('Use and reproduction', '   ')).to eq('')
+      expect(helper.labeled_field('Use and reproduction', '   ')).to eq('')
     end
 
-    it 'runs the value through linkify when link: true' do
-      expect(helper.field('Permanent URL', 'http://hdl.handle.net/2047/D20254217', link: true))
+    it 'paragraphs and autolinks the value by default' do
+      expect(helper.labeled_field('Permanent URL', 'http://hdl.handle.net/2047/D20254217'))
         .to eq(
           '<dt>Permanent URL</dt><dd><p>' \
           '<a href="http://hdl.handle.net/2047/D20254217" rel="nofollow noopener" ' \
@@ -257,9 +257,30 @@ describe DecoratorHelper do
         )
     end
 
-    it 'escapes a plain (non-linked) value' do
-      expect(helper.field('Resource Type', 'Sound & vision'))
+    it 'escapes a value it does not paragraph' do
+      expect(helper.labeled_field('Resource Type', 'Sound & vision', paragraphs: false))
         .to eq('<dt>Resource Type</dt><dd>Sound &amp; vision</dd>')
+    end
+
+    # HTML5 gives an anchor a transparent content model, so the paragraphs of a
+    # multi-paragraph value survive the link the record attached.
+    it 'wraps the value in the link the record attached' do
+      expect(helper.labeled_field('Use and reproduction', 'CC BY 4.0',
+                                  href: 'https://creativecommons.org/licenses/by/4.0/'))
+        .to eq('<dt>Use and reproduction</dt><dd>' \
+               '<a href="https://creativecommons.org/licenses/by/4.0/" rel="nofollow noopener" ' \
+               'target="_blank"><p>CC BY 4.0</p></a></dd>')
+    end
+  end
+
+  describe '#html_field' do
+    it 'renders one dd per already-rendered value' do
+      expect(helper.html_field('Genres', [helper.linkify('Photographs'), helper.linkify('Negatives')]))
+        .to eq('<dt>Genres</dt><dd><p>Photographs</p></dd><dd><p>Negatives</p></dd>')
+    end
+
+    it 'omits the whole row when there is nothing to render' do
+      expect(helper.html_field('Genres', [])).to eq('')
     end
   end
 end

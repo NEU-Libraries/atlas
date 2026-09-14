@@ -13,6 +13,18 @@ module MODSDecoration
     mods&.abstract
   end
 
+  # The header a title row takes when the record asks for nothing else. A
+  # titleInfo carrying @displayLabel outranks it: a record calling its title a
+  # "Caption" has said so, and this is the one header a display would otherwise
+  # never let a curator change.
+  TITLE_LABEL = 'Title'
+
+  # The header the abstract row takes. "Description" rather than "Abstract" by
+  # the librarians' decision of 2026-09-14: a repository of photographs, theses
+  # and datasets has few abstracts and many descriptions, and MODS has no
+  # element called description for the word to collide with.
+  ABSTRACT_LABEL = 'Description'
+
   # Shared html building for all MODS using models. The title is sanitised
   # rather than escaped because a record with no element for a subscript writes
   # one as escaped <sub> inside the title text, and a reader of this block needs
@@ -28,11 +40,12 @@ module MODSDecoration
     composed = plain_title
     return '' if composed.blank?
 
-    tag.dt('Title') +
+    tag.dt(mods&.main_title_display_label.presence || TITLE_LABEL) +
       tag.dd(enhanced_text(composed))
   end
 
   def abstract
-    field('Abstract', plain_description, link: true)
+    labeled_field(mods&.abstract_display_label.presence || ABSTRACT_LABEL,
+                  plain_description, href: mods&.abstract_href)
   end
 end

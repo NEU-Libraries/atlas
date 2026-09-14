@@ -13,25 +13,37 @@ module DecoratorHelper
   # text. Only sentence terminators belong here.
   URL_TRAILING_PUNCT_RE = /[.,;:!?'"]+\z/
 
-  def loop_field(title, fields)
-    return '' if fields.blank?
+  # A value with the link the record attached to it (xlink:href), or the value
+  # alone. HTML5 gives an anchor a transparent content model, so wrapping the
+  # paragraphs of an abstract is valid and the paragraphing survives the link.
+  #
+  # The text goes through the same rendering as any unlinked value, so a
+  # subscript in a title and a URL inside an abstract still work; tag.a
+  # escapes the href.
+  def linked_value(value, href, paragraphs: true)
+    rendered = paragraphs ? linkify(value) : enhanced_text(value)
+    return rendered if href.blank?
 
-    result = tag.dt(title)
-    fields.each do |f|
-      result += tag.dd(linkify(f))
-    end
-    result
+    tag.a(rendered, href: href, rel: 'nofollow noopener', target: '_blank')
   end
 
-  # Single-value counterpart of loop_field: render the label/value pair, or
-  # omit the whole field (label + value) when the value is blank -- so sparse
-  # records don't show empty <dd>s under headings like "Date created" or
-  # "Permanent URL". Pass link: true to run the value through linkify (URL
-  # detection + paragraphing); otherwise it's emitted as plain escaped text.
-  def field(label, value, link: false)
+  # One label and one value, or nothing at all when the value is blank -- so a
+  # sparse record shows no empty <dd> under a heading like "Date created". The
+  # label is resolved by the CALLER, because which of @displayLabel, @eventType
+  # and the field's own name wins is display policy that differs per field.
+  def labeled_field(label, value, href: nil, paragraphs: true)
     return '' if value.blank?
 
-    tag.dt(label) + tag.dd(link ? linkify(value) : value)
+    tag.dt(label) + tag.dd(linked_value(value, href, paragraphs: paragraphs))
+  end
+
+  # One label over many values that are ALREADY rendered HTML, each having gone
+  # through #linked_value. Running them through linkify again would escape the
+  # anchors it just produced.
+  def html_field(label, rendered)
+    return '' if rendered.blank?
+
+    rendered.reduce(tag.dt(label)) { |row, value| row + tag.dd(value) }
   end
 
   # Render a single-line curator-authored *value* -- a title -- as a safe HTML

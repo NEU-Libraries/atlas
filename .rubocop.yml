@@ -18,6 +18,10 @@ Lint/MissingSuper:
 Metrics/ClassLength:
   Max: 120
   Exclude:
+    # Three declarative maps -- field to Solr field, field to member, field to
+    # the reason it is not indexed -- so length tracks the MODS surface the way
+    # WorkDecorator::DISPLAY does. The rows that can be derived already are.
+    - 'app/indexers/mods_indexer.rb'
     # OCFL 1.1 write-path coordination naturally long; broken into private
     # helpers but the class itself stays a single coherent boundary.
     - 'app/lib/valkyrie/storage/ocfl.rb'

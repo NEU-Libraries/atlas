@@ -14,9 +14,18 @@ module MODSFixtureHelper
     resource.mods_xml = doc.to_xml
   end
 
+  # Creates the <abstract> when the document has none, because the minted MODS
+  # template seeds no empty placeholder elements — the same absence any
+  # caller-assembled document can have, and the same branch MODSMerge takes.
   def set_mods_abstract!(resource, abstract)
-    doc = NEU::MODS::Document.parse(resource.mods_xml)
-    doc.abstract_nodes.first.content = abstract
+    doc  = NEU::MODS::Document.parse(resource.mods_xml)
+    node = doc.abstract_nodes.first
+    if node
+      node.content = abstract
+    else
+      doc.doc.at_xpath('/mods:mods', NEU::MODS::NAMESPACE)
+         .add_child(doc.build_node('abstract', abstract))
+    end
     resource.mods_xml = doc.to_xml
   end
 

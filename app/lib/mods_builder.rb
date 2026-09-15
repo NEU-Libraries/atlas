@@ -1,6 +1,23 @@
 # frozen_string_literal: true
 
 module MODSBuilder
+  # The document a resource is minted with when the caller supplies no MODS.
+  # It carries only what a new record genuinely needs: the primary titleInfo
+  # the deposit seeds a title into, and the `hdl` identifier HandleMinter
+  # fills on completion. Every other field arrives when a curator supplies a
+  # value.
+  #
+  # Empty placeholder elements are NOT seeded. They were a v1 requirement —
+  # OM resolved a terminology term to an XPath and could only write through a
+  # node that already existed — and the merge that replaced it (Cerberus's
+  # MODSMerge, over NEU::MODS) creates every node it needs on demand. A seeded
+  # `<name>` stub is worse than absent: it has no `<role>`, so the gem's
+  # editable-creator selector skips it, the merge cannot remove it, and a
+  # curator's new creator lands after it — leaving a record that reads as
+  # having blank creators.
+  #
+  # The namespace declarations stay whether or not this document uses them, so
+  # a prefix a curator or loader adds later is already bound.
   def mods_template
     builder = Nokogiri::XML::Builder.new(encoding: 'UTF-8') do |xml|
       xml.mods('xmlns:drs' => 'https://repository.neu.edu/spec/v1', 'xmlns:mods' => 'http://www.loc.gov/mods/v3', 'xmlns:xsi' => 'http://www.w3.org/2001/XMLSchema-instance',
@@ -13,45 +30,7 @@ module MODSBuilder
         xml.titleInfo('usage' => 'primary') do
           xml.title ''
         end
-        xml.titleInfo('type' => 'alternative') do
-          xml.title ''
-        end
-        xml.abstract
-        xml.name('type' => 'personal')
-        xml.name('type' => 'corporate')
-        xml.originInfo do
-          xml.place do
-            xml.placeTerm
-          end
-          xml.dateCreated('keyDate' => 'yes', 'encoding' => 'w3cdtf')
-        end
-        xml.language do
-          xml.languageTerm
-        end
-        xml.note
-        xml.subject do
-          xml.topic ''
-        end
         xml.identifier('type' => 'hdl', 'displayLabel' => 'Permanent URL')
-        xml.typeOfResource
-
-        xml.recordInfo do
-          xml.recordContentSource
-          xml.recordOrigin
-          xml.descriptionStandard
-          xml.languageOfCataloging do
-            xml.languageTerm
-          end
-        end
-
-        xml.physicalDescription do
-          xml.form
-        end
-
-        xml['mods'].extension do
-          xml['niec'].niec
-          xml['dwr'].SimpleDarwinRecord
-        end
       end
     end
     builder.to_xml

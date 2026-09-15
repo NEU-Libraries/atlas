@@ -370,7 +370,7 @@ module WorkDecorator
 
       [entry.display_label.presence || LANGUAGES_LABEL,
        browse_value(qualified_language(entry), MODSBrowse::LANGUAGE, value: entry.term,
-                    authority: entry.authority, href: entry.href)]
+                    authority: MODSBrowse.vocabulary(entry), href: entry.href)]
     end
   end
 
@@ -453,7 +453,7 @@ module WorkDecorator
 
       [heading.display_label.presence || SUBJECTS_LABEL,
        browse_value(composed, MODSBrowse.subject_axis(heading),
-                    authority: heading.authority, href: heading.href)]
+                    authority: MODSBrowse.vocabulary(heading), href: heading.href)]
     end
   end
 
@@ -545,7 +545,7 @@ module WorkDecorator
         # recording", which is exactly the drift the marker exists to bridge.
         [header_for(entry, default_label),
          browse_value(rendered, axis, value: entry.value,
-                      authority: entry.try(:authority), href: entry.href)]
+                      authority: MODSBrowse.vocabulary(entry), href: entry.href)]
       end
     end
 
@@ -768,7 +768,7 @@ module WorkDecorator
     # match on what it can see.
     def browse_name(entry)
       browse_value(name_with_qualifiers(entry), MODSBrowse.name_axis(entry),
-                   value: entry.name, authority: entry.authority, href: entry.href)
+                   value: entry.name, authority: MODSBrowse.vocabulary(entry), href: entry.href)
     end
 
     # "Doe, Jane [Mark Twain, Department of Physics]". One bracket around the

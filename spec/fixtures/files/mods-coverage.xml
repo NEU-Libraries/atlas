@@ -7,6 +7,14 @@
     <mods:namePart type="given">Jane</mods:namePart>
     <mods:role><mods:roleTerm type="code" authority="marcrelator">aut</mods:roleTerm></mods:role>
   </mods:name>
+  <!-- A name whose vocabulary is declared by URI alone, with no @authority.
+       DRS holds corporate names in exactly this shape, and reading @authority
+       alone left the value plain text beside a linked creator. -->
+  <mods:name type="corporate" authorityURI="http://id.loc.gov/authorities/names"
+             valueURI="http://id.loc.gov/authorities/names/n84066203">
+    <mods:namePart>Northeastern University (Boston, Mass.) Libraries</mods:namePart>
+    <mods:role><mods:roleTerm type="text">Creator</mods:roleTerm></mods:role>
+  </mods:name>
   <mods:originInfo>
     <mods:publisher>Northeastern University Press</mods:publisher>
     <mods:dateCreated encoding="w3cdtf" point="start" qualifier="approximate">1935-06</mods:dateCreated>

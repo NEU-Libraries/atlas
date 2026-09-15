@@ -102,4 +102,24 @@ module MODSBrowse
   def self.subject_axis(heading)
     SUBJECT_AXES[heading.axis]
   end
+
+  # The vocabulary a value was taken from, as the one string the marker
+  # carries. The @authority name when the record gives one, and the
+  # @authorityURI when it does not: MODS lets a record declare its vocabulary
+  # by URI alone, and DRS holds corporate names in exactly that shape --
+  # `Northeastern University (Boston, Mass.) Libraries` carries authorityURI
+  # and valueURI and no @authority. Reading @authority alone left that value
+  # plain text beside a linked creator on the same record.
+  #
+  # One attribute rather than three, because a consumer gates on the
+  # vocabulary being DECLARED and does not care which form declared it. The
+  # value's own @valueURI is not a candidate: it names the value, not the
+  # vocabulary, and a later external link reading this attribute would follow
+  # it to the wrong place.
+  #
+  # #try, because the labeled fields that are not browse axes carry none of
+  # these attributes at all.
+  def self.vocabulary(entry)
+    entry.try(:authority).presence || entry.try(:authority_uri).presence
+  end
 end

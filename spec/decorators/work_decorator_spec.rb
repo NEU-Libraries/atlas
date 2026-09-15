@@ -674,6 +674,16 @@ RSpec.describe WorkDecorator do
         )
       end
 
+      # MODS lets a record declare its vocabulary by URI alone, and DRS holds
+      # corporate names in that shape. Reading @authority alone left such a
+      # value plain text beside a linked creator on the same record.
+      it 'marks a vocabulary declared by URI alone' do
+        expect(work.mods_row(:names)).to include(
+          'data-browse-value="Northeastern University (Boston, Mass.) Libraries" ' \
+          'data-browse-authority="http://id.loc.gov/authorities/names">'
+        )
+      end
+
       # A depositor-typed keyword carries no vocabulary, so the marker states
       # none and a consumer gating on one leaves the value as text.
       it 'omits the authority from a value that declares none' do

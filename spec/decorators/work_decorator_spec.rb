@@ -162,7 +162,9 @@ RSpec.describe WorkDecorator do
   # above it and a screen reader announced it under an empty term.
   describe 'a name renders under a real label' do
     def named(*names)
-      decorate_with(names: names.map { |n| Metadata::Fields::Name.new(**n) }).mods_row(:names)
+      without_browse_markers(
+        decorate_with(names: names.map { |n| Metadata::Fields::Name.new(**n) }).mods_row(:names)
+      )
     end
 
     it 'labels a role-less name Creator rather than nothing' do
@@ -295,7 +297,7 @@ RSpec.describe WorkDecorator do
     it 'renders every value of a repeatable element, not just the first' do
       row = decorate_with(genres: labeled_values('Photographs', 'Negatives')).mods_row(:genres)
 
-      expect(row).to eq('<dt>Genres</dt><dd><p>Photographs</p></dd><dd><p>Negatives</p></dd>')
+      expect(without_browse_markers(row)).to eq('<dt>Genres</dt><dd><p>Photographs</p></dd><dd><p>Negatives</p></dd>')
     end
 
     it 'renders the fields that were stored and never displayed' do
@@ -347,7 +349,8 @@ RSpec.describe WorkDecorator do
     end
 
     it 'renders a code-only language as its name' do
-      expect(work.mods_row(:languages)).to eq('<dt>Languages</dt><dd><p>English</p></dd>')
+      expect(without_browse_markers(work.mods_row(:languages)))
+        .to eq('<dt>Languages</dt><dd><p>English</p></dd>')
     end
 
     # objectPart="subtitles" says the SUBTITLES are Spanish. Rendered flat, the
@@ -356,13 +359,13 @@ RSpec.describe WorkDecorator do
       row = decorate_with(languages: [{ term: 'English' },
                                       { term: 'Spanish', object_part: 'subtitles' }]).mods_row(:languages)
 
-      expect(row).to eq('<dt>Languages</dt><dd><p>English</p></dd><dd><p>Spanish (subtitles)</p></dd>')
+      expect(without_browse_markers(row)).to eq('<dt>Languages</dt><dd><p>English</p></dd><dd><p>Spanish (subtitles)</p></dd>')
     end
 
     it 'joins a script into the same qualification rather than a second bracket' do
       row = decorate_with(languages: [{ term: 'Russian', script: 'Cyrillic' }]).mods_row(:languages)
 
-      expect(row).to eq('<dt>Languages</dt><dd><p>Russian (Cyrillic)</p></dd>')
+      expect(without_browse_markers(row)).to eq('<dt>Languages</dt><dd><p>Russian (Cyrillic)</p></dd>')
     end
 
     # In MODS @invalid means cancelled, superseded or wrong. Unmarked, a dead
@@ -543,7 +546,9 @@ RSpec.describe WorkDecorator do
   # another, and it is the basis of any future department browse.
   describe 'a creator carries its affiliation' do
     def named(*names)
-      decorate_with(names: names.map { |n| Metadata::Fields::Name.new(**n) }).mods_row(:names)
+      without_browse_markers(
+        decorate_with(names: names.map { |n| Metadata::Fields::Name.new(**n) }).mods_row(:names)
+      )
     end
 
     it 'attaches the affiliation to the name it belongs to' do
@@ -572,7 +577,7 @@ RSpec.describe WorkDecorator do
 
     it 'renders the plain rows' do
       aggregate_failures do
-        expect(work.mods_row(:place_of_publication))
+        expect(without_browse_markers(work.mods_row(:place_of_publication)))
           .to eq('<dt>Publication place</dt><dd><p>Boston</p></dd>')
         expect(work.mods_row(:issuance)).to eq('<dt>Issuance</dt><dd><p>Monographic</p></dd>')
         expect(work.mods_row(:frequency)).to eq('<dt>Frequency</dt><dd><p>Quarterly</p></dd>')
@@ -580,7 +585,7 @@ RSpec.describe WorkDecorator do
           .to eq('<dt>Reformatting quality</dt><dd><p>Preservation</p></dd>')
         expect(work.mods_row(:table_of_contents))
           .to eq('<dt>Contents</dt><dd><p>Chapter 1 -- Chapter 2</p></dd>')
-        expect(work.mods_row(:classification))
+        expect(without_browse_markers(work.mods_row(:classification)))
           .to eq('<dt>Photo category</dt><dd><p>PS3552.E1</p></dd>')
       end
     end
@@ -594,17 +599,18 @@ RSpec.describe WorkDecorator do
     # heading and a whole heading read as two independent subjects.
     describe 'the assembled subject heading' do
       it 'joins a pre-coordinated heading the way a cataloguer built it' do
-        expect(work.mods_row(:subject_headings))
+        expect(without_browse_markers(work.mods_row(:subject_headings)))
           .to include('<dd><p>Salt marshes -- Massachusetts -- 20th century</p></dd>')
       end
 
       it 'gives every axis one row under one label' do
-        expect(work.mods_row(:subject_headings))
+        expect(without_browse_markers(work.mods_row(:subject_headings)))
           .to eq('<dt>Subjects and keywords</dt>' \
                  '<dd><p>Interpreting</p></dd>' \
                  '<dd><p>Boston (Mass.)</p></dd>' \
                  '<dd><p>21st century</p></dd>' \
                  '<dd><p>Smith, John</p></dd>' \
+                 '<dd><p>Northeastern University (Boston, Mass.) Global Resilience Institute</p></dd>' \
                  '<dd><p>Field recordings</p></dd>' \
                  '<dd><p>Cabinetmakers</p></dd>' \
                  '<dd><p>Salt marshes -- Massachusetts -- 20th century</p></dd>' \
@@ -625,6 +631,135 @@ RSpec.describe WorkDecorator do
              geographic_code_subjects hierarchical_geographic_subjects].each do |field|
             expect(work.mods_row(field)).to eq('')
           end
+        end
+      end
+    end
+
+    # Cerberus injects this HTML whole and has no other per-value handle on it:
+    # one <dt> spans every subject axis, so the label does not identify the
+    # field, and the rendered string is free to differ from the indexed one. The
+    # markers are what make a link possible at all, so they are asserted as the
+    # contract they are.
+    describe 'the browse markers a consumer links from' do
+      subject(:work) { from_fixture }
+
+      it 'marks a subject heading with its own axis, not with one shared label' do
+        aggregate_failures do
+          expect(work.mods_row(:subject_headings))
+            .to include('<span data-browse-axis="topic" data-browse-value="Interpreting">Interpreting</span>')
+          expect(work.mods_row(:subject_headings))
+            .to include('<span data-browse-axis="geographic" data-browse-value="Boston (Mass.)">')
+          expect(work.mods_row(:subject_headings))
+            .to include('<span data-browse-axis="personal_name_subject" data-browse-value="Smith, John">')
+        end
+      end
+
+      # The whole heading is one browse value, which is what the index holds.
+      it 'marks a subdivided heading as one value and names its vocabulary' do
+        expect(work.mods_row(:subject_headings)).to include(
+          '<span data-browse-axis="topic" ' \
+          'data-browse-value="Salt marshes -- Massachusetts -- 20th century" ' \
+          'data-browse-authority="lcsh">'
+        )
+      end
+
+      # The record does not label this name as corporate, so it reached no
+      # facet and could not have linked. The marker names the axis neu-mods
+      # defaults it to, and the authority it does carry.
+      it 'marks a type-less subject name on the corporate axis' do
+        expect(work.mods_row(:subject_headings)).to include(
+          '<span data-browse-axis="corporate_name_subject" ' \
+          'data-browse-value="Northeastern University (Boston, Mass.) Global Resilience Institute" ' \
+          'data-browse-authority="local_lcnaf">'
+        )
+      end
+
+      # A depositor-typed keyword carries no vocabulary, so the marker states
+      # none and a consumer gating on one leaves the value as text.
+      it 'omits the authority from a value that declares none' do
+        expect(work.mods_row(:subject_headings))
+          .to include('data-browse-value="Interpreting">Interpreting</span>')
+      end
+
+      # The display composes a path across the levels and the Places facet holds
+      # the narrowest level alone, so no single string is both. A marker either
+      # way would name a value the row does not show.
+      it 'leaves a hierarchical place unmarked, having no value that is both' do
+        expect(work.mods_row(:subject_headings))
+          .to include('<dd><p>United States -- New York -- Parksville</p></dd>')
+      end
+
+      it 'marks a name with the axis its roles put it on' do
+        expect(work.mods_row(:names))
+          .to include('<span data-browse-axis="creator" data-browse-value="Doe, Jane">')
+      end
+
+      it 'marks a contributor apart from a creator' do
+        row = decorate_with(names: [Metadata::Fields::Name.new(name: 'Flynn, Stephen E.', roles: ['ctb'])])
+              .mods_row(:names)
+
+        expect(row).to include('<span data-browse-axis="contributor" data-browse-value="Flynn, Stephen E.">')
+      end
+
+      # Neither creator_ssim nor contributor_ssim holds a role-less name, so a
+      # marker would promise a browse that returns nothing.
+      it 'leaves a role-less name unmarked' do
+        row = decorate_with(names: [Metadata::Fields::Name.new(name: 'Roe, Ann', roles: [])]).mods_row(:names)
+
+        expect(row).to eq('<dt>Creator</dt><dd><p>Roe, Ann</p></dd>')
+      end
+
+      # The displayed string carries the affiliation and the indexed one does
+      # not. This is the case that rules out matching on rendered text.
+      it 'states the indexed name rather than the rendered one' do
+        row = decorate_with(names: [Metadata::Fields::Name.new(name: 'Doe, Jane', roles: ['aut'],
+                                                               affiliation: ['Physics'])]).mods_row(:names)
+
+        expect(row).to include('data-browse-value="Doe, Jane">Doe, Jane [Physics]</span>')
+      end
+
+      # Same drift on the language row: the facet holds the bare term, so a
+      # reader browsing Spanish finds a captioned video either way.
+      it 'states the bare language term against a qualified row' do
+        row = decorate_with(languages: [{ term: 'Spanish', object_part: 'subtitles' }]).mods_row(:languages)
+
+        expect(row).to include('data-browse-value="Spanish">Spanish (subtitles)</span>')
+      end
+
+      it 'marks the genre, place, publisher and photo category rows' do
+        aggregate_failures do
+          expect(decorate_with(genres: labeled_values('Photographs')).mods_row(:genres))
+            .to include('<span data-browse-axis="genre" data-browse-value="Photographs">')
+          expect(work.mods_row(:place_of_publication))
+            .to include('<span data-browse-axis="place_of_publication" data-browse-value="Boston">')
+          expect(work.mods_row(:publication_information))
+            .to include('<span data-browse-axis="publisher" data-browse-value="Northeastern University Press">')
+          expect(work.mods_row(:classification))
+            .to include('<span data-browse-axis="photo_category" data-browse-value="PS3552.E1">')
+        end
+      end
+
+      # Type of resource is displayed capitalised against an indexed lowercase
+      # value, and the Content facet already answers the same question in words
+      # readers use -- so the librarians asked for no browse on it.
+      it 'leaves the rows with no browse unmarked' do
+        aggregate_failures do
+          expect(work.mods_row(:resource_type)).not_to include('data-browse-axis')
+          expect(work.mods_row(:related_series)).not_to include('data-browse-axis')
+          expect(work.mods_row(:extent)).not_to include('data-browse-axis')
+        end
+      end
+
+      # A record that attached its own xlink:href has already linked the value,
+      # and a consumer wrapping the marker in a second anchor would nest <a>
+      # inside <a>. The record's link is the more specific claim.
+      it 'yields to a link the record attached itself' do
+        row = decorate_with(genres: [{ value: 'Photographs', href: 'https://example.org/genre' }])
+              .mods_row(:genres)
+
+        aggregate_failures do
+          expect(row).to include('<a href="https://example.org/genre"')
+          expect(row).not_to include('data-browse-axis')
         end
       end
     end

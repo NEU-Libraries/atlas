@@ -7,9 +7,17 @@ require 'rails_helper'
 # name. work_decorator_spec.rb asserts what the rows CONTAIN; this file asserts
 # what heads them.
 RSpec.describe WorkDecorator, 'the header a row renders under' do
+  # Every assertion in this file is about the <dt>, so a row arrives with its
+  # browse markers stripped out of the <dd>. Those markers are a contract of
+  # their own, asserted in work_decorator_spec; a change to them must fail
+  # there and not here as well.
   def decorate_with(**mods_attrs)
     mods = Metadata::MODS.new(**mods_attrs)
-    Work.new.tap { |w| allow(w).to receive(:mods).and_return(mods) }.decorate
+    work = Work.new.tap { |w| allow(w).to receive(:mods).and_return(mods) }.decorate
+    allow(work).to receive(:mods_row).and_wrap_original do |original, *args|
+      without_browse_markers(original.call(*args))
+    end
+    work
   end
 
   describe 'a record re-heads its own row with @displayLabel' do

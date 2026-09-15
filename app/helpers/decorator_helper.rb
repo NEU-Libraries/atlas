@@ -27,6 +27,36 @@ module DecoratorHelper
     tag.a(rendered, href: href, rel: 'nofollow noopener', target: '_blank')
   end
 
+  # A value marked with the browse it belongs to, for a consumer that injects
+  # this HTML whole and has no other per-value handle on it. The <span> carries
+  # the semantic axis, the EXACT string the index holds, and the vocabulary the
+  # term came from when there is one.
+  #
+  # The marked value renders without the paragraph pass. A browse candidate is
+  # a controlled term on one line -- a subject heading, a name, a genre -- so
+  # there is no blank-line break to keep and no URL to autolink, and the <p>
+  # wrapper is added here so the row keeps the shape every consumer of this
+  # block already lays out.
+  #
+  # A value the RECORD linked with xlink:href takes no marker: it already has
+  # an anchor, and a consumer wrapping the marker in a second one would nest
+  # <a> inside <a>. The record's own link wins, because it is the more specific
+  # claim.
+  #
+  # `text` is what a reader sees and `value:` is what the index holds. They are
+  # NOT the same string in general and the difference is the point: a language
+  # row reads "Spanish (subtitles)" against an indexed "Spanish", and a name
+  # row carries its affiliation in brackets. A consumer matching on the
+  # rendered text would miss both, which is why the indexed value is stated
+  # rather than inferred.
+  def browse_value(text, axis, value: text, authority: nil, href: nil)
+    return linked_value(text, href) if axis.nil? || href.present?
+
+    data = { browse_axis: axis.browse, browse_value: value }
+    data[:browse_authority] = authority if authority.present?
+    tag.p(tag.span(enhanced_text(text), data: data))
+  end
+
   # One label and one value, or nothing at all when the value is blank -- so a
   # sparse record shows no empty <dd> under a heading like "Date created". The
   # label is resolved by the CALLER, because which of @displayLabel, @eventType

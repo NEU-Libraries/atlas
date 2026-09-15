@@ -19,7 +19,8 @@ module WorkDecorator
   # than a label and a value. :within names the row that renders this field
   # instead, for a field the librarians asked to show with no header of its
   # own. :capitalize is the one per-value transform a plain row needs; a link
-  # now rides on the value, so :link is gone.
+  # now rides on the value, so :link is gone. :axis names the browse a plain
+  # row's values belong to, for a consumer that turns them into search links.
   #
   # Labels live here and not in neu-mods on purpose. A label is display
   # vocabulary, and Cerberus's edit form words the same field differently; the
@@ -43,14 +44,14 @@ module WorkDecorator
     { field: :copyright_date, render: :copyright_date },
 
     # Discovery
-    { field: :genres, label: 'Genres' },
+    { field: :genres, label: 'Genres', axis: MODSBrowse::GENRE },
     { field: :table_of_contents, render: :table_of_contents },
     { field: :abstract, render: :abstract },
     { field: :notes, render: :notes },
     { field: :target_audience, label: 'Target audience' },
     { field: :subject_headings, render: :subject_headings },
     { field: :map_data, render: :map_data },
-    { field: :classification, label: 'Photo category' },
+    { field: :classification, label: 'Photo category', axis: MODSBrowse::PHOTO_CATEGORY },
     { field: :resource_type, label: 'Type of resource', capitalize: true },
 
     # Utility
@@ -110,9 +111,11 @@ module WorkDecorator
   # The subject axes have no row because #subject_headings renders them, joined
   # back into the heading the cataloguer built. Split apart they asserted
   # independent subjects the record never claimed: one LCSH heading became rows
-  # under three labels, and the string a cataloguer typed appeared nowhere. They
-  # stay projected because the Solr facets and the OAI crosswalk read them --
-  # those consumers want the parts, and a reader wants the heading.
+  # under three labels, and the string a cataloguer typed appeared nowhere.
+  # They stay projected for the OAI crosswalk, which wants discrete terms a
+  # harvester can match. The Solr facets no longer read them: a facet holds the
+  # whole heading now, so the string a reader clicks is the string the index
+  # holds.
   #
   # geographic_code_subjects is the exception within the exception: a MARC GAC
   # code is not heading text, so it is neither a row nor a part of one.
@@ -192,10 +195,6 @@ module WorkDecorator
   # than by its continent.
   PLACE_LEVELS = %i[continent country province region state territory county
                     island city city_section area].freeze
-
-  # The separator a cataloguer builds an LCSH heading with, and the one v1 ran
-  # for years. Display policy, so it lives here rather than in the gem.
-  SUBJECT_HEADING_SEPARATOR = ' -- '
 
   # What follows an identifier the record flagged invalid. Words rather than a
   # symbol, and beside the value rather than in a tooltip, for the reason
@@ -301,7 +300,7 @@ module WorkDecorator
     leads = leading_name_indexes(entries)
     grouped = entries.each_with_index.with_object({}) do |(entry, index), hsh|
       name_headers(entry, lead: leads.include?(index))
-        .each { |label| (hsh[label] ||= []) << linked_value(name_with_qualifiers(entry), entry.href) }
+        .each { |label| (hsh[label] ||= []) << browse_name(entry) }
     end
     safe_join(grouped.map { |label, values| html_field(label, values) })
   end
@@ -310,7 +309,7 @@ module WorkDecorator
   # the librarians' rule: the header is the record's own label, then its event
   # type, then "Publisher".
   def publication_information
-    labeled_rows(PUBLISHER_LABEL, mods&.publication_information)
+    labeled_rows(PUBLISHER_LABEL, mods&.publication_information, axis: MODSBrowse::PUBLISHER)
   end
 
   # A place's header comes from the date beside it when the record names
@@ -319,7 +318,8 @@ module WorkDecorator
     grouped_rows(mods&.place_of_publication) do |entry|
       next if entry.value.blank?
 
-      [place_header(entry), linked_value(entry.value, entry.href)]
+      [place_header(entry),
+       browse_value(entry.value, MODSBrowse::PLACE_OF_PUBLICATION, href: entry.href)]
     end
   end
 
@@ -369,7 +369,8 @@ module WorkDecorator
       next if entry.term.blank?
 
       [entry.display_label.presence || LANGUAGES_LABEL,
-       linked_value(qualified_language(entry), entry.href)]
+       browse_value(qualified_language(entry), MODSBrowse::LANGUAGE, value: entry.term,
+                    authority: entry.authority, href: entry.href)]
     end
   end
 
@@ -441,16 +442,18 @@ module WorkDecorator
     end
   end
 
-  # One row per subject, its parts joined back into the heading a cataloguer
-  # built. The parts also render as facets, which is why the gem keeps them
-  # apart and this joins them: a facet wants "Massachusetts", a reader wants
-  # "Salt marshes -- Massachusetts -- 20th century".
+  # One row per subject, as the heading a cataloguer built. The row and the
+  # facet now hold ONE string -- "Salt marshes -- Massachusetts -- 20th
+  # century" is what a reader reads and what a browse of it returns -- so the
+  # marker can name the value without a consumer matching on rendered text.
   def subject_headings
     grouped_rows(mods&.subject_headings) do |heading|
-      joined = Array(heading.parts).compact_blank.join(SUBJECT_HEADING_SEPARATOR).presence
-      next unless joined
+      composed = composed_heading(heading)
+      next unless composed
 
-      [heading.display_label.presence || SUBJECTS_LABEL, linked_value(joined, heading.href)]
+      [heading.display_label.presence || SUBJECTS_LABEL,
+       browse_value(composed, MODSBrowse.subject_axis(heading),
+                    authority: heading.authority, href: heading.href)]
     end
   end
 
@@ -532,12 +535,17 @@ module WorkDecorator
 
     # #grouped_rows for a { value:, display_label:, href: } field, which is
     # every plain row.
-    def labeled_rows(default_label, entries, capitalize: false)
+    def labeled_rows(default_label, entries, capitalize: false, axis: nil)
       grouped_rows(entries) do |entry|
         next if entry.value.blank?
 
-        value = capitalize ? entry.value.upcase_first : entry.value
-        [header_for(entry, default_label), linked_value(value, entry.href)]
+        rendered = capitalize ? entry.value.upcase_first : entry.value
+        # The indexed value is the record's own string, never the capitalised
+        # one: "Sound recording" is displayed against an indexed "sound
+        # recording", which is exactly the drift the marker exists to bridge.
+        [header_for(entry, default_label),
+         browse_value(rendered, axis, value: entry.value,
+                      authority: entry.try(:authority), href: entry.href)]
       end
     end
 
@@ -682,7 +690,8 @@ module WorkDecorator
     end
 
     def render_plain_row(row)
-      labeled_rows(row[:label], mods&.public_send(row[:field]), capitalize: row.fetch(:capitalize, false))
+      labeled_rows(row[:label], mods&.public_send(row[:field]),
+                   capitalize: row.fetch(:capitalize, false), axis: row[:axis])
     end
 
     # A date renders everything the record declared about it: the value at its
@@ -738,6 +747,28 @@ module WorkDecorator
 
       formatter = DATE_QUALIFIERS[qualifier]
       formatter ? formatter.call(rendered) : "#{rendered} (#{qualifier})"
+    end
+
+    # The heading as one string, which neu-mods composes so the display and the
+    # browse index cannot separate a heading differently.
+    #
+    # An access copy stored before neu-mods 0.14.0 carries the parts and no
+    # joined form, and a reindex is what repopulates it -- so between a deploy
+    # and that reindex the parts are joined here instead. Through the gem's own
+    # separator, which is what keeps this from being a second join with a mind
+    # of its own.
+    def composed_heading(heading)
+      heading.heading.presence ||
+        Array(heading.parts).compact_blank.join(NEU::MODS::Projection::HEADING_SEPARATOR).presence
+    end
+
+    # A name marked with the browse it belongs to. The DISPLAYED string carries
+    # the alternative name and the affiliation and the INDEXED one does not, so
+    # the marker states the indexed value rather than leaving a consumer to
+    # match on what it can see.
+    def browse_name(entry)
+      browse_value(name_with_qualifiers(entry), MODSBrowse.name_axis(entry),
+                   value: entry.name, authority: entry.authority, href: entry.href)
     end
 
     # "Doe, Jane [Mark Twain, Department of Physics]". One bracket around the

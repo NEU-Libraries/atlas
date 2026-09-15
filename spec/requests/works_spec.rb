@@ -384,7 +384,15 @@ RSpec.describe 'Works', type: :request do
       produces 'application/xml', 'application/json'
       description <<~DESC
         Returns MODS XML by default; pass `Accept: application/json` for the
-        JSON access copy, whose body is the `WorkMods` schema.
+        JSON access copy, whose body is the `WorkMods` schema, or
+        `Accept: text/html` for the rendered display.
+
+        The HTML form marks each browse candidate with `data-browse-axis`
+        (the MODS-side axis, never a Solr field name), `data-browse-value`
+        (the exact indexed string, which is not always the rendered text) and
+        `data-browse-authority` (the vocabulary the term came from, absent
+        when the record declares none). A consumer turns a marked value into
+        a search link; which axes it links is its own policy.
       DESC
 
       # No `schema` here: rswag applies one schema to every media type an

@@ -2,10 +2,11 @@
 
 require 'rails_helper'
 
-# The display changes asked for by the librarians' 2026-09-14 UAT pass
-# (DRS_2.0_Metadata_and_Display_Notes). Kept in one file so a reviewer can read
-# the round as a round; the older rows stay asserted in work_decorator_spec.rb.
-RSpec.describe WorkDecorator, 'the 2026-09-14 UAT display changes' do
+# How a row chooses the header it renders under: the record's own
+# @displayLabel first, then an originInfo block's @eventType, then the field's
+# name. work_decorator_spec.rb asserts what the rows CONTAIN; this file asserts
+# what heads them.
+RSpec.describe WorkDecorator, 'the header a row renders under' do
   def decorate_with(**mods_attrs)
     mods = Metadata::MODS.new(**mods_attrs)
     Work.new.tap { |w| allow(w).to receive(:mods).and_return(mods) }.decorate

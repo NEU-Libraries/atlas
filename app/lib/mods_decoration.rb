@@ -20,9 +20,9 @@ module MODSDecoration
   TITLE_LABEL = 'Title'
 
   # The header the abstract row takes. "Description" rather than "Abstract" by
-  # the librarians' decision of 2026-09-14: a repository of photographs, theses
-  # and datasets has few abstracts and many descriptions, and MODS has no
-  # element called description for the word to collide with.
+  # the librarians' decision: a repository of photographs, theses and datasets
+  # has few abstracts and many descriptions, and MODS has no element called
+  # description for the word to collide with.
   ABSTRACT_LABEL = 'Description'
 
   # Shared html building for all MODS using models. The title is sanitised

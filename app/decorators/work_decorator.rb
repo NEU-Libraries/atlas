@@ -10,8 +10,8 @@ module WorkDecorator
   # can no longer be projected and stored and then silently not render because
   # someone forgot a line in two byte-identical templates.
   #
-  # The order is the librarians' own, settled 2026-09-14: identity elements,
-  # then discovery elements, then utility elements.
+  # The order is the librarians' own: identity elements, then discovery
+  # elements, then utility elements.
   #
   # :label is what a reader sees WHEN the record asks for nothing else -- a
   # record's own @displayLabel outranks it, and inside an originInfo block so
@@ -103,10 +103,9 @@ module WorkDecorator
   # preservation XML alone, so the API and the OAI crosswalk can read that
   # provenance without a Nokogiri parse on a read path.
   #
-  # physicalDescription/form renders nowhere by the librarians' decision of
-  # 2026-09-14: it duplicates the extent and the digital origin beside it in
-  # vocabulary a reader does not use. It stays projected and stays in the
-  # preservation XML.
+  # physicalDescription/form renders nowhere by the librarians' decision: it
+  # duplicates the extent and the digital origin beside it in vocabulary a
+  # reader does not use. It stays projected and stays in the preservation XML.
   #
   # The subject axes have no row because #subject_headings renders them, joined
   # back into the heading the cataloguer built. Split apart they asserted

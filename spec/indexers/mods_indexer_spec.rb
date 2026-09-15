@@ -112,16 +112,43 @@ RSpec.describe MODSIndexer do
       expect(fields[:language_ssim]).to eq(['English'])
     end
 
-    # A pre-coordinated heading facets on its parts even though it displays as
-    # one row: a reader browsing Places wants Massachusetts, not the whole
-    # heading. That split is why the per-axis projections stayed.
-    it 'indexes every subject axis under its own field' do
+    # A heading lands in the facet of its OWN axis, as the WHOLE heading: the
+    # string a reader clicks has to be the string the facet holds, or the link
+    # returns nothing. "Salt marshes -- Massachusetts -- 20th century" is a
+    # topic heading with a place and a period subdivision, so it browses as a
+    # topic and its parts reach no facet of their own -- which is the one part
+    # of the browse work that is not additive.
+    it 'indexes each heading whole, under the axis of its own main term' do
       aggregate_failures do
-        expect(fields[:subject_ssim]).to contain_exactly('Interpreting', 'Salt marshes')
-        expect(fields[:subject_geo_ssim]).to contain_exactly('Parksville', 'Boston (Mass.)', 'Massachusetts')
-        expect(fields[:subject_era_ssim]).to contain_exactly('21st century', '20th century')
+        expect(fields[:subject_ssim])
+          .to contain_exactly('Interpreting', 'Salt marshes -- Massachusetts -- 20th century')
+        expect(fields[:subject_geo_ssim]).to contain_exactly('Parksville', 'Boston (Mass.)')
+        expect(fields[:subject_era_ssim]).to eq(['21st century'])
         expect(fields[:subject_person_ssim]).to eq(['Smith, John'])
+        expect(fields[:subject_title_tesim]).to eq(['The Great Gatsby'])
       end
+    end
+
+    # A <subject><name> with no @type displayed and reached no facet, because
+    # both axis projections required the attribute. neu-mods defaults it to
+    # corporate, and this is likely the first value subject_corporate_ssim has
+    # ever held in a dev index -- so an empty facet before this is the bug, not
+    # the change.
+    it 'sends a type-less subject name to the corporate facet' do
+      expect(fields[:subject_corporate_ssim])
+        .to eq(['Northeastern University (Boston, Mass.) Global Resilience Institute'])
+    end
+
+    # A subject genre and a resource genre are the same vocabulary, so they
+    # share the facet a reader already browses.
+    it 'sends a subject genre to the genre facet' do
+      expect(fields[:genre_ssim]).to eq(['Field recordings'])
+    end
+
+    # subject/occupation is displayed and reaches search through the full-text
+    # catch-all; no browse was asked for, so no facet holds it.
+    it 'writes no field for an axis that has no browse' do
+      expect(fields).not_to have_key(:subject_occupation_ssim)
     end
 
     # bdr_43888.mods.xml uses this axis INSTEAD of subject/geographic, so
@@ -220,10 +247,20 @@ RSpec.describe MODSIndexer do
     end
 
     it 'de-duplicates and drops blank members' do
-      mods = Metadata::MODS.new(topical_subjects: ['Civil society', 'Civil society', ''])
+      mods = Metadata::MODS.new(resource_type: labeled_values('text', 'text', ''))
       resource = Work.new.tap { |w| allow(w).to receive(:mods).and_return(mods) }
 
-      expect(described_class.new(resource: resource).to_solr[:subject_ssim]).to eq(['Civil society'])
+      expect(described_class.new(resource: resource).to_solr[:resource_type_ssim]).to eq(['text'])
+    end
+
+    # A heading stored before neu-mods 0.14.0 carries the parts and no axis, so
+    # there is no facet to put it in. It reaches one on the next reindex, which
+    # is the same lifecycle every field here has.
+    it 'skips a heading that names no axis' do
+      mods = Metadata::MODS.new(subject_headings: [{ parts: ['Civil society'], heading: 'Civil society' }])
+      resource = Work.new.tap { |w| allow(w).to receive(:mods).and_return(mods) }
+
+      expect(described_class.new(resource: resource).to_solr).not_to have_key(:subject_ssim)
     end
   end
 
@@ -232,16 +269,27 @@ RSpec.describe MODSIndexer do
   # of the index.
   describe 'index coverage' do
     it 'accounts for every projected field, as indexed here or as an explicit omission' do
-      expect(NEU::MODS::FIELDS.keys - described_class::SOLR_FIELDS.keys - described_class::NOT_INDEXED.keys)
+      expect(NEU::MODS::FIELDS.keys - described_class::SOLR_FIELDS.keys -
+             described_class::AXIS_FIELDS.keys - described_class::NOT_INDEXED.keys)
         .to be_empty
     end
 
     it 'indexes nothing the gem does not project' do
-      expect(described_class::SOLR_FIELDS.keys - NEU::MODS::FIELDS.keys).to be_empty
+      expect(described_class::SOLR_FIELDS.keys + described_class::AXIS_FIELDS.keys - NEU::MODS::FIELDS.keys)
+        .to be_empty
     end
 
     it 'omits nothing it also indexes' do
-      expect(described_class::NOT_INDEXED.keys & described_class::SOLR_FIELDS.keys).to be_empty
+      indexed = described_class::SOLR_FIELDS.keys + described_class::AXIS_FIELDS.keys
+      expect(described_class::NOT_INDEXED.keys & indexed).to be_empty
+    end
+
+    # An axis with no Solr field is a deliberate row, not a blank one: it says
+    # "marked for a consumer, bucketed nowhere". An axis naming a field the
+    # rest of the indexer does not know would be the drift to catch.
+    it 'names a browse token for every axis it can index through' do
+      axes = described_class::AXIS_FIELDS.values.flat_map(&:values)
+      expect(axes.reject { |axis| axis.browse.present? }).to be_empty
     end
 
     it 'gives a reason for every omission, so the list stays a decision' do
@@ -307,8 +355,9 @@ RSpec.describe MODSIndexer do
 
       aggregate_failures do
         expect(doc['language_ssim']).to eq(['English'])
-        expect(doc['subject_ssim']).to contain_exactly('Interpreting', 'Salt marshes')
-        expect(doc['subject_geo_ssim']).to contain_exactly('Parksville', 'Boston (Mass.)', 'Massachusetts')
+        expect(doc['subject_ssim'])
+          .to contain_exactly('Interpreting', 'Salt marshes -- Massachusetts -- 20th century')
+        expect(doc['subject_geo_ssim']).to contain_exactly('Parksville', 'Boston (Mass.)')
         expect(doc['resource_type_ssim']).to contain_exactly('text', 'still image')
         expect(doc['publisher_ssim']).to eq(['Northeastern University Press'])
       end

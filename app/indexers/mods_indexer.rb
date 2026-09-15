@@ -21,13 +21,11 @@ class MODSIndexer
     languages:                        :language_ssim,
     place_of_publication:             :place_ssim,
 
-    # A subject genre and a resource genre are the same vocabulary, so they
-    # share the facet a reader already browses.
-    genre_subjects:                   :genre_ssim,
-
     # Joins the Places facet at its narrowest named level. bdr_43888.mods.xml
     # uses this axis INSTEAD of subject/geographic, so without this row that
-    # record is browsable by no place at all.
+    # record is browsable by no place at all. The one subject axis NOT indexed
+    # through AXIS_FIELDS below, because the narrowest level is what a reader
+    # browsing Places wants and the heading composes a whole path.
     hierarchical_geographic_subjects: :subject_geo_ssim,
 
     # DRS writes IPTC photo categories here -- portraits, community outreach --
@@ -38,22 +36,12 @@ class MODSIndexer
     # Content facet, so mixing the two would corrupt a working facet.
     classification:                   :photo_category_ssim,
 
-    # Searchable, not facetable: a subject title is a work, so faceting would
-    # make one bucket per record. Its own field rather than description_tsim,
-    # for the reason table_of_contents has one.
-    title_subjects:                   :subject_title_tesim,
-
     # Its own field rather than folded into description_tsim. A chapter list is
     # long and keyword-dense, so sharing the abstract's field would let it
     # outrank real abstracts in relevance scoring.
     table_of_contents:                :contents_tesim,
 
     resource_type:                    :resource_type_ssim,
-    topical_subjects:                 :subject_ssim,
-    geographic_subjects:              :subject_geo_ssim,
-    temporal_subjects:                :subject_era_ssim,
-    personal_name_subjects:           :subject_person_ssim,
-    corporate_name_subjects:          :subject_corporate_ssim,
     publication_information:          :publisher_ssim,
     related_series:                   :series_ssim,
     host_collections:                 :host_collection_ssim,
@@ -79,7 +67,8 @@ class MODSIndexer
   # the access copy's own declaration rather than restated, so a field that
   # gains a header cannot start indexing a model's inspect output.
   LABELED_MEMBER_VALUES =
-    (Metadata::MODS::LABELED_VALUE_FIELDS + Metadata::MODS::ORIGIN_VALUE_FIELDS)
+    (Metadata::MODS::LABELED_VALUE_FIELDS + Metadata::MODS::AUTHORIZED_VALUE_FIELDS +
+      Metadata::MODS::ORIGIN_VALUE_FIELDS)
     .index_with { :value }.freeze
 
   SOLR_MEMBER_VALUES = {
@@ -90,6 +79,31 @@ class MODSIndexer
   # Fields whose members need composing rather than reading: the private method
   # that turns one entry into the string Solr should hold.
   SOLR_MEMBER_COMPOSERS = { hierarchical_geographic_subjects: :narrowest_place }.freeze
+
+  # Projected fields that choose their Solr field PER VALUE rather than per
+  # field: the axis vocabulary each one is indexed through. subject_headings is
+  # the only such field, and it has to be one -- every subject axis arrives
+  # under it, and a heading belongs in the facet of its own axis. Kept as a
+  # third bucket beside SOLR_FIELDS and NOT_INDEXED so the coverage guard can
+  # tell "indexed differently" from "deliberately not indexed".
+  #
+  # A heading is indexed as the WHOLE composed heading, not as its parts, which
+  # is the librarians' decision and the one part of the browse work that is not
+  # additive: "Emergency management" and "Planning" used to be two subject_ssim
+  # values and are now one, "Emergency management -- Planning". A single-child
+  # subject is untouched. The known cost, accepted: a whole-heading entry does
+  # not roll up into its parts, so a reader on the subdivided heading never
+  # sees the plain-topic records. The agreed exit is to index the heading AND
+  # its parts, which is another reindex rather than a migration -- which is why
+  # this emits a list per field and never a scalar.
+  #
+  # The axis comes off the STORED access copy, so `rake atlas:mods:reproject`
+  # has to run before a reindex when the gem's projection is newer than the
+  # rows. An access copy written before neu-mods 0.14.0 names no axis, and a
+  # reindex over those rows would empty every subject facet rather than move
+  # it. The XML is the source of truth, so the recovery is to reproject and
+  # reindex again -- but the order is not optional.
+  AXIS_FIELDS = { subject_headings: MODSBrowse::SUBJECT_AXES }.freeze
 
   # The parts every projected date carries beside its value, and why none of
   # them is indexed. Derived onto each date below rather than written out:
@@ -131,7 +145,7 @@ class MODSIndexer
   # one to revisit.
   NOT_INDEXED = {
     main_title:                 'title_tsim / title_plain_tsim here, title_ssi in SortIndexer',
-    names:                      'creator_ssim in CitationIndexer, creator_ssi in SortIndexer',
+    names:                      'creator_ssim + contributor_ssim in CitationIndexer, creator_ssi in SortIndexer',
     abstract:                   'description_tsim here',
     genres:                     'genre_ssim in GenreIndexer',
     permanent_url:              'permanent_url_ssi here',
@@ -158,7 +172,13 @@ class MODSIndexer
     access_condition:           'rights text is not a search term',
     use_and_reproduction:       'rights text is not a search term',
     restriction_on_access:      'rights text is not a search term',
-    subject_headings:           'the display sibling; the per-axis fields above are what a facet buckets on',
+    topical_subjects:           'a part of a heading, which subject_headings indexes whole through AXIS_FIELDS',
+    geographic_subjects:        'a part of a heading, which subject_headings indexes whole through AXIS_FIELDS',
+    temporal_subjects:          'a part of a heading, which subject_headings indexes whole through AXIS_FIELDS',
+    personal_name_subjects:     'a part of a heading, which subject_headings indexes whole through AXIS_FIELDS',
+    corporate_name_subjects:    'a part of a heading, which subject_headings indexes whole through AXIS_FIELDS',
+    genre_subjects:             'a part of a heading, which subject_headings indexes whole through AXIS_FIELDS',
+    title_subjects:             'a part of a heading, which subject_headings indexes whole through AXIS_FIELDS',
     occupation_subjects:        'no browse asked for; the term reaches search through full_text_tesimv',
     physical_description_notes: 'preservation detail, not a term a reader searches',
     target_audience:            'display only; the audience is a curatorial note, not a browse',
@@ -235,13 +255,31 @@ class MODSIndexer
       return if mods.nil?
 
       SOLR_FIELDS.each do |field, solr_field|
-        values = solr_values(mods, field)
-        next if values.empty?
-
-        # Accumulated, not assigned: several projected fields can share one
-        # Solr field, as the four variant titles and the two place axes do.
-        fields[solr_field] = (fields.fetch(solr_field, []) + values).uniq
+        add_values(fields, solr_field, solr_values(mods, field))
       end
+      add_axis_fields(fields, mods)
+    end
+
+    # An AXIS_FIELDS row: one Solr field per VALUE, chosen by the axis the
+    # value reports. A heading whose axis has no browse field is skipped --
+    # subject/occupation is displayed and searchable and buckets nothing.
+    def add_axis_fields(fields, mods)
+      AXIS_FIELDS.each do |field, axes|
+        Array(mods.public_send(field)).each do |entry|
+          axis = axes[entry.axis]
+          next if axis&.solr.nil?
+
+          add_values(fields, axis.solr, [entry.heading].compact_blank)
+        end
+      end
+    end
+
+    # Accumulated, not assigned: several projected fields can share one Solr
+    # field, as the four variant titles and the two place axes do.
+    def add_values(fields, solr_field, values)
+      return if values.empty?
+
+      fields[solr_field] = (fields.fetch(solr_field, []) + values).uniq
     end
 
     # title_tsim is both the match field and the display field a result row

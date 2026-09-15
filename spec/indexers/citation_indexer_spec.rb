@@ -23,7 +23,7 @@ RSpec.describe CitationIndexer do
   def citation_fields_in_solr(resource)
     Atlas.index_adapter.connection.get(
       'select',
-      params: { q: %(id:"#{resource.id}"), fl: 'creator_ssim,pub_date_ssim' }
+      params: { q: %(id:"#{resource.id}"), fl: 'creator_ssim,contributor_ssim,pub_date_ssim' }
     ).dig('response', 'docs').first
   end
 
@@ -41,6 +41,46 @@ RSpec.describe CitationIndexer do
 
       expect(described_class.new(resource: resource).to_solr[:creator_ssim])
         .to contain_exactly('Lee, Wen-Han', 'Northeastern University. Libraries')
+    end
+
+    # Contributor names reached Solr under no name at all before this: `Flynn,
+    # Stephen E.` was findable only through the all_text_timv catch-all, so a
+    # contributor browse was impossible rather than merely unconfigured.
+    it 'projects non-creator names onto contributor_ssim' do
+      resource = work_with_mods(names: [
+                                  { name: 'Lee, Wen-Han', roles: ['Creator'] },
+                                  { name: 'Flynn, Stephen E.', roles: ['ctb'] },
+                                  { name: 'Roe, Ann', roles: ['edt'] }
+                                ])
+
+      expect(described_class.new(resource: resource).to_solr[:contributor_ssim])
+        .to contain_exactly('Flynn, Stephen E.', 'Roe, Ann')
+    end
+
+    # The two axes are disjoint, which is also how the display groups them: a
+    # person is credited either as a creator of the work or as a contributor to
+    # it. A name in both facets would offer a reader two browses for one claim.
+    it 'keeps a name with a creator role out of contributor_ssim, even with other roles' do
+      resource = work_with_mods(names: [{ name: 'Doe, Jane', roles: %w[aut edt] }])
+
+      result = described_class.new(resource: resource).to_solr
+      aggregate_failures do
+        expect(result[:creator_ssim]).to eq(['Doe, Jane'])
+        expect(result).not_to have_key(:contributor_ssim)
+      end
+    end
+
+    # MODS makes mods:role optional. The display files a role-less name by its
+    # position, but position is not a claim the record made -- so neither facet
+    # holds it, and WorkDecorator marks no browse on it either.
+    it 'puts a role-less name on neither axis' do
+      resource = work_with_mods(names: [{ name: 'Roe, Ann', roles: [] }])
+
+      result = described_class.new(resource: resource).to_solr
+      aggregate_failures do
+        expect(result).not_to have_key(:creator_ssim)
+        expect(result).not_to have_key(:contributor_ssim)
+      end
     end
 
     it 'projects the publication year (single value, as a string) onto pub_date_ssim' do
@@ -93,18 +133,24 @@ RSpec.describe CitationIndexer do
 
       doc = citation_fields_in_solr(work)
       # Two creator-role names (one personal, one corporate); the Contributor
-      # (Flynn) is excluded.
-      expect(doc['creator_ssim'].size).to eq(2)
-      expect(doc['creator_ssim'].join).not_to match(/Flynn/)
-      expect(doc['pub_date_ssim']).to eq(['2017'])
+      # (Flynn) reaches the contributor facet instead.
+      aggregate_failures do
+        expect(doc['creator_ssim'].size).to eq(2)
+        expect(doc['creator_ssim'].join).not_to match(/Flynn/)
+        expect(doc['contributor_ssim']).to eq(['Flynn, Stephen E.'])
+        expect(doc['pub_date_ssim']).to eq(['2017'])
+      end
     end
 
     it 'has no citation fields on the doc for a Work with no MODS metadata' do
       Atlas.persister.save(resource: Work.find(work.noid))
 
       doc = citation_fields_in_solr(work)
-      expect(doc).not_to have_key('creator_ssim')
-      expect(doc).not_to have_key('pub_date_ssim')
+      aggregate_failures do
+        expect(doc).not_to have_key('creator_ssim')
+        expect(doc).not_to have_key('contributor_ssim')
+        expect(doc).not_to have_key('pub_date_ssim')
+      end
     end
   end
 end

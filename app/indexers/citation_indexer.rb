@@ -16,6 +16,15 @@
 #   pub_date_ssim <- publication year (citation_publication_date); single value,
 #                    reusing Cerberus's existing "Publication Year" facet field.
 #
+# contributor_ssim rides along here rather than in MODSIndexer, even though no
+# Scholar meta tag reads it. It is the SAME filter over the same `names`
+# projection that creator_ssim is, only inverted, and the two have to stay
+# disjoint: a second file applying its own role rule is how one name ends up in
+# both facets or in neither. Contributor names reached Solr under no name at
+# all before this -- `Flynn, Stephen E.` was findable only through the
+# all_text_timv catch-all -- so a contributor facet was impossible rather than
+# merely unconfigured.
+#
 # The keywords meta reads subject_ssim, which MODSIndexer writes for every
 # Modsable resource rather than for Works alone. This indexer used to write the
 # same values as keyword_ssim; that name said "keyword" while carrying
@@ -38,6 +47,7 @@ class CitationIndexer
 
     fields = {}
     fields[:creator_ssim] = creators if creators.any?
+    fields[:contributor_ssim] = contributors if contributors.any?
     fields[:pub_date_ssim] = pub_year if pub_year
     fields
   end
@@ -48,10 +58,17 @@ class CitationIndexer
       @mods ||= resource.mods
     end
 
-    def creators
-      @creators ||= Array(mods&.names)
-                    .select { |n| Array(n.roles).any? { |role| MarcRelators.creator?(role) } }
-                    .map(&:name).compact_blank.uniq
+    def creators = @creators ||= names_on(MODSBrowse::CREATOR)
+
+    def contributors = @contributors ||= names_on(MODSBrowse::CONTRIBUTOR)
+
+    # The names one browse axis holds. MODSBrowse decides which axis a name
+    # belongs to, so the facet and the display markers cannot disagree about a
+    # name -- a marker naming an axis the index does not hold is a link that
+    # leads to an empty result set.
+    def names_on(axis)
+      Array(mods&.names).select { |entry| MODSBrowse.name_axis(entry) == axis }
+                        .map(&:name).compact_blank.uniq
     end
 
     def pub_year

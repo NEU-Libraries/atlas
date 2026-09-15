@@ -113,6 +113,37 @@ RSpec.describe 'Controller audit emission' do
       expect(row.payload['source']).to eq('mods')
     end
 
+    describe 'the caller-asserted edit origin' do
+      def patch_mods(origin_params)
+        patch :update,
+              params: { id:     work.noid,
+                        binary: Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/work-mods.xml')) }
+                        .merge(origin_params),
+              as:     :json
+        AuditEvent.for_resource(work.id).find_by(action: 'update', change_type: 'metadata')
+      end
+
+      it 'records the origin beside source, leaving source alone' do
+        row = patch_mods(origin: 'xml_editor')
+        expect(row.payload).to include('source' => 'mods', 'origin' => 'xml_editor')
+      end
+
+      it 'omits the key entirely when the caller sends no origin' do
+        # Every event recorded before this field looks like this, so an absent
+        # origin has to stay absent rather than become an empty string.
+        expect(patch_mods({}).payload).not_to have_key('origin')
+      end
+
+      it 'omits the key when the caller sends only whitespace' do
+        expect(patch_mods(origin: '   ').payload).not_to have_key('origin')
+      end
+
+      it 'truncates an over-long origin rather than storing it whole' do
+        row = patch_mods(origin: 'x' * 200)
+        expect(row.payload['origin'].length).to eq(Auditable::ORIGIN_MAX_LENGTH)
+      end
+    end
+
     it 'tombstone and restore write lifecycle rows' do
       post :tombstone, params: { id: work.noid }, as: :json
       post :restore,   params: { id: work.noid }, as: :json

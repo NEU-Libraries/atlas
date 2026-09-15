@@ -10,6 +10,10 @@
 module Auditable
   extend ActiveSupport::Concern
 
+  # Bound on the caller-asserted edit origin. Long enough for any surface
+  # name, short enough that a malformed client cannot grow the audit row.
+  ORIGIN_MAX_LENGTH = 64
+
   # Emit a controller-sourced audit row for `resource`. actor / on-behalf-of
   # and event_source are filled from request context so call sites stay to one
   # line. The actor is the authenticated principal (`@current_user`), which is
@@ -29,6 +33,23 @@ module Auditable
       payload:           payload,
       note:              note
     )
+  end
+
+  # The audit payload for a full-document MODS upload. `source` names the
+  # write path and is matched exactly by downstream renderers, so the editing
+  # surface rides beside it in `origin` rather than overloading it.
+  #
+  # `origin` is whatever the caller asserts (Cerberus sends `metadata_form`,
+  # `advanced_form` or `xml_editor`); Atlas stores it verbatim and never
+  # branches on it, so a new surface needs no Atlas change. It is capped at
+  # ORIGIN_MAX_LENGTH because it is free text from the wire landing in a
+  # jsonb column. The key is omitted when the caller sends nothing, which is
+  # what every event recorded before this field looks like.
+  def mods_audit_payload
+    origin = params[:origin].to_s.strip
+    return { source: 'mods' } if origin.empty?
+
+    { source: 'mods', origin: origin.truncate(ORIGIN_MAX_LENGTH) }
   end
 
   # Apply a metadata PATCH (permissions, + the test-only noid override),

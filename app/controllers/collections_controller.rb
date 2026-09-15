@@ -193,7 +193,7 @@ class CollectionsController < ApplicationController
       path = file.tempfile.path.presence || file.path
       @collection.mods_xml = File.read(path)
       @collection = Atlas.persister.save(resource: @collection)
-      audit!(resource: @collection, action: 'update', change_type: 'metadata', payload: { source: 'mods' })
+      audit!(resource: @collection, action: 'update', change_type: 'metadata', payload: mods_audit_payload)
     end
 
     def metadata_update

@@ -115,9 +115,11 @@ RSpec.describe 'Communities', type: :request do
         endpoint — see `PATCH /communities/{id}/thumbnails`.
       DESC
       parameter name: :binary, in: :formData, required: false
+      parameter name: :origin, in: :formData, required: false
       multipart_request_body(
         {
-          binary: { type: :string, format: :binary, description: 'MODS XML to apply to the Community' }
+          binary: { type: :string, format: :binary, description: 'MODS XML to apply to the Community' },
+          origin: { type: :string, description: ORIGIN_PARAM_DESCRIPTION }
         }
       )
 

@@ -131,12 +131,13 @@ RSpec.describe 'Collections', type: :request do
         endpoint — see `PATCH /collections/{id}/thumbnails`.
       DESC
       parameter name: :binary, in: :formData, required: false
-      parameter name: :featured, in: :formData, type: :string, required: false,
-                description: 'Toggle the showcase "Featured" flag ("true"/"false")'
+      parameter name: :featured, in: :formData, required: false
+      parameter name: :origin, in: :formData, required: false
       multipart_request_body(
         {
           binary:   { type: :string, format: :binary, description: 'MODS XML to apply to the Collection' },
-          featured: { type: :string, description: 'Toggle the showcase "Featured" flag ("true"/"false")' }
+          featured: { type: :string, description: 'Toggle the showcase "Featured" flag ("true"/"false")' },
+          origin:   { type: :string, description: ORIGIN_PARAM_DESCRIPTION }
         }
       )
 

@@ -142,12 +142,17 @@ RSpec.configure do |config|
 end
 
 # Hand-write a multipart/form-data requestBody for an operation. rswag-specs
-# generates a buggy single-field requestBody when several `parameter in:
-# :formData` declarations are present (it picks the first param's schema as
-# the entire body), so use this from inside an operation block to declare
-# the comprehensive doc shape. Pair with per-field `parameter in: :formData`
-# entries (no `schema:` on those, only `type:`), which drive runtime
-# multipart serialization in Rack::Test.
+# cannot describe a multi-field form: its formatter takes the FIRST formData
+# parameter that carries a schema and makes that one field's schema the whole
+# body, discarding every sibling. So declare the comprehensive doc shape here,
+# from inside an operation block.
+#
+# Pair it with a bare `parameter name: :x, in: :formData, required: false` per
+# field. Bare is load-bearing — rswag upgrades a `type:` shorthand into a
+# `schema:`, which is exactly what makes the formatter select the parameter
+# and clobber this body. Runtime serialization needs neither: Rack::Test reads
+# the value from the example's `let` by parameter name alone, and the field's
+# type and description belong in the properties hash passed here.
 module Rswag
   module Specs
     module ExampleGroupHelpers
@@ -164,3 +169,14 @@ module Rswag
     end
   end
 end
+
+# The `origin` formData field, declared identically on every MODS PATCH
+# (Works, Collections, Communities). One constant so the three operations
+# cannot drift apart in the generated OpenAPI document.
+ORIGIN_PARAM_DESCRIPTION = <<~TEXT.squish
+  Free-text tag naming the editing surface that produced this MODS upload
+  (Cerberus sends `metadata_form`, `advanced_form` or `xml_editor`). Recorded
+  verbatim on the audit event beside `source`, truncated at 64 characters.
+  Omit it and the event carries no origin, which is what every event recorded
+  before this field looks like.
+TEXT

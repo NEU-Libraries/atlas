@@ -2544,8 +2544,23 @@ paths:
         content:
           multipart/form-data:
             schema:
-              type: string
-        description: Toggle the showcase "Featured" flag ("true"/"false")
+              type: object
+              properties:
+                binary:
+                  type: string
+                  format: binary
+                  description: MODS XML to apply to the Collection
+                featured:
+                  type: string
+                  description: Toggle the showcase "Featured" flag ("true"/"false")
+                origin:
+                  type: string
+                  description: Free-text tag naming the editing surface that produced
+                    this MODS upload (Cerberus sends `metadata_form`, `advanced_form`
+                    or `xml_editor`). Recorded verbatim on the audit event beside
+                    `source`, truncated at 64 characters. Omit it and the event carries
+                    no origin, which is what every event recorded before this field
+                    looks like.
       responses:
         '200':
           description: toggle the Featured showcase flag
@@ -2841,6 +2856,14 @@ paths:
                   type: string
                   format: binary
                   description: MODS XML to apply to the Community
+                origin:
+                  type: string
+                  description: Free-text tag naming the editing surface that produced
+                    this MODS upload (Cerberus sends `metadata_form`, `advanced_form`
+                    or `xml_editor`). Recorded verbatim on the audit event beside
+                    `source`, truncated at 64 characters. Omit it and the event carries
+                    no origin, which is what every event recorded before this field
+                    looks like.
       responses:
         '200':
           description: community updated
@@ -5025,6 +5048,14 @@ paths:
                   type: string
                   format: binary
                   description: MODS XML to apply to the Work
+                origin:
+                  type: string
+                  description: Free-text tag naming the editing surface that produced
+                    this MODS upload (Cerberus sends `metadata_form`, `advanced_form`
+                    or `xml_editor`). Recorded verbatim on the audit event beside
+                    `source`, truncated at 64 characters. Omit it and the event carries
+                    no origin, which is what every event recorded before this field
+                    looks like.
       responses:
         '200':
           description: work updated

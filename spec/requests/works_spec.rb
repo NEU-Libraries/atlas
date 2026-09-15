@@ -321,9 +321,11 @@ RSpec.describe 'Works', type: :request do
         routes.
       DESC
       parameter name: :binary, in: :formData, required: false
+      parameter name: :origin, in: :formData, required: false
       multipart_request_body(
         {
-          binary: { type: :string, format: :binary, description: 'MODS XML to apply to the Work' }
+          binary: { type: :string, format: :binary, description: 'MODS XML to apply to the Work' },
+          origin: { type: :string, description: ORIGIN_PARAM_DESCRIPTION }
         }
       )
 

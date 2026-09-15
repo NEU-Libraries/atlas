@@ -392,7 +392,7 @@ class WorksController < ApplicationController
       path = file.tempfile.path.presence || file.path
       @work.mods_xml = File.read(path)
       @work = Atlas.persister.save(resource: @work)
-      audit!(resource: @work, action: 'update', change_type: 'metadata', payload: { source: 'mods' })
+      audit!(resource: @work, action: 'update', change_type: 'metadata', payload: mods_audit_payload)
     end
 
     def metadata_update

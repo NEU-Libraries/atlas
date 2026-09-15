@@ -191,7 +191,7 @@ class CommunitiesController < ApplicationController
       path = file.tempfile.path.presence || file.path
       @community.mods_xml = File.read(path)
       @community = Atlas.persister.save(resource: @community)
-      audit!(resource: @community, action: 'update', change_type: 'metadata', payload: { source: 'mods' })
+      audit!(resource: @community, action: 'update', change_type: 'metadata', payload: mods_audit_payload)
     end
 
     def metadata_update

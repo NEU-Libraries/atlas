@@ -707,6 +707,16 @@ module OpenapiSchemas
   # merged in below, the way the projection reads them as one pair.
   MODS_DISPLAY_MEMBERS = %i[display_label href].freeze
 
+  # The three members every BROWSABLE field carries beside those: the
+  # vocabulary its value was taken from, which is what a consumer gates a
+  # browse link on. Only the fields below have them -- nothing gates on the
+  # vocabulary of an extent, and three more members on every displayed field
+  # is a schema no consumer reads.
+  MODS_AUTHORITY_MEMBERS = %i[authority authority_uri value_uri].freeze
+
+  MODS_BROWSABLE_FIELDS =
+    (%i[names origin_agents languages subject_headings] + Metadata::MODS::AUTHORIZED_VALUE_FIELDS).freeze
+
   # The three object fields that carry NEITHER: MODS puts no @displayLabel on
   # hierarchicalGeographic, recordInfo takes one but describes the cataloguing
   # rather than the resource, and a primary title's label is a scalar companion
@@ -727,7 +737,10 @@ module OpenapiSchemas
     notes:                %i[type value],
     host_collections:     %i[title volume issue start_page end_page date text
                              details extents],
-    subject_headings:     %i[parts],
+    # :heading is the parts joined, which is the string the display renders AND
+    # the string the browse index holds; :axis names the MODS element the
+    # heading's main term came from, which is the facet it browses in.
+    subject_headings:     %i[parts heading axis],
     location:             %i[physical_location shelf_location url],
     map_data:             %i[scale projection coordinates],
     related_items:        %i[type title],
@@ -735,9 +748,14 @@ module OpenapiSchemas
     place_of_publication: %i[value event_type date_elements],
     origin_agents:        %i[name roles affiliation usage alternative_names event_type]
   }.merge(Metadata::MODS::LABELED_VALUE_FIELDS.index_with { %i[value] })
+                      .merge(Metadata::MODS::AUTHORIZED_VALUE_FIELDS.index_with { %i[value] })
                       .merge(Metadata::MODS::ORIGIN_VALUE_FIELDS.index_with { %i[value event_type] })
                       .transform_values { |members| members + MODS_DISPLAY_MEMBERS }
                       .merge(MODS_UNLABELED_OBJECT_PROPS)
+                      .to_h do |field, members|
+                        browsable = MODS_BROWSABLE_FIELDS.include?(field)
+                        [field, browsable ? members + MODS_AUTHORITY_MEMBERS : members]
+                      end
                       .freeze
 
   # The originInfo dates serialise as timestamps, both ends of a range alike.

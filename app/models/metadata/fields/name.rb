@@ -10,6 +10,7 @@ module Metadata
     class Name
       include AttrJson::Model
       include Displayable
+      include Authorized
 
       attr_json :name, :string
       attr_json :roles, :string, array: true, default: -> { [] }

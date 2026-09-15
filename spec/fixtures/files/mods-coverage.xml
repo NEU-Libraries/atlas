@@ -36,6 +36,15 @@
   <mods:subject><mods:geographic>Boston (Mass.)</mods:geographic></mods:subject>
   <mods:subject><mods:temporal>21st century</mods:temporal></mods:subject>
   <mods:subject><mods:name type="personal"><mods:namePart>Smith, John</mods:namePart></mods:name></mods:subject>
+  <!-- A subject name with NO @type, which reaches the corporate axis: it
+       displays because the heading composes a name without consulting @type,
+       and before that default it reached no facet at all. -->
+  <mods:subject>
+    <mods:name authority="local_lcnaf">
+      <mods:namePart>Northeastern University (Boston, Mass.)</mods:namePart>
+      <mods:namePart>Global Resilience Institute</mods:namePart>
+    </mods:name>
+  </mods:subject>
   <mods:subject><mods:genre>Field recordings</mods:genre></mods:subject>
   <mods:subject><mods:occupation>Cabinetmakers</mods:occupation></mods:subject>
   <mods:subject authority="lcsh">

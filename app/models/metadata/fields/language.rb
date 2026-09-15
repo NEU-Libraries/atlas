@@ -10,6 +10,7 @@ module Metadata
     class Language
       include AttrJson::Model
       include Displayable
+      include Authorized
 
       attr_json :term, :string
       attr_json :object_part, :string

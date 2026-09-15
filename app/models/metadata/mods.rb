@@ -20,10 +20,17 @@ module Metadata
     # mapped one by one so adding a displayed field is one line.
     LABELED_VALUE_FIELDS = %i[
       alternative_title uniform_title translated_title abbreviated_title
-      genres classification table_of_contents resource_type target_audience
+      classification table_of_contents resource_type target_audience
       format extent digital_origin reformatting_quality
       physical_description_notes related_series
     ].freeze
+
+    # Labeled fields that ALSO carry the vocabulary their term came from. Genre
+    # is the only one: it is a browse axis, and a consumer offering a link needs
+    # to know the term is controlled. The rest stay plain -- nothing gates on
+    # the vocabulary of an extent, and three more keys on fourteen fields is
+    # JSON no consumer reads.
+    AUTHORIZED_VALUE_FIELDS = %i[genres].freeze
 
     # Fields inside an originInfo block, which also carry its @eventType.
     ORIGIN_VALUE_FIELDS = %i[publication_information edition issuance frequency].freeze
@@ -60,6 +67,7 @@ module Metadata
       copyright_date_end:               :datetime,
       copyright_date_key_date:          :boolean
     }.merge(LABELED_VALUE_FIELDS.index_with { Metadata::Fields::LabeledValue.to_type })
+            .merge(AUTHORIZED_VALUE_FIELDS.index_with { Metadata::Fields::AuthorizedValue.to_type })
             .merge(ORIGIN_VALUE_FIELDS.index_with { Metadata::Fields::OriginValue.to_type })
             .freeze
 

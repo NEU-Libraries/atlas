@@ -1,33 +1,16 @@
 # frozen_string_literal: true
 
-# Emits the on-disk preservation envelope (relationships.json /
-# properties.json + permissions.json) into each resource's own NOID-keyed
-# OCFL object. Bus-factor: a librarian with disk access alone can rebuild
-# the resource graph and ACLs without Atlas, Postgres, or Solr.
+# Emits the on-disk preservation envelope (relationships.json,
+# properties.json, permissions.json) into each resource's own NOID-keyed OCFL
+# object. Bus-factor: a librarian with disk access alone can rebuild the
+# resource graph and the ACLs without Atlas, Postgres or Solr.
+#
+# docs/resource-graph.md records what each schema bump added and why. Two
+# absences are deliberate: a_linked_member_of, which a Set recipe can express
+# again, and the fungible derived fields (full_text, derivative_permissions).
 module Preservable
   extend ActiveSupport::Concern
 
-  # v1 → v2: :depositor changed from "array of edit_users" to a single
-  # NUID string (intellectual owner). Added :proxy_uploader (single NUID
-  # string) and :edit_users (the explicit ACL list, which in v1 was carried
-  # under :depositor).
-  # v2 → v3: additive :position — FileSet page order within a multipage
-  # Work; null elsewhere. The Work-level METS structMap is the canonical
-  # preservation record of order; this keeps each FileSet's own OCFL
-  # object self-describing in isolation.
-  # v3 → v4: additive :associations — the typed Work-to-Work edges
-  # (is_codebook_for and its four siblings), keyed by predicate and empty on
-  # every other resource class. Each edge is a human judgement about two
-  # objects that nothing else in the repository records and no job can derive
-  # again, so it has to survive on disk. Note a_linked_member_of is
-  # deliberately absent: a linked membership is a discovery convenience a Set
-  # recipe can express again, not an assertion that exists nowhere else.
-  # v4 → v5: additive :handle — the minted persistent identifier
-  # ("<prefix>/<noid>"), null on every resource class but Work and on any Work
-  # finalized before minting was configured. An external Handle service holds
-  # the other half of this binding and the wider world cites it, so it is the
-  # one identifier here that the repository cannot re-derive from its own
-  # contents: a rebuild that lost it would break every outside citation.
   ENVELOPE_SCHEMA_VERSION = 5
 
   def graph_payload

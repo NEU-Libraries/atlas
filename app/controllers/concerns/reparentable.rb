@@ -1,17 +1,12 @@
 # frozen_string_literal: true
 
-# Shared re-parent action for Works, Collections, and Communities. Each
-# controller exposes `PATCH /<type>/:id/parent` whose body is `{ parent_id }`
-# (or no parent_id / null for moving a Community to the top of the tree).
+# Shared re-parent action: PATCH /<type>/:id/parent with { parent_id }, or no
+# parent_id to move a Community to the top of the tree. See
+# docs/resource-graph.md.
 #
-# Authorization is checked two-sided (CanCanCan :reparent on both the moved
-# node AND the destination). :reparent is granted to :admin (via `manage
-# :all`) and, across all three resource types, to the devolved-admin tier
-# (see Ability#apply_admin_delegate_abilities) — moving structure is an
-# admin(-adjacent) operation; edit-rights does not imply it for anyone else.
-# The structural validation (type, cycle, tombstone) lives in Reparenter and
-# surfaces as a 422 via
-# ApplicationController's rescue_from.
+# Authorization is TWO-SIDED -- :reparent on both the moved node and the
+# destination. Edit rights does not imply it for anyone but :admin and the
+# devolved-admin tier.
 module Reparentable
   extend ActiveSupport::Concern
 
@@ -19,9 +14,8 @@ module Reparentable
 
     def reparent(klass)
       node = klass.find(params.expect(:id))
-      # Authorize before the nil-guard so check_authorization is satisfied on
-      # the not-found path too (mirrors the other member actions). An admin
-      # (manage :all) passes the nil check and 404s; a non-admin is denied.
+      # Before the nil-guard, so check_authorization is satisfied on the
+      # not-found path too.
       authorize! :reparent, node
       return head(:not_found) if node.nil?
 
@@ -39,9 +33,8 @@ module Reparentable
       render :show
     end
 
-    # nil parent_id => move to top of tree (only valid for a Community; the
-    # type rule in Reparenter rejects it for Work/Collection). A given-but-
-    # unresolvable parent is a 422, not a 404 — the parent is request input.
+    # A given-but-unresolvable parent is a 422 and NOT a 404: the parent is
+    # request input, not the addressed resource.
     def reparent_destination
       return nil if params[:parent_id].blank?
 

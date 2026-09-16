@@ -3,9 +3,8 @@
 class ResourcesController < ApplicationController
   include CachedResponses
 
-  # Resolved-class → [ivar, template] for the current-MODS dispatch. Only the
-  # three container/object types carry a MODS view; a FileSet/Blob/Person
-  # resolves fine but has no MODS projection, so it falls through to 404.
+  # Renders the SAME per-type view the typed routes use, so there is no second
+  # MODS representation to drift. A type absent here falls through to 404.
   TYPED_MODS_VIEWS = {
     Work       => ['@work',       'works/mods'],
     Collection => ['@collection', 'collections/mods'],
@@ -38,11 +37,9 @@ class ResourcesController < ApplicationController
     respond_to :html
   end
 
-  # The resource's own ACL. Gated on :read of that resource, not on the class:
-  # the envelope names the Grouper groups and the depositor's NUID, so handing
-  # it to a caller who may not read the resource discloses the rights of
-  # something they cannot see. Cerberus reads this to drive its own gate, and
-  # its callers hold either read or edit rights, both of which pass here.
+  # Gated on :read of the RESOURCE, not the class: the envelope names Grouper
+  # groups and the depositor's NUID, so handing it to a caller who may not
+  # read the resource discloses the rights of something they cannot see.
   def permissions
     resource = Resource.find(params.expect(:id))
     authorize! :read, resource || Resource
@@ -54,23 +51,17 @@ class ResourcesController < ApplicationController
     end
   end
 
-  # MODS version history for any Modsable resource. The descriptor list
-  # carries audit-derived actor attribution (who edited, when), the same
-  # provenance /history exposes — so it is admin-gated identically
-  # (:read, AuditEvent), not on the resource's own read gate. Empty/absent
-  # MODS (or a non-Modsable / unresolvable id) yields an empty array, never a
-  # 404 — mirrors /history's "no events" shape.
+  # Admin-gated on :read, AuditEvent rather than the resource's own read gate,
+  # because the descriptors carry audit-derived attribution. An empty array
+  # rather than a 404, mirroring /history's "no events" shape.
   def mods_versions
     authorize! :read, AuditEvent
     @resource_id = params[:id]
     @versions = MODSVersionHistory.descriptors(resource: Resource.find(@resource_id))
   end
 
-  # Raw historical descMetadata.xml as of a given OCFL version. Same content
-  # sensitivity as the public head /mods (it's the descriptive metadata
-  # itself, not the attribution), so it rides the resource's own read gate
-  # rather than the admin attribution gate #mods_versions uses.
-  # Unknown version / absent MODS → 404.
+  # The descriptive metadata itself rather than the attribution, so this rides
+  # the resource's own read gate and NOT the admin gate #mods_versions uses.
   def mods_version
     resource = Resource.find(params.expect(:id))
     authorize! :read, resource || Resource
@@ -80,18 +71,9 @@ class ResourcesController < ApplicationController
     render xml: xml
   end
 
-  # Current MODS for any Modsable resource, type-agnostic — the polymorphic
-  # sibling of /works/:id/mods. Resolves the NOID once and renders the SAME
-  # per-type MODS view the typed routes use, so output (and format negotiation)
-  # is byte-identical and there is no second MODS representation to drift.
-  #
-  # Authorization gates on the resolved record (:read), matching the typed
-  # per-record gate rather than this controller's class-level floor — so a
-  # gated object's MODS is exactly as protected here as via /works/:id/mods.
-  # authorize! runs before any 404 (falling back to the Resource class for an
-  # unresolvable id) so the check_authorization hook can't turn a miss into a
-  # 500. Unknown id, non-Modsable type, or absent MODS all → 404, as the typed
-  # actions do.
+  # Gates on the RESOLVED RECORD, matching the typed per-record gate rather
+  # than this controller's class-level floor, so a gated object's MODS is as
+  # protected here as via /works/:id/mods.
   def mods
     resource = Resource.find(params.expect(:id))
     authorize! :read, resource || Resource
@@ -102,44 +84,31 @@ class ResourcesController < ApplicationController
     render template: template
   end
 
-  # Batch resolver. Given a list of NOIDs, return a lightweight digest per
-  # resolvable resource in a single request, so a caller can resolve a set of
-  # ids without one find per id. The class check here answers "may this
-  # principal use the resolver at all"; the read gate is applied per row below,
-  # because the ids are arbitrary caller input. Unknown/
-  # unresolvable ids are dropped silently; tombstoned resources are kept but
-  # flagged, so callers can render a placeholder rather than blow up. Resolution
-  # is a single index-backed query (FindManyByAlternateIdentifiers), collapsing
-  # both the N HTTP round-trips and the N per-id DB lookups to one. Resolves
-  # alternate ids (NOIDs) only; raw Valkyrie ids are not a supported input here.
+  # Batch resolver. The class check answers "may this principal use the
+  # resolver at all"; the READ GATE IS PER ROW below, because the ids are
+  # arbitrary caller input. Unresolvable ids drop silently; tombstoned
+  # resources are kept but flagged. NOIDs only, not raw Valkyrie ids.
   def find_many
     authorize! :read, Resource
     ids = Array(params[:ids]).map(&:to_s).uniq
     resources = Atlas.query.custom_queries.find_many_by_alternate_identifiers(alternate_identifiers: ids)
-    # Filtered per row: this resolves arbitrary caller-supplied ids, so without
-    # the filter it is a batch bypass of the single-resource read gate. The
-    # endpoint already contracts to drop ids it cannot resolve, so a withheld
-    # row reads the same as an absent one.
+    # Without this filter the endpoint is a batch bypass of the
+    # single-resource read gate.
     @resources = readable(resources).map(&:decorate)
-    # The digest renders a title and a thumbnail per row, each of which is its
-    # own read. Batch both, or the endpoint trades N round-trips for N*3
-    # queries and only moves the fan-out from HTTP to Postgres.
+    # NOT optional: the digest renders a title and a thumbnail per row, each
+    # its own read, so without batching the endpoint just moves the fan-out
+    # from HTTP to Postgres.
     MODSPreloader.call(resources: @resources)
     ThumbnailPreloader.call(resources: @resources)
   end
 
-  # Every Work beneath a container, at any depth — flattened, permission-gated,
-  # Solr-projected, paginated. The structural counterpart to
-  # /compilations/:id/contents: same digest shape and query engine
-  # (DescendantWorksQuery generalizes CompilationContentsQuery), but the
-  # container set is the resource's own subtree instead of a Set recipe, and
-  # only structural membership (a_member_of_ssi) counts unless
-  # ?include_linked=true. Gating is per-Work inside the query (Cerberus
-  # gated-discovery parity), so a restricted Work never leaks via the subtree,
-  # and ids are projected from Solr at every step — no filtered_children
-  # materialization even for a 10k-deep collection. authorize! runs before the
-  # 404 (falling back to the Resource class for an unresolvable id) so the
-  # check_authorization hook can't turn a miss into a 500. Unknown id → 404.
+  # The structural counterpart to /compilations/:id/contents, sharing its
+  # digest shape and query engine. Only structural membership counts unless
+  # ?include_linked=true.
+  #
+  # Gating is PER WORK inside the query, so a restricted Work never leaks via
+  # the subtree, and ids are projected from Solr at every step -- nothing
+  # materializes, even for a 10k-deep collection.
   def descendant_works
     resource = Resource.find(params.expect(:id))
     authorize! :read, resource || Resource
@@ -154,14 +123,10 @@ class ResourcesController < ApplicationController
     @pagination = result.pagination
   end
 
-  # Re-project a single resource's Solr doc from its current Postgres/OCFL
-  # state. Solr-only (Atlas.index_adapter) — no Postgres write, no
-  # optimistic-lock bump, no lifecycle/audit/minting. This is the
-  # purpose-built, side-effect-free reindex: when an indexer ships or changes
-  # (e.g. ClassificationIndexer -> classification_ssim), a resource finalized
-  # before it carries a stale/empty projection and must be re-indexed without
-  # abusing a lifecycle transition (POST /works/:id/complete). :system-gated —
-  # an operational action, never a user one. Idempotent. Unknown id -> 404.
+  # Solr ONLY: no Postgres write, no optimistic-lock bump, no lifecycle,
+  # audit or minting. That is the point -- a resource finalized before an
+  # indexer shipped must be re-projected WITHOUT abusing a lifecycle
+  # transition. Idempotent.
   def reindex
     authorize! :reindex, Resource
     resource = Resource.find(params.expect(:id))
@@ -171,15 +136,10 @@ class ResourcesController < ApplicationController
     head :no_content
   end
 
-  # Re-project a resource AND its full descendant subtree. The gather is a
-  # deliberate superset of the re-parent cascade: descendant containers
-  # (Collection/Community, via ancestor_ids_ssim) PLUS the Works beneath them,
-  # because a reindex refreshes any projection — including classification_ssim,
-  # which lives on Works, which the container-only reparent cascade never
-  # touches. Fed to the generic SubtreeReindexer (Solr-only, idempotent,
-  # order-independent). Stays synchronous (Atlas's posture); for a
-  # pathologically large subtree the caller (Cerberus) roots lower or drives it
-  # in chunks. Unknown id -> 404. Returns the count re-projected.
+  # The gather is a deliberate SUPERSET of the re-parent cascade: descendant
+  # containers plus the Works beneath them, because a reindex refreshes
+  # projections that live on Works and the container-only cascade never
+  # touches those. Synchronous, matching Atlas's posture.
   def reindex_subtree
     authorize! :reindex, Resource
     resource = Resource.find(params.expect(:id))

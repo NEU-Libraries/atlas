@@ -1,30 +1,21 @@
 # frozen_string_literal: true
 
+# The DISPLAY table and the per-field renderers behind the MODS HTML block.
+# See docs/mods-display.md for the coverage decisions -- which projected fields
+# render nowhere and why -- and for the reasoning behind each renderer.
 module WorkDecorator
   include DecoratorHelper
   include MODSDecoration
   include ThumbnailProjection
 
-  # One row per displayed field, in display order. This is the ONE place a row
-  # is added: the views render #mods_rows rather than listing fields, so a field
-  # can no longer be projected and stored and then silently not render because
-  # someone forgot a line in two byte-identical templates.
+  # The ONE place a row is added: the views render #mods_rows rather than
+  # listing fields, so a field can no longer be projected and stored and then
+  # silently not render. Order is the librarians' own.
   #
-  # The order is the librarians' own: identity elements, then discovery
-  # elements, then utility elements.
-  #
-  # :label is what a reader sees WHEN the record asks for nothing else -- a
-  # record's own @displayLabel outranks it, and inside an originInfo block so
-  # does @eventType. :render names a method for a field whose markup is more
-  # than a label and a value. :within names the row that renders this field
-  # instead, for a field the librarians asked to show with no header of its
-  # own. :capitalize is the one per-value transform a plain row needs; a link
-  # now rides on the value, so :link is gone. :axis names the browse a plain
-  # row's values belong to, for a consumer that turns them into search links.
-  #
-  # Labels live here and not in neu-mods on purpose. A label is display
-  # vocabulary, and Cerberus's edit form words the same field differently; the
-  # gem owns what a field IS, this owns what it looks like.
+  # :label loses to a record's own @displayLabel, and inside an originInfo
+  # block to @eventType. Labels live here and not in neu-mods because a label
+  # is display vocabulary: the gem owns what a field IS, this what it looks
+  # like.
   DISPLAY = [
     # Identity
     { field: :main_title, render: :title },
@@ -71,13 +62,9 @@ module WorkDecorator
     { field: :access_condition, render: :access_condition }
   ].freeze
 
-  # The parts every projected date carries beside its value, none of them a row
-  # of its own: the precisions choose the format, the end value and the
-  # qualifier are composed into the date string, the key-date flag chooses
-  # which date sorts, the text carries the literal a record wrote in something
-  # other than w3cdtf, and the label and the event type head the row rather
-  # than fill it. Derived rather than written out -- seven dates times eight
-  # parts is fifty-six near-identical lines.
+  # None of these is a row of its own; each is read by the date row it belongs
+  # to. Derived rather than written out: seven dates times eight parts is
+  # fifty-six near-identical lines.
   DATE_PARTS = %w[precision end end_precision qualifier key_date text
                   display_label event_type].freeze
 
@@ -87,41 +74,9 @@ module WorkDecorator
   end.freeze
 
   # Projected fields with no row of their own, listed so the coverage spec can
-  # tell a deliberate omission from a forgotten one.
-  #
-  # Four whole dates render nowhere. dateCaptured is when the object was
-  # digitised and dateModified is when the resource changed -- preservation and
-  # cataloguing provenance rather than description, so they follow record_info
-  # below. dateValid and dateOther are descriptive, and a librarian decided
-  # against a row for both: neither answers a question a reader of this
-  # repository asks, and dateOther means whatever the cataloguer meant. All
-  # four stay projected, so the API and the OAI crosswalk can read them.
-  #
-  # record_info is cataloguing and preservation provenance rather than a
-  # description of the resource, so it renders nowhere: v1 hardcoded it on every
-  # load, and five rows of identical text beside Publisher buy a reader nothing.
-  # It is still projected onto the access copy rather than left in the
-  # preservation XML alone, so the API and the OAI crosswalk can read that
-  # provenance without a Nokogiri parse on a read path.
-  #
-  # physicalDescription/form renders nowhere by the librarians' decision: it
-  # duplicates the extent and the digital origin beside it in vocabulary a
-  # reader does not use. It stays projected and stays in the preservation XML.
-  #
-  # The subject axes have no row because #subject_headings renders them, joined
-  # back into the heading the cataloguer built. Split apart they asserted
-  # independent subjects the record never claimed: one LCSH heading became rows
-  # under three labels, and the string a cataloguer typed appeared nowhere.
-  # They stay projected for the OAI crosswalk, which wants discrete terms a
-  # harvester can match. The Solr facets no longer read them: a facet holds the
-  # whole heading now, so the string a reader clicks is the string the index
-  # holds.
-  #
-  # geographic_code_subjects is the exception within the exception: a MARC GAC
-  # code is not heading text, so it is neither a row nor a part of one.
-  #
-  # The six companion labels and links fill a header rather than a row: each is
-  # read by the row of the field it names, the way the date parts above are.
+  # tell a deliberate omission from a forgotten one. Every entry stays
+  # projected and stays in the preservation XML; docs/mods-display.md gives the
+  # argument for each group.
   NOT_DISPLAYED = (%i[
     record_info
     format
@@ -138,73 +93,50 @@ module WorkDecorator
     restriction_on_access_display_label restriction_on_access_href
   ] + DATE_PARTS_NOT_DISPLAYED).freeze
 
-  # A date renders only as finely as the record declared it. A year-only date
-  # parses to 1 January, so a hardcoded '%Y-%m-%d' would print a month and a day
-  # the record never claimed, indistinguishable from one that did. An absent or
-  # unrecognised precision keeps the full-date format, so a record stored before
-  # the gem carried precision renders exactly as it used to.
+  # A year-only date parses to 1 January, so a hardcoded '%Y-%m-%d' would print
+  # a month and a day the record never claimed. An absent or unrecognised
+  # precision keeps the full-date format.
   DATE_FORMATS = { 'year' => '%Y', 'month' => '%Y-%m', 'day' => '%Y-%m-%d' }.freeze
 
-  # A qualifier changes the string a reader sees, not a tooltip. These are the
-  # conventions cataloguers already use, so they read as intended rather than
-  # as a rendering bug. Hiding the doubt in a title attribute leaves a reader
-  # scanning the page with a bare date they take as certain, and a screen
-  # reader may not announce it at all.
+  # A qualifier changes the visible string, never a tooltip: a tooltip leaves a
+  # bare date on screen that a reader takes as certain, and a screen reader may
+  # not announce the attribute at all.
   DATE_QUALIFIERS = {
     'approximate'  => ->(rendered) { "circa #{rendered}" },
     'inferred'     => ->(rendered) { "[#{rendered}]" },
     'questionable' => ->(rendered) { "#{rendered}?" }
   }.freeze
 
-  # How a date that is an end with no beginning reads. `<dateCreated
-  # point="end">1921</>` says the resource is no later than 1921 and nothing
+  # `<dateCreated point="end">1921</>` says no later than 1921 and nothing
   # more, so the bare year would assert a date the record refused to give.
   END_ONLY_DATE_PREFIX = 'before'
 
-  # The label for a role-less name that LEADS. MODS makes mods:role optional,
-  # and a nil label rendered an empty <dt>, so the name read as a value of the
-  # field above it and a screen reader announced it under an empty term. v1
-  # labelled these "Creator", so this restores a convention rather than
-  # inventing one; a role-less lead merges with an explicit Creator group.
+  # A nil label rendered an empty <dt>, so the name read as a value of the field
+  # above it. A role-less lead merges with an explicit Creator group.
   NO_ROLE_LABEL = 'Creator'
 
-  # Where the role-less names that do NOT lead go. A record listing six names
-  # and marking none of them said one thing: these people were involved. Filing
-  # all six as creators asserts six creators, which is the claim the librarians
-  # asked to stop making.
+  # Filing every unmarked name as a creator asserts creators the record never
+  # claimed.
   TRAILING_NAME_LABEL = 'Contributor'
 
-  # The label for a name whose role is a MARC code this system does not hold.
-  # A heading comes from one list the system controls, so an unlisted code must
-  # not become one -- that is the outcome suppressing displayLabel exists to
-  # prevent. The name still renders, because losing it over a typo is worse
-  # than filing it loosely, and it is kept apart from Creator because the
-  # record did not say creator.
-  #
-  # The code itself is shown nowhere, and that is settled rather than pending.
-  # A curator proofing a record reads the XML for what the record literally
-  # says; a reader has no use for a relator code this system cannot name.
+  # A heading comes from one list the system controls, so an unlisted relator
+  # code must not become one. The name still renders, and the code itself is
+  # shown nowhere.
   UNKNOWN_ROLE_LABEL = 'Other contributors'
 
-  # What a name's @usage has to say to nominate itself. Fixed in the schema, so
-  # there is exactly one value to match.
+  # Fixed in the schema, so there is exactly one value to match.
   PRIMARY_USAGE = 'primary'
 
-  # hierarchicalGeographic levels, broadest to narrowest. MODSIndexer reads them
-  # from the narrow end, so a record naming a city is browsed by its city rather
-  # than by its continent.
+  # Broadest to narrowest. MODSIndexer reads from the NARROW end, so a record
+  # naming a city is browsed by its city and not its continent.
   PLACE_LEVELS = %i[continent country province region state territory county
                     island city city_section area].freeze
 
-  # What follows an identifier the record flagged invalid. Words rather than a
-  # symbol, and beside the value rather than in a tooltip, for the reason
-  # DATE_QUALIFIERS gives: a reader scanning the page must not take a dead
-  # number for a live one, and a screen reader may not announce an attribute.
+  # Words beside the value rather than a symbol in a tooltip, for the reason
+  # DATE_QUALIFIERS gives.
   INVALID_IDENTIFIER_MARK = '(invalid)'
 
-  # The separator between a map's scale, projection and coordinates, which is
-  # the MODS display convention. Display policy, so it lives here rather than
-  # in the gem.
+  # The MODS display convention. Display policy, so it lives here, not the gem.
   MAP_DATA_SEPARATOR = ' ; '
 
   # The default headers a row falls back to when the record asks for none.
@@ -284,13 +216,9 @@ module WorkDecorator
     render_plain_row(row)
   end
 
-  # A name appears under every role it declares. A person recorded as both
-  # author and contributor is two assertions, so the repetition is what the
-  # record says rather than a duplicate.
-  #
-  # A nameless name is skipped. neu-mods drops one now, but an access copy
-  # stored before that still carries { name: nil, roles: ["edt"] }, which
-  # rendered a labelled empty row.
+  # A name appears under EVERY role it declares: the repetition is what the
+  # record says. A nameless name is skipped -- an access copy stored before
+  # neu-mods dropped them still carries { name: nil, roles: ["edt"] }.
   def names
     entries = Array(mods&.names).reject { |entry| entry.name.blank? }
     return '' if entries.empty?
@@ -333,15 +261,9 @@ module WorkDecorator
     end
   end
 
-  # The type leads the value, because a DOI and a local accession number are
-  # not the same kind of thing and a reader cannot tell them apart from the
-  # digits. Upcased rather than titleized: these are codes, so "DOI" reads
-  # right where "Doi" does not.
-  #
-  # An identifier the record calls invalid is marked, not suppressed. In MODS
-  # the attribute means cancelled, superseded or wrong, and a cancelled ISBN is
-  # exactly what a reader chasing an old citation has in hand -- so it is worth
-  # showing, and worth saying it will not resolve.
+  # Upcased rather than titleized: these are codes, so "DOI" reads right where
+  # "Doi" does not. An invalid identifier is marked, not suppressed -- a
+  # cancelled ISBN is what a reader chasing an old citation has in hand.
   def identifiers
     grouped_rows(mods&.identifiers) do |entry|
       next if entry.value.blank?
@@ -357,13 +279,8 @@ module WorkDecorator
   end
 
   # "Spanish (subtitles)". An @objectPart says the language belongs to part of
-  # the object, not to the object -- a captioned video is not in the language
-  # of its captions -- so the row must carry the qualification or it makes a
-  # claim the record did not. The Solr facet still gets the bare term, so a
-  # search for Spanish finds this record either way.
-  #
-  # The script joins the same parenthesis. It qualifies the term for the same
-  # reason and a second bracket beside the first would read as two things.
+  # the object, so the row must carry it. The Solr facet still gets the bare
+  # term. The script joins the same parenthesis, not a second one.
   def languages
     grouped_rows(mods&.languages) do |entry|
       next if entry.term.blank?
@@ -412,15 +329,8 @@ module WorkDecorator
     labeled_rows(PHYSICAL_DESCRIPTION_LABEL, Array(mods&.extent) + digital_origin_entries)
   end
 
-  # Only a TOP-LEVEL relatedItem reaches here: the gem scopes its XPath to the
-  # document root, so a relatedItem nested inside another does not display.
-  # That is the same call as suppressing a host's own metadata -- it describes
-  # the other record, not this one.
-  #
-  # A relatedItem is headed by what the relationship IS. The type used to lead
-  # the value ("Otherformat: the print edition"), which put a camelCased
-  # attribute in front of a title and still left every relationship under one
-  # heading.
+  # Only a TOP-LEVEL relatedItem reaches here -- the gem scopes its XPath to
+  # the document root -- and it is headed by what the relationship IS.
   def related_items
     grouped_rows(mods&.related_items) do |item|
       next if item.title.blank?
@@ -458,12 +368,8 @@ module WorkDecorator
   end
 
   # "Estuaries, 24(3), pp. 210-218, 1998". The host's editor, publisher and
-  # ISSN stay out: they are the other record's metadata, and a reader who wants
-  # them should reach that record rather than read a copy that goes stale.
-  #
-  # A host that names no title renders its position alone. The position
-  # describes this work and no other record holds it, so dropping it because
-  # the host block carried no titleInfo would lose the one part that was ours.
+  # ISSN stay out -- the other record's metadata goes stale in a copy. A host
+  # naming no title renders its position alone: the position is ours.
   def host_collections
     grouped_rows(mods&.host_collections) do |host|
       composed = [host.title, host_position(host)].compact_blank.join(', ').presence
@@ -473,17 +379,9 @@ module WorkDecorator
     end
   end
 
-  # Composing "scale ; projection ; coordinates" is display policy, which is
-  # why the gem leaves cartographics structured and it happens here. The
-  # separator follows the MODS display convention.
-  #
-  # Every part takes it. Projection and coordinates shared one slot and
-  # collided on a space, so a reader could not see where the projection name
-  # ended and the coordinates began.
-  #
-  # A record that gave no scale gets no scale. Printing "Scale not given" put
-  # an editorial complaint on a geotagged photograph that never claimed to have
-  # one -- the mistake DATE_FORMATS above exists to avoid, in a new place.
+  # EVERY part takes the separator: projection and coordinates once shared a
+  # slot and collided on a space. A record that gave no scale gets no scale --
+  # "Scale not given" is an editorial complaint, not what the record says.
   def map_data
     grouped_rows(mods&.map_data) do |entry|
       composed = [entry.scale, entry.projection, entry.coordinates]
@@ -516,13 +414,9 @@ module WorkDecorator
 
   private
 
-    # One row per header, in the order the headers first appear. A record that
-    # labels one of two values asks for two headers, so values group by the
-    # header they carry rather than by the field they came from, which is why
-    # no row in this file heads itself.
-    #
-    # The block answers with [header, value] for one entry, or nil to drop it.
-    # A value may be a list, for a row whose entry renders several <dd>s.
+    # One row per header, in first-appearance order. A record that labels one
+    # of two values asks for TWO headers, which is why no row heads itself.
+    # The block answers [header, value], or nil to drop the entry.
     def grouped_rows(entries)
       grouped = Array(entries).each_with_object({}) do |entry, hsh|
         label, value = yield(entry)
@@ -657,19 +551,9 @@ module WorkDecorator
       name_labels(entry, lead: lead)
     end
 
-    # The labels one name files under, from its roles.
-    #
-    # A name declaring NO role takes the lead label when it leads and the
-    # trailing one otherwise. A record listing six unmarked names said that six
-    # people were involved, and filing all six under Creator asserted six
-    # creators -- a claim the record never made.
-    #
-    # The unknown-role label is a LAST resort, not a per-role one. A name
+    # The unknown-role label is a LAST resort, not a per-role one: a name
     # carrying "aut" and a typo'd "qqq" was filed under both, so a reader saw
-    # the same person twice -- the second time under a role the record never
-    # asserted. A name with at least one role this system knows is already
-    # filed correctly, and the unrecognised code adds nothing but the
-    # duplicate.
+    # the same person twice under a role the record never asserted.
     def name_labels(entry, lead: true)
       roles = Array(entry.roles).compact_blank
       return [lead ? NO_ROLE_LABEL : TRAILING_NAME_LABEL] if roles.empty?
@@ -694,15 +578,9 @@ module WorkDecorator
                    capitalize: row.fetch(:capitalize, false), axis: row[:axis])
     end
 
-    # A date renders everything the record declared about it: the value at its
-    # own granularity, the other end of a range at the end's own granularity,
-    # and the qualifier around the whole thing. "circa 1935-1940" is honest
-    # where "1935" and "1935-1940" both are not.
-    #
-    # A record whose date is not a w3cdtf or ISO 8601 one has no value to
-    # format, and the gem hands over the literal instead. Showing "19uu" is
-    # what the record says; the alternative is a row a cataloguer filled in
-    # that no reader ever sees.
+    # Each end renders at its OWN granularity, with the qualifier around the
+    # whole: "circa 1935-1940" is honest where "1935-1940" is not. A date that
+    # is not w3cdtf or ISO 8601 falls back to the record's literal ("19uu").
     def mods_date(label, attribute)
       header = part(attribute, 'display_label').presence || part(attribute, 'event_type').presence || label
       # paragraphs: false -- a date is a value, and a <p> around it would give
@@ -749,14 +627,10 @@ module WorkDecorator
       formatter ? formatter.call(rendered) : "#{rendered} (#{qualifier})"
     end
 
-    # The heading as one string, which neu-mods composes so the display and the
-    # browse index cannot separate a heading differently.
-    #
-    # An access copy stored before neu-mods 0.14.0 carries the parts and no
-    # joined form, and a reindex is what repopulates it -- so between a deploy
-    # and that reindex the parts are joined here instead. Through the gem's own
-    # separator, which is what keeps this from being a second join with a mind
-    # of its own.
+    # neu-mods composes the joined form so display and index cannot separate a
+    # heading differently. An access copy stored before neu-mods 0.14.0 has
+    # only the parts, so they are joined here THROUGH THE GEM'S separator --
+    # a local separator would be a second join with a mind of its own.
     def composed_heading(heading)
       heading.heading.presence ||
         Array(heading.parts).compact_blank.join(NEU::MODS::Projection::HEADING_SEPARATOR).presence

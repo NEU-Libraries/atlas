@@ -13,13 +13,8 @@ module DecoratorHelper
   # text. Only sentence terminators belong here.
   URL_TRAILING_PUNCT_RE = /[.,;:!?'"]+\z/
 
-  # A value with the link the record attached to it (xlink:href), or the value
-  # alone. HTML5 gives an anchor a transparent content model, so wrapping the
+  # HTML5 gives an anchor a transparent content model, so wrapping the
   # paragraphs of an abstract is valid and the paragraphing survives the link.
-  #
-  # The text goes through the same rendering as any unlinked value, so a
-  # subscript in a title and a URL inside an abstract still work; tag.a
-  # escapes the href.
   def linked_value(value, href, paragraphs: true)
     rendered = paragraphs ? linkify(value) : enhanced_text(value)
     return rendered if href.blank?
@@ -27,28 +22,13 @@ module DecoratorHelper
     tag.a(rendered, href: href, rel: 'nofollow noopener', target: '_blank')
   end
 
-  # A value marked with the browse it belongs to, for a consumer that injects
-  # this HTML whole and has no other per-value handle on it. The <span> carries
-  # the semantic axis, the EXACT string the index holds, and the vocabulary the
-  # term came from when there is one.
+  # `text` is what a reader sees, `value:` is what the index holds, and they
+  # are NOT the same string in general -- a language row reads "Spanish
+  # (subtitles)" against an indexed "Spanish". A consumer matching on rendered
+  # text would miss it, so the indexed value is stated rather than inferred.
   #
-  # The marked value renders without the paragraph pass. A browse candidate is
-  # a controlled term on one line -- a subject heading, a name, a genre -- so
-  # there is no blank-line break to keep and no URL to autolink, and the <p>
-  # wrapper is added here so the row keeps the shape every consumer of this
-  # block already lays out.
-  #
-  # A value the RECORD linked with xlink:href takes no marker: it already has
-  # an anchor, and a consumer wrapping the marker in a second one would nest
-  # <a> inside <a>. The record's own link wins, because it is the more specific
-  # claim.
-  #
-  # `text` is what a reader sees and `value:` is what the index holds. They are
-  # NOT the same string in general and the difference is the point: a language
-  # row reads "Spanish (subtitles)" against an indexed "Spanish", and a name
-  # row carries its affiliation in brackets. A consumer matching on the
-  # rendered text would miss both, which is why the indexed value is stated
-  # rather than inferred.
+  # A value the RECORD linked with xlink:href takes no marker: a consumer
+  # wrapping it would nest <a> inside <a>. See docs/mods-display.md.
   def browse_value(text, axis, value: text, authority: nil, href: nil)
     return linked_value(text, href) if axis.nil? || href.present?
 
@@ -57,31 +37,26 @@ module DecoratorHelper
     tag.p(tag.span(enhanced_text(text), data: data))
   end
 
-  # One label and one value, or nothing at all when the value is blank -- so a
-  # sparse record shows no empty <dd> under a heading like "Date created". The
-  # label is resolved by the CALLER, because which of @displayLabel, @eventType
-  # and the field's own name wins is display policy that differs per field.
+  # Nothing at all when the value is blank, so a sparse record shows no empty
+  # <dd>. The label is resolved by the CALLER: which of @displayLabel,
+  # @eventType and the field name wins differs per field.
   def labeled_field(label, value, href: nil, paragraphs: true)
     return '' if value.blank?
 
     tag.dt(label) + tag.dd(linked_value(value, href, paragraphs: paragraphs))
   end
 
-  # One label over many values that are ALREADY rendered HTML, each having gone
-  # through #linked_value. Running them through linkify again would escape the
-  # anchors it just produced.
+  # Values here are ALREADY rendered HTML. Running them through linkify again
+  # would escape the anchors it just produced.
   def html_field(label, rendered)
     return '' if rendered.blank?
 
     rendered.reduce(tag.dt(label)) { |row, value| row + tag.dd(value) }
   end
 
-  # Render a single-line curator-authored *value* -- a title -- as a safe HTML
-  # fragment, so escaped <sub>/<sup> in a MODS text node reaches the reader as
-  # a subscript instead of as visible tags. Same allowlist as linkify, without
-  # its paragraph wrapper or URL detection: a title is one line, and a <p>
-  # inside the <dd> would change a shape every consumer of the MODS HTML block
-  # already lays out.
+  # A single-line value -- a title. Same allowlist as linkify, without its
+  # paragraph wrapper or URL detection: a <p> inside the <dd> would change a
+  # shape every consumer of the MODS HTML block already lays out.
   def enhanced_text(value)
     return ''.html_safe if value.blank?
 
@@ -92,15 +67,9 @@ module DecoratorHelper
     # rubocop:enable Rails/OutputSafety
   end
 
-  # Render curator-authored freetext as a safe HTML fragment:
-  #   1. Escape the value, then revive only a bare <sup>/<sub>.
-  #   2. Split on blank-line paragraph breaks and wrap each paragraph in
-  #      <p>...</p>; treat lone newlines as soft wraps (collapsed to a
-  #      space). Emits <p> uniformly so consumers like Cerberus can own
-  #      vertical spacing via CSS.
-  #   3. Auto-link http(s) URLs that survive a strict URI.parse validation.
-  #      Anything that fails to parse stays as plain (escaped) text.
-  #   4. Mark the result html_safe.
+  # Escape, revive only a bare <sup>/<sub>, paragraph on blank lines (lone
+  # newlines are soft wraps), then autolink URLs that survive a strict
+  # URI.parse. <p> is emitted uniformly so Cerberus can own spacing via CSS.
   def linkify(text)
     return ''.html_safe if text.blank?
 
@@ -126,19 +95,15 @@ module DecoratorHelper
           .join
     end
 
-    # html is already escaped (only <sup>/<sub> tags survive, plus
-    # <p>...</p> wrappers we just inserted). Walk it as a stream, splitting
-    # around tags. Tags pass through untouched; text segments get URL
-    # detection with non-URL text re-escaped.
+    # Input is already escaped, so this walks it as a stream: tags pass
+    # through untouched, text segments get URL detection and re-escaping.
     def autolink(html)
       segments = html.split(/(<[^>]+>)/)
       segments.map { |seg| seg.start_with?('<') ? seg : autolink_text(seg) }.join
     end
 
-    # Text segments come from render's output, so they are already HTML-
-    # escaped (e.g. '&' has become '&amp;'). Pass surrounding text through
-    # untouched. For URL matches, decode entities to recover the real URL,
-    # validate it, and emit a properly-escaped <a> tag.
+    # Segments are already HTML-escaped ('&' is '&amp;'), so a URL match has
+    # to be entity-decoded to recover the real URL before validating it.
     def autolink_text(text)
       out = +''
       remainder = text
@@ -164,13 +129,10 @@ module DecoratorHelper
       [head + trailing, after]
     end
 
-    # The URL regex is greedy and only stops at whitespace, so a paste like
-    # "(http://example.com)Copyright" matches everything from "http" to the
-    # final 't'. Walk the match tracking bracket balance: the first closing
-    # bracket without a matching opener inside the URL is where the URL
-    # really ends. This keeps Wikipedia-style "Foo_(disambiguation)" URLs
-    # intact while peeling off stray ")Copyright..." text that ran on past
-    # the URL.
+    # The URL regex is greedy and stops only at whitespace, so the first
+    # closing bracket with no matching opener inside the URL is where the URL
+    # really ends. Keeps "Foo_(disambiguation)" intact while peeling off a
+    # stray ")Copyright...".
     BRACKET_PAIRS = { ')' => '(', ']' => '[', '}' => '{' }.freeze
     private_constant :BRACKET_PAIRS
 

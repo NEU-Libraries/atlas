@@ -80,21 +80,23 @@ RSpec.configure do |config|
     ExclusiveRunLock.acquire!
   end
 
-  # Lift the coverage floor for a run that loaded only part of the suite: a
+  # Lift the coverage floor for a run that cannot be judged against it: a
   # developer naming a file or a directory, a parallel worker taking its shard,
   # or the OpenAPI regeneration pass, which loads the request specs alone and
-  # under --dry-run executes none of them.
+  # executes none of them.
   #
   # Decided from what rspec loaded rather than from the command line, because no
   # reading of ARGV tells those apart from a whole-suite run: `rake spec` passes
   # the suite either as one --pattern glob or as an expanded list of every file,
   # depending on whether the glob is --pattern-compatible.
   #
-  # Before the suite rather than after it, so the comparison describes the run
-  # that is executing. SimpleCov reads the floor in an at_exit handler, so
-  # setting it this early still takes effect.
-  config.before(:suite) do
-    SimpleCov.minimum_coverage(0) if config.files_to_run.size < Rails.root.glob('spec/**/*_spec.rb').size
+  # NOT in a before(:suite) hook. `--dry-run` skips those hooks along with the
+  # examples, so a hook cannot see the one run that needs the floor lifted most
+  # -- rswag's generator, which executes nothing and so covers nothing. Both
+  # readings are already settled here at configure time, and SimpleCov reads the
+  # floor in an at_exit handler, so setting it this early still takes effect.
+  if config.dry_run? || config.files_to_run.size < Rails.root.glob('spec/**/*_spec.rb').size
+    SimpleCov.minimum_coverage(0)
   end
 
   config.before(:suite) do

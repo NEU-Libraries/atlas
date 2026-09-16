@@ -1,25 +1,14 @@
 # frozen_string_literal: true
 
 class Compilation
-  # ACL vocabulary for the AR-tier Compilation — a thin mirror of the
-  # store-agnostic slice of the resource-side Permissions concern
-  # (app/models/concerns/permissions.rb). Mirror, don't extract: Permissions
-  # is included in preservation-envelope paths (Preservable projects its
-  # `permissions` hash to disk) and refactoring it for one AR consumer is
-  # risk without payoff. If you change the ACL helpers there, check here —
-  # and vice versa.
+  # ACL vocabulary for the AR-tier Compilation: a deliberate mirror of the
+  # store-agnostic slice of app/models/concerns/permissions.rb, not an
+  # include. Change an ACL helper there and check here, and vice versa. See
+  # docs/authorization.md for why it mirrors and what it omits.
   #
-  # Named ACL (not Compilation::Permissions): a nested Permissions constant
-  # would shadow the top-level concern inside this namespace, making the
-  # `::Permissions` cross-references here a constant-lookup trap.
-  #
-  # Deliberate omissions vs the resource concern:
-  #  - no embargo, no proxy_uploader — Compilations carry neither.
-  #  - no STAFF_EDIT_GROUP auto-prepend (and no delete guard for it): a
-  #    *personal* Set should not be staff-editable by default. Owner +
-  #    explicit grants + admin wildcard only.
-  #  - depositor is write-once at create (stamped by the controller from the
-  #    authenticated NUID); the `permissions=` setter never touches it.
+  # Named ACL, not Compilation::Permissions: a nested Permissions constant
+  # would shadow the top-level concern inside this namespace and turn every
+  # `::Permissions` cross-reference into a constant-lookup trap.
   module ACL
     def add_read_group(group_name)
       self.read_groups = ([group_name] + read_groups).uniq
@@ -47,24 +36,21 @@ class Compilation
       }
     end
 
-    # The grant keys of the resource concern's audited slice, so `permissions`
-    # audit rows for Compilations read like resource rows. Local rather than
-    # borrowed: that constant also carries :embargo, which Compilations don't
-    # have, and slicing a key that is never present is a claim this mirror
-    # can't honour.
+    # Local rather than borrowed from AUDITED_ACL_KEYS: that constant also
+    # carries :embargo, and slicing a key that is never present is a claim
+    # this mirror can't honour.
     AUDITED_KEYS = %i[read edit edit_users].freeze
 
     def audited_acl
       permissions.slice(*AUDITED_KEYS)
     end
 
-    # ACL slice only — replaces all three grant lists. Accepts symbol- or
-    # string-keyed hashes (ActionController::Parameters arrives string-keyed).
+    # Replaces all three grant lists. Accepts symbol- or string-keyed hashes.
     def permissions=(hsh)
       hsh = hsh.to_h.symbolize_keys
       self.edit_users  = Array(hsh[:edit_users])
       self.read_groups = Array(hsh[:read])
-      self.edit_groups = Array(hsh[:edit]) # no staff auto-prepend (F2)
+      self.edit_groups = Array(hsh[:edit]) # no staff auto-prepend, deliberately
     end
 
     def public?

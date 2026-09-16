@@ -1,50 +1,37 @@
 # frozen_string_literal: true
 
-# NB: the AR-tier Compilation carries a thin mirror of this concern's
-# store-agnostic ACL slice (Compilation::ACL) rather than including
-# this module — this one is welded to Valkyrie attributes and the
-# preservation-envelope path. If you change the ACL helpers here, check
-# app/models/compilation/acl.rb, and vice versa.
+# The ACL envelope on a Valkyrie resource. See docs/authorization.md for the
+# envelope shape, the provenance rules and the staff auto-prepend.
+#
+# Compilation::ACL (app/models/compilation/acl.rb) is a deliberate mirror of
+# this concern's store-agnostic slice, not an include. Change an ACL helper
+# here and check there, and vice versa.
 module Permissions
   extend ActiveSupport::Concern
 
   STAFF_EDIT_GROUP = 'northeastern:drs:repository:staff'
-  # Devolved-admin tier gate (Ability#apply_admin_delegate_abilities): the
-  # group half of the :privileged-role + group pair that grants scoped
-  # admin-adjacent capabilities below the full :admin role's wildcard.
+  # The group half of the devolved-admin pair; User#admin_delegate? also
+  # requires the :privileged role.
   ADMIN_GROUP      = 'northeastern:drs:repository:admin'
 
-  # The ACL keys an audit `permissions` event records (before/after). The
-  # canonical home for the snapshot shape, shared by the controller edit path
-  # (Auditable) and the create-time grant emission (the creators). Embargo
-  # belongs here because it is a rights decision a human makes and revises —
-  # it withholds downloads and then lifts itself on a chosen date, and nothing
-  # else records who moved it. The provenance slots (depositor /
-  # proxy_uploader) stay out: write-once, not part of a rights diff.
+  # The before/after payload shape of a `permissions` audit event. Embargo is
+  # in the diff because nothing else records who moved it; the provenance
+  # slots stay out, being write-once rather than part of a rights diff.
   AUDITED_ACL_KEYS = %i[read edit edit_users embargo].freeze
 
   included do
     attribute :embargo_release_date, Valkyrie::Types::DateTime.optional
 
-    # Provenance fields.
-    # depositor       = intellectual owner (the named author/depositor; may
-    #                   point at the seeded :anonymous user for batch loads).
-    # proxy_uploader  = hands-on-keyboard actor for the most recent
-    #                   ownership-affecting write. Common case: equals
-    #                   depositor (self-deposit). Librarian-on-behalf case:
-    #                   depositor = faculty NUID, proxy_uploader = librarian NUID.
-    # Both are single NUID strings — denormalized projections of current
-    # state, queried as O(1) Solr field reads (depositor_ssi /
-    # proxy_uploader_ssi). The append-only history lives in AuditEvent.
+    # Single NUID strings, denormalized so they read as O(1) Solr fields
+    # (depositor_ssi / proxy_uploader_ssi). The append-only history lives in
+    # AuditEvent.
     attribute :depositor,      Valkyrie::Types::String.optional
     attribute :proxy_uploader, Valkyrie::Types::String.optional
   end
 
   def embargoed?
-    # is embargo_release_date
     return false if embargo_release_date.blank?
 
-    # if it's set, has it passed >, < etc.
     embargo_release_date > DateTime.now
   end
 
@@ -71,16 +58,14 @@ module Permissions
     self.edit_groups = edit_groups.map(&:clone).reject! { |gn| gn == group_name }
   end
 
-  # Envelope shape — see Preservable / preservation_envelope_writer for
-  # the on-disk projection. v2 splits depositor from edit_users (v1
-  # aliased them); the schema bump is captured in
-  # Preservable::ENVELOPE_SCHEMA_VERSION.
+  # Preservable projects this hash to disk, so the schema bump for any change
+  # here belongs in Preservable::ENVELOPE_SCHEMA_VERSION.
   #
-  # `presence` on the embargo collapses the two shapes "no embargo" can take
-  # into one: the setter normalizes a blank date to '', but a resource never
-  # put through the setter (a root Community) still holds nil. Without this,
-  # the audited slice would read that nil -> '' step as a change and emit a
-  # `permissions` event in which nothing moved.
+  # `presence` on the embargo collapses the two shapes "no embargo" can take:
+  # the setter normalizes a blank date to '', but a resource never put through
+  # the setter (a root Community) still holds nil. Without it, the audited
+  # slice reads that nil -> '' step as a change and emits a `permissions`
+  # event in which nothing moved.
   def permissions
     {
       embargo:        embargo_release_date.presence&.to_s,
@@ -93,9 +78,8 @@ module Permissions
     }
   end
 
-  # The audited slice of the current ACL — the `before`/`after` payload shape
-  # for `permissions` audit events. Normalized by the `permissions=` setter
-  # (incl. the staff auto-prepend), so two callers comparing it agree on no-ops.
+  # Normalized by the setter below (including the staff auto-prepend), so two
+  # callers comparing this agree on no-ops.
   def audited_acl
     permissions.slice(*AUDITED_ACL_KEYS)
   end
@@ -105,13 +89,11 @@ module Permissions
     # Heritability, and sentinels down the line
     self.embargo_release_date = hsh[:embargo].present? ? DateTime.parse(hsh[:embargo]) : ''
 
-    # Provenance slots are write-once. The metadata PATCH path
-    # (CollectionsController#metadata_update et al.) passes only ACL keys
-    # through this setter, so a missing :depositor / :proxy_uploader key
-    # must NOT nil the existing stamp. Creators copying parent.permissions
-    # always include both keys (via the getter above) and so still write
-    # through — the parent.permissions-copy-then-stamp invariant is
-    # preserved.
+    # Provenance slots are write-once, and the guard is what enforces it: the
+    # metadata PATCH path passes only ACL keys through here, so a missing
+    # :depositor / :proxy_uploader key must NOT nil the existing stamp.
+    # Creators copying parent.permissions always carry both keys, so they
+    # still write through.
     self.depositor      = hsh[:depositor]      if envelope_carries?(hsh, :depositor)
     self.proxy_uploader = hsh[:proxy_uploader] if envelope_carries?(hsh, :proxy_uploader)
     self.edit_users     = Array(hsh[:edit_users])
@@ -125,30 +107,22 @@ module Permissions
                        end
   end
 
-  # Either symbol-keyed (creator-side, from the `permissions` getter) or
-  # string-keyed (controller-side, from ActionController::Parameters);
-  # the setter accepts both shapes.
+  # Symbol-keyed from the creator side, string-keyed from
+  # ActionController::Parameters; the setter accepts both.
   def envelope_carries?(hsh, key)
     hsh.key?(key) || hsh.key?(key.to_s)
   end
 
   def public?
-    # helper method to void spelunking into internals
     return true if read_groups.include?('public')
 
     false
   end
 
-  # The resource whose ACL decides whether this one may be read.
-  #
-  # Works and containers answer for themselves. The leaves that hang off them
-  # — FileSet, Blob, Delegate — do not: every creator copies the parent's ACL
-  # down at creation, but nothing rewrites that copy afterwards. Cerberus's
-  # narrowing cascade (NarrowingTargets) walks Works and containers only, so a
-  # leaf privatised after its FileSets existed still carries `read: ['public']`
-  # on them. Reading a leaf's own copy would therefore serve the bytes of a
-  # Work that has since been closed, which is the whole failure this gate
-  # exists to stop.
+  # The resource whose ACL decides whether this one may be read. Works and
+  # containers answer for themselves; FileSet, Blob and Delegate override this
+  # to walk upward, because their own ACL is a stale copy taken at creation and
+  # nothing rewrites it afterwards.
   #
   # nil means no authority could be resolved, and callers must read that as
   # "deny". An unattached leaf has nobody to answer for it.

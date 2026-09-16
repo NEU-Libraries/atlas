@@ -61,9 +61,15 @@ Community  →  Collection  →  Work
 | Work        | Bibliographic unit (article, thesis, dataset…); MODS metadata lives here. |
 | FileSet     | Classified slot under a Work (e.g. `primary`, `supplemental`).            |
 | Blob        | The binary bytes; supports byte-range streaming.                          |
+| Delegate    | A pointer to a rendition Atlas does not hold — an IIIF image URI.         |
+| Person      | A curatorial identity, with a personal-root Collection of its own.        |
 
 Every resource has a NOID. `GET /resources/:id` resolves any NOID to its
 typed endpoint (302 redirect to `/works/:id`, `/collections/:id`, etc.).
+
+A **Compilation** (a "Set") sits outside this tree. It is an ActiveRecord row
+rather than a resource, and it holds a recipe of NOIDs that is resolved against
+Solr at read time rather than materialized.
 
 ## Authentication
 
@@ -118,8 +124,9 @@ and rendered two ways:
 - **Machines** (clients, agents, codegen):
   [`/api-docs/openapi.yaml`](http://localhost:3000/api-docs/openapi.yaml).
 
-The committed `openapi/openapi.yaml` is the source of truth. To regenerate
-after editing a spec or jbuilder partial:
+**The request specs are the source of truth**, and `openapi/openapi.yaml` is
+generated from them, so the committed YAML cannot drift from the API. To
+regenerate after editing a spec or jbuilder partial:
 
 ```bash
 bin/openapi
@@ -168,9 +175,33 @@ There are three concentric test layers:
    end-to-end contract test against the same client Cerberus uses in
    production.
 
+## Other surfaces
+
+Beyond the resource CRUD, Atlas exposes:
+
+| Surface | What it is |
+|---|---|
+| `GET`/`POST /oai` | An OAI-PMH 2.0 provider. Boston Public Library harvests the `mods` format for Digital Commonwealth; `oai_dc` ships because the protocol requires it. See [`docs/oai.md`](docs/oai.md). |
+| `POST /works/:id/complete` | Finalizes a deposit and mints the Work's persistent Handle. See [`docs/handles.md`](docs/handles.md). |
+| `GET`/`PUT /maintenance` | A repository-wide read-only window. A write during one answers 503 with `Retry-After`, not 403. See [`docs/availability.md`](docs/availability.md). |
+| `GET /files/:id/versions`, `/rollback` | Binary version history with fixity, and non-destructive rollback. See [`docs/binaries.md`](docs/binaries.md). |
+| `POST /resources/find_many` | Batch NOID resolution, permission-filtered per row. See [`docs/read-performance.md`](docs/read-performance.md). |
+| `GET /resources/:id/history` | The audit trail, which survives deletion of what it audits. See [`docs/write-safety.md`](docs/write-safety.md). |
+
+## Developer documentation
+
+[`docs/`](docs/) holds the per-component reference that has to version with the
+code — the parts too long to sit inside a source file. Start at
+[`docs/README.md`](docs/README.md), which indexes every page and states what
+belongs there versus in a spec or in the OpenAPI document.
+
+Read [`docs/preservation.md`](docs/preservation.md) before changing anything
+about storage, metadata serialization, or persistence. It is the constraint the
+rest of the design follows from.
+
 ## Stack
 
-- Ruby 3.0, Rails 7, Postgres 14, Solr (Blacklight image)
+- Ruby 3.4, Rails 8.1, Postgres 14, Solr (Blacklight image)
 - [Valkyrie](https://github.com/samvera/valkyrie) for the metadata persistence
   abstraction; a custom Valkyrie [OCFL](https://ocfl.io) storage adapter
   (`app/lib/valkyrie/storage/ocfl.rb`) for binary storage

@@ -1,27 +1,16 @@
 # frozen_string_literal: true
 
-# Membership (recipe) mutations for Compilations:
+# The six recipe mutations for a Compilation, all one shape: authorize
+# :update on the Set, mutate one recipe line, re-render the compilation
+# partial. The updated recipe IS the response, so a client's chip counts
+# refresh from the shape it already parses. See docs/compilations.md.
 #
-#   POST   /compilations/:id/included_collections { collection_id } — include a Collection (transitive)
-#   DELETE /compilations/:id/included_collections/:collection_id    — remove an inclusion
-#   POST   /compilations/:id/included_works       { work_id }       — include a Work individually
-#   DELETE /compilations/:id/included_works/:work_id                — remove an inclusion
-#   POST   /compilations/:id/exclusions           { work_id }       — set a Work aside
-#   DELETE /compilations/:id/exclusions/:work_id                    — clear a set-aside
+# Both directions are idempotent: an add is find_or_create_by, and removing
+# an absent row is a 200 no-op -- there is nothing for a client to recover
+# from.
 #
-# Six thin actions, one shape: authorize :update on the Set, mutate one
-# recipe line, re-render the compilation partial — the updated recipe is the
-# response, so Cerberus chip counts refresh from the same shape it already
-# parses. Adds are idempotent (find_or_create_by) and run the join-model
-# type validation: a Community / unknown noid is a 422 via the standard
-# RecordInvalid rescue. Removes are idempotent too — deleting an absent row
-# is a 200 no-op (matches the remove-linked-member temperament; nothing for
-# a client to recover from).
-#
-# Recipe churn on an unpublished Set emits NO audit rows — personal curation,
-# not rights/provenance. A published Set is different: it is the feed /oai
-# hands to outside harvesters, so a Work entering or leaving it is a
-# curatorial act with consequences off this system. See #audit_recipe_change!.
+# Recipe churn on an UNPUBLISHED Set emits no audit rows; on a published one
+# it does, because that feed reaches outside harvesters.
 module CompilationMemberships
   extend ActiveSupport::Concern
 

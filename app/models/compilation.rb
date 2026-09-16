@@ -1,29 +1,16 @@
 # frozen_string_literal: true
 
-# A Compilation (DRS "Set"): a personal, curated, recipe-based grouping of
-# Works and Collections. The recipe is three noid lists — include-collection
-# (transitive), include-work (individual), exclude-work (set-aside) — that
-# CompilationContentsQuery resolves against Solr at read time; nothing is
-# materialized.
-#
-# Deliberately AR, not Valkyrie: ephemeral / non-preservation, so no OCFL
-# envelope, no MODS, no NOID-bearing Solr doc. The public id IS a minted
-# NOID (same ::Minter, same namespace as resource noids — no collisions by
-# construction) so Cerberus /sets/:id URLs match /works/:id; the bigint pk
-# is never exposed (audit rows store it internally, no endpoint surfaces
-# it). All controller lookups go find_by!(noid:).
+# A recipe of three noid lists that CompilationContentsQuery resolves against
+# Solr at read time; nothing is materialized. Deliberately AR and not
+# Valkyrie, so no OCFL envelope and no MODS. The public id is still a minted
+# NOID from the same Minter, and the bigint pk is never exposed -- so every
+# controller lookup goes find_by!(noid:). See docs/compilations.md.
 class Compilation < ApplicationRecord
   include Compilation::ACL
 
-  # The membership join models nest under this class
-  # (Compilation::CollectionInclusion et al.). Both halves of the wiring are
-  # Rails convention: association class names resolve inside this namespace
-  # first (:collection_inclusions → Compilation::CollectionInclusion), and
-  # models nested in an AR class get the singular parent table name as a
-  # prefix — so the children land on the compilation_* tables the migration
-  # created with no table_name configuration at all.
-  # dependent: :delete_all is belt-and-suspenders over the FK ON DELETE
-  # CASCADE — keeps AR-initiated destroys correct even outside Postgres.
+  # Nesting these under the class is what puts them on the compilation_*
+  # tables with no table_name configuration. delete_all is
+  # belt-and-suspenders over the FK's ON DELETE CASCADE.
   has_many :collection_inclusions, dependent: :delete_all
   has_many :work_inclusions,       dependent: :delete_all
   has_many :exclusions,            dependent: :delete_all
@@ -32,37 +19,21 @@ class Compilation < ApplicationRecord
 
   before_create { self.noid ||= Minter.mint }
 
-  # v1's ListSets passed no `rows` and inherited Solr's default of 10, so it
-  # would have truncated silently at the eleventh published set. The cap here
-  # is explicit and generous, and it bounds the per-page setSpec resolution
-  # too (OAISetMembershipQuery runs one Solr query per published set).
+  # Explicit because the default bit: passing no `rows` inherits Solr's 10
+  # and truncates SILENTLY at the eleventh published set. Also bounds the
+  # per-page setSpec resolution, one Solr query per published set.
   PUBLISHED_LIMIT = 500
 
-  # The OAI-PMH sets (GET /oai?verb=ListSets). Publishing a Set is an external
-  # commitment — a harvester walks it and copies what it finds into another
-  # catalogue — so the verb pair is admin-only and the recipe routes start
-  # emitting audit rows once the flag is on. Ordered by noid so ListSets and a
-  # record's setSpec list agree from one page to the next.
+  # Ordered by noid so ListSets and a setSpec list agree across pages.
   scope :published, -> { where(published: true).order(:noid).limit(PUBLISHED_LIMIT) }
 
-  # Grant-scoped listing: Sets where the principal is a *grantee* but not the
-  # owner — the "Shared with me" / "Editable by me" surfaces. Owned Sets are
-  # always excluded (the UI lists those under "My Sets"); the caller's own
-  # owner-scoped listing stays a separate query. Newest-first, like the
-  # owner scope.
+  # Sets where the principal is a GRANTEE but not the owner. The axes mirror
+  # Ability#group_acl_grants? and #compilation_readable?, in SQL rather than
+  # Ruby; group membership is resolved server-side, so no group list crosses
+  # the wire.
   #
-  # The grant axes mirror the Ability per-row checks (Ability#group_acl_grants?
-  # / #compilation_readable?), evaluated in SQL here instead of Ruby:
-  #   - edit_users contains the caller's NUID, OR
-  #   - edit_groups intersects the caller's groups, AND (when include_read)
-  #   - read_groups intersects the caller's groups (edit grants imply read).
-  # `include_read: false` is the "editable by me" bucket (edit grants only);
-  # `true` is "shared with me" (read grants too). Group membership is resolved
-  # server-side from the authenticated principal — same source the Ability
-  # consults — so no group list crosses the wire.
-  #
-  # A principal with neither a NUID nor any groups (e.g. guest) matches no
-  # grant and gets an empty relation.
+  # A principal with neither a NUID nor any groups matches no grant and gets
+  # an EMPTY relation rather than everything.
   def self.granted_to(nuid:, groups:, include_read:)
     grants = grant_clauses(nuid, Array(groups), include_read)
     return none if grants.empty?
@@ -72,9 +43,7 @@ class Compilation < ApplicationRecord
     scope.order(created_at: :desc)
   end
 
-  # One [clause, bind] pair per grant axis that applies to this principal, in
-  # the order the OR is assembled. Postgres array overlap (&&) is the
-  # membership test; no pairs means the principal matches no grant at all.
+  # One [clause, bind] pair per applicable axis. Overlap (&&) is the test.
   def self.grant_clauses(nuid, groups, include_read)
     pairs = []
     pairs << ['edit_users && ARRAY[?]::varchar[]', [nuid]] if nuid.present?

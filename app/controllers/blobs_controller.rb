@@ -44,12 +44,9 @@ class BlobsController < ApplicationController
     audit_add_file(@blob)
   end
 
-  # Append a new revision. Uber-basic versioning: post a new binary, append
-  # its file identifier to the Blob (NOID preserved), refresh the head-revision
-  # facts (see #refresh_head_facts). Idempotent on the Idempotency-Key header
-  # (same semantics as create): a double-submit of the replace form with the
-  # same key returns the existing Blob instead of minting a second OCFL version.
-  # Unknown id → 404.
+  # Appends a revision, NOID preserved. Idempotent on the Idempotency-Key
+  # header, so a double-submit returns the existing Blob rather than minting a
+  # second OCFL version.
   def update
     authorize! :update, Blob
 
@@ -68,16 +65,9 @@ class BlobsController < ApplicationController
     record_idempotency_key!(@blob.noid, Blob)
   end
 
-  # GET /files/:id/versions
-  # Reverse-chronological list of the Blob's retained content revisions. Each
-  # descriptor carries the OCFL version label, its file identifier, fixity
-  # digest, size, and actor attribution correlated from the file audit ledger.
-  # Admin-gated like the MODS version list (it exposes edit attribution) —
-  # via the dedicated :read_versions verb (not the generic `:read, AuditEvent`
-  # the audit-history tab uses), so the devolved-admin tier can see this
-  # without also opening the generic audit-history index. Unknown id → 404
-  # (a Blob is a concrete resource, unlike the type-agnostic MODS list which
-  # tolerates an unresolvable id).
+  # Gated by the dedicated :read_versions verb rather than the generic
+  # `:read, AuditEvent`, so the devolved-admin tier sees binary history
+  # without also opening the generic audit-history index.
   def versions
     authorize! :read_versions, Blob
     @blob = Blob.find(params.expect(:id))
@@ -86,18 +76,10 @@ class BlobsController < ApplicationController
     @versions = BinaryVersionHistory.descriptors(blob: @blob)
   end
 
-  # POST /files/find_many_versions  body: { ids: [<noid>, …] }
-  # The batched counterpart to #versions: version history for many Blobs in one
-  # round-trip, for a caller holding a set of Blob noids. The admin file-manage
-  # listing is the motivating one — it reads every replaceable Blob on a Work,
-  # which on a multipage Work is one request per page binary.
-  #
-  # Same gate as #versions: the descriptors carry the same edit attribution, and
-  # :read_versions is granted class-wide, so there is no per-Blob decision to
-  # make and nothing is dropped for authorization. Tolerant like
-  # resources#find_many otherwise — an id resolving to nothing, or to a resource
-  # that is not a Blob, is dropped rather than raised on, so the result may be
-  # shorter than the input. Callers index by blob_id.
+  # :read_versions is granted class-wide, so there is no per-Blob decision and
+  # nothing is dropped for AUTHORIZATION. Otherwise tolerant like
+  # resources#find_many: an id resolving to nothing, or to a non-Blob, is
+  # dropped, so the result may be shorter than the input.
   def find_many_versions
     authorize! :read_versions, Blob
     ids = Array(params[:ids]).map(&:to_s).uniq
@@ -107,11 +89,8 @@ class BlobsController < ApplicationController
     @histories = BinaryVersionHistory.descriptors_for_many(blobs: blobs)
   end
 
-  # GET /files/:id/versions/:version_id/content
-  # Stream the bytes of a prior version, pinned to its OCFL label. Mirrors
-  # #content (same send_file/Rack chunking, memory-safe for large files) but
-  # resolves through the version history so only listed content revisions are
-  # addressable. Unknown id or version → 404.
+  # Resolves through the version history, so only LISTED content revisions are
+  # addressable.
   def version_content
     blob = Blob.find(params.expect(:id))
     authorize! :read, blob || Blob
@@ -125,12 +104,8 @@ class BlobsController < ApplicationController
     head :not_found
   end
 
-  # POST /files/:id/rollback  body: { version_id: 'vN' }
-  # Promote a prior version to current by appending its bytes again as a NEW
-  # revision (so rollback is itself non-destructive — it becomes vN+1 with the
-  # bytes of vN), keeping the Blob NOID. OCFL dedups the identical content, so
-  # no bytes are copied; only a new version pointer is cut. Unknown id or
-  # version → 404.
+  # Non-destructive: vN's bytes are appended as vN+1. OCFL dedups the
+  # identical content, so no bytes are copied -- only a pointer is cut.
   def rollback
     authorize! :update, Blob
     blob = Blob.find(params.expect(:id))
@@ -169,12 +144,10 @@ class BlobsController < ApplicationController
                 payload: { blob_noid: blob.noid })
   end
 
-  # GET /files/:id/content
-  # send_file hands a Pathname to Rack::Files which chunks at the Rack layer,
-  # so this is memory-safe for 20GB+ files. Honours an HTTP Range request so a
-  # browser media element can seek (see #serve_bytes). Once nginx fronts Atlas,
-  # un-comment the X-Accel-Redirect line in config/environments/production.rb
-  # so nginx handles byte-serving — and Range — natively.
+  # send_file hands a Pathname to Rack::Files, which chunks at the Rack layer,
+  # so this is memory-safe for 20GB+ files.
+  # TODO: once nginx fronts Atlas, un-comment the X-Accel-Redirect line in
+  # config/environments/production.rb so nginx serves bytes natively.
   def content
     blob = Blob.find(params.expect(:id))
     authorize! :read, blob || Blob
@@ -188,14 +161,10 @@ class BlobsController < ApplicationController
     head :not_found
   end
 
-  # GET /files/:id/ancestry
-  # Resolve a content Blob to its parent FileSet and parent Work noids —
-  # { "file_set": "<noid>", "work": "<noid>" }. The download path
-  # (DownloadsController) is keyed only by the blob id, so a consumer recording
-  # a download/stream impression against the containing Work resolves it here
-  # rather than threading the work noid through the download URL. Reads on the
-  # Blob floor (like #content / #show). Unknown id → 404; either ancestor is
-  # null when unresolvable (e.g. an orphan blob with no FileSet parent).
+  # The download path is keyed only by the blob id, so a consumer recording an
+  # impression against the containing Work resolves it here rather than
+  # threading the work noid through the download URL. Either ancestor is null
+  # when unresolvable.
   def ancestry
     @blob = Blob.find(params.expect(:id))
     authorize! :read, @blob || Blob
@@ -217,14 +186,10 @@ class BlobsController < ApplicationController
                                 filename: blob.original_filename
     end
 
-    # Byte-serve a Blob's current content with HTTP Range support, so a browser
-    # media element can seek (it issues `Range: bytes=…` and expects a `206
-    # Partial Content` it can scrub over). Always advertises `Accept-Ranges:
-    # bytes`; serves the whole body as `200` when no (or an unparseable) Range
-    # is present, a single byte range as `206` + `Content-Range`, and a valid-
-    # but-out-of-bounds range as `416`. Multi-range is unsupported — a single
-    # range is all media elements need. Memory-safe: the slice is streamed in
-    # chunks via FileSlice, never buffered.
+    # Range support exists so a browser media element can seek. Multi-range is
+    # unsupported -- a single range is all one needs. The slice streams in
+    # chunks via FileSlice, never buffered. See docs/binaries.md for the
+    # status matrix.
     def serve_bytes(blob, file)
       path  = file.disk_path
       total = ::File.size(path)
@@ -259,11 +224,9 @@ class BlobsController < ApplicationController
       self.response_body = FileSlice.new(path, first, last - first + 1)
     end
 
-    # Parse a single HTTP byte range against the resource size. Returns nil when
-    # no Range header is present or it is not a single `bytes=` range (RFC 7233:
-    # ignore and serve the full 200 body — covers multi-range and other units),
-    # a `[first, last]` inclusive pair when satisfiable, or :unsatisfiable for a
-    # syntactically-valid but out-of-bounds range (416).
+    # nil for an absent or non-single-`bytes=` range, which RFC 7233 lets us
+    # ignore and serve a full 200. :unsatisfiable is a valid-but-out-of-bounds
+    # range (416).
     def parse_byte_range(header, total)
       return nil if header.blank?
 
@@ -291,14 +254,9 @@ class BlobsController < ApplicationController
       [first, last]
     end
 
-    # Append a freshly-uploaded revision's versioned file identifier to the
-    # Blob, refresh the denormalized head-revision facts, persist, and emit the
-    # replace_file provenance row. version_id is stored as a plain string so
-    # BinaryVersionHistory can correlate it back exactly; rolled_back_from, when
-    # present, records which version this revision reinstated. Shared by the
-    # PATCH (#update) and rollback (#rollback) paths, which differ only in where
-    # the new bytes came from — source_path is those bytes on disk. Returns the
-    # saved Blob.
+    # version_id is stored as a plain string so BinaryVersionHistory can
+    # correlate it back EXACTLY. Shared by the PATCH and rollback paths, which
+    # differ only in where the bytes came from.
     def append_revision(blob, version_id, source_path:, rolled_back_from: nil)
       blob.file_identifiers += [version_id]
       refresh_head_facts(blob, version_id, source_path)
@@ -309,32 +267,26 @@ class BlobsController < ApplicationController
       saved
     end
 
-    # digest, size and mime_type describe the bytes that are *currently* head,
-    # so a new revision has to re-derive all three from those bytes — they are a
-    # read-path cache over the storage layer, and a stale size is what a
-    # consumer sets Content-Length and its Range arithmetic from (a replaced
-    # audio file would then truncate mid-stream).
+    # These three are a read-path cache over the storage layer, so a new
+    # revision MUST re-derive all three: a stale size is what a consumer sets
+    # Content-Length and its Range arithmetic from, and a replaced audio file
+    # would truncate mid-stream.
     #
-    # The MIME name hint is the deposited original_filename, not the replacing
-    # upload's own name, which is often a staged temp path: Marcel needs a real
-    # extension for formats with weak magic bytes, and `up.tmp` makes it answer
-    # application/octet-stream where `data.csv` answers text/csv. Magic bytes
-    # still win over the hint, so a genuine format change is still detected.
+    # The MIME hint is the DEPOSITED filename, not the upload's own staged temp
+    # path -- Marcel answers application/octet-stream for `up.tmp` where
+    # `data.csv` answers text/csv. Magic bytes still win over the hint.
     #
     # original_filename, use and label stay as deposited. label especially:
-    # re-deriving it from bytes would relabel any replaced derivative tier
-    # (Small Image, Medium Image) back to Master Image.
+    # re-deriving it would relabel a replaced derivative tier back to Master.
     def refresh_head_facts(blob, version_id, source_path)
       blob.digest    = recorded_digest(version_id)
       blob.size      = ::File.size(source_path)
       blob.mime_type = mime_type(source_path, name: blob.original_filename)
     end
 
-    # File events carry change_type 'file', which is resource-scoped — but
-    # RESOURCE_TYPES only admits Community/Collection/Work, and there is no
-    # per-Blob/FileSet audit row. So a file event hangs off the parent Work;
-    # if one can't be resolved (orphan blob), skip rather than write a row
-    # with no resource. `note`/`payload` carry the blob identity.
+    # RESOURCE_TYPES admits no Blob or FileSet, so a file event hangs off the
+    # parent Work and the blob identity rides in note/payload. An orphan blob
+    # is skipped rather than writing a row with no resource.
     def audit_file!(action:, resource:, payload:)
       return unless resource.is_a?(Work)
 

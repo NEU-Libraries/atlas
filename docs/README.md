@@ -17,6 +17,28 @@ and the workflow — the spec wrappers, the per-worker stores, the Solr cores, a
 the guards. It lives here because it versions with the scripts it describes, and
 because a developer needs it before any of the other pages make sense.
 
+## The pages
+
+| Page | Covers |
+|---|---|
+| [`testing.md`](testing.md) | The spec wrappers, the per-worker stores, the Solr cores, the guards |
+| [`authentication.md`](authentication.md) | The credential paths, the resolution matrix, acting-as, the write floors |
+| [`authorization.md`](authorization.md) | The `Ability` tiers, the ACL envelope, the write guard, per-asset visibility |
+| [`error-contract.md`](error-contract.md) | The `rescue_from` shapes and the `error` codes `atlas_rb` keys on |
+| [`resource-graph.md`](resource-graph.md) | The tree and its DAG overlay, the traversal endpoints, the on-disk envelope |
+| [`mods.md`](mods.md) | The dual representation, the derived attribute set, version history |
+| [`mods-browse.md`](mods-browse.md) | The browse-axis vocabulary the indexers and the decorator share |
+| [`mods-display.md`](mods-display.md) | The `DISPLAY` table, the coverage decisions, each renderer |
+| [`solr-indexing.md`](solr-indexing.md) | What the five indexers project, and what they deliberately do not |
+| [`binaries.md`](binaries.md) | Blob versioning, rollback, fixity, byte-serving, storage-root sealing |
+| [`handles.md`](handles.md) | Minting the persistent identifier and recording it in MODS |
+| [`oai.md`](oai.md) | The harvest endpoint, its paging, and the `oai_dc` crosswalk |
+| [`compilations.md`](compilations.md) | Sets: the recipe, the grant-scoped listings, membership mutations |
+| [`people.md`](people.md) | A Person as curatorial identity, and the personal root |
+| [`write-safety.md`](write-safety.md) | Idempotent creates, optimistic-lock retry, provenance emission |
+| [`read-performance.md`](read-performance.md) | The response cache and the batched membership queries |
+| [`availability.md`](availability.md) | The maintenance window and the reset endpoint |
+
 ## What belongs elsewhere
 
 | Audience or need | Home |

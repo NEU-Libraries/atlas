@@ -1,19 +1,13 @@
 # frozen_string_literal: true
 
-# Valkyrie custom query: resolve Person resources by their NUID — the People
-# surface's correlation key and public address. Resource.find only resolves
-# NOID / Valkyrie id, so NUID-keyed lookups (GET /people/:nuid, the authoritative
-# display_name batch-resolve that supersedes User.resolve) need this.
+# Valkyrie custom query: Person resources by NUID. Resource.find resolves a
+# NOID or Valkyrie id only, so NUID-keyed lookups need this. See
+# docs/people.md.
 #
-# Registered on the postgres query service in config/initializers/valkyrie.rb;
-# reach it as `Atlas.query.custom_queries.find_person_by_nuid` /
-# `find_people_by_nuids`.
-#
-# Each disjunct is a `metadata @>` containment predicate (Valkyrie array-wraps
-# scalar attribute values in the jsonb, so a String nuid lands as
-# {"nuid":["..."]}), scoped to the Person internal_resource so it can never
-# match another type. NUIDs ride as bind parameters; only the placeholder count
-# derives from input. Postgres-specific, like FindManyByAlternateIdentifiers.
+# Valkyrie ARRAY-WRAPS scalar attribute values in the jsonb, so a String nuid
+# lands as {"nuid":["..."]} and the containment predicate must match that
+# shape. Scoped to the Person internal_resource so it can never match another
+# type.
 class FindPeopleByNuids
   def self.queries
     %i[find_person_by_nuid find_people_by_nuids]
@@ -38,9 +32,8 @@ class FindPeopleByNuids
 
   private
 
-    # run_query is private on the postgres query service, so a custom-query
-    # handler reimplements it (the pattern the Valkyrie docs' figgy example
-    # uses). find_by_sql's array form parameterizes the binds.
+    # Private on the postgres query service, so each handler reimplements it.
+    # find_by_sql's array form parameterizes the binds.
     def run_query(query, *args)
       orm.find_by_sql([query, *args]).map do |object|
         @query_service.resource_factory.to_resource(object: object)

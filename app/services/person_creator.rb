@@ -1,24 +1,16 @@
 # frozen_string_literal: true
 
-# Creates a Person (curatorial identity). Deliberately lean — a Person is
-# identity/authority, not preserved content, so unlike WorkCreator /
-# CollectionCreator this does NOT seed a descriptive-metadata FileSet, write a
-# MODS template, write an OCFL preservation envelope, or inherit any parent
-# permissions for the Person row itself. It saves the resource (Postgres +
-# Solr), eagerly mints the Person's personal-root Collection
-# (PersonalRootCreator — that root IS a preserved Collection), and emits the
-# structural create audit row.
+# Creates a Person (curatorial identity). Deliberately lean -- a Person is
+# identity, not preserved content, so unlike the other creators this seeds no
+# descriptive-metadata FileSet, no MODS template, and no OCFL envelope. The
+# personal root it mints IS a preserved Collection. See docs/people.md.
 #
-# Born public-readable: People are public directory entries (v1's Faculty &
-# Staff was world-browsable). Person has no parent to inherit a public ACL from
-# (the way a Work does), so the creator publicizes it (add_read_group('public'))
-# — the standard AccessControlsIndexer then projects read_access_group_ssim:
-# ['public'], without which gated discovery ({!terms f=read_access_group_ssim}
-# public,…) drops the Person from every non-admin search.
+# Born public-readable, and publicized explicitly because a Person has no
+# parent to inherit a public ACL from. Without it, gated discovery drops the
+# Person from every non-admin search.
 #
-# One Person per NUID is the correlation invariant; the uniqueness guard lives
-# at the controller (PeopleController#create -> 409) so this stays a pure
-# constructor usable by specs / internal callers.
+# One Person per NUID is the invariant, but the uniqueness guard lives in the
+# controller so this stays a pure constructor.
 class PersonCreator < ApplicationService
   def initialize(nuid:, display_name:, bio: nil, orcid: nil,
                  actor_nuid: nil, on_behalf_of_nuid: nil)

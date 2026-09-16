@@ -1,21 +1,16 @@
 # frozen_string_literal: true
 
-# Decides whether a storage root is full, and seals it if so.
+# Decides whether a storage root is full, and seals it if so. The adapter
+# deliberately never measures a root -- it reads a seal marker and obeys it, so
+# the write path costs one existence check. See docs/binaries.md.
 #
-# The adapter deliberately never measures a root: it reads a seal marker and
-# obeys it, so the write path costs one existence check. Deciding means counting,
-# which is a cold operation, and this is where it lives.
-#
-# We count objects rather than bytes. An object count is three levels of readdir
-# under the tuple layout, while a byte total needs a full recursive walk of the
-# root — and a root large enough to be worth sealing is exactly the one that
-# walk is too expensive for.
+# Counts OBJECTS and not bytes: an object count is three levels of readdir
+# under the tuple layout, while a byte total needs a full recursive walk -- and
+# a root worth sealing is exactly the one that walk is too expensive for.
 class StorageRootSealer < ApplicationService
-  # An object is one Atlas resource, so a Modsable container costs three and each
-  # deposited file costs three — a single-file Work is six. And an object is not
-  # a stored file: this content averages about thirteen, most of them inventory
-  # bookkeeping, so two million objects is roughly twenty-six million files.
-  # Raise it against a key budget for the destination rather than by feel.
+  # An object is one Atlas resource (a single-file Work is six), and averages
+  # about thirteen stored files, so two million objects is roughly twenty-six
+  # million files. Raise it against a key budget, not by feel.
   DEFAULT_MAX_OBJECTS = 2_000_000
 
   def initialize(root_name:,

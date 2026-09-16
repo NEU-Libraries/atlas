@@ -1,26 +1,19 @@
 # frozen_string_literal: true
 
-# Resolves the file AuditEvents that attribute a Blob's content revisions.
+# The file AuditEvents that attribute a Blob's content revisions. See
+# docs/binaries.md.
 #
-# File events hang off the parent Work — AuditEvent::RESOURCE_TYPES admits
-# neither Blob nor FileSet — so a Blob's rows are found by walking Blob →
-# FileSet → Work and then filtering that Work's file ledger by blob NOID. The
-# walk is what costs: two graph reads plus a ledger read for every Blob.
-#
-# .for_blobs therefore takes both hops through the batched parent query and
-# reads every Work's ledger in one AuditEvent query, so attribution for a whole
-# batch costs a fixed number of queries. .for_blob is the same code path for
-# one Blob, and issues exactly the queries the unbatched walk used to.
+# File events hang off the parent WORK -- AuditEvent::RESOURCE_TYPES admits
+# neither Blob nor FileSet -- so a Blob's rows are found by walking
+# Blob -> FileSet -> Work and filtering that Work's ledger by blob NOID. The
+# walk is what costs, which is why .for_blobs batches both hops.
 class FileEventLedger < ApplicationService
-  # @return [Array<AuditEvent>] this Blob's file events; empty when it has no
-  #   resolvable parent Work (an orphan Blob).
+  # Empty when the Blob has no resolvable parent Work.
   def self.for_blob(blob)
     for_blobs([blob]).fetch(blob.noid, [])
   end
 
-  # @return [Hash{String => Array<AuditEvent>}] Blob NOID => its file events,
-  #   oldest first. Blobs with no events (or no resolvable parent Work) are
-  #   absent, not empty — callers default.
+  # Oldest first. Blobs with no events are ABSENT, not empty.
   def self.for_blobs(blobs)
     new(blobs: blobs).call
   end

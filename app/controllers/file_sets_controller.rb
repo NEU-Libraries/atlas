@@ -16,7 +16,7 @@ class FileSetsController < ApplicationController
   end
 
   def show
-    @file_set = FileSet.find(params[:id])
+    @file_set = FileSet.find(params.expect(:id))
     authorize! :read, @file_set || FileSet
     return head(:not_found) if @file_set.nil?
 
@@ -24,7 +24,7 @@ class FileSetsController < ApplicationController
   end
 
   def mets
-    @file_set = FileSet.find(params[:id])
+    @file_set = FileSet.find(params.expect(:id))
     authorize! :read, @file_set || FileSet
 
     head(:not_found) if @file_set.nil? ||
@@ -43,7 +43,7 @@ class FileSetsController < ApplicationController
     @file_set = FileSetCreator.call(
       work_id:        params[:work_id],
       classification: Classification.find(
-        params[:classification]
+        params.expect(:classification)
       ),
       # Explicit cast: Valkyrie::Types::Integer is strict, and a form-encoded
       # "3" would raise where a JSON-body 3 passes.
@@ -66,7 +66,7 @@ class FileSetsController < ApplicationController
       return render_idempotent_resource(@file_set, view: :update)
     end
 
-    return head(:not_found) if FileSet.find(params[:id]).nil?
+    return head(:not_found) if FileSet.find(params.expect(:id)).nil?
 
     file = params[:binary]
     BlobCreator.call(
@@ -75,7 +75,7 @@ class FileSetsController < ApplicationController
       original_filename: params[:original_filename],
       expected_digest:   params[:expected_digest]
     )
-    @file_set = FileSet.find(params[:id])
+    @file_set = FileSet.find(params.expect(:id))
     record_idempotency_key!(@file_set.noid, FileSet)
   end
 
@@ -87,20 +87,20 @@ class FileSetsController < ApplicationController
     authorize! :update_iiif_service, FileSet
 
     with_stale_object_retry do
-      @file_set = FileSet.find(params[:id])
+      @file_set = FileSet.find(params.expect(:id))
       return head(:not_found) if @file_set.nil?
 
       apply_iiif_service_uri(resource_id: @file_set.id)
     end
 
-    @file_set = FileSet.find(params[:id])
+    @file_set = FileSet.find(params.expect(:id))
     render :show
   end
 
   # Irreversible. Removes the FileSet, its Blobs, and the preserved bytes.
   def destroy
     authorize! :destroy, FileSet
-    file_set = FileSet.find(params[:id])
+    file_set = FileSet.find(params.expect(:id))
     return head(:not_found) if file_set.nil?
 
     parent = file_set.parent

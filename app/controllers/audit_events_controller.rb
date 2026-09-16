@@ -65,6 +65,7 @@ class AuditEventsController < ApplicationController
     # safe-nav + .presence is the right shape; no exception handler
     # needed.
     def resolved_resource_id
-      Resource.find(params[:id])&.id&.to_s.presence || params[:id]
+      noid = params.expect(:id)
+      Resource.find(noid)&.id&.to_s.presence || noid
     end
 end

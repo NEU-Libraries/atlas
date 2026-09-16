@@ -64,7 +64,7 @@ module CompilationMemberships
   private
 
     def mutate_membership(line:, action:)
-      @compilation = Compilation.find_by!(noid: params[:id])
+      @compilation = Compilation.find_by!(noid: params.expect(:id))
       authorize! :update, @compilation
       before = @compilation.public_send(line)
       yield @compilation

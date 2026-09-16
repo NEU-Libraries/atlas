@@ -18,7 +18,7 @@ module Reparentable
   private
 
     def reparent(klass)
-      node = klass.find(params[:id])
+      node = klass.find(params.expect(:id))
       # Authorize before the nil-guard so check_authorization is satisfied on
       # the not-found path too (mirrors the other member actions). An admin
       # (manage :all) passes the nil check and 404s; a non-admin is denied.
@@ -45,7 +45,7 @@ module Reparentable
     def reparent_destination
       return nil if params[:parent_id].blank?
 
-      destination = Resource.find(params[:parent_id])
+      destination = Resource.find(params.expect(:parent_id))
       return destination unless destination.nil?
 
       raise Exceptions::ReparentError.new('parent_not_found', "parent #{params[:parent_id]} not found")

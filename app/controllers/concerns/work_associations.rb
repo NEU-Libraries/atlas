@@ -24,7 +24,7 @@ module WorkAssociations
   extend ActiveSupport::Concern
 
   def associations
-    work = Work.find(params[:id])
+    work = Work.find(params.expect(:id))
     authorize! :read, work || Work
     return head(:not_found) if work.nil?
 
@@ -32,7 +32,7 @@ module WorkAssociations
   end
 
   def add_association
-    work = Work.find(params[:id])
+    work = Work.find(params.expect(:id))
     authorize! :associate, work
     return head(:not_found) if work.nil?
 
@@ -44,7 +44,7 @@ module WorkAssociations
   end
 
   def remove_association
-    work = Work.find(params[:id])
+    work = Work.find(params.expect(:id))
     authorize! :associate, work
     return head(:not_found) if work.nil?
 
@@ -60,7 +60,7 @@ module WorkAssociations
     # work_id is request input (body for POST, path for DELETE); an
     # unresolvable target is a 422, not a 404 (the 404 is the Work itself).
     def association_target
-      target = Resource.find(params[:work_id])
+      target = Resource.find(params.expect(:work_id))
       return target unless target.nil?
 
       raise Exceptions::WorkAssociationError.new('target_not_found', "work #{params[:work_id]} not found")

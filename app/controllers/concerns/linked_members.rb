@@ -24,7 +24,7 @@ module LinkedMembers
   extend ActiveSupport::Concern
 
   def linked_members
-    work = Work.find(params[:id])
+    work = Work.find(params.expect(:id))
     authorize! :read, work || Work
     return head(:not_found) if work.nil?
 
@@ -32,7 +32,7 @@ module LinkedMembers
   end
 
   def add_linked_member
-    work = Work.find(params[:id])
+    work = Work.find(params.expect(:id))
     authorize! :link_member, work
     return head(:not_found) if work.nil?
 
@@ -47,7 +47,7 @@ module LinkedMembers
   end
 
   def remove_linked_member
-    work = Work.find(params[:id])
+    work = Work.find(params.expect(:id))
     authorize! :link_member, work
     return head(:not_found) if work.nil?
 
@@ -66,7 +66,7 @@ module LinkedMembers
     # collection_id is request input (body for POST, path for DELETE); an
     # unresolvable target is a 422, not a 404 (the 404 is the Work itself).
     def linked_member_target
-      target = Resource.find(params[:collection_id])
+      target = Resource.find(params.expect(:collection_id))
       return target unless target.nil?
 
       raise Exceptions::LinkedMemberError.new('target_not_found', "collection #{params[:collection_id]} not found")

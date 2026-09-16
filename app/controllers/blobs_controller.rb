@@ -17,7 +17,7 @@ class BlobsController < ApplicationController
   end
 
   def show
-    @blob = Blob.find(params[:id])
+    @blob = Blob.find(params.expect(:id))
     authorize! :read, @blob || Blob
     return head(:not_found) if @blob.nil?
 
@@ -58,10 +58,11 @@ class BlobsController < ApplicationController
       return render_idempotent_resource(@blob, view: :update)
     end
 
-    blob = Blob.find(params[:id])
+    blob = Blob.find(params.expect(:id))
     return head(:not_found) if blob.nil?
 
-    path = params[:binary].tempfile.path.presence || params[:binary].path
+    binary = params.expect(:binary)
+    path = binary.tempfile.path.presence || binary.path
     verify_digest!(path, params[:expected_digest])
     @blob = append_revision(blob, create_file(path, blob).version_id, source_path: path)
     record_idempotency_key!(@blob.noid, Blob)
@@ -79,7 +80,7 @@ class BlobsController < ApplicationController
   # tolerates an unresolvable id).
   def versions
     authorize! :read_versions, Blob
-    @blob = Blob.find(params[:id])
+    @blob = Blob.find(params.expect(:id))
     return head(:not_found) if @blob.nil?
 
     @versions = BinaryVersionHistory.descriptors(blob: @blob)
@@ -112,7 +113,7 @@ class BlobsController < ApplicationController
   # resolves through the version history so only listed content revisions are
   # addressable. Unknown id or version → 404.
   def version_content
-    blob = Blob.find(params[:id])
+    blob = Blob.find(params.expect(:id))
     authorize! :read, blob || Blob
     return head(:not_found) if blob.nil?
 
@@ -132,7 +133,7 @@ class BlobsController < ApplicationController
   # version → 404.
   def rollback
     authorize! :update, Blob
-    blob = Blob.find(params[:id])
+    blob = Blob.find(params.expect(:id))
     return head(:not_found) if blob.nil?
 
     file = BinaryVersionHistory.find_file(blob: blob, version_id: params[:version_id])
@@ -146,7 +147,7 @@ class BlobsController < ApplicationController
 
   def destroy
     authorize! :destroy, Blob
-    blob = Blob.find(params[:id])
+    blob = Blob.find(params.expect(:id))
     return head(:not_found) if blob.nil?
 
     parent_fs = blob.parent
@@ -175,7 +176,7 @@ class BlobsController < ApplicationController
   # un-comment the X-Accel-Redirect line in config/environments/production.rb
   # so nginx handles byte-serving — and Range — natively.
   def content
-    blob = Blob.find(params[:id])
+    blob = Blob.find(params.expect(:id))
     authorize! :read, blob || Blob
     return head(:not_found) if blob.nil?
 
@@ -196,7 +197,7 @@ class BlobsController < ApplicationController
   # Blob floor (like #content / #show). Unknown id → 404; either ancestor is
   # null when unresolvable (e.g. an orphan blob with no FileSet parent).
   def ancestry
-    @blob = Blob.find(params[:id])
+    @blob = Blob.find(params.expect(:id))
     authorize! :read, @blob || Blob
     return head(:not_found) if @blob.nil?
 

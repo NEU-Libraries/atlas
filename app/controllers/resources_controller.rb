@@ -13,7 +13,7 @@ class ResourcesController < ApplicationController
   }.freeze
 
   def show
-    resource = Resource.find(params[:id])
+    resource = Resource.find(params.expect(:id))
     authorize! :read, resource || Resource
     return head(:not_found) if resource.nil?
 
@@ -44,7 +44,7 @@ class ResourcesController < ApplicationController
   # something they cannot see. Cerberus reads this to drive its own gate, and
   # its callers hold either read or edit rights, both of which pass here.
   def permissions
-    resource = Resource.find(params[:id])
+    resource = Resource.find(params.expect(:id))
     authorize! :read, resource || Resource
     return head(:not_found) if resource.nil?
 
@@ -72,7 +72,7 @@ class ResourcesController < ApplicationController
   # rather than the admin attribution gate #mods_versions uses.
   # Unknown version / absent MODS → 404.
   def mods_version
-    resource = Resource.find(params[:id])
+    resource = Resource.find(params.expect(:id))
     authorize! :read, resource || Resource
     xml = MODSVersionHistory.fetch_xml(resource: resource, version_id: params[:version_id])
     return head(:not_found) if xml.nil?
@@ -93,7 +93,7 @@ class ResourcesController < ApplicationController
   # 500. Unknown id, non-Modsable type, or absent MODS all → 404, as the typed
   # actions do.
   def mods
-    resource = Resource.find(params[:id])
+    resource = Resource.find(params.expect(:id))
     authorize! :read, resource || Resource
     return head(:not_found) unless resource && TYPED_MODS_VIEWS.key?(resource.class) && resource.mods
 
@@ -141,7 +141,7 @@ class ResourcesController < ApplicationController
   # 404 (falling back to the Resource class for an unresolvable id) so the
   # check_authorization hook can't turn a miss into a 500. Unknown id → 404.
   def descendant_works
-    resource = Resource.find(params[:id])
+    resource = Resource.find(params.expect(:id))
     authorize! :read, resource || Resource
     return head(:not_found) if resource.nil?
 
@@ -164,7 +164,7 @@ class ResourcesController < ApplicationController
   # an operational action, never a user one. Idempotent. Unknown id -> 404.
   def reindex
     authorize! :reindex, Resource
-    resource = Resource.find(params[:id])
+    resource = Resource.find(params.expect(:id))
     return head(:not_found) if resource.nil?
 
     Atlas.index_adapter.persister.save(resource: resource)
@@ -182,7 +182,7 @@ class ResourcesController < ApplicationController
   # in chunks. Unknown id -> 404. Returns the count re-projected.
   def reindex_subtree
     authorize! :reindex, Resource
-    resource = Resource.find(params[:id])
+    resource = Resource.find(params.expect(:id))
     return head(:not_found) if resource.nil?
 
     count = SubtreeReindexer.call(resources: SubtreeResourcesQuery.call(resource))

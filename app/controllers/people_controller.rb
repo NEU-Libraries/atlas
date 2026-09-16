@@ -128,14 +128,14 @@ class PeopleController < ApplicationController
     # find_person_by_nuid is reserved for create's uniqueness guard and the
     # ?nuids= resolve batch.
     def find_person
-      resource = Resource.find(params[:id])
+      resource = Resource.find(params.expect(:id))
       resource if resource.is_a?(Person)
     end
 
     # Affiliations are to Communities specifically; a non-Community id is
     # treated as unknown.
     def resolve_community
-      resource = Resource.find(params[:community_id])
+      resource = Resource.find(params.expect(:community_id))
       resource.is_a?(Community) ? resource : nil
     end
 

@@ -123,7 +123,7 @@ class CompilationsController < ApplicationController
     end
 
     def find_compilation
-      Compilation.find_by!(noid: params[:id])
+      Compilation.find_by!(noid: params.expect(:id))
     end
 
     # Returns the pre-edit audited ACL when the request carried a
@@ -134,7 +134,7 @@ class CompilationsController < ApplicationController
 
       before_acl = @compilation.audited_acl
       @compilation.permissions =
-        params.require(:permissions).permit(read: [], edit: [], edit_users: [])
+        params.expect(permissions: [read: [], edit: [], edit_users: []])
       before_acl
     end
 

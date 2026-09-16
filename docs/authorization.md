@@ -256,6 +256,56 @@ Each grant is a named carve-out beneath the wildcard, not a promotion:
 - **`:read_versions` on `Blob`.** A narrower verb than `:read, AuditEvent`, so the
   grant cannot be mistaken for opening the audit-history surface.
 
+### The tier depends on two different Grouper groups
+
+**This matters when debugging a 403 on an admin surface, because the group that
+opens the door is not the group that delivers the data.**
+
+| What | Comes from | Checked by |
+|---|---|---|
+| The operator verbs above | `repository:admin`, with the `:privileged` role | `User#admin_delegate?`, in Atlas and in Cerberus |
+| Read and edit access to resources | `repository:staff` | The resource's own `edit_groups`, through `edit_grants?` |
+
+`admin_delegate?` requires **only** the admin group. It says nothing about
+`STAFF_EDIT_GROUP`, and neither does Cerberus's identical definition.
+
+So a person in `repository:admin` but **not** `repository:staff` satisfies every
+gate that guards an admin screen and can still read nothing. Cerberus's
+`require_admin_or_delegate` lets them in; the first `atlas_rb` call on the page
+raises `ForbiddenError`. The symptom looks like a broken button and is actually a
+group-membership gap.
+
+**The Grouper configuration has to keep `repository:admin` a subset of
+`repository:staff`.** Atlas cannot see that and does not enforce it. If that
+assumption ever needs to stop being an assumption, the change is to require both
+groups in `admin_delegate?` — in both repositories together, since it narrows who
+reaches an admin surface.
+
+### Why the tier reads every Work
+
+`permissions=` prepends `STAFF_EDIT_GROUP` whenever the incoming list omits it,
+and `delete_edit_group` refuses to remove it. `WorkCreator`, `CollectionCreator`,
+`FileSetCreator`, `BlobCreator` and `DelegateCreator` all assign
+`parent.permissions` through that setter, so the prepend lands even when the
+parent's own list is empty.
+
+The consequence is easy to miss: **every Work carries
+`edit: [repository:staff]`, and edit implies read**, so a delegate holding the
+staff group reads and edits every Work in the repository — including a Work with
+no read groups at all. That is deliberate, and it is what makes the admin
+surfaces work without a repo-wide read grant.
+
+Three resources sit outside that guarantee, none of them on the Work path:
+
+- A **root Community**. `CommunityCreator` guards the copy with
+  `if community.parent.present?`, so a root keeps an empty `edit_groups`. Its
+  descendants are unaffected, because the setter prepends on copy regardless.
+- A **Person**. `PersonCreator` calls `publicize` rather than `permissions=`, so
+  a Person is world-readable and carries no staff edit grant.
+- An **orphan Blob**. `BlobCreator` copies permissions only when it has a
+  `work_id`, and `read_authority` answers nil for a leaf with no parent, which
+  callers read as deny.
+
 ## The ACL envelope
 
 `Permissions` defines the ACL on a Valkyrie resource, and

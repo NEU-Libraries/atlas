@@ -1,15 +1,10 @@
 # frozen_string_literal: true
 
 class MODSIndexer
-  # Projected MODS field => the Solr field it lands in. This mirrors
-  # WorkDecorator::DISPLAY: one declarative row per indexed field, so a field
-  # cannot be projected, stored, displayed and then silently absent from
-  # discovery. That is exactly what happened to `languages` -- extracted,
-  # rendered, and zero values in Solr across every document, so a language
-  # facet was impossible rather than merely unconfigured.
-  #
-  # The names follow what Cerberus's Blacklight config already declares, so
-  # repointing a facet is a config change there rather than a rename here.
+  # One declarative row per indexed field, mirroring WorkDecorator::DISPLAY, so
+  # a field cannot be projected, stored, displayed and then silently absent
+  # from discovery. The names are Cerberus's Blacklight config, so repointing a
+  # facet is a config change there rather than a rename here.
   SOLR_FIELDS = {
     # The four variant titles share one match-only field. They must not join
     # title_tsim: that is the heading a result row renders, so adding a variant
@@ -21,19 +16,14 @@ class MODSIndexer
     languages:                        :language_ssim,
     place_of_publication:             :place_ssim,
 
-    # Joins the Places facet at its narrowest named level. bdr_43888.mods.xml
-    # uses this axis INSTEAD of subject/geographic, so without this row that
-    # record is browsable by no place at all. The one subject axis NOT indexed
-    # through AXIS_FIELDS below, because the narrowest level is what a reader
-    # browsing Places wants and the heading composes a whole path.
+    # The one subject axis NOT indexed through AXIS_FIELDS below: a reader
+    # browsing Places wants the narrowest level, and the heading composes a
+    # whole path. Some records use this axis INSTEAD of subject/geographic.
     hierarchical_geographic_subjects: :subject_geo_ssim,
 
-    # DRS writes IPTC photo categories here -- portraits, community outreach --
-    # rather than the classification-scheme value MODS defines the element for,
-    # so the Solr field is named for what it actually holds. NOT
-    # classification_ssim: that field carries the FileSet content-type
-    # vocabulary (Image, Map, Musical Notation) and drives Cerberus's shipped
-    # Content facet, so mixing the two would corrupt a working facet.
+    # NOT classification_ssim -- that field carries the FileSet content-type
+    # vocabulary and drives Cerberus's shipped Content facet, so mixing the two
+    # corrupts a working facet. DRS writes IPTC photo categories here.
     classification:                   :photo_category_ssim,
 
     # Its own field rather than folded into description_tsim. A chapter list is
@@ -45,27 +35,18 @@ class MODSIndexer
     publication_information:          :publisher_ssim,
     related_series:                   :series_ssim,
     host_collections:                 :host_collection_ssim,
-    # Searchable, not facetable: faceting on an identifier would make one
-    # bucket per record. Being *searched* also needs the field in the request
-    # handler's qf, which the blacklight-solr image owns -- indexing it here is
-    # necessary and not sufficient.
+    # Searchable, not facetable. Being searched also needs the field in the
+    # request handler's qf, which the blacklight-solr image owns.
     identifiers:                      :identifier_tesim
   }.freeze
 
-  # Fields whose members are models rather than strings: the member attribute
-  # that carries the indexable text. A DOI has to reach Solr as the digits a
-  # reader pastes, not as the model's inspect output. A host facets on its title
-  # alone -- bucketing on the composed citation would make one bucket per
-  # article, since the volume and pages differ on every record.
-  # A language facets on its term alone. The @objectPart qualifies the row a
-  # reader sees, but bucketing "Spanish (subtitles)" apart from "Spanish" would
-  # split one language across two facet entries and hide the record from a
-  # reader browsing either.
-  # Every field a record can re-head with @displayLabel projects as
-  # { value:, display_label:, href: }, and Solr takes the value: a record that
-  # re-heads its place row has not moved the place. Those rows are DERIVED from
-  # the access copy's own declaration rather than restated, so a field that
-  # gains a header cannot start indexing a model's inspect output.
+  # For fields whose members are models: the attribute carrying the indexable
+  # text, so a DOI reaches Solr as digits and not as an inspect output. See
+  # docs/solr-indexing.md for why each one facets on the part it does.
+  #
+  # The labeled rows are DERIVED from the access copy's own declaration rather
+  # than restated, so a field that gains a header cannot start indexing a
+  # model's inspect output.
   LABELED_MEMBER_VALUES =
     (Metadata::MODS::LABELED_VALUE_FIELDS + Metadata::MODS::AUTHORIZED_VALUE_FIELDS +
       Metadata::MODS::ORIGIN_VALUE_FIELDS)
@@ -80,37 +61,23 @@ class MODSIndexer
   # that turns one entry into the string Solr should hold.
   SOLR_MEMBER_COMPOSERS = { hierarchical_geographic_subjects: :narrowest_place }.freeze
 
-  # Projected fields that choose their Solr field PER VALUE rather than per
-  # field: the axis vocabulary each one is indexed through. subject_headings is
-  # the only such field, and it has to be one -- every subject axis arrives
-  # under it, and a heading belongs in the facet of its own axis. Kept as a
-  # third bucket beside SOLR_FIELDS and NOT_INDEXED so the coverage guard can
-  # tell "indexed differently" from "deliberately not indexed".
+  # Fields choosing their Solr field PER VALUE. A third bucket beside
+  # SOLR_FIELDS and NOT_INDEXED so the coverage guard can tell "indexed
+  # differently" from "deliberately not indexed".
   #
-  # A heading is indexed as the WHOLE composed heading, not as its parts, which
-  # is the librarians' decision and the one part of the browse work that is not
-  # additive: "Emergency management" and "Planning" used to be two subject_ssim
-  # values and are now one, "Emergency management -- Planning". A single-child
-  # subject is untouched. The known cost, accepted: a whole-heading entry does
-  # not roll up into its parts, so a reader on the subdivided heading never
-  # sees the plain-topic records. The agreed exit is to index the heading AND
-  # its parts, which is another reindex rather than a migration -- which is why
-  # this emits a list per field and never a scalar.
+  # Emits a LIST per field and never a scalar: a heading is indexed whole
+  # today, and the agreed exit is to index the heading AND its parts.
   #
-  # The axis comes off the STORED access copy, so `rake atlas:mods:reproject`
-  # has to run before a reindex when the gem's projection is newer than the
-  # rows. An access copy written before neu-mods 0.14.0 names no axis, and a
-  # reindex over those rows would empty every subject facet rather than move
-  # it. The XML is the source of truth, so the recovery is to reproject and
-  # reindex again -- but the order is not optional.
+  # ORDERING TRAP: the axis comes off the STORED access copy, so
+  # `rake atlas:mods:reproject` must run BEFORE a reindex when the gem's
+  # projection is newer than the rows. A reindex over rows that name no axis
+  # empties every subject facet rather than moving it.
   AXIS_FIELDS = { subject_headings: MODSBrowse::SUBJECT_AXES }.freeze
 
-  # The parts every projected date carries beside its value, and why none of
-  # them is indexed. Derived onto each date below rather than written out:
-  # seven dates times six parts is forty-two near-identical rows, and a date
-  # added to the gem would need six more of them or the coverage guard fails
-  # on fields nobody meant to index. The date's own header and event type are
-  # not here -- COMPANIONS_NOT_INDEXED covers every field's, dates included.
+  # Derived onto each date below rather than written out: a date added to the
+  # gem would otherwise need six more rows or the coverage guard fails on
+  # fields nobody meant to index. Headers and event types are not here --
+  # COMPANIONS_NOT_INDEXED covers every field's, dates included.
   DATE_PART_REASONS = {
     'precision'     => 'chooses a display format; not a value a reader searches',
     'end'           => 'the far end of a range; a range sorts and facets on its start',
@@ -120,18 +87,15 @@ class MODSIndexer
     'text'          => 'the literal of a date that is not w3cdtf; a display value, and unsortable'
   }.freeze
 
-  # Every date the gem projects, found by its key-date flag, times the six
-  # parts above.
+  # Every date the gem projects, found by its key-date flag.
   DATE_PARTS_NOT_INDEXED = NEU::MODS::FIELDS.keys.grep(/_key_date\z/).each_with_object({}) do |flag, hsh|
     prefix = flag.to_s.delete_suffix('_key_date')
     DATE_PART_REASONS.each { |part, reason| hsh[:"#{prefix}_#{part}"] = reason }
   end.freeze
 
-  # A header or a link a record attached to a field, found by its suffix. None
-  # is indexed, for the reason the date parts are not: a display value is not a
-  # term a reader types, and faceting on one would bucket records by their
-  # cataloguer's wording rather than by what they are about. Derived so a field
-  # that gains a companion cannot go unlisted and fail the coverage guard.
+  # Derived so a field that gains a companion cannot go unlisted and fail the
+  # coverage guard. None is indexed: faceting on a display value buckets
+  # records by their cataloguer's wording, not by what they are about.
   COMPANION_SUFFIXES = /_(display_label|href|event_type)\z/
 
   COMPANION_REASON = 'a header or a link a record asked for; not a term a reader searches'
@@ -139,10 +103,8 @@ class MODSIndexer
   COMPANIONS_NOT_INDEXED =
     NEU::MODS::FIELDS.keys.grep(COMPANION_SUFFIXES).index_with { COMPANION_REASON }.freeze
 
-  # Projected fields this indexer does not write, and why. Kept as a map rather
-  # than a list so "another indexer owns it" is distinguishable from "no
-  # discovery value" -- the two are different decisions, and only the second is
-  # one to revisit.
+  # A map rather than a list so "another indexer owns it" is distinguishable
+  # from "no discovery value". Only the second is a decision to revisit.
   NOT_INDEXED = {
     main_title:                 'title_tsim / title_plain_tsim here, title_ssi in SortIndexer',
     names:                      'creator_ssim + contributor_ssim in CitationIndexer, creator_ssi in SortIndexer',
@@ -198,10 +160,9 @@ class MODSIndexer
     # can find stuck deposits even before MODS metadata is filled in.
     fields[:in_progress_bsi] = resource.in_progress if resource.respond_to?(:in_progress)
 
-    # The pipeline-failure pair (Work#incomplete). Both go to Solr because a
-    # consumer renders the "Incomplete" pill and its cause straight from the
-    # search document — an unindexed field cannot drive it, and a per-row
-    # fetch to read one flag would defeat the result list.
+    # Both reach Solr because a consumer renders the "Incomplete" pill and its
+    # cause straight from the search document; a per-row fetch to read one flag
+    # would defeat the result list.
     if resource.respond_to?(:incomplete)
       fields[:incomplete_bsi]        = resource.incomplete
       fields[:incomplete_reason_ssi] = resource.incomplete_reason
@@ -238,18 +199,14 @@ class MODSIndexer
       values.compact_blank
     end
 
-    # The narrowest level a hierarchical place names. A reader browsing Places
-    # wants Parksville, not United States -- and the broader levels are implied
-    # by the narrow one, so indexing all of them would bury the useful value
-    # under a continent every record shares.
+    # Broader levels are implied by the narrow one, so indexing all of them
+    # buries the useful value under a continent every record shares.
     def narrowest_place(entry)
       WorkDecorator::PLACE_LEVELS.reverse.filter_map { |level| entry.public_send(level).presence }.first
     end
 
-    # One Solr field per SOLR_FIELDS row. A field is written only when it has a
-    # value, so a sparse record does not carry empty facet entries; it appears
-    # the next time the resource is saved or reindexed, the same lifecycle
-    # genre_ssim has.
+    # Written only when the field has a value, so a sparse record carries no
+    # empty facet entries.
     def add_descriptive_fields(fields)
       mods = decorated_resource.mods
       return if mods.nil?
@@ -282,16 +239,11 @@ class MODSIndexer
       fields[solr_field] = (fields.fetch(solr_field, []) + values).uniq
     end
 
-    # title_tsim is both the match field and the display field a result row
-    # renders, so it keeps the record's <sub>/<sup> markup -- which makes Solr
-    # tokenise "sub" as a term of its own and leaves "Bi2Sr2CaCu2O8", the
-    # formula a reader types, matching nothing. title_plain_tsim is the
-    # match-only twin: the same title with the markup removed. Stripping
-    # title_tsim instead would fix matching and break every result heading.
-    #
-    # Written only when the two differ, so an ordinary title is not indexed
-    # twice. Being searched needs the field in the request handler's qf, which
-    # the blacklight-solr image owns, as it does for full_text_tesimv.
+    # The match-only twin of title_tsim, which keeps the record's <sub>/<sup>
+    # markup because it is also the display field -- and that markup leaves
+    # "Bi2Sr2CaCu2O8" matching nothing. Stripping title_tsim instead would fix
+    # matching and break every result heading. Written only when the two
+    # differ.
     def add_match_title(fields, title)
       plain = EnhancedText.strip(title)
       fields[:title_plain_tsim] = plain unless plain == title

@@ -1,22 +1,14 @@
 # frozen_string_literal: true
 
-# Projects thumbnail-family Delegate URIs from a resource's
-# `:derivative` FileSet onto the resource's own Solr doc, so Blacklight
-# (Cerberus's catalog) can render row thumbnails without re-assembling
-# IIIF URLs from a UUID.
+# Thumbnail-family Delegate URIs from a resource's :derivative FileSet,
+# projected onto the resource's own Solr doc so Blacklight can render row
+# thumbnails without re-assembling IIIF URLs from a UUID.
 #
-# Atlas and Cerberus share the same Solr core (blacklight-core), so an
-# Atlas-side indexer is enough to feed Cerberus's catalog reads — no
-# Cerberus-side Solr write path needed.
+# to_solr runs when the PARENT is saved, which is why DelegateCreator and
+# DelegateUpdater re-save the parent after mutating a Delegate.
 #
-# Returns an empty hash for resources without a derivative FileSet (Blobs,
-# Delegates, FileSets themselves, and resources whose ingest hasn't minted
-# derivatives yet). The composite indexer fires for every resource save;
-# this keeps the fast path fast.
-#
-# `to_solr` runs when the *parent* resource is saved — DelegateCreator and
-# DelegateUpdater explicitly re-save the parent after mutating a Delegate
-# so the parent's Solr doc reprojects with the new URIs.
+# The composite indexer fires on every resource save, so the empty-hash early
+# return below is what keeps the fast path fast.
 class ThumbnailIndexer
   attr_reader :resource
 

@@ -146,11 +146,16 @@ on boot, so a fresh checkout is one command away from a working API.
 ## Tests
 
 ```bash
-docker compose exec web bundle exec rake          # full suite
-docker compose exec web bundle exec rspec spec/requests/   # contract specs (rswag)
-docker compose exec web bundle exec rspec spec/integration/   # atlas_rb client round-trips
-docker compose exec web bundle exec rake rswag:specs:swaggerize   # regenerate openapi.yaml
+bin/spec spec/requests/works_spec.rb   # the everyday loop
+bin/parallel-spec                      # the whole suite, four workers
+rake smoke                             # is this checkout wired up?
+bin/openapi                            # regenerate openapi.yaml
 ```
+
+CI owns the full suite, so run the specs covering your change rather than
+everything. [`docs/testing.md`](docs/testing.md) covers the wrappers, the
+per-worker stores that make sharding safe, and the two guards that stop a run
+wiping the wrong thing.
 
 There are three concentric test layers:
 

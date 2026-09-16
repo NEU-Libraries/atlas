@@ -1,38 +1,23 @@
 # frozen_string_literal: true
 
-# One page of the OAI-PMH feed, straight off Solr.
+# One page of the OAI-PMH feed, straight off Solr. A sibling of
+# WorkDigestQuery rather than a subclass -- it shares the ref vocabulary and
+# almost no decisions. See docs/oai.md.
 #
-# A sibling of WorkDigestQuery rather than a subclass: it shares the ref
-# vocabulary and the recipe, but every other decision differs. It sorts by
-# datestamp, pages with a cursorMark instead of start/rows, carries the whole
-# MODS document in `fl`, keeps tombstoned records (they become
-# `<header status="deleted">`), and gates on the literal `public` group rather
-# than a caller's — a harvest feed has no authenticated principal, so the
-# public group is the whole of its visibility.
+# Gates on the LITERAL `public` group, not a caller's: a harvest feed has no
+# authenticated principal.
 #
-# Paging is Solr's cursorMark, which holds its cost flat however deep a
-# harvester walks; `start`/`rows` degrades on a large repository. It needs a
-# total sort order, which `oai_datestamp_dtsi asc, id asc` gives (id is
-# unique), and that order is also the one harvesters expect.
+# Two deliberate non-filters: `incomplete` Works stay IN (the flag flags
+# without hiding), and so do tombstoned ones, so a withdrawal is reportable.
 #
-# Two deliberate non-filters:
-#   - `incomplete` Works stay IN. The flag marks a degraded but readable
-#     record and, by design, flags without hiding — dropping them would make
-#     records vanish from Digital Commonwealth after a pipeline failure.
-#   - tombstoned Works stay IN, so a withdrawal is reportable. A Work that
-#     loses its public read group instead just disappears, which is why the
-#     provider declares `deletedRecord` as `transient`.
-#
-# `-in_progress_bsi:true` is negative on purpose: a document indexed before
-# the field existed carries no value, and `in_progress_bsi:false` would drop
-# it silently. (in_progress defaults to true and flips at
-# POST /works/:id/complete.)
+# `-in_progress_bsi:true` is negative on purpose -- a document indexed before
+# the field existed carries no value, and `in_progress_bsi:false` drops it
+# silently.
 class OAIWorksQuery
   include SolrRefs
   include CompilationRecipe
 
-  # Fields a record page needs. mods_xml_ss is the big one — a stored-only
-  # string holding the whole preservation MODS document, which is why
+  # mods_xml_ss holds the whole preservation MODS document, which is why
   # ListRecords pages smaller than ListIdentifiers.
   RECORD_FIELDS     = 'id,alternate_ids_ssim,oai_datestamp_dtsi,tombstoned_bsi,mods_xml_ss'
   IDENTIFIER_FIELDS = 'id,alternate_ids_ssim,oai_datestamp_dtsi,tombstoned_bsi'
@@ -40,13 +25,11 @@ class OAIWorksQuery
   Result = Struct.new(:docs, :cursor_mark, :total, keyword_init: true)
 
   # rubocop:disable Metrics/ParameterLists
-  # Each kwarg is one independent axis of a list request — which set, which
-  # date window, where in the walk, how big a page, how much of each record —
-  # and they come from five different places in OAI::Request. A single options
-  # hash would hide that contract.
+  # Each kwarg is one independent axis of a list request, arriving from five
+  # different places in OAI::Request; an options hash would hide the contract.
   #
-  # `compilation` nil means the whole repository: a bare ListRecords with no
-  # `set` argument, which the protocol requires a repository to answer.
+  # `compilation` nil means the whole repository -- a bare ListRecords, which
+  # the protocol requires a repository to answer.
   def self.call(compilation: nil, from: nil, until_time: nil, cursor_mark: '*', rows: 50, metadata: true)
     new(compilation: compilation, from: from, until_time: until_time,
         cursor_mark: cursor_mark, rows: rows, metadata: metadata).call
@@ -58,10 +41,9 @@ class OAIWorksQuery
     new(rows: 1).earliest_datestamp
   end
 
-  # One record by NOID, under exactly the same membership rules as a list
-  # page: a Work that is private, still in progress, or carries no datestamp
-  # is not in this repository at all, and the caller answers idDoesNotExist
-  # rather than leaking that it exists.
+  # Exactly the same membership rules as a list page, so a Work that fails
+  # them is not in this repository at all and the caller answers
+  # idDoesNotExist rather than leaking that it exists.
   def self.find(noid, metadata: true)
     new(rows: 1, metadata: metadata).find(noid)
   end
@@ -129,10 +111,9 @@ class OAIWorksQuery
       fq
     end
 
-    # A record must be a Work, publicly readable, and finished depositing.
-    # Every record also needs a datestamp: a Work indexed before OAIIndexer
-    # shipped has none, and a record with no datestamp cannot be harvested
-    # incrementally, so it stays out until the reindex backfill reaches it.
+    # Every record also needs a datestamp: one indexed before OAIIndexer
+    # shipped has none and cannot be harvested incrementally, so it stays out
+    # until the reindex backfill reaches it.
     def base_filters
       ['internal_resource_tesim:Work',
        'read_access_group_ssim:public',

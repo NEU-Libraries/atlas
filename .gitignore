@@ -40,7 +40,6 @@
 
 /config/credentials/development.key
 
-CLAUDE.md
 /.playwright-mcp/
 
 /.claude

@@ -59,8 +59,17 @@ RSpec.configure do |config|
        HANDLE_RESOLVER_BASE CERBERUS_PUBLIC_BASE].each { |key| ENV.delete(key) }
   end
 
+  # The preflight and the lock both run BEFORE the wipe, not after: the wipe is
+  # the destructive step, so anything that could veto it has to run first. The
+  # preflight checks which stores are about to be emptied; the lock stops a
+  # second run from emptying them mid-flight.
   config.before(:suite) do
-    FileUtils.rm_rf(Rails.root.join('tmp/files'))
+    SpecPreflight.assert_safe_to_wipe!
+    ExclusiveRunLock.acquire!
+  end
+
+  config.before(:suite) do
+    FileUtils.rm_rf(TestStorage.root)
     Atlas.persister.wipe!
     # AR-managed rows that integration specs commit outside the per-example
     # transaction (the Capybara::Server Puma thread holds its own connection

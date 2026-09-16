@@ -13,7 +13,8 @@ class Classification < Enumerations::Base
   value :audio,                 name: 'Audio'
   value :spreadsheet,           name: 'Spreadsheet'
   value :text,                  name: 'Text'
-  value :structured_text,       name: 'Structured Text' # text-encoded but structured/machine-readable: xml, csv, json, tsv
+  # Text-encoded but structured/machine-readable: xml, csv, json, tsv.
+  value :structured_text,       name: 'Structured Text'
   value :archive,               name: 'Archive'
   value :musical_notation,      name: 'Musical Notation'
   value :descriptive_metadata,  name: 'Descriptive Metadata' # fs only

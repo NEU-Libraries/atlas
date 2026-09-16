@@ -50,7 +50,7 @@ module StaleObjectRetry
         # decorrelation between concurrent retriers, avoiding the
         # lockstep-collision thundering herd that deterministic backoff
         # would cause.
-        sleep(rand(0..RETRY_BASE_SECONDS * (2**attempts)))
+        sleep(rand(0..(RETRY_BASE_SECONDS * (2**attempts))))
         retry
       end
     end

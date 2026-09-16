@@ -16,8 +16,8 @@ RSpec.describe ResourcePurger do
   describe '.call' do
     it 'removes the resource, its FileSets, and their Blobs from the metadata layer' do
       blob        = BlobCreator.call(path: fixture_path, work_id: work.noid, original_filename: 'example.png')
-      file_sets   = work.children.select { |c| c.is_a?(FileSet) }
-      blob_noids  = file_sets.flat_map { |fs| fs.children.select { |c| c.is_a?(Blob) } }.map(&:noid)
+      file_sets   = work.children.grep(FileSet)
+      blob_noids  = file_sets.flat_map { |fs| fs.children.grep(Blob) }.map(&:noid)
 
       expect(file_sets).not_to be_empty
       expect(blob_noids).to include(blob.noid)

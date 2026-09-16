@@ -125,7 +125,7 @@ describe CollectionsController, type: :controller do
 
       # Every container is minted with one, so it must not read as a member.
       it 'ignores its own descriptive-metadata FileSet' do
-        expect(collection.children.select { |c| c.is_a?(FileSet) }).not_to be_empty
+        expect(collection.children.grep(FileSet)).not_to be_empty
 
         delete :destroy, params: { id: collection.noid }, as: :json
 

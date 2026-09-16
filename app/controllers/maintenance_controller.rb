@@ -156,7 +156,9 @@ class MaintenanceController < ApplicationController
                           groups: ['northeastern:drs:all'])
       create_fixture_user(name: 'Doe, Jane', nuid: '000000002', role: :privileged,
                           email: 'dps@northeastern.edu',
-                          groups: ['northeastern:drs:repository:staff', 'northeastern:drs:repository:api', 'northeastern:drs:repository:admin'])
+                          groups: ['northeastern:drs:repository:staff',
+                                   'northeastern:drs:repository:api',
+                                   'northeastern:drs:repository:admin'])
       create_fixture_user(name: 'Williams, Susan', nuid: '000000006', role: :privileged,
                           email: 'susan@northeastern.edu',
                           groups: ['northeastern:drs:repository:staff', 'northeastern:drs:repository:api'])

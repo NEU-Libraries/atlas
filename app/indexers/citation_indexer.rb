@@ -72,6 +72,7 @@ class CitationIndexer
     end
 
     def pub_year
-      @pub_year ||= mods&.date_created&.year&.to_s
+      created = mods&.date_created
+      @pub_year ||= created&.year&.to_s
     end
 end

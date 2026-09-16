@@ -107,7 +107,8 @@ class SortIndexer
     # instead. Composition reuses the shared helper the display title uses, so
     # the two orders agree on subtitles and part numbers.
     def composed_title
-      parts = mods&.main_title&.attributes&.symbolize_keys
+      main_title = mods&.main_title
+      parts = main_title&.attributes&.symbolize_keys
       return nil if parts.blank?
 
       # Enhanced-text markup comes out before normalising: SORT_NOISE drops "<",

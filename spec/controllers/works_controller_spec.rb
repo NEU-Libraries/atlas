@@ -109,7 +109,7 @@ describe WorksController, type: :controller do
       it 'cascades into its FileSets and Blobs' do
         blob      = BlobCreator.call(path: Rails.root.join('spec/fixtures/files/example.png').to_s,
                                      work_id: work.noid, original_filename: 'example.png')
-        file_sets = work.children.select { |c| c.is_a?(FileSet) }
+        file_sets = work.children.grep(FileSet)
 
         delete :destroy, params: { id: work.noid }, as: :json
 

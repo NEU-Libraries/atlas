@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Communities
-# rubocop:disable Metrics/ClassLength
+# rubocop:disable-next Metrics/ClassLength
 class CommunitiesController < ApplicationController
   include LazyPagination
   include DelegateUris
@@ -198,4 +198,3 @@ class CommunitiesController < ApplicationController
       @community = audited_metadata_update(@community)
     end
 end
-# rubocop:enable Metrics/ClassLength

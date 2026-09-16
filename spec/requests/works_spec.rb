@@ -686,7 +686,7 @@ RSpec.describe 'Works', type: :request do
 
           reloaded = Work.find(work.noid)
           deriv_fs = reloaded.children.find { |c| c.is_a?(FileSet) && c.type == Classification.derivative.name }
-          members  = Atlas.query.find_members(resource: deriv_fs).to_a.select { |m| m.is_a?(Delegate) }
+          members  = Atlas.query.find_members(resource: deriv_fs).to_a.grep(Delegate)
           uses     = members.map(&:use)
           expect(uses).to contain_exactly(
             Role.thumbnail_image.name,
@@ -752,7 +752,7 @@ RSpec.describe 'Works', type: :request do
         run_test! do
           reloaded = Work.find(work.noid)
           deriv_fs = reloaded.children.find { |c| c.is_a?(FileSet) && c.type == Classification.derivative.name }
-          members = Atlas.query.find_members(resource: deriv_fs).to_a.select { |m| m.is_a?(Delegate) }
+          members = Atlas.query.find_members(resource: deriv_fs).to_a.grep(Delegate)
           uris_by_use = members.to_h { |m| [m.use, m.uri] }
           expect(uris_by_use).to eq(
             Role.small_image.name  => 'https://iiif.example/iiif/3/abc.jp2/full/800,/0/default.jpg',

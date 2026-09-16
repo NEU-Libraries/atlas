@@ -103,7 +103,7 @@ class BlobsController < ApplicationController
     ids = Array(params[:ids]).map(&:to_s).uniq
     blobs = Atlas.query.custom_queries
                  .find_many_by_alternate_identifiers(alternate_identifiers: ids)
-                 .select { |resource| resource.is_a?(Blob) }
+                 .grep(Blob)
     @histories = BinaryVersionHistory.descriptors_for_many(blobs: blobs)
   end
 

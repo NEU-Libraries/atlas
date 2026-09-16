@@ -120,6 +120,12 @@ Style/HashTransformKeys:
   Enabled: true
 Style/HashTransformValues:
   Enabled: true
+Naming/PredicateMethod:
+  # The OAI validate_* methods are commands: each calls error! on a bad
+  # argument and its return value is incidental. A `?` suffix would imply
+  # they answer a question, which no caller asks.
+  AllowedPatterns:
+    - '^validate_'
 Naming/VariableNumber:
   Enabled: false
 Lint/EmptyBlock:

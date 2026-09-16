@@ -134,7 +134,7 @@ class CompilationsController < ApplicationController
 
       before_acl = @compilation.audited_acl
       @compilation.permissions =
-        params.expect(permissions: [read: [], edit: [], edit_users: []])
+        params.expect(permissions: [{ read: [], edit: [], edit_users: [] }])
       before_acl
     end
 

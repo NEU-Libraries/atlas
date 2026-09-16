@@ -172,6 +172,7 @@ module DecoratorHelper
     # intact while peeling off stray ")Copyright..." text that ran on past
     # the URL.
     BRACKET_PAIRS = { ')' => '(', ']' => '[', '}' => '{' }.freeze
+    private_constant :BRACKET_PAIRS
 
     def split_at_url_boundary(str)
       depth = Hash.new(0)

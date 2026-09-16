@@ -32,7 +32,7 @@ class SubtreeResourcesQuery
 
   def call
     containers = [@resource] + @resource.descendant_collections
-    works = containers.flat_map(&:children).select { |child| child.is_a?(Work) }
+    works = containers.flat_map(&:children).grep(Work)
     (containers + works).uniq(&:id)
   end
 end

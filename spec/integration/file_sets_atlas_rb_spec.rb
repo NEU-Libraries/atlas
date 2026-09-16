@@ -66,7 +66,7 @@ RSpec.describe 'FileSets via atlas_rb', :atlas_rb_server do
 
       reloaded = FileSet.find(page['id'])
       deriv_fs = reloaded.children.find { |c| c.is_a?(FileSet) && c.type == Classification.derivative.name }
-      members  = Atlas.query.find_members(resource: deriv_fs).to_a.select { |m| m.is_a?(Delegate) }
+      members  = Atlas.query.find_members(resource: deriv_fs).to_a.grep(Delegate)
       expect(members.size).to eq(1)
       expect(members.first.uri).to eq('https://iiif.example/iiif/3/page1.jp2?v2')
     end

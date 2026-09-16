@@ -276,7 +276,7 @@ RSpec.describe 'FileSets', type: :request do
         run_test! do
           reloaded = FileSet.find(file_set.noid)
           deriv_fs = reloaded.children.find { |c| c.is_a?(FileSet) && c.type == Classification.derivative.name }
-          members  = Atlas.query.find_members(resource: deriv_fs).to_a.select { |m| m.is_a?(Delegate) }
+          members  = Atlas.query.find_members(resource: deriv_fs).to_a.grep(Delegate)
           expect(members.map { |m| [m.use, m.uri] })
             .to eq([[Role.service_file.name, 'https://iiif.example/iiif/3/abc.jp2']])
 
@@ -299,7 +299,7 @@ RSpec.describe 'FileSets', type: :request do
         run_test! do
           reloaded = FileSet.find(file_set.noid)
           deriv_fs = reloaded.children.find { |c| c.is_a?(FileSet) && c.type == Classification.derivative.name }
-          members  = Atlas.query.find_members(resource: deriv_fs).to_a.select { |m| m.is_a?(Delegate) }
+          members  = Atlas.query.find_members(resource: deriv_fs).to_a.grep(Delegate)
           expect(members.size).to eq(1)
           expect(members.first.uri).to eq('https://iiif.example/iiif/3/abc.jp2?v2')
         end

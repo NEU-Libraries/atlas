@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Collections
-# rubocop:disable Metrics/ClassLength
+# rubocop:disable-next Metrics/ClassLength
 class CollectionsController < ApplicationController
   include LazyPagination
   include DelegateUris
@@ -216,4 +216,3 @@ class CollectionsController < ApplicationController
       ActiveModel::Type::Boolean.new.cast(params[:featured]) || false
     end
 end
-# rubocop:enable Metrics/ClassLength

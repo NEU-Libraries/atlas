@@ -68,7 +68,7 @@ class ResourcePurger < ApplicationService
     end
 
     def children_of_type(resource, klass)
-      resource.children.select { |child| child.is_a?(klass) }
+      resource.children.grep(klass)
     end
 
     # One OCFL object per NOID holds both the resource's preservation envelope

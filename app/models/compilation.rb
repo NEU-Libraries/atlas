@@ -64,29 +64,27 @@ class Compilation < ApplicationRecord
   # A principal with neither a NUID nor any groups (e.g. guest) matches no
   # grant and gets an empty relation.
   def self.granted_to(nuid:, groups:, include_read:)
-    groups  = Array(groups)
-    clauses = []
-    binds   = []
+    grants = grant_clauses(nuid, Array(groups), include_read)
+    return none if grants.empty?
 
-    if nuid.present?
-      clauses << 'edit_users && ARRAY[?]::varchar[]'
-      binds   << [nuid]
-    end
-    if groups.any?
-      clauses << 'edit_groups && ARRAY[?]::varchar[]'
-      binds   << groups
-      if include_read
-        clauses << 'read_groups && ARRAY[?]::varchar[]'
-        binds   << groups
-      end
-    end
-
-    return none if clauses.empty?
-
-    scope = where("(#{clauses.join(' OR ')})", *binds)
+    scope = where("(#{grants.map(&:first).join(' OR ')})", *grants.map(&:last))
     scope = scope.where.not(depositor: nuid) if nuid.present?
     scope.order(created_at: :desc)
   end
+
+  # One [clause, bind] pair per grant axis that applies to this principal, in
+  # the order the OR is assembled. Postgres array overlap (&&) is the
+  # membership test; no pairs means the principal matches no grant at all.
+  def self.grant_clauses(nuid, groups, include_read)
+    pairs = []
+    pairs << ['edit_users && ARRAY[?]::varchar[]', [nuid]] if nuid.present?
+    if groups.any?
+      pairs << ['edit_groups && ARRAY[?]::varchar[]', groups]
+      pairs << ['read_groups && ARRAY[?]::varchar[]', groups] if include_read
+    end
+    pairs
+  end
+  private_class_method :grant_clauses
 
   def included_collections
     collection_inclusions.order(:id).pluck(:resource_noid)

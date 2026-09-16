@@ -106,7 +106,8 @@ class Work < Resource
   # children stay exclusively FileSets. Overrides Metsable's flat
   # member_ids storage, which fits FileSet but not Work.
   def mets_blob
-    structural_metadata_file_set&.files&.compact&.find { |b| b.use == Role.structural_metadata.name }
+    files = structural_metadata_file_set&.files
+    files&.compact&.find { |b| b.use == Role.structural_metadata.name }
   end
 
   private

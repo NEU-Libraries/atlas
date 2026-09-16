@@ -324,7 +324,7 @@ class Ability
       return false if authority.nil?
 
       authority.public? ||
-        (Array(authority.read_groups) & Array(user.groups)).any? ||
+        Array(authority.read_groups).intersect?(Array(user.groups)) ||
         edit_grants?(authority, user)
     end
 
@@ -333,7 +333,7 @@ class Ability
     def compilation_readable?(comp, user)
       comp.public? ||
         comp.depositor == user.nuid ||
-        (Array(comp.read_groups) & Array(user.groups)).any? ||
+        Array(comp.read_groups).intersect?(Array(user.groups)) ||
         group_acl_grants?(comp, user)
     end
 
@@ -344,7 +344,7 @@ class Ability
       return false if resource.nil?
 
       Array(resource.edit_users).include?(user.nuid) ||
-        (Array(resource.edit_groups) & Array(user.groups)).any?
+        Array(resource.edit_groups).intersect?(Array(user.groups))
     end
 
     # Edit-equivalent grant: an ACL match OR ownership. Ownership has to count

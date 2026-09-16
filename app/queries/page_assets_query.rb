@@ -30,7 +30,7 @@ class PageAssetsQuery
     # Level one is the union (the batched `children`), matching what the
     # unbatched read did; level two is member_ids only, matching find_members.
     direct = union_members(@file_sets)
-    nested = ordered_members(direct.values.flatten.select { |m| m.is_a?(FileSet) })
+    nested = ordered_members(direct.values.flatten.grep(FileSet))
 
     @file_sets.each_with_object({}) do |file_set, assets|
       members = direct.fetch(file_set.id.to_s, []).flat_map do |member|

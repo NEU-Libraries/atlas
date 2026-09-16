@@ -20,7 +20,7 @@ RSpec.describe SubtreeResourcesQuery do
   end
 
   it 'is a superset of the container-only cascade — it includes descendant Works' do
-    works = described_class.call(community).select { |r| r.is_a?(Work) }.map(&:noid)
+    works = described_class.call(community).grep(Work).map(&:noid)
 
     expect(works).to contain_exactly(work_top.noid, work_deep.noid, sibling_work.noid)
   end

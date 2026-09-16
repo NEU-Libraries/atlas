@@ -8,7 +8,9 @@ module Valkyrie
       # find_by doesn't leak file descriptors.
       class LazyFile
         def self.open(path, mode)
-          ::File.open(path, mode).close
+          # Opened and closed in one step purely to raise Errno::ENOENT for a
+          # missing path now, rather than when a delegated method first reads.
+          ::File.open(path, mode) { nil }
           new(path, mode)
         end
 

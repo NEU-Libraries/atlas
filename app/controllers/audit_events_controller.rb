@@ -1,39 +1,24 @@
 # frozen_string_literal: true
 
-# Admin-only history surface for a resource. Intentionally does NOT load the
-# Valkyrie resource for rendering — history rows exist for tombstoned or
-# destroyed resources too, and the audit trail must survive deletion of what it
-# audits. The lookup is keyed on the Valkyrie UUID the writer stores in
-# AuditEvent#resource_id, so we resolve the URL's NOID → UUID before scoping,
-# falling back to the raw param for already-destroyed resources and legacy
-# NOID-literal rows.
-# TODO: persist the NOID alongside the UUID at write time so post-destroy
-# lookups by NOID work natively, retiring the resolved_resource_id fallback.
+# Admin-only history surface. Deliberately does NOT load the Valkyrie
+# resource: the audit trail must survive deletion of what it audits. See
+# docs/write-safety.md.
+# TODO: persist the NOID alongside the UUID at write time, retiring the
+# resolved_resource_id fallback.
 class AuditEventsController < ApplicationController
   def index
     authorize! :read, AuditEvent
     @events = AuditEvent.for_resource(resolved_resource_id).recent
   end
 
-  # Session-scoped emit: an AuditEvent with no resource to hang on —
-  # impersonation start/end. The session lifecycle lives in the
-  # calling app (Cerberus, a cookie); view-as performs no resource writes
-  # at all, so there is no mutation to attach the event to. Principals
-  # travel in the body (self-describing) rather than inferred from headers,
-  # because an `impersonation_ended` emit fires as the session is torn down.
-  #
-  # Admin-gated: :admin carries `:create AuditEvent` via `manage :all`, and the
-  # devolved-admin tier carries it via Ability#apply_admin_delegate_abilities
-  # (both impersonation modes call this before establishing a session — Atlas
-  # trusts Cerberus's own admin-only gate on acting-as to decide which mode a
-  # delegate may reach). Every other principal — :system, :guest, standard
-  # humans — is denied 403.
+  # An AuditEvent with no resource to hang on: impersonation start and end.
+  # Principals travel in the BODY rather than headers, because an
+  # impersonation_ended emit fires as the session is torn down.
   def create
     authorize! :create, AuditEvent
 
-    # NB: read the body's `action` from request_parameters, not params —
-    # `params[:action]` is reserved by the router and resolves to the
-    # controller action name ("create"), shadowing the emit's action field.
+    # NOT params: params[:action] is reserved by the router and resolves to
+    # the controller action name, shadowing the emit's own action field.
     body = request.request_parameters
     @event = AuditEventWriter.record(
       actor_nuid:        body['actor_nuid'],
@@ -48,22 +33,17 @@ class AuditEventsController < ApplicationController
 
   private
 
-    # `mode` (acting_as / view_as) has no dedicated column — it's a property
-    # of the session, not the content graph — so it rides in the jsonb
-    # payload alongside any caller-supplied metadata.
+    # `mode` has no dedicated column: it is a property of the session, not
+    # the content graph.
     def session_payload(body)
       base = body['payload'].is_a?(Hash) ? body['payload'].dup : {}
       base['mode'] = body['mode'] if body['mode'].present?
       base
     end
 
-    # Resolve incoming NOID → canonical resource_id (Valkyrie UUID) the
-    # writer stores. If the resource is missing — destroyed, never
-    # existed, or a legacy row whose resource_id was the NOID itself —
-    # fall back to the raw param so older / test-fixture-shaped rows
-    # still match. `Resource.find` returns nil on miss (not raises), so
-    # safe-nav + .presence is the right shape; no exception handler
-    # needed.
+    # Falls back to the raw param for a destroyed resource or a legacy row
+    # whose resource_id was the NOID itself. Resource.find returns nil on a
+    # miss rather than raising, so safe-nav is the right shape here.
     def resolved_resource_id
       noid = params.expect(:id)
       Resource.find(noid)&.id&.to_s.presence || noid

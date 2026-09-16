@@ -1,25 +1,17 @@
 # frozen_string_literal: true
 
-# Controller-side provenance emission for resource edit / lifecycle / file
-# paths. The structural mutations (create, reparent, link/unlink) already emit
-# from their service objects; this concern closes the *content/metadata/
-# lifecycle/file* gap by giving the three resource controllers (and the blob
-# controller) a one-line emit at each save point, closing over the actor
-# plumbing the controllers already carry (`@current_user` actor, `@on_behalf_of`
-# attribution target — set in ApplicationController#require_auth).
+# Controller-side provenance emission. The structural mutations already emit
+# from their service objects; this closes the content, metadata, lifecycle and
+# file gap with a one-line emit at each save point. See docs/write-safety.md.
 module Auditable
   extend ActiveSupport::Concern
 
-  # Bound on the caller-asserted edit origin. Long enough for any surface
-  # name, short enough that a malformed client cannot grow the audit row.
+  # Free text from the wire lands in a jsonb column, so it is capped.
   ORIGIN_MAX_LENGTH = 64
 
-  # Emit a controller-sourced audit row for `resource`. actor / on-behalf-of
-  # and event_source are filled from request context so call sites stay to one
-  # line. The actor is the authenticated principal (`@current_user`), which is
-  # set on every auth path — NOT the `User:` header, which the signed-assertion
-  # relay doesn't send. No-ops for guest: a guest carries no provenance (and
-  # actor_nuid is NOT NULL), so guest reads / unauthenticated paths write nothing.
+  # The actor is the authenticated principal, NOT the `User:` header -- the
+  # signed-assertion relay does not send one. No-ops for a guest: a guest
+  # carries no provenance, and actor_nuid is NOT NULL.
   def audit!(resource:, action:, change_type:, payload: {}, note: nil)
     return if @current_user.nil? || @current_user.guest?
 
@@ -35,16 +27,10 @@ module Auditable
     )
   end
 
-  # The audit payload for a full-document MODS upload. `source` names the
-  # write path and is matched exactly by downstream renderers, so the editing
-  # surface rides beside it in `origin` rather than overloading it.
-  #
-  # `origin` is whatever the caller asserts (Cerberus sends `metadata_form`,
-  # `advanced_form` or `xml_editor`); Atlas stores it verbatim and never
-  # branches on it, so a new surface needs no Atlas change. It is capped at
-  # ORIGIN_MAX_LENGTH because it is free text from the wire landing in a
-  # jsonb column. The key is omitted when the caller sends nothing, which is
-  # what every event recorded before this field looks like.
+  # `source` is matched EXACTLY by downstream renderers, so the editing
+  # surface rides beside it in `origin` rather than overloading it. Atlas
+  # stores `origin` verbatim and never branches on it, so a new surface needs
+  # no Atlas change. The key is omitted when the caller sends nothing.
   def mods_audit_payload
     origin = params[:origin].to_s.strip
     return { source: 'mods' } if origin.empty?
@@ -52,13 +38,10 @@ module Auditable
     { source: 'mods', origin: origin.truncate(ORIGIN_MAX_LENGTH) }
   end
 
-  # Apply a metadata PATCH (permissions, + the test-only noid override),
-  # persist, re-emit the preservation envelope, and write the provenance
-  # row(s). Descriptive fields (title / description) are NOT writable here —
-  # the only MODS write path is the caller-assembled raw `mods_xml=` (binary
-  # upload); descriptive merges belong to the client (Cerberus / MODSMerge),
-  # not Atlas. Extracted here because Works / Collections / Communities drive
-  # this identically; returns the saved resource for the caller to assign.
+  # Descriptive fields are NOT writable here: the only MODS write path is the
+  # caller-assembled raw mods_xml= upload, and descriptive merges belong to
+  # the client. Extracted because all three resource types drive it
+  # identically.
   def audited_metadata_update(resource)
     metadata   = params[:metadata]
     before_acl = apply_metadata_params(resource, metadata)
@@ -70,18 +53,12 @@ module Auditable
 
   private
 
-    # Map the metadata params onto the resource. Only permissions (and the
-    # test-only noid override) are writable here; title / description keys are
-    # silently ignored — the descriptive write path is the raw `mods_xml=`
-    # binary upload, not this PATCH. Returns the pre-edit audited ACL when the
-    # request carried a permissions key (captured BEFORE reassignment so the
-    # permissions audit row can record before/after and so a no-op write can be
-    # detected), otherwise nil.
+    # before_acl is captured BEFORE reassignment, so the audit row can record
+    # both sides and a no-op write can be detected.
     #
-    # This is the single funnel every resource type's ACL write passes through,
-    # and the only place carrying both the acting user and the pre-edit state,
-    # so it is where PermissionsWriteGuard's rules apply — containment against
-    # the parent, and grant removal restricted to members of the group.
+    # The single funnel every resource type's ACL write passes through, and
+    # the only place carrying both the acting user and the pre-edit state --
+    # which is why PermissionsWriteGuard applies here.
     def apply_metadata_params(resource, metadata)
       # custom noid is a test-only affordance
       resource.alternate_ids = metadata['noid'] if Rails.env.test? && metadata['noid'].present?
@@ -94,15 +71,9 @@ module Auditable
       before_acl
     end
 
-    # The metadata PATCH only mutates permissions, so it emits at most one
-    # `permissions` row carrying the before/after ACL. (Descriptive `metadata`
-    # rows now come solely from the binary `mods_xml=` path, tagged
-    # `{ source: 'mods' }` by the controller's binary_update.)
-    #
-    # A permissions write whose effective ACL is unchanged (e.g. re-saving the
-    # Permissions tab without edits, or re-applying an inherited ACL) is a
-    # non-event — comparing the post-setter normalized ACLs (incl. the staff
-    # auto-prepend) suppresses the spurious "Updated · Permissions" row.
+    # A write whose effective ACL is unchanged is a non-event. Comparing the
+    # POST-SETTER normalized ACLs, staff auto-prepend included, is what
+    # suppresses the spurious "Updated - Permissions" row.
     def audit_metadata_update!(resource:, before_acl:)
       return if before_acl.nil?
 
@@ -113,9 +84,8 @@ module Auditable
              payload: { before: before_acl, after: after_acl })
     end
 
-    # Order-insensitive ACL comparison for no-op detection: a group list that
-    # differs only in order is the same grant, so sort array values before
-    # comparing. The payload still records the ACLs in their stored order.
+    # A group list differing only in order is the same grant. The payload
+    # still records the ACLs in their stored order.
     def acl_equivalent?(before, after)
       normalize = ->(acl) { acl.transform_values { |v| v.is_a?(Array) ? v.sort : v } }
       normalize.call(before) == normalize.call(after)

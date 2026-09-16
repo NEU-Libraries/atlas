@@ -56,21 +56,21 @@ RSpec.describe 'Work associations via atlas_rb', :atlas_rb_server do
   end
 
   it 'raises a typed WorkAssociationError on an unknown relationship type' do
-    expect {
+    expect do
       AtlasRb::Work.associate(codebook.noid, dataset.noid, type: 'is_sequel_to', nuid: admin_nuid)
-    }.to raise_error(AtlasRb::WorkAssociationError) { |e| expect(e.code).to eq('invalid_type') }
+    end.to raise_error(AtlasRb::WorkAssociationError) { |e| expect(e.code).to eq('invalid_type') }
   end
 
   it 'raises a typed WorkAssociationError on a non-Work target' do
-    expect {
+    expect do
       AtlasRb::Work.associate(codebook.noid, collection.noid, type: 'is_codebook_for', nuid: admin_nuid)
-    }.to raise_error(AtlasRb::WorkAssociationError) { |e| expect(e.code).to eq('invalid_target_type') }
+    end.to raise_error(AtlasRb::WorkAssociationError) { |e| expect(e.code).to eq('invalid_target_type') }
   end
 
   it 'raises ForbiddenError for a non-admin principal' do
-    expect {
+    expect do
       AtlasRb::Work.associate(codebook.noid, dataset.noid, type: 'is_codebook_for', nuid: editor.nuid)
-    }.to raise_error(AtlasRb::ForbiddenError)
+    end.to raise_error(AtlasRb::ForbiddenError)
   end
 
   # Listing sits on the resource read gate, not an operator gate, so an ordinary

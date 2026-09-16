@@ -97,8 +97,8 @@ module OAI
       # A name matches on any of its roles, so one recorded as both author and
       # thesis advisor harvests as both dc:creator and dc:contributor -- which
       # is what the record asserts, and what the display shows.
-      def names_with_role
-        Array(mods&.names).select { |n| roles_of(n).any? { |role| yield(role) } }.map(&:name)
+      def names_with_role(&)
+        Array(mods&.names).select { |n| roles_of(n).any?(&) }.map(&:name)
       end
 
       # A role-less name keeps the single nil this crosswalk was written around:

@@ -3,6 +3,7 @@
 # User
 class User < ApplicationRecord
   include Devise::JWT::RevocationStrategies::JTIMatcher
+
   # Include default devise modules. Others available are:
   # :confirmable, :lockable, :timeoutable, :trackable and :omniauthable
   devise :database_authenticatable, :registerable,
@@ -95,7 +96,7 @@ class User < ApplicationRecord
   end
 
   def add_group(group)
-    gl = (groups.presence || [])
+    gl = groups.presence || []
     gl << group
     self.groups = gl.uniq
     save!

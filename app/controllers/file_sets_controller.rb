@@ -26,9 +26,10 @@ class FileSetsController < ApplicationController
   def mets
     @file_set = FileSet.find(params[:id])
     authorize! :read, @file_set || FileSet
-    return head(:not_found) if @file_set.nil?
-    return head(:not_found) if Classification.metadata?(@file_set.type)
-    return head(:not_found) if @file_set.mets.nil?
+
+    head(:not_found) if @file_set.nil? ||
+                        Classification.metadata?(@file_set.type) ||
+                        @file_set.mets.nil?
   end
 
   def create
@@ -69,7 +70,7 @@ class FileSetsController < ApplicationController
 
     file = params[:binary]
     BlobCreator.call(
-      path:              (file.tempfile.path.presence || file.path),
+      path:              file.tempfile.path.presence || file.path,
       file_set_id:       params[:id],
       original_filename: params[:original_filename],
       expected_digest:   params[:expected_digest]

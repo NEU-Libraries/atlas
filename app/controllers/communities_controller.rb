@@ -116,7 +116,7 @@ class CommunitiesController < ApplicationController
     if @community.filtered_children.any?
       render json:   { error: 'cannot destroy a community that still has members',
                        code:  'has_children' },
-             status: :unprocessable_entity and return
+             status: :unprocessable_content and return
     end
 
     ResourcePurger.call(resource: @community, actor_nuid: @current_user&.nuid,
@@ -131,7 +131,7 @@ class CommunitiesController < ApplicationController
     if @community.live_children?
       render json:   { error: 'cannot tombstone a non-empty community',
                        code:  'has_live_children' },
-             status: :unprocessable_entity and return
+             status: :unprocessable_content and return
     end
 
     @community.tombstone(by: @current_user&.nuid)

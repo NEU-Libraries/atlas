@@ -25,18 +25,18 @@ module Valkyrie
         @persister = persister
       end
 
-      def save(resource:, **opts)
-        @persister.save(resource: resource, **opts).tap { |saved| evict(saved) }
+      def save(resource:, **)
+        @persister.save(resource: resource, **).tap { |saved| evict(saved) }
       end
 
-      def save_all(resources:, **opts)
-        @persister.save_all(resources: resources, **opts).tap do |saved|
+      def save_all(resources:, **)
+        @persister.save_all(resources: resources, **).tap do |saved|
           evict_many(Array(saved))
         end
       end
 
-      def delete(resource:, **opts)
-        @persister.delete(resource: resource, **opts).tap { |deleted| evict(deleted) }
+      def delete(resource:, **)
+        @persister.delete(resource: resource, **).tap { |deleted| evict(deleted) }
       end
 
       def wipe!(...)

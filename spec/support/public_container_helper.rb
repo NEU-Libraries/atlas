@@ -9,8 +9,8 @@
 # (Cerberus's seed publicizes the root Community first, then descends), so
 # using this in place of a bare CommunityCreator.call keeps the fixture shaped
 # like the real thing.
-def public_community!(**kwargs)
-  community = CommunityCreator.call(**kwargs)
+def public_community!(**)
+  community = CommunityCreator.call(**)
   community.publicize
   Atlas.persister.save(resource: community)
 end

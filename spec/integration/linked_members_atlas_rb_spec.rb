@@ -106,8 +106,8 @@ RSpec.describe 'Linked membership via atlas_rb', :atlas_rb_server do
     end
 
     let(:depositor_nuid) { '000000123' }
-    let(:showcase)  { CollectionCreator.call(parent_id: community.noid, featured: true) }
-    let(:own_work)  { WorkCreator.call(parent_id: home.noid, depositor: depositor_nuid) }
+    let(:showcase) { CollectionCreator.call(parent_id: community.noid, featured: true) }
+    let(:own_work) { WorkCreator.call(parent_id: home.noid, depositor: depositor_nuid) }
 
     it 'links a depositor-owned Work into a featured showcase, attributing the AuditEvent to the depositor' do
       result = AtlasRb::System::Work.add_linked_member(own_work.noid, showcase.noid, on_behalf_of: depositor_nuid)

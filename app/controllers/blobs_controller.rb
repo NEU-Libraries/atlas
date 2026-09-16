@@ -38,7 +38,7 @@ class BlobsController < ApplicationController
       original_filename: params[:original_filename],
       use:               params[:use],
       expected_digest:   params[:expected_digest],
-      path:              (file.tempfile.path.presence || file.path)
+      path:              file.tempfile.path.presence || file.path
     )
     record_idempotency_key!(@blob.noid, Blob)
     audit_add_file(@blob)

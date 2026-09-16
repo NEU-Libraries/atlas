@@ -5,11 +5,9 @@ class CollectionCreator < ApplicationService
   # for the rationale. Optional so direct callers (specs, reset.rake) work
   # without synthesizing an authenticated identity; the HTTP path supplies
   # them for every real-world create.
-  # rubocop:disable Metrics/ParameterLists
   def initialize(parent_id:, mods_xml: nil, featured: false, proxy_uploader: nil,
                  depositor: nil, actor_nuid: nil, on_behalf_of_nuid: nil)
-    # rubocop:enable Metrics/ParameterLists
-    @parent_id         = resolve_id(parent_id)
+    @parent_id = resolve_id(parent_id)
     @mods_xml          = mods_xml.nil? ? mods_template : mods_xml
     @featured          = featured
     @proxy_uploader    = proxy_uploader

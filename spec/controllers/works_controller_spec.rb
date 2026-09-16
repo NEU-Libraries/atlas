@@ -458,7 +458,7 @@ describe WorksController, type: :controller do
       post :add_association, params: { id: codebook.noid, work_id: 'nosuchnoid', type: 'is_codebook_for' },
                              as:     :json
 
-      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response).to have_http_status(:unprocessable_content)
       expect(response.parsed_body['error']).to eq('target_not_found')
     end
   end

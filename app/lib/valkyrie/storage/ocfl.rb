@@ -40,10 +40,13 @@ module Valkyrie
 
       # Every root is sealed, so a new object has nowhere to go. An operator
       # opens another root; the adapter must not pick a sealed one.
-      PoolSealed = Class.new(StandardError)
+      class PoolSealed < StandardError
+      end
+
       # One key exists in two roots. That is a failed migration, and picking
       # either one silently would make the wrong half authoritative.
-      AmbiguousObject = Class.new(StandardError)
+      class AmbiguousObject < StandardError
+      end
 
       attr_reader :storage_roots, :pool_name, :file_mover, :clock, :user_agent, :digest_algorithm
 

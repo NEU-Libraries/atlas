@@ -6,14 +6,12 @@ class WorkCreator < ApplicationService
   # synthesize an authenticated identity. The HTTP path (WorksController)
   # supplies them for every real-world create, which is when the
   # AuditEvent row is emitted.
-  # rubocop:disable Metrics/ParameterLists
   # Each kwarg is a distinct dimension of "what this create is" (parent,
   # body, provenance, audit attribution). Compressing into a hash would
   # hide the public contract.
   def initialize(parent_id:, mods_xml: nil, proxy_uploader: nil,
                  depositor: nil, actor_nuid: nil, on_behalf_of_nuid: nil)
-    # rubocop:enable Metrics/ParameterLists
-    @parent_id         = resolve_id(parent_id)
+    @parent_id = resolve_id(parent_id)
     @mods_xml          = mods_xml.nil? ? mods_template : mods_xml
     @proxy_uploader    = proxy_uploader
     @depositor         = depositor

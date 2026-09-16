@@ -12,8 +12,8 @@ class CompilationContentsQuery < WorkDigestQuery
     new(compilation: compilation, user: user, page: page, per_page: per_page).call
   end
 
-  def initialize(compilation:, **kwargs)
-    super(**kwargs)
+  def initialize(compilation:, **)
+    super(**)
     @compilation = compilation
   end
 

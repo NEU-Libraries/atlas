@@ -63,7 +63,7 @@ RSpec.describe 'Permissions write rules', type: :request, default_auth: false do
 
       patch_permissions("/collections/#{collection.noid}", admin.nuid, { read: ['public'], edit: [archives] })
 
-      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response).to have_http_status(:unprocessable_content)
       expect(response.parsed_body).to include('error' => 'visibility_exceeds_parent')
       expect(Collection.find(collection.noid).read_groups).not_to include('public')
     end
@@ -74,7 +74,7 @@ RSpec.describe 'Permissions write rules', type: :request, default_auth: false do
 
       patch_permissions("/works/#{work.noid}", admin.nuid, { read: ['public'], edit: [archives] })
 
-      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response).to have_http_status(:unprocessable_content)
       expect(Work.find(work.noid).read_groups).not_to include('public')
     end
 
@@ -84,7 +84,7 @@ RSpec.describe 'Permissions write rules', type: :request, default_auth: false do
       patch_permissions("/collections/#{collection.noid}", admin.nuid,
                         { read: [archives, marcom], edit: [archives] })
 
-      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response).to have_http_status(:unprocessable_content)
     end
 
     it 'permits narrowing, and permits any audience under a public container' do
@@ -111,7 +111,7 @@ RSpec.describe 'Permissions write rules', type: :request, default_auth: false do
 
       patch_permissions("/collections/#{collection.noid}", curator.nuid, { read: ['public'], edit: [archives] })
 
-      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response).to have_http_status(:unprocessable_content)
       expect(response.parsed_body).to include('error' => 'visibility_exceeds_parent')
     end
 

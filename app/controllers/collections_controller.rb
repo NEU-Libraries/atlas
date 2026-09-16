@@ -118,7 +118,7 @@ class CollectionsController < ApplicationController
     if @collection.filtered_children.any?
       render json:   { error: 'cannot destroy a collection that still has members',
                        code:  'has_children' },
-             status: :unprocessable_entity and return
+             status: :unprocessable_content and return
     end
 
     ResourcePurger.call(resource: @collection, actor_nuid: @current_user&.nuid,
@@ -133,7 +133,7 @@ class CollectionsController < ApplicationController
     if @collection.live_children?
       render json:   { error: 'cannot tombstone a non-empty collection',
                        code:  'has_live_children' },
-             status: :unprocessable_entity and return
+             status: :unprocessable_content and return
     end
 
     @collection.tombstone(by: @current_user&.nuid)

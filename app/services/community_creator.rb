@@ -5,11 +5,9 @@ class CommunityCreator < ApplicationService
   # Communities can be roots, so parent_id and the parent.permissions copy
   # are both conditional; provenance stamping happens whether or not a
   # parent is present.
-  # rubocop:disable Metrics/ParameterLists
   def initialize(parent_id: nil, mods_xml: nil, proxy_uploader: nil,
                  depositor: nil, actor_nuid: nil, on_behalf_of_nuid: nil)
-    # rubocop:enable Metrics/ParameterLists
-    @parent_id         = resolve_id(parent_id) if parent_id.present?
+    @parent_id = resolve_id(parent_id) if parent_id.present?
     @mods_xml          = mods_xml.nil? ? mods_template : mods_xml
     @proxy_uploader    = proxy_uploader
     @depositor         = depositor

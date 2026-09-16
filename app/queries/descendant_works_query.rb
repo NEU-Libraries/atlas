@@ -26,8 +26,8 @@ class DescendantWorksQuery < WorkDigestQuery
         include_linked: include_linked).call
   end
 
-  def initialize(resource:, include_linked: false, **kwargs)
-    super(**kwargs)
+  def initialize(resource:, include_linked: false, **)
+    super(**)
     @resource       = resource
     @include_linked = include_linked
   end

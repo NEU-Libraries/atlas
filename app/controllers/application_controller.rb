@@ -3,6 +3,7 @@
 class ApplicationController < ActionController::API
   include ActionController::MimeResponds
   include CanCan::ControllerAdditions
+
   respond_to :json
 
   # Cerberus-signed relay assertion: Cerberus signs a short-lived JWT with its
@@ -44,7 +45,7 @@ class ApplicationController < ActionController::API
     render json: {
       error:   'invalid_record',
       message: exception.message
-    }, status: :unprocessable_entity
+    }, status: :unprocessable_content
   end
 
   rescue_from ActiveRecord::RecordNotFound do
@@ -81,7 +82,7 @@ class ApplicationController < ActionController::API
       error:       exception.code,
       resource_id: params[:id],
       message:     exception.message
-    }, status: :unprocessable_entity
+    }, status: :unprocessable_content
   end
 
   # Structured 422 for linked-membership validation failures (target not
@@ -93,7 +94,7 @@ class ApplicationController < ActionController::API
       error:       exception.code,
       resource_id: params[:id],
       message:     exception.message
-    }, status: :unprocessable_entity
+    }, status: :unprocessable_content
   end
 
   # Structured 422 for Work-association validation failures (unknown type,
@@ -104,7 +105,7 @@ class ApplicationController < ActionController::API
       error:       exception.code,
       resource_id: params[:id],
       message:     exception.message
-    }, status: :unprocessable_entity
+    }, status: :unprocessable_content
   end
 
   # Structured 422 for verify-on-ingest failures (an upload whose bytes don't
@@ -116,7 +117,7 @@ class ApplicationController < ActionController::API
       error:       exception.code,
       resource_id: params[:id],
       message:     exception.message
-    }, status: :unprocessable_entity
+    }, status: :unprocessable_content
   end
 
   # Structured 422 for an invalid per-tier derivative-visibility policy (unknown
@@ -128,7 +129,7 @@ class ApplicationController < ActionController::API
       error:       exception.code,
       resource_id: params[:id],
       message:     exception.message
-    }, status: :unprocessable_entity
+    }, status: :unprocessable_content
   end
 
   # Structured 422 for an ACL write that breaks a rights invariant — today a
@@ -139,7 +140,7 @@ class ApplicationController < ActionController::API
       error:       exception.code,
       resource_id: params[:id],
       message:     exception.message
-    }, status: :unprocessable_entity
+    }, status: :unprocessable_content
   end
 
   # Structured 503 for the repository-wide maintenance window. Distinct from the

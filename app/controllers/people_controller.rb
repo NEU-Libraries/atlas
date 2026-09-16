@@ -150,6 +150,6 @@ class PeopleController < ApplicationController
 
     def render_unknown_community
       render json:   { error: "unknown community #{params[:community_id]}", code: 'unknown_community' },
-             status: :unprocessable_entity
+             status: :unprocessable_content
     end
 end

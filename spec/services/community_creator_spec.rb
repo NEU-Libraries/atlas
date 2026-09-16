@@ -71,7 +71,7 @@ RSpec.describe CommunityCreator do
     end
 
     it 'tags a nested community grant as inherited from its parent' do
-      parent     = described_class.call                                          # root, no actor -> no events
+      parent     = described_class.call # root, no actor -> no events
       @community = described_class.call(parent_id: parent.noid, actor_nuid: '000000004')
 
       grant = AuditEvent.find_by(action: 'create', change_type: 'permissions')

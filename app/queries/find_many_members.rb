@@ -87,7 +87,7 @@ class FindManyMembers
     # into the ORM row without shadowing the member's own id column.
     def ordered_members(ids)
       placeholders = (['?'] * ids.size).join(', ')
-      sql = <<-SQL.squish
+      sql = <<~SQL.squish
         SELECT member.*, a.id AS find_many_members_parent_id
         FROM orm_resources a,
         jsonb_array_elements(a.metadata->'member_ids') WITH ORDINALITY AS b(member, member_pos)

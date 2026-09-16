@@ -101,7 +101,7 @@ describe CommunitiesController, type: :controller do
 
         delete :destroy, params: { id: community.noid }, as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         expect(response.parsed_body['code']).to eq('has_children')
         expect(Community.find(community.noid)).not_to be_nil
       end
@@ -129,7 +129,7 @@ describe CommunitiesController, type: :controller do
 
       post :tombstone, params: { id: community.noid }, as: :json
 
-      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response).to have_http_status(:unprocessable_content)
       expect(response.parsed_body['code']).to eq('has_live_children')
       expect(Community.find(community.noid).tombstoned).to be(false)
     end

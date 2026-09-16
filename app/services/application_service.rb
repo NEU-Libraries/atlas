@@ -4,8 +4,8 @@ class ApplicationService
   include MODSBuilder
   include NoidHelper
 
-  def self.call(**kwargs)
-    new(**kwargs).call
+  def self.call(**)
+    new(**).call
   end
 
   private

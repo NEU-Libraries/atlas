@@ -105,7 +105,7 @@ describe CollectionsController, type: :controller do
 
         delete :destroy, params: { id: collection.noid }, as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         expect(response.parsed_body['code']).to eq('has_children')
         expect(Collection.find(collection.noid)).not_to be_nil
       end
@@ -119,7 +119,7 @@ describe CollectionsController, type: :controller do
 
         delete :destroy, params: { id: collection.noid }, as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         expect(response.parsed_body['code']).to eq('has_children')
       end
 
@@ -152,7 +152,7 @@ describe CollectionsController, type: :controller do
 
       post :tombstone, params: { id: collection.noid }, as: :json
 
-      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response).to have_http_status(:unprocessable_content)
       expect(response.parsed_body['code']).to eq('has_live_children')
       expect(Collection.find(collection.noid).tombstoned).to be(false)
     end

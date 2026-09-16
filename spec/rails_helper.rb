@@ -2,13 +2,25 @@
 
 require 'simplecov'
 
+# Each parallel worker covers only its own shard, so it needs its own result
+# name: SimpleCov keys .resultset.json by command name, and workers sharing one
+# would overwrite each other instead of merging. With distinct names the last
+# worker to exit writes a report merged across all of them.
+SimpleCov.command_name("rspec#{ENV['TEST_ENV_NUMBER']}") if ENV.key?('TEST_ENV_NUMBER')
+
 SimpleCov.start 'rails' do
-  add_filter 'spec'
-  add_filter 'vendor'
-  add_filter 'app/channels'
-  add_filter 'app/indexers'
-  add_filter 'app/lib/atlas/vocab'
-  # minimum_coverage 95
+  skip 'spec'
+  skip 'vendor'
+  skip 'app/channels'
+  skip 'app/indexers'
+  skip 'app/lib/atlas/vocab'
+  # The floor is a property of the whole suite, so only a run of the whole suite
+  # can judge it. Set here and lifted below for the runs that are subsets, which
+  # would otherwise fail on arithmetic and say nothing about the code under test.
+  #
+  # SMOKE covers the runs a file count cannot see — `rake smoke` names a tag, so
+  # rspec loads every spec file to find four examples in one of them.
+  minimum_coverage 90 unless ENV['SMOKE']
 end
 
 # This file is copied to spec/ when you run 'rails generate rspec:install'
@@ -66,6 +78,23 @@ RSpec.configure do |config|
   config.before(:suite) do
     SpecPreflight.assert_safe_to_wipe!
     ExclusiveRunLock.acquire!
+  end
+
+  # Lift the coverage floor for a run that loaded only part of the suite: a
+  # developer naming a file or a directory, a parallel worker taking its shard,
+  # or the OpenAPI regeneration pass, which loads the request specs alone and
+  # under --dry-run executes none of them.
+  #
+  # Decided from what rspec loaded rather than from the command line, because no
+  # reading of ARGV tells those apart from a whole-suite run: `rake spec` passes
+  # the suite either as one --pattern glob or as an expanded list of every file,
+  # depending on whether the glob is --pattern-compatible.
+  #
+  # Before the suite rather than after it, so the comparison describes the run
+  # that is executing. SimpleCov reads the floor in an at_exit handler, so
+  # setting it this early still takes effect.
+  config.before(:suite) do
+    SimpleCov.minimum_coverage(0) if config.files_to_run.size < Rails.root.glob('spec/**/*_spec.rb').size
   end
 
   config.before(:suite) do

@@ -1,31 +1,16 @@
 # frozen_string_literal: true
 
-# Valkyrie custom query: resolve the children of many parents in two queries
-# instead of two per parent.
+# Valkyrie custom query: the children of many parents in two queries instead
+# of two per parent. See docs/read-performance.md.
 #
-# Registered on the postgres query service in config/initializers/valkyrie.rb;
-# reach it as `Atlas.query.custom_queries.find_many_members`.
+# Registered in config/initializers/valkyrie.rb; reach it as
+# `Atlas.query.custom_queries.find_many_members`.
 #
-# Atlas records containment from both ends (see Relationships#children), so a
-# batch needs both directions:
-#
-#   * `a_member_of` on the child — one disjunction of the same `metadata @> ?`
-#     containment predicate find_inverse_references_by builds, so every term
-#     hits the jsonb_path_ops GIN index. Grouped by reading the edge back off
-#     each child.
-#   * `member_ids` on the parent — the find_members lateral join, widened to a
-#     set of parents with `a.id IN (…)` and carrying the parent id out as an
-#     alias so the rows can be grouped without a second pass.
-#
-# It answers two named queries, one per unbatched read it replaces:
-# find_many_members is the batched `children` (the union of both directions),
-# find_many_ordered_members the batched find_members (member_ids only, in
-# stored order). Keeping them apart matters — page order comes off member_ids,
-# and the union puts the inverse direction first, so conflating the two would
-# reorder a Work's pages.
+# It answers TWO named queries and they must stay apart: page order comes off
+# member_ids, and the union puts the inverse direction first, so conflating
+# them would reorder a Work's pages.
 #
 # Ids ride as bind parameters; only the placeholder count is built from input.
-# Postgres-specific by construction, like FindManyByAlternateIdentifiers.
 class FindManyMembers
   def self.queries
     %i[find_many_members find_many_ordered_members]
@@ -35,11 +20,8 @@ class FindManyMembers
     @query_service = query_service
   end
 
-  # @return [Hash{String => Array<Valkyrie::Resource>}] parent Valkyrie id
-  #   (as a string) => its children. Child order matches
-  #   Relationships#children — inverse `a_member_of` first, then `member_ids`
-  #   in stored order — so a preloaded read sees what an unbatched one would.
-  #   Parents with no children are absent, not empty; callers default.
+  # Child order matches Relationships#children, so a preloaded read sees what
+  # an unbatched one would. Parents with no children are ABSENT, not empty.
   def find_many_members(resources:)
     ids = parent_ids(resources)
     return {} if ids.empty?
@@ -50,8 +32,7 @@ class FindManyMembers
     grouped
   end
 
-  # The batched equivalent of find_members: member_ids only, in stored order.
-  # @return [Hash{String => Array<Valkyrie::Resource>}] as find_many_members.
+  # member_ids only, in stored order -- the batched find_members.
   def find_many_ordered_members(resources:)
     ids = parent_ids(resources)
     return {} if ids.empty?
@@ -65,10 +46,8 @@ class FindManyMembers
       Array(resources).map { |r| r.id.to_s }.compact_blank.uniq
     end
 
-    # Children pointing up via a_member_of. The edge is scalar on the backbone
-    # (Collection, Work) and plural elsewhere, so it is read as an array either
-    # way; a child is grouped under every parent in the requested set that it
-    # names.
+    # The a_member_of edge is scalar on the backbone and plural elsewhere, so
+    # it is read as an array either way.
     def inverse_members(ids)
       where = (['metadata @> ?'] * ids.size).join(' OR ')
       binds = ids.map { |id| %({"a_member_of":[{"id":"#{id}"}]}) }
@@ -82,9 +61,8 @@ class FindManyMembers
         end
     end
 
-    # Children listed in the parent's own member_ids, in stored order. The
-    # parent id is selected alongside `member.*` under an alias so it survives
-    # into the ORM row without shadowing the member's own id column.
+    # The parent id is selected under an ALIAS so it survives into the ORM row
+    # without shadowing the member's own id column.
     def ordered_members(ids)
       placeholders = (['?'] * ids.size).join(', ')
       sql = <<~SQL.squish
@@ -100,9 +78,8 @@ class FindManyMembers
          .transform_values { |rows| rows.map { |row| to_resource(row) } }
     end
 
-    # run_query is private on the postgres query service, so a custom-query
-    # handler reimplements it (the pattern FindManyByAlternateIdentifiers and
-    # the Valkyrie docs' figgy example both follow).
+    # Private on the postgres query service, so each custom-query handler
+    # reimplements it -- the pattern the Valkyrie docs' figgy example follows.
     def run_query(query, *args)
       orm.find_by_sql([query, *args]).map { |object| to_resource(object) }
     end
@@ -115,8 +92,7 @@ class FindManyMembers
       Valkyrie::Persistence::Postgres::ORM::Resource
     end
 
-    # Read off the column rather than hardcoded, matching how Valkyrie builds
-    # the same cast in its own member queries.
+    # Off the column rather than hardcoded, matching Valkyrie's own cast.
     def id_type
       @id_type ||= orm.columns_hash['id'].type
     end

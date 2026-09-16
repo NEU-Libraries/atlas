@@ -1,25 +1,14 @@
 # frozen_string_literal: true
 
-# Valkyrie custom query: resolve the parent of many resources in two queries
-# instead of two per resource — the inverse of FindManyMembers.
+# Valkyrie custom query: the parent of many resources in two queries instead
+# of two per resource -- the inverse of FindManyMembers. See
+# docs/read-performance.md.
 #
-# Registered on the postgres query service in config/initializers/valkyrie.rb;
-# reach it as `Atlas.query.custom_queries.find_many_parents`.
-#
-# Atlas records containment from both ends (see Relationships#parent), so a
-# batch reads both, in the same precedence order the unbatched read uses:
-#
-#   * `a_member_of` on the child — the edge is stored on the child itself, so
-#     the ids come off the resources already in hand and resolve in one
-#     find_many_by_ids.
-#   * `member_ids` on the parent — one disjunction of the `metadata @> ?`
-#     containment predicate find_inverse_references_by builds, so every term
-#     hits the jsonb_path_ops GIN index. This is the only direction a Blob has:
-#     Blobs declare no `a_member_of`, their linkage lives in the parent
-#     FileSet's member_ids.
+# Reads both containment directions in the same precedence order the unbatched
+# read uses. The inverse (member_ids) direction is the ONLY one a Blob has:
+# Blobs declare no a_member_of.
 #
 # Ids ride as bind parameters; only the placeholder count is built from input.
-# Postgres-specific by construction, like FindManyMembers.
 class FindManyParents
   def self.queries
     [:find_many_parents]
@@ -29,10 +18,9 @@ class FindManyParents
     @query_service = query_service
   end
 
-  # @return [Hash{String => Valkyrie::Resource}] child Valkyrie id (as a
-  #   string) => its parent. Children with no resolvable parent are absent,
-  #   not nil — callers default. A child naming several `a_member_of` ids
-  #   answers the first that resolves, matching Relationships#parent's `.first`.
+  # Children with no resolvable parent are ABSENT, not nil. A child naming
+  # several a_member_of ids answers the FIRST that resolves, matching
+  # Relationships#parent.
   def find_many_parents(resources:)
     children = Array(resources).compact.uniq(&:id)
     return {} if children.empty?
@@ -43,9 +31,8 @@ class FindManyParents
 
   private
 
-    # Children pointing up via their own `a_member_of`. One query for every
-    # named parent, then each child is matched back to the first of its ids
-    # that resolved.
+    # One query for every named parent, then each child matched back to the
+    # first of its ids that resolved.
     def forward_parents(children)
       edges = children.to_h { |child| [child.id.to_s, edge_ids(child)] }.reject { |_id, ids| ids.empty? }
       return {} if edges.empty?

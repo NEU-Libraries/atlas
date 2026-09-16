@@ -1,18 +1,12 @@
 # frozen_string_literal: true
 
-# Valkyrie custom query: resolve many resources by their alternate identifier
-# (NOID) in a single index-backed query, instead of N calls to
-# find_by_alternate_identifier (one HTTP/DB round-trip per id).
+# Valkyrie custom query: many resources by NOID in a single index-backed
+# query, instead of one round-trip per id. See docs/read-performance.md.
 #
-# Registered on the postgres query service in config/initializers/valkyrie.rb;
-# reach it as `Atlas.query.custom_queries.find_many_by_alternate_identifiers`.
-#
-# Each disjunct is the exact `metadata @>` containment predicate that
+# Each disjunct is the exact `metadata @>` predicate
 # find_by_alternate_identifier uses, so every term hits the jsonb_path_ops GIN
-# index on orm_resources.metadata. The ids ride as bind parameters (never
-# interpolated into the SQL string); only the placeholder *count* is built from
-# input. Postgres-specific by construction — it is registered solely against
-# the postgres-backed query service that both composite adapters read through.
+# index. Ids ride as bind parameters; only the placeholder count is built from
+# input.
 class FindManyByAlternateIdentifiers
   def self.queries
     [:find_many_by_alternate_identifiers]

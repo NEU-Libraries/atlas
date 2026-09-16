@@ -1,18 +1,14 @@
 # frozen_string_literal: true
 
-# The reference vocabulary every Solr-side membership query speaks.
-#
-# Valkyrie's join fields (a_member_of_ssi, a_linked_member_of_ssim) store
-# `id-<uuid>` — the Valkyrie id — while the API and the recipe tables speak
-# NOIDs. Resolving one to the other is the hop these helpers exist for, and
-# doing it in one place keeps the two consumers (WorkDigestQuery's gated
-# digest engine and the OAI provider's cursor-paged feed) from drifting apart
-# on what "member of this container" means.
+# The reference vocabulary every Solr-side membership query speaks. Valkyrie's
+# join fields store `id-<uuid>` while the API speaks NOIDs, and doing that hop
+# in one place keeps the gated digest engine and the OAI feed from drifting on
+# what "member of this container" means. See docs/read-performance.md.
 module SolrRefs
   extend ActiveSupport::Concern
 
-  # Container fan-out bound — matches DescendantCollectionsQuery::ROWS
-  # (branching lives among the ~3k collections; works never appear here).
+  # Matches DescendantCollectionsQuery::ROWS. Branching lives among the ~3k
+  # collections, and works never appear here.
   CONTAINER_ROWS = 10_000
 
   private
@@ -21,11 +17,8 @@ module SolrRefs
       Atlas.index_adapter.connection
     end
 
-    # Covered containers as quoted id-<uuid> references (the value shape
-    # a_member_of_ssi / a_linked_member_of_ssim store). ancestor_ids_ssim speaks
-    # raw noids and carries descendants only, so the roots are unioned in
-    # explicitly via alternate_ids_ssim. The uuid hop happens here — the join
-    # fields store uuids. A noid that no longer resolves simply matches nothing.
+    # ancestor_ids_ssim carries DESCENDANTS ONLY, so the roots are unioned in
+    # explicitly. A noid that no longer resolves matches nothing.
     def container_refs(noids)
       return [] if noids.empty?
 

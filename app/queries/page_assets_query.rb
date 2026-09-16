@@ -1,18 +1,11 @@
 # frozen_string_literal: true
 
-# The downloadable assets of many page FileSets at once — the read behind
-# GET /works/:id/file_sets.
+# The downloadable assets of many page FileSets at once -- the read behind
+# GET /works/:id/file_sets. See docs/read-performance.md.
 #
-# A page's assets are its own member Blobs plus the members of any nested
-# :derivative FileSet (per-page IIIF Delegates land there via
-# DelegateCreator(resource_id: <page FileSet>)). The page's METS Blob is
-# excluded by Role.downloadable?.
-#
-# That is two levels of containment, so resolving it per page cost two queries
-# per page — a book-length Work paid hundreds. Here each level is one batched
-# read (FindManyMembers), so the cost is fixed at two regardless of page count.
-# Member order is preserved within each level, because page order and asset
-# order both come off member_ids.
+# Two levels of containment, so a per-page resolve cost two queries per page
+# and a book-length Work paid hundreds. Each level is one batched read here,
+# fixing the cost at two regardless of page count.
 class PageAssetsQuery
   def self.call(file_sets:)
     new(file_sets: file_sets).call

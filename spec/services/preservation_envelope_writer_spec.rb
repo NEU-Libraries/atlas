@@ -13,7 +13,7 @@ RSpec.describe PreservationEnvelopeWriter do
 
   # Tuple (2,2) per OCFL extension 0007 — first 4 NOID chars become directory tuples.
   def object_root_for(noid)
-    Rails.root.join('tmp', 'files', noid[0..1], noid[2..3], noid)
+    TestStorage.root.join(noid[0..1], noid[2..3], noid)
   end
 
   # Navigate the OCFL inventory to find a logical file's physical content

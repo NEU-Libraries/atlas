@@ -5,16 +5,41 @@ require 'rails_helper'
 RSpec.describe SolrCore do
   describe '.test_url' do
     it 'defaults to the single-instance core, so a stack that sets nothing is unchanged' do
-      expect(described_class.test_url).to eq('http://solr:8983/solr/blacklight-test')
+      with_env('ATLAS_TEST_SOLR_URL' => nil, 'TEST_ENV_NUMBER' => nil) do
+        expect(described_class.test_url).to eq('http://solr:8983/solr/blacklight-test')
+      end
     end
 
-    it 'takes ATLAS_TEST_SOLR_URL, so parallel test instances can each own a core' do
-      allow(ENV).to receive(:fetch).and_call_original
-      allow(ENV).to receive(:fetch)
-        .with('ATLAS_TEST_SOLR_URL', described_class::DEFAULT_TEST_URL)
-        .and_return('http://solr:8983/solr/blacklight-test-2')
+    it 'takes ATLAS_TEST_SOLR_URL, so a separate test instance can own a core' do
+      with_env('ATLAS_TEST_SOLR_URL' => 'http://solr:8983/solr/blacklight-test-9') do
+        expect(described_class.test_url).to eq('http://solr:8983/solr/blacklight-test-9')
+      end
+    end
 
-      expect(described_class.test_url).to eq('http://solr:8983/solr/blacklight-test-2')
+    it 'follows the parallel worker when ATLAS_TEST_SOLR_URL is unset' do
+      with_env('TEST_ENV_NUMBER' => '2') do
+        expect(described_class.test_url).to eq('http://solr:8983/solr/blacklight-test-2')
+      end
+    end
+
+    # An explicit URL is how a separate container names its core, and it carries
+    # no TEST_ENV_NUMBER of its own — so it has to win over the derived suffix
+    # rather than be appended to.
+    it 'prefers ATLAS_TEST_SOLR_URL over the worker suffix' do
+      with_env('ATLAS_TEST_SOLR_URL' => 'http://solr:8983/solr/blacklight-test-9',
+               'TEST_ENV_NUMBER'     => '2') do
+        expect(described_class.test_url).to eq('http://solr:8983/solr/blacklight-test-9')
+      end
+    end
+  end
+
+  describe '.worker_suffix' do
+    it 'is empty for the first worker, which parallel_tests leaves unnumbered' do
+      with_env('TEST_ENV_NUMBER' => nil) { expect(described_class.worker_suffix).to eq('') }
+    end
+
+    it 'is the dashed worker number for the rest' do
+      with_env('TEST_ENV_NUMBER' => '3') { expect(described_class.worker_suffix).to eq('-3') }
     end
   end
 

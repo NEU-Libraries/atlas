@@ -58,9 +58,14 @@ development:
 # Warning: The database defined as "test" will be erased and
 # re-generated from your development database when you run "rake".
 # Do not set this db to the same as development or production.
+# Suffixed per parallel worker. parallel_tests leaves TEST_ENV_NUMBER empty for
+# the first worker and numbers the rest from 2, so an unsharded run keeps the
+# unsuffixed name it has always used. Workers cannot share one database: each
+# example runs inside a transaction, and two workers would block on each
+# other's uncommitted rows.
 test:
   <<: *default
-  database: atlas_test
+  database: atlas_test<%= ENV['TEST_ENV_NUMBER'] %>
 
 # As with config/credentials.yml, you never want to store sensitive information,
 # like your database password, in your source code. If your source code is

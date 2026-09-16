@@ -12,7 +12,7 @@ RSpec.describe 'atlas:preservation rake tasks' do
   after { Atlas.persister.wipe! }
 
   def envelope_files_for(noid)
-    object_root = Rails.root.join('tmp', 'files', noid[0..1], noid[2..3], noid)
+    object_root = TestStorage.root.join(noid[0..1], noid[2..3], noid)
     return [] unless object_root.exist?
 
     Dir.glob(object_root.join('v*', 'content', '*.json').to_s).map { |p| File.basename(p) }.uniq.sort

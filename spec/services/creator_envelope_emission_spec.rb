@@ -9,7 +9,7 @@ require 'rails_helper'
 # mutated member_ids.
 RSpec.describe 'Creator envelope emission' do
   def envelope_files_for(noid)
-    object_root = Rails.root.join('tmp', 'files', noid[0..1], noid[2..3], noid)
+    object_root = TestStorage.root.join(noid[0..1], noid[2..3], noid)
     return [] unless object_root.exist?
 
     Dir.glob(object_root.join('v*', 'content', '*.json').to_s).map { |p| File.basename(p) }.uniq.sort
@@ -83,7 +83,7 @@ RSpec.describe 'Creator envelope emission' do
 
       # The parent FileSet now has at least the user Blob in member_ids; assert
       # the on-disk envelope reflects this by re-reading the latest state.
-      object_root = Rails.root.join('tmp', 'files', parent_fs.noid[0..1], parent_fs.noid[2..3], parent_fs.noid)
+      object_root = TestStorage.root.join(parent_fs.noid[0..1], parent_fs.noid[2..3], parent_fs.noid)
       inventory = JSON.parse(File.read(object_root.join('inventory.json')))
       head_state = inventory.fetch('versions').fetch(inventory.fetch('head')).fetch('state')
       digest, = head_state.find { |_d, paths| paths.include?('relationships.json') }

@@ -11,7 +11,7 @@ RSpec.describe 'Controller envelope emission' do
   after { Atlas.persister.wipe! }
 
   def head_version_for(noid)
-    object_root = Rails.root.join('tmp', 'files', noid[0..1], noid[2..3], noid)
+    object_root = TestStorage.root.join(noid[0..1], noid[2..3], noid)
     return nil unless object_root.exist?
 
     inventory = JSON.parse(File.read(object_root.join('inventory.json')))
@@ -19,7 +19,7 @@ RSpec.describe 'Controller envelope emission' do
   end
 
   def latest_relationships(noid)
-    object_root = Rails.root.join('tmp', 'files', noid[0..1], noid[2..3], noid)
+    object_root = TestStorage.root.join(noid[0..1], noid[2..3], noid)
     inventory = JSON.parse(File.read(object_root.join('inventory.json')))
     head_state = inventory.fetch('versions').fetch(inventory.fetch('head')).fetch('state')
     digest, = head_state.find { |_d, paths| paths.include?('relationships.json') }

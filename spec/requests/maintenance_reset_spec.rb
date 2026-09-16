@@ -12,7 +12,7 @@ require 'rails_helper'
 # a resource's MODS history with other resources' content across reset runs.
 #
 # These specs deliberately do NOT drive the full reset action against the real
-# storage adapter: that would wipe the suite's shared tmp/files OCFL store
+# storage adapter: that would wipe the run's own OCFL store
 # mid-run. Instead the destructive purge is exercised against an isolated
 # throwaway root, the DB wipe is exercised on its own inside the example's
 # fixture transaction (so it rolls back), and the action-level env guard is
@@ -22,7 +22,7 @@ RSpec.describe MaintenanceController do
 
   describe '#purge_storage! (the rm_rf)' do
     # Point the storage adapter at a throwaway root so the destructive purge
-    # never touches the suite's shared tmp/files store. Stubs live in `before`
+    # never touches the run's own store. Stubs live in `before`
     # (not `around`) so they run inside RSpec's per-example mock scope.
     before do
       @root        = Pathname.new(Dir.mktmpdir)
@@ -52,7 +52,7 @@ RSpec.describe MaintenanceController do
       expect(@root.children).not_to be_empty
     end
 
-    # Regression: test's tmp/files is ephemeral and absent on a fresh container;
+    # Regression: the test storage root is ephemeral and absent on a fresh container;
     # the OCFL adapter would lazily create it on first write, but the purge runs
     # before any write. An absent root must mean "nothing to purge", not a fatal
     # error that aborts /reset and breaks the suite.

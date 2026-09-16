@@ -26,10 +26,12 @@ Rails.application.config.to_prepare do
   Valkyrie::StorageAdapter.register(
     Valkyrie::Storage::OCFL.new(
       # Deliberately one root and deliberately not reading OCFL_EXTRA_ROOTS: the
-      # suite has to be hermetic, and several specs clear tmp/files by name.
-      storage_root: Rails.root.join('tmp', 'files'),
+      # suite has to be hermetic, and several specs clear the root by name.
+      storage_root: TestStorage.root,
       # A literal, so a worktree and the main checkout mint identical ids from
-      # their own tmp/files rather than ids that differ by checkout path.
+      # their own storage root rather than ids that differ by checkout path.
+      # Parallel workers share it for the same reason: the root they write to
+      # differs, but the ids minted into it must not.
       tag: 'testdisk',
       root_name: 'r001',
       file_mover: FileUtils.method(:cp)

@@ -16,7 +16,7 @@ RSpec.describe 'OCFL preservation reconstitution', type: :integration do
   # Wipe disk + Postgres before each example: this spec's assertions count
   # specific resource types on disk, so contamination from earlier specs in
   # the run would skew counts. The before(:suite) hook in rails_helper.rb
-  # clears tmp/files once at suite start; per-example wiping here keeps each
+  # clears the storage root once at suite start; per-example wiping here keeps each
   # bus-factor scenario hermetic.
   before do
     storage_roots.each { |root| FileUtils.rm_rf(root) }

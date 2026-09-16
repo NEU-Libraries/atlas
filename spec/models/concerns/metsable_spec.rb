@@ -9,7 +9,7 @@ RSpec.describe Metsable do
   let(:file_set)   { FileSetCreator.call(work_id: work.noid, classification: Classification.generic) }
 
   def envelope_files_for(noid)
-    object_root = Rails.root.join('tmp', 'files', noid[0..1], noid[2..3], noid)
+    object_root = TestStorage.root.join(noid[0..1], noid[2..3], noid)
     return [] unless object_root.exist?
 
     Dir.glob(object_root.join('v*', 'content', '*.json').to_s).map { |p| File.basename(p) }.uniq.sort

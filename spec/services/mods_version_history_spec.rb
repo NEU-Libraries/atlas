@@ -18,7 +18,7 @@ RSpec.describe MODSVersionHistory do
   # Version labels are only deterministic with clean OCFL storage (the DB NOID
   # minter rolls back per example, so NOIDs repeat). See the request spec for
   # the fuller note.
-  before { FileUtils.rm_rf(Rails.root.join('tmp/files')) }
+  before { FileUtils.rm_rf(TestStorage.root) }
   after { Atlas.persister.wipe! }
 
   def descriptors_for(resource)

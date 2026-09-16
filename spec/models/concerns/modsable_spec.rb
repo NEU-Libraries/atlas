@@ -8,14 +8,14 @@ RSpec.describe Modsable do
   let(:work) { WorkCreator.call(parent_id: collection.noid) }
 
   def envelope_files_for(noid)
-    object_root = Rails.root.join('tmp', 'files', noid[0..1], noid[2..3], noid)
+    object_root = TestStorage.root.join(noid[0..1], noid[2..3], noid)
     return [] unless object_root.exist?
 
     Dir.glob(object_root.join('v*', 'content', '*.json').to_s).map { |p| File.basename(p) }.uniq.sort
   end
 
   def latest_relationships(noid)
-    object_root = Rails.root.join('tmp', 'files', noid[0..1], noid[2..3], noid)
+    object_root = TestStorage.root.join(noid[0..1], noid[2..3], noid)
     inventory = JSON.parse(File.read(object_root.join('inventory.json')))
     head_state = inventory.fetch('versions').fetch(inventory.fetch('head')).fetch('state')
     digest, = head_state.find { |_d, paths| paths.include?('relationships.json') }

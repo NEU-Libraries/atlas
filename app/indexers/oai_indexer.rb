@@ -10,8 +10,7 @@
 # `*_ss` is a stored-only, non-indexed, single-valued string, so a multi-KB
 # document costs the index nothing. The cost lands on the write path — one
 # OCFL read and one parse per Work save — which is the side of the trade this
-# project deliberately pays (see the MODS dual-representation note in
-# CLAUDE.md).
+# project deliberately pays (see docs/mods.md).
 #
 # The datestamp is `resource.updated_at`, NOT Valkyrie's `updated_at_dtsi`.
 # Valkyrie's Solr ModelConverter sets that field to `Time.current` at index

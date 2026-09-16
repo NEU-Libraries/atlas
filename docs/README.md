@@ -21,6 +21,7 @@ because a developer needs it before any of the other pages make sense.
 
 | Page | Covers |
 |---|---|
+| [`preservation.md`](preservation.md) | The preservation-first principle: what is source, what is derived, and the test between them |
 | [`testing.md`](testing.md) | The spec wrappers, the per-worker stores, the Solr cores, the guards |
 | [`authentication.md`](authentication.md) | The credential paths, the resolution matrix, acting-as, the write floors |
 | [`authorization.md`](authorization.md) | The `Ability` tiers, the ACL envelope, the write guard, per-asset visibility |
@@ -60,7 +61,11 @@ Atlas is a preservation system. The on-disk MODS XML and binaries are the source
 of truth, and Postgres, Solr and the JSON access copy are rebuildable caches over
 them. A page that explains a storage or serialization decision must say which
 side of that line it sits on, because that is the fact a reader needs before they
-change it. See the preservation-first principle in `CLAUDE.md`.
+change it.
+
+[`preservation.md`](preservation.md) states the principle in full, including the
+test that decides whether a new derived field belongs in the OCFL envelope. Read
+it before any change to storage, metadata serialization, or persistence.
 
 ## Writing standard
 

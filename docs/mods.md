@@ -21,7 +21,7 @@ vocabulary shared with the indexers is [`mods-browse.md`](mods-browse.md).
 | JSON | A `metadata_mods` row (`Metadata::MODS`, `attr_json`) | **The access copy.** Fast to read, easy to project into HTML or a downstream Wordpress. |
 
 The XML is the source of truth. The JSON row, Postgres and Solr are rebuildable
-caches over it — see the preservation-first principle in `CLAUDE.md`.
+caches over it — see [`preservation.md`](preservation.md).
 
 **The tradeoff is explicit: writes may be slow, reads must be fast.** `mods_xml=`
 writes the blob *and* re-extracts the JSON through `mods_json=`, so a write pays
@@ -31,7 +31,8 @@ for both. In exchange, no read path parses XML.
 this design exists to prevent.** Push extraction into the write path instead.
 
 New preservation-relevant metadata therefore belongs in the XML first and is
-projected into JSON for access, never the other way round.
+projected into JSON for access, never the other way round. That rule and the
+reasoning behind it are in [`preservation.md`](preservation.md).
 
 ## The access copy derives its attributes
 

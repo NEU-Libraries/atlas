@@ -286,6 +286,8 @@ GEM
     ostruct (0.6.3)
     pagy (6.0.4)
     parallel (2.1.0)
+    parallel_tests (5.8.0)
+      parallel
     parser (3.3.12.0)
       ast (~> 2.4.1)
       racc
@@ -518,6 +520,7 @@ DEPENDENCIES
   neu-mods (>= 0.14.0)
   noid-rails
   pagy (= 6.0.4)
+  parallel_tests
   pg (~> 1.1)
   puma (~> 8.0)
   rack-cors

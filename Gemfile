@@ -75,6 +75,10 @@ group :development, :test do
   # dependency and sits in the default group.
   gem 'rswag-specs', '~> 2.17'
 
+  # Shards the suite across worker processes for `rake parallel:spec`. In
+  # :development too, because the rake task that drives it boots there.
+  gem 'parallel_tests', require: false
+
   gem 'simplecov', require: false
   gem 'simplecov_json_formatter', '0.1.3' # Version 0.1.4 seems to break codeclimate
 end

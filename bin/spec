@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+#
+# Run rspec in the web container against whichever checkout you are standing in.
+#
+# This is the everyday loop — one file, one directory, one `--example` — and it
+# is a thin passthrough: every argument goes to rspec untouched.
+#
+#   bin/spec                                   # the whole suite, one process
+#   bin/spec spec/models/work_spec.rb
+#   bin/spec spec/requests --example "embargo"
+#
+# Exists so the same command works from the main checkout and from a worktree.
+# The two appear at different paths inside the container, and getting that wrong
+# either fails on chdir or silently runs develop's code in place of the branch's.
+#
+# For the whole suite, prefer bin/parallel-spec — it is about twice as fast.
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/container.sh
+source "$SCRIPT_DIR/lib/container.sh"
+
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+  sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'
+  exit 0
+fi
+
+container_init
+
+exec docker exec -w "$CONTAINER_ROOT" "$WEB_CONTAINER" bundle exec rspec "$@"

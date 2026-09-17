@@ -69,10 +69,11 @@ bin/openapi                                                       # regenerate o
 ```
 
 `bin/openapi` is a thin wrapper — it runs `rake rswag:specs:swaggerize`
-inside the container if web is up, otherwise on the host. CI runs the same
-generator and fails the build if the committed `openapi/openapi.yaml` differs
-from what the specs produce, so any change to a request spec or jbuilder
-partial requires a regenerate-and-commit.
+inside the container if web is up, otherwise on the host. It is worktree-aware
+through the same `bin/lib/container.sh` `bin/spec` uses, so it regenerates the
+checkout you are standing in. CI runs the same generator and fails the build if
+the committed `openapi/openapi.yaml` differs from what the specs produce, so any
+change to a request spec or jbuilder partial requires a regenerate-and-commit.
 
 The web container's entrypoint runs `db:create` + `db:migrate` on boot
 (`docker-entrypoint.sh`), so a fresh checkout is one `docker compose up -d`
@@ -381,11 +382,13 @@ because `kill` is not on `PATH` either:
 docker exec atlas-web-1 sh -c 'kill -9 <pid>'
 ```
 
-**After any killed or raced run, before rerunning:** kill the orphan, then
-`rm -rf <worktree>/tmp/files*`. The raced OCFL state survives, and a fresh run
-trips over it with `Errno::ENOENT` in `fsync_dir`. Those directories have no
-tracked `.keep`, so removing them is safe — leave `tmp/.keep`, `tmp/pids/.keep`
-and `tmp/storage/.keep` alone.
+**After any killed or raced run, before rerunning:** kill the orphan. That is
+the whole cleanup now. `before(:suite)` wipes each worker's own OCFL root, and
+`parallel:spec` measures the runtime log's coverage and falls back to a
+filesize split when a killed run left it too thin — so neither needs deleting
+by hand. If you do clear an OCFL root, those directories have no tracked
+`.keep`, so removing them is safe — leave `tmp/.keep`, `tmp/pids/.keep` and
+`tmp/storage/.keep` alone.
 
 A truncated example count is the tell that a run was raced or killed. Do not
 report it as a result.

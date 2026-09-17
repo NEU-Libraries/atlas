@@ -28,6 +28,32 @@ namespace :parallel do
   # machine's timings, going stale from the moment it landed.
   RUNTIME_LOG = 'tmp/parallel_runtime_rspec.log'
 
+  # parallel_tests balances on the log, and ABORTS before a single worker starts
+  # when more than half the spec files are missing from it -- its
+  # `allowed_missing` defaults to 50%, and the message
+  # ("does not contain sufficient data to sort N test files") names neither the
+  # cause nor the fix. A killed run leaves exactly that shape: timings for the
+  # workers that finished and nothing for the rest, so the NEXT run is the one
+  # that dies. Measuring coverage here turns a dead run into a merely slower
+  # one, and keeps the log when it is good rather than deleting it on every run
+  # and losing the balancing it exists for.
+  RUNTIME_LOG_THRESHOLD = 0.5
+
+  def self.runtime_log_coverage
+    return 0.0 unless File.exist?(RUNTIME_LOG)
+
+    specs = Dir['spec/**/*_spec.rb']
+    return 0.0 if specs.empty?
+
+    # Each line is "<path>:<seconds>", and a path never contains a colon, so
+    # partitioning from the right splits the two without a regex.
+    recorded = File.readlines(RUNTIME_LOG, chomp: true)
+                   .map { |line| line.rpartition(':').first }
+                   .reject(&:empty?)
+                   .to_set
+    specs.count { |spec| recorded.include?(spec) }.fdiv(specs.size)
+  end
+
   desc "Run the whole suite across N workers (default #{DEFAULT_WORKERS})"
   # No :environment prerequisite, matching :smoke — this task only shells out,
   # and each worker boots the app itself.
@@ -36,13 +62,19 @@ namespace :parallel do
 
     Rake::Task['parallel:prepare'].invoke(workers)
 
-    # Balance on recorded runtime once there is a recording to balance on, and
-    # fall back to file size for the very first run on a fresh checkout. Size is
-    # a poor proxy here — the heaviest file is not close to the largest — so the
-    # first run may finish lopsided. It only happens once: .rspec_parallel has
-    # every worker write its timings, so the next run splits on real numbers.
-    strategy = File.exist?(RUNTIME_LOG) ? 'runtime' : 'filesize'
+    # Balance on recorded runtime once there is a usable recording to balance
+    # on, and fall back to file size otherwise — a fresh checkout, or a log too
+    # thin to sort by. Size is a poor proxy here — the heaviest file is not
+    # close to the largest — so such a run may finish lopsided. It corrects
+    # itself: .rspec_parallel has every worker write its timings, so the next
+    # run splits on real numbers.
+    coverage = runtime_log_coverage
+    strategy = coverage > RUNTIME_LOG_THRESHOLD ? 'runtime' : 'filesize'
     puts "splitting #{workers} ways by #{strategy}"
+    if strategy == 'filesize' && coverage.positive?
+      puts "  (#{RUNTIME_LOG} covers only #{(coverage * 100).round}% of the spec files — " \
+           'too thin to sort by, so this run rebuilds it)'
+    end
 
     # verbose: false suppresses rake's echo of the command, which this task has
     # just described in friendlier terms. Each worker still prints its own seed,

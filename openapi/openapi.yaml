@@ -4195,7 +4195,8 @@ paths:
     parameters:
     - name: id
       in: path
-      description: NOID of any resource (Work, Collection, Community, FileSet)
+      description: NOID of a Work, Collection, Community, FileSet, Blob, Delegate
+        or Person
       required: true
       schema:
         type: string
@@ -4203,8 +4204,11 @@ paths:
       summary: Resolve a resource by NOID
       tags:
       - Resources
-      description: Generic resolver. Issues a 302 redirect to the typed endpoint (e.g.
-        `/works/{id}`).
+      description: |
+        Generic resolver. Issues a 302 redirect to the typed endpoint
+        (e.g. /works/{id}). Resolves the Valkyrie-backed resource types only,
+        so a Compilation NOID answers 404 here and is served by
+        /compilations/{id} instead.
       responses:
         '302':
           description: redirect to typed resource

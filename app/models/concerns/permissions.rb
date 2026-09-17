@@ -84,27 +84,37 @@ module Permissions
     permissions.slice(*AUDITED_ACL_KEYS)
   end
 
+  # EVERY key merges: a key the envelope does not carry keeps its stored value.
+  # That is what makes the ACL PATCH's verb true, and it is what stops a
+  # payload carrying one slot from blanking the others -- a caller sending only
+  # `read` used to clear the embargo release date with it. To clear a key, send
+  # it explicitly empty.
+  #
+  # Creators copying parent.permissions carry every key, so heritability still
+  # writes through unchanged.
   def permissions=(hsh)
-    # Need to allow for copying another Resource's permissions
-    # Heritability, and sentinels down the line
-    self.embargo_release_date = hsh[:embargo].present? ? DateTime.parse(hsh[:embargo]) : ''
+    self.embargo_release_date = incoming_embargo(hsh)        if envelope_carries?(hsh, :embargo)
+    self.depositor            = hsh[:depositor]              if envelope_carries?(hsh, :depositor)
+    self.proxy_uploader       = hsh[:proxy_uploader]          if envelope_carries?(hsh, :proxy_uploader)
+    self.edit_users           = Array(hsh[:edit_users])       if envelope_carries?(hsh, :edit_users)
+    self.read_groups          = hsh[:read]                    if envelope_carries?(hsh, :read)
+    self.edit_groups          = with_staff_edit_group(hsh[:edit]) if envelope_carries?(hsh, :edit)
+  end
 
-    # Provenance slots are write-once, and the guard is what enforces it: the
-    # metadata PATCH path passes only ACL keys through here, so a missing
-    # :depositor / :proxy_uploader key must NOT nil the existing stamp.
-    # Creators copying parent.permissions always carry both keys, so they
-    # still write through.
-    self.depositor      = hsh[:depositor]      if envelope_carries?(hsh, :depositor)
-    self.proxy_uploader = hsh[:proxy_uploader] if envelope_carries?(hsh, :proxy_uploader)
-    self.edit_users     = Array(hsh[:edit_users])
-    self.read_groups    = hsh[:read]
+  # The setter normalizes "no embargo" to '' rather than nil, so #permissions
+  # can collapse the two shapes it would otherwise read back.
+  def incoming_embargo(hsh)
+    hsh[:embargo].present? ? DateTime.parse(hsh[:embargo]) : ''
+  end
 
-    incoming_edit = Array(hsh[:edit])
-    self.edit_groups = if incoming_edit.include?(STAFF_EDIT_GROUP)
-                         incoming_edit
-                       else
-                         incoming_edit.unshift(STAFF_EDIT_GROUP)
-                       end
+  # Staff keep edit rights on everything, so the group is prepended rather
+  # than trusted to arrive. Callers comparing two ACLs for a no-op depend on
+  # this normalization happening before the comparison.
+  def with_staff_edit_group(incoming)
+    groups = Array(incoming)
+    return groups if groups.include?(STAFF_EDIT_GROUP)
+
+    groups.unshift(STAFF_EDIT_GROUP)
   end
 
   # Symbol-keyed from the creator side, string-keyed from

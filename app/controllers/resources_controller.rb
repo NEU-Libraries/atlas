@@ -1,14 +1,24 @@
 # frozen_string_literal: true
 
+# rubocop:disable Metrics/ClassLength
+# Over the class-length bar because this is where the type-agnostic surface
+# lives: seven reads and seven writes that used to be one action each on three
+# typed controllers. Splitting reads from writes would put one resolution rule
+# in two places, which is the drift this endpoint family exists to remove.
 class ResourcesController < ApplicationController
   include CachedResponses
+  include Auditable
+  include DelegateUris
+  include Reparentable
+  include StaleObjectRetry
 
-  # Renders the SAME per-type view the typed routes use, so there is no second
-  # MODS representation to drift. A type absent here falls through to 404.
-  TYPED_MODS_VIEWS = {
-    Work       => ['@work',       'works/mods'],
-    Collection => ['@collection', 'collections/mods'],
-    Community  => ['@community',  'communities/mods']
+  # The types the generic MODS reads and every generic write answer for, each
+  # with the ivar its own jbuilder partials read. `/resources/:id` resolves any
+  # type, so THIS is the gate: a type absent here falls through to 404.
+  TYPED_IVARS = {
+    Work       => '@work',
+    Collection => '@collection',
+    Community  => '@community'
   }.freeze
 
   def show
@@ -80,11 +90,96 @@ class ResourcesController < ApplicationController
   def mods
     resource = Resource.find(params.expect(:id))
     authorize! :read, resource || Resource
-    return head(:not_found) unless resource && TYPED_MODS_VIEWS.key?(resource.class) && resource.mods
+    return head(:not_found) unless resource && TYPED_IVARS.key?(resource.class) && resource.mods
 
-    ivar, template = TYPED_MODS_VIEWS[resource.class]
-    instance_variable_set(ivar, resource.decorate)
-    render template: template
+    render_typed(resource, 'mods')
+  end
+
+  # PUT, not PATCH: the caller assembles the whole MODS document and this
+  # replaces it, which is why descriptive merge logic lives in the client. See
+  # docs/mods.md.
+  #
+  # A type that holds no MODS answers 404 here exactly as it does on the GET --
+  # one answer per path, whichever verb asks.
+  def put_mods
+    resource = Resource.find(params.expect(:id))
+    authorize! :update, resource || Resource
+    return head(:not_found) unless resource && TYPED_IVARS.key?(resource.class)
+    return head(:unprocessable_content) if params[:binary].blank?
+
+    resource.mods_xml = File.read(uploaded_path(params[:binary]))
+    saved = Atlas.persister.save(resource: resource)
+    audit!(resource: saved, action: 'update', change_type: 'metadata', payload: mods_audit_payload)
+    render_typed(saved, 'show')
+  end
+
+  # PATCH, and the verb is honoured per key: an omitted key keeps its stored
+  # value, an explicitly empty one clears it. Permissions#permissions= owns
+  # that rule. So changing one slot needs no read-the-envelope round trip.
+  def update_permissions
+    resource = Resource.find(params.expect(:id))
+    authorize! :update, resource || Resource
+    return head(:not_found) unless resource && TYPED_IVARS.key?(resource.class)
+
+    render_typed(audited_permissions_update(resource, params[:permissions]), 'show')
+  end
+
+  def update_thumbnails
+    resource = nil
+    with_stale_object_retry do
+      resource = Resource.find(params.expect(:id))
+      authorize! :update_thumbnails, resource || Resource
+      return head(:not_found) unless resource && TYPED_IVARS.key?(resource.class)
+
+      apply_thumbnail_uris(resource_id: resource.id)
+    end
+
+    render_typed(Resource.find(resource.id), 'show')
+  end
+
+  # Two-sided authorization -- :reparent on the moved node AND on the
+  # destination -- lives in Reparentable, which every type shared already.
+  def update_parent
+    resource = Resource.find(params.expect(:id))
+    authorize! :reparent, resource || Resource
+    return head(:not_found) unless resource && TYPED_IVARS.key?(resource.class)
+
+    reparent_resolved(resource)
+    render_typed(Resource.find(resource.id), 'show')
+  end
+
+  def tombstone
+    resource = Resource.find(params.expect(:id))
+    authorize! :tombstone, resource || Resource
+    return head(:not_found) unless resource && TYPED_IVARS.key?(resource.class)
+
+    resource.tombstone(by: @current_user&.nuid)
+    saved = Atlas.persister.save(resource: resource)
+    audit!(resource: saved, action: 'tombstone', change_type: 'lifecycle')
+    render_typed(saved, 'show')
+  end
+
+  def restore
+    resource = Resource.find(params.expect(:id))
+    authorize! :restore, resource || Resource
+    return head(:not_found) unless resource && TYPED_IVARS.key?(resource.class)
+
+    resource.restore
+    saved = Atlas.persister.save(resource: resource)
+    audit!(resource: saved, action: 'restore', change_type: 'lifecycle')
+    render_typed(saved, 'show')
+  end
+
+  # Irreversible. Removes the resource's metadata, its members, and the OCFL
+  # objects holding the preserved bytes. #tombstone is the withdrawal path --
+  # that one keeps everything and can be undone.
+  def destroy
+    resource = Resource.find(params.expect(:id))
+    authorize! :destroy, resource || Resource
+    return head(:not_found) unless resource && TYPED_IVARS.key?(resource.class)
+
+    ResourcePurger.call(resource: resource, actor_nuid: @current_user&.nuid,
+                        on_behalf_of_nuid: @on_behalf_of)
   end
 
   # Batch resolver. The class check answers "may this principal use the
@@ -151,4 +246,21 @@ class ResourcesController < ApplicationController
     count = SubtreeReindexer.call(resources: SubtreeResourcesQuery.call(resource))
     render json: { reindexed: count }
   end
+
+  private
+
+    # Renders the SAME per-type view the typed routes render, so a generic
+    # write answers in the shape a typed find already parses and there is no
+    # second representation of a type to drift.
+    def render_typed(resource, view)
+      instance_variable_set(TYPED_IVARS.fetch(resource.class), resource.decorate)
+      render template: "#{resource.class.name.tableize}/#{view}"
+    end
+
+    # The multipart upload arrives as a Rack or ActionDispatch upload
+    # depending on the client, and only one of the two exposes #tempfile.
+    def uploaded_path(file)
+      file.tempfile.path.presence || file.path
+    end
 end
+# rubocop:enable Metrics/ClassLength

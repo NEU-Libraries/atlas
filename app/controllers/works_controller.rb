@@ -10,7 +10,6 @@ class WorksController < ApplicationController
   include IdempotentCreate
   include DelegateUris
   include StaleObjectRetry
-  include Reparentable
   include LinkedMembers
   include WorkAssociations
   include Auditable
@@ -121,31 +120,6 @@ class WorksController < ApplicationController
     end
   end
 
-  def update
-    @work = find_work(params[:id])
-    authorize! :update, @work
-    return head(:not_found) if @work.nil?
-
-    if params[:binary].present?
-      binary_update
-    elsif params[:metadata].present?
-      metadata_update
-    end
-  end
-
-  def update_thumbnails
-    with_stale_object_retry do
-      @work = find_work(params[:id])
-      authorize! :update_thumbnails, @work
-      return head(:not_found) if @work.nil?
-
-      apply_thumbnail_uris(resource_id: @work.id)
-    end
-
-    @work = Work.find(@work.id).decorate
-    render :show
-  end
-
   def update_image_derivatives
     with_stale_object_retry do
       @work = find_work(params[:id])
@@ -199,38 +173,6 @@ class WorksController < ApplicationController
 
     @work = Work.find(@work.id).decorate
     render :show
-  end
-
-  # Irreversible. Removes the Work's metadata, its FileSets, their Blobs, and
-  # the OCFL objects holding the preserved bytes. Use tombstone for the
-  # withdrawal path — that one keeps everything and can be undone.
-  def destroy
-    @work = find_work(params[:id])
-    authorize! :destroy, @work
-    return head(:not_found) if @work.nil?
-
-    ResourcePurger.call(resource: @work, actor_nuid: @current_user&.nuid,
-                        on_behalf_of_nuid: @on_behalf_of)
-  end
-
-  def tombstone
-    @work = find_work(params[:id])
-    authorize! :tombstone, @work
-    return head(:not_found) if @work.nil?
-
-    @work.tombstone(by: @current_user&.nuid)
-    @work = Atlas.persister.save(resource: @work).decorate
-    audit!(resource: @work, action: 'tombstone', change_type: 'lifecycle')
-  end
-
-  def restore
-    @work = find_work(params[:id])
-    authorize! :restore, @work
-    return head(:not_found) if @work.nil?
-
-    @work.restore
-    @work = Atlas.persister.save(resource: @work).decorate
-    audit!(resource: @work, action: 'restore', change_type: 'lifecycle')
   end
 
   def complete
@@ -288,13 +230,6 @@ class WorksController < ApplicationController
       @work = Atlas.persister.save(resource: @work).decorate
     end
     render :show
-  end
-
-  # Move a Work to a different Collection. Trivial sibling of the collection/
-  # community re-parent: a Work has no descendants and carries no ancestry
-  # field, so there is no cascade — only its own a_member_of changes.
-  def update_parent
-    reparent(Work)
   end
 
   private
@@ -384,19 +319,6 @@ class WorksController < ApplicationController
       return parent.depositor   if parent&.depositor.present?
 
       proxy_uploader_nuid
-    end
-
-    def binary_update
-      # curl -F 'id=qrfj8zz' -F 'binary=@test.xml' http://localhost:3000/works/
-      file = params[:binary]
-      path = file.tempfile.path.presence || file.path
-      @work.mods_xml = File.read(path)
-      @work = Atlas.persister.save(resource: @work)
-      audit!(resource: @work, action: 'update', change_type: 'metadata', payload: mods_audit_payload)
-    end
-
-    def metadata_update
-      @work = audited_metadata_update(@work)
     end
 end
 # rubocop:enable Metrics/ClassLength

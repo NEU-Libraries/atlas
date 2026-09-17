@@ -22,36 +22,29 @@ Rails.application.routes.draw do
   devise_for :users, skip: %i[sessions registrations]
 
   defaults format: :json do
-    resources :communities do
+    # Reads and create only. Every write that needs no type moved to the
+    # /resources/:id sub-resource that already served its GET -- see "Generics"
+    # below. What stays typed is create (it must name what to create) and the
+    # per-type writes with no generic counterpart.
+    resources :communities, only: %i[index show create]
+    resources :collections, only: %i[index show create] do
       member do
-        post :tombstone
-        post :restore
-        patch :thumbnails, action: :update_thumbnails
-        patch :parent, action: :update_parent
+        # Collection-only, so it stays typed: the showcase flag has no
+        # counterpart on the other types. It had been riding the dual-purpose
+        # PATCH as a third payload shape, undocumented beside the other two.
+        patch :featured, action: :update_featured
       end
     end
-    resources :collections do
+    resources :works, only: %i[index show create] do
       member do
-        post :tombstone
-        post :restore
-        patch :thumbnails, action: :update_thumbnails
-        patch :parent, action: :update_parent
-      end
-    end
-    resources :works do
-      member do
-        post :tombstone
-        post :restore
         post :complete
         # The pipeline-failure flag (Work#incomplete). One noun, two verbs:
         # POST sets it with a reason, DELETE repairs it.
         post :incomplete, action: :mark_incomplete
         delete :incomplete, action: :clear_incomplete
-        patch :thumbnails, action: :update_thumbnails
         patch :image_derivatives, action: :update_image_derivatives
         patch :derivative_permissions, action: :update_derivative_permissions
         patch :full_text, action: :update_full_text
-        patch :parent, action: :update_parent
       end
     end
     resources :file_sets do
@@ -146,6 +139,20 @@ Rails.application.routes.draw do
     get '/resources/:id/mods/versions', to: 'resources#mods_versions', as: 'resource_mods_versions'
     get '/resources/:id/mods/versions/:version_id', to: 'resources#mods_version',
         as: 'resource_mods_version', defaults: { format: 'xml' }, constraints: { version_id: /v\d+/ }
+    # The writes mirror the reads: each is a verb on the sub-resource whose GET
+    # is right above. A caller holding only a NOID therefore never resolves the
+    # type in order to write, and the two jobs the typed PATCH used to share --
+    # a MODS document and an ACL envelope -- have one path each.
+    #
+    # PUT for MODS because the caller assembles the whole document; PATCH for
+    # the ACL because it merges per key. The verbs are the contract.
+    put    '/resources/:id/mods',        to: 'resources#put_mods'
+    patch  '/resources/:id/permissions', to: 'resources#update_permissions'
+    patch  '/resources/:id/thumbnails',  to: 'resources#update_thumbnails'
+    patch  '/resources/:id/parent',      to: 'resources#update_parent'
+    post   '/resources/:id/tombstone',   to: 'resources#tombstone'
+    post   '/resources/:id/restore',     to: 'resources#restore'
+    delete '/resources/:id',             to: 'resources#destroy'
     post '/resources/preview', to: 'resources#preview', defaults: { format: 'html' }
     # Batch resolver: many noids/ids -> lightweight digests in one round-trip.
     # Collapses the per-id find fan-out on the Cerberus side (breadcrumbs,

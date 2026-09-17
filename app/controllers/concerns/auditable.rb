@@ -38,13 +38,12 @@ module Auditable
     { source: 'mods', origin: origin.truncate(ORIGIN_MAX_LENGTH) }
   end
 
-  # Descriptive fields are NOT writable here: the only MODS write path is the
-  # caller-assembled raw mods_xml= upload, and descriptive merges belong to
-  # the client. Extracted because all three resource types drive it
-  # identically.
-  def audited_metadata_update(resource)
-    metadata   = params[:metadata]
-    before_acl = apply_metadata_params(resource, metadata)
+  # Descriptive fields are NOT writable through the ACL path: the only MODS
+  # write is the caller-assembled raw mods_xml= upload, and descriptive merges
+  # belong to the client. Extracted because every resource type drives it
+  # identically, which is what let the endpoint become type-agnostic.
+  def audited_permissions_update(resource, incoming)
+    before_acl = apply_permissions(resource, incoming)
     saved      = Atlas.persister.save(resource: resource)
     saved.write_preservation_envelope!
     audit_metadata_update!(resource: saved, before_acl: before_acl)
@@ -56,17 +55,15 @@ module Auditable
     # before_acl is captured BEFORE reassignment, so the audit row can record
     # both sides and a no-op write can be detected.
     #
-    # The single funnel every resource type's ACL write passes through, and
-    # the only place carrying both the acting user and the pre-edit state --
-    # which is why PermissionsWriteGuard applies here.
-    def apply_metadata_params(resource, metadata)
-      # custom noid is a test-only affordance
-      resource.alternate_ids = metadata['noid'] if Rails.env.test? && metadata['noid'].present?
-      return nil if metadata['permissions'].blank?
+    # The single funnel every ACL write passes through, and the only place
+    # carrying both the acting user and the pre-edit state -- which is why
+    # PermissionsWriteGuard applies here.
+    def apply_permissions(resource, incoming)
+      return nil if incoming.blank?
 
       before_acl = resource.audited_acl
       resource.permissions = PermissionsWriteGuard.call(resource: resource,
-                                                        incoming: metadata['permissions'],
+                                                        incoming: incoming,
                                                         actor:    @current_user)
       before_acl
     end

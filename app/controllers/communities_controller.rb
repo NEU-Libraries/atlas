@@ -1,13 +1,8 @@
 # frozen_string_literal: true
 
 # Communities
-# rubocop:disable-next Metrics/ClassLength
 class CommunitiesController < ApplicationController
   include LazyPagination
-  include DelegateUris
-  include StaleObjectRetry
-  include Reparentable
-  include Auditable
   include CachedResponses
   include ParentScopedCreate
 
@@ -80,82 +75,6 @@ class CommunitiesController < ApplicationController
     @children = readable(@community.filtered_child_resources).map { |child| child.noid.to_s }
   end
 
-  def update
-    @community = find_community(params[:id])
-    authorize! :update, @community
-    return head(:not_found) if @community.nil?
-
-    if params[:binary].present?
-      binary_update
-    elsif params[:metadata].present?
-      metadata_update
-    end
-  end
-
-  def update_thumbnails
-    with_stale_object_retry do
-      @community = find_community(params[:id])
-      authorize! :update_thumbnails, @community
-      return head(:not_found) if @community.nil?
-
-      apply_thumbnail_uris(resource_id: @community.id)
-    end
-
-    @community = Community.find(@community.id).decorate
-    render :show
-  end
-
-  # Irreversible, and unlike tombstone it also refuses a member that is merely
-  # tombstoned: a purge cannot be undone, so a member left behind here is
-  # orphaned for good. An operator empties the tree leaf-first instead.
-  def destroy
-    @community = find_community(params[:id])
-    authorize! :destroy, @community
-    return head(:not_found) if @community.nil?
-
-    if @community.filtered_children.any?
-      render json:   { error: 'cannot destroy a community that still has members',
-                       code:  'has_children' },
-             status: :unprocessable_content and return
-    end
-
-    ResourcePurger.call(resource: @community, actor_nuid: @current_user&.nuid,
-                        on_behalf_of_nuid: @on_behalf_of)
-  end
-
-  def tombstone
-    @community = find_community(params[:id])
-    authorize! :tombstone, @community
-    return head(:not_found) if @community.nil?
-
-    if @community.live_children?
-      render json:   { error: 'cannot tombstone a non-empty community',
-                       code:  'has_live_children' },
-             status: :unprocessable_content and return
-    end
-
-    @community.tombstone(by: @current_user&.nuid)
-    @community = Atlas.persister.save(resource: @community).decorate
-    audit!(resource: @community, action: 'tombstone', change_type: 'lifecycle')
-  end
-
-  def restore
-    @community = find_community(params[:id])
-    authorize! :restore, @community
-    return head(:not_found) if @community.nil?
-
-    @community.restore
-    @community = Atlas.persister.save(resource: @community).decorate
-    audit!(resource: @community, action: 'restore', change_type: 'lifecycle')
-  end
-
-  # Move a Community under a different Community, or to the top of the tree
-  # (omit parent_id / pass null). Re-projects the moved subtree's descendant
-  # collections + sub-communities (Reparentable).
-  def update_parent
-    reparent(Community)
-  end
-
   private
 
     # Resolve :id to a Community, or nil if the id is absent OR names a
@@ -184,17 +103,5 @@ class CommunitiesController < ApplicationController
       return @on_behalf_of      if @on_behalf_of.present?
 
       proxy_uploader_nuid
-    end
-
-    def binary_update
-      file = params[:binary]
-      path = file.tempfile.path.presence || file.path
-      @community.mods_xml = File.read(path)
-      @community = Atlas.persister.save(resource: @community)
-      audit!(resource: @community, action: 'update', change_type: 'metadata', payload: mods_audit_payload)
-    end
-
-    def metadata_update
-      @community = audited_metadata_update(@community)
     end
 end

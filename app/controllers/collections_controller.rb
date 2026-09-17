@@ -1,12 +1,8 @@
 # frozen_string_literal: true
 
 # Collections
-# rubocop:disable-next Metrics/ClassLength
 class CollectionsController < ApplicationController
   include LazyPagination
-  include DelegateUris
-  include StaleObjectRetry
-  include Reparentable
   include Auditable
   include CachedResponses
   include ParentScopedCreate
@@ -66,6 +62,21 @@ class CollectionsController < ApplicationController
     end
   end
 
+  # Toggle the showcase "Featured" flag -- a resource-attribute write, not
+  # MODS and not the ACL, so it has its own path rather than a third payload
+  # shape on a shared one.
+  def update_featured
+    resource = find_collection(params[:id])
+    authorize! :update, resource || Collection
+    return head(:not_found) if resource.nil?
+
+    resource.featured = featured_param
+    @collection = Atlas.persister.save(resource: resource).decorate
+    audit!(resource: @collection, action: 'update', change_type: 'metadata',
+           payload: { featured: @collection.featured })
+    render :show
+  end
+
   # Child NOIDs, filtered to the ones this caller may read. A public container
   # can hold a restricted child, and listing that child's NOID here would hand
   # back the id the gated single-resource route refuses to serve.
@@ -78,83 +89,6 @@ class CollectionsController < ApplicationController
     return render(:show, status: :gone) if @collection.tombstoned
 
     @children = readable(@collection.filtered_child_resources).map { |child| child.noid.to_s }
-  end
-
-  def update
-    @collection = find_collection(params[:id])
-    authorize! :update, @collection
-    return head(:not_found) if @collection.nil?
-
-    if params[:binary].present?
-      binary_update
-    elsif params[:metadata].present?
-      metadata_update
-    elsif params.key?('featured')
-      featured_update
-    end
-  end
-
-  def update_thumbnails
-    with_stale_object_retry do
-      @collection = find_collection(params[:id])
-      authorize! :update_thumbnails, @collection
-      return head(:not_found) if @collection.nil?
-
-      apply_thumbnail_uris(resource_id: @collection.id)
-    end
-
-    @collection = Collection.find(@collection.id).decorate
-    render :show
-  end
-
-  # Irreversible, and unlike tombstone it also refuses a member that is merely
-  # tombstoned: a purge cannot be undone, so a member left behind here is
-  # orphaned for good. An operator empties the tree leaf-first instead.
-  def destroy
-    @collection = find_collection(params[:id])
-    authorize! :destroy, @collection
-    return head(:not_found) if @collection.nil?
-
-    if @collection.filtered_children.any?
-      render json:   { error: 'cannot destroy a collection that still has members',
-                       code:  'has_children' },
-             status: :unprocessable_content and return
-    end
-
-    ResourcePurger.call(resource: @collection, actor_nuid: @current_user&.nuid,
-                        on_behalf_of_nuid: @on_behalf_of)
-  end
-
-  def tombstone
-    @collection = find_collection(params[:id])
-    authorize! :tombstone, @collection
-    return head(:not_found) if @collection.nil?
-
-    if @collection.live_children?
-      render json:   { error: 'cannot tombstone a non-empty collection',
-                       code:  'has_live_children' },
-             status: :unprocessable_content and return
-    end
-
-    @collection.tombstone(by: @current_user&.nuid)
-    @collection = Atlas.persister.save(resource: @collection).decorate
-    audit!(resource: @collection, action: 'tombstone', change_type: 'lifecycle')
-  end
-
-  def restore
-    @collection = find_collection(params[:id])
-    authorize! :restore, @collection
-    return head(:not_found) if @collection.nil?
-
-    @collection.restore
-    @collection = Atlas.persister.save(resource: @collection).decorate
-    audit!(resource: @collection, action: 'restore', change_type: 'lifecycle')
-  end
-
-  # Move a Collection under a different Community or Collection. Validates +
-  # re-projects the moved subtree's descendant collections (Reparentable).
-  def update_parent
-    reparent(Collection)
   end
 
   private
@@ -186,28 +120,6 @@ class CollectionsController < ApplicationController
       return @on_behalf_of      if @on_behalf_of.present?
 
       proxy_uploader_nuid
-    end
-
-    def binary_update
-      file = params[:binary]
-      path = file.tempfile.path.presence || file.path
-      @collection.mods_xml = File.read(path)
-      @collection = Atlas.persister.save(resource: @collection)
-      audit!(resource: @collection, action: 'update', change_type: 'metadata', payload: mods_audit_payload)
-    end
-
-    def metadata_update
-      @collection = audited_metadata_update(@collection)
-    end
-
-    # Toggle the showcase "Featured" flag. A resource-attribute write (not
-    # MODS), so it bypasses the descriptive-metadata path; @collection is
-    # already found + authorized in #update, and the view auto-decorates.
-    def featured_update
-      @collection.featured = featured_param
-      @collection = Atlas.persister.save(resource: @collection)
-      audit!(resource: @collection, action: 'update', change_type: 'metadata',
-             payload: { featured: @collection.featured })
     end
 
     # Coerce the wire value ("true"/"false"/absent) to a real Boolean,

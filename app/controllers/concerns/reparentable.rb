@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# Shared re-parent action: PATCH /<type>/:id/parent with { parent_id }, or no
+# The re-parent move: PATCH /resources/:id/parent with { parent_id }, or no
 # parent_id to move a Community to the top of the tree. See
 # docs/resource-graph.md.
 #
@@ -12,13 +12,9 @@ module Reparentable
 
   private
 
-    def reparent(klass)
-      node = klass.find(params.expect(:id))
-      # Before the nil-guard, so check_authorization is satisfied on the
-      # not-found path too.
-      authorize! :reparent, node
-      return head(:not_found) if node.nil?
-
+    # Takes the already-resolved node so the caller owns the type gate: the
+    # generic path resolves types that have no parent to move.
+    def reparent_resolved(node)
       destination = reparent_destination
       authorize! :reparent, destination if destination
 
@@ -29,8 +25,7 @@ module Reparentable
         on_behalf_of_nuid: @on_behalf_of
       )
 
-      instance_variable_set("@#{klass.name.underscore}", klass.find(node.id).decorate)
-      render :show
+      node
     end
 
     # A given-but-unresolvable parent is a 422 and NOT a 404: the parent is

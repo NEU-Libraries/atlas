@@ -128,7 +128,7 @@ class CompilationsController < ApplicationController
 
     # Returns the pre-edit audited ACL when the request carried a
     # permissions key (captured BEFORE reassignment, mirroring
-    # Auditable#apply_metadata_params), otherwise nil.
+    # Auditable#apply_permissions), otherwise nil.
     def apply_permissions_params
       return nil if params[:permissions].blank?
 

@@ -1,11 +1,31 @@
 #!/usr/bin/env bash
+#
 # Regenerate openapi/openapi.yaml from spec/requests/*_spec.rb.
-# Run inside the docker-compose dev environment so the gems are available.
-
+#
+#   bin/openapi
+#
+# Runs inside the web container so the gems are there, against whichever
+# checkout you are standing in. That last part is why it shares
+# lib/container.sh with bin/spec: the generator writes its output relative to
+# the working directory, so without the same path translation a run from a
+# worktree regenerates the MAIN checkout's file — silently, and into someone
+# else's working tree.
 set -euo pipefail
 
-if command -v docker >/dev/null 2>&1 && docker compose ps --status running web >/dev/null 2>&1; then
-  docker compose exec -T web bundle exec rake rswag:specs:swaggerize
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/container.sh
+source "$SCRIPT_DIR/lib/container.sh"
+
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+  sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'
+  exit 0
+fi
+
+# The host fallback stays for a checkout with no stack up: there the working
+# directory IS the checkout, so the output lands in the right place either way.
+# Only the container path needed translating.
+if container_init 2>/dev/null; then
+  docker exec -w "$CONTAINER_ROOT" "$WEB_CONTAINER" bundle exec rake rswag:specs:swaggerize
 else
   bundle exec rake rswag:specs:swaggerize
 fi

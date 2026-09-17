@@ -23,6 +23,30 @@ RSpec.describe Modsable do
     JSON.parse(File.read(object_root.join(physical)), symbolize_names: true)
   end
 
+  describe '#mods_writable?' do
+    # The walk for the descriptive-metadata FileSet is defined on every
+    # Resource, so it meets members that are not FileSets: a FileSet's own
+    # members are Blobs and Delegates, and neither carries `type`.
+    it 'is false for a FileSet holding a Blob, rather than raising on the member' do
+      blob = BlobCreator.call(work_id:           work.noid,
+                              path:              Rails.root.join('spec/fixtures/files/example.bin').to_s,
+                              original_filename: 'example.bin')
+
+      expect(blob.parent.mods_writable?).to be false
+    end
+
+    it 'is false for the derivative FileSet holding a Delegate' do
+      delegate = DelegateCreator.call(resource_id: work.id, use: Role.thumbnail_image.name,
+                                      uri: 'https://iiif.example/iiif/3/abc.jp2/full/!85,85/0/default.jpg')
+
+      expect(delegate.parent.mods_writable?).to be false
+    end
+
+    it 'is true for a Work, which does hold one' do
+      expect(work.mods_writable?).to be true
+    end
+  end
+
   describe '#mods_xml=' do
     it 'stores the descriptive-metadata blob under the canonical descMetadata.xml filename' do
       stored_id = work.mods_blob.file_identifiers.last.to_s

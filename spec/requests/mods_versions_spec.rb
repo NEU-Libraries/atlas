@@ -19,6 +19,7 @@ RSpec.describe 'MODS version history endpoints', type: :request do
   let(:collection) { CollectionCreator.call(parent_id: community.noid) }
 
   let(:mods_fixture) { Rails.root.join('spec/fixtures/files/work-mods.xml') }
+  let(:binary_fixture) { Rails.root.join('spec/fixtures/files/example.bin').to_s }
 
   # The default request-spec auth principal is admin (NUID 000000004), so a
   # MODS PATCH stamps a `mods` AuditEvent attributed to that NUID, which is
@@ -103,6 +104,24 @@ RSpec.describe 'MODS version history endpoints', type: :request do
       expect(response.parsed_body['versions']).to eq([])
     end
 
+    # Every non-Modsable type answers the documented empty array. A FileSet is
+    # the one that can hold members of a class other than its own, and the walk
+    # for the descriptive-metadata FileSet reads `type` off each one -- so both
+    # shapes of FileSet member are here, a Blob and a Delegate.
+    it 'returns an empty array for every type that holds no MODS' do
+      work     = WorkCreator.call(parent_id: collection.noid)
+      blob     = BlobCreator.call(work_id: work.noid, path: binary_fixture, original_filename: 'example.bin')
+      delegate = DelegateCreator.call(resource_id: work.id, use: Role.thumbnail_image.name,
+                                      uri: 'https://iiif.example/iiif/3/abc.jp2/full/!85,85/0/default.jpg')
+      person   = PersonCreator.call(nuid: '001234567', display_name: 'Doe, Jane')
+
+      # blob.parent is the FileSet BlobCreator minted for it; delegate.parent is
+      # the :derivative FileSet DelegateCreator minted for the Delegate.
+      [blob.parent, delegate.parent, blob, delegate, person].each do |resource|
+        expect(versions_for(resource.noid)).to eq([]), "expected no versions for #{resource.class}"
+      end
+    end
+
     it 'is admin-gated like /history (guest is forbidden)' do
       work = WorkCreator.call(parent_id: collection.noid)
       get "/resources/#{work.noid}/mods/versions", headers: guest_headers
@@ -166,6 +185,14 @@ RSpec.describe 'MODS version history endpoints', type: :request do
 
       get "/resources/#{work.noid}/mods/versions/#{seed}", headers: guest_headers
       expect(response).to have_http_status(:ok)
+    end
+
+    it '404s for a FileSet, which holds no MODS to version' do
+      work     = WorkCreator.call(parent_id: collection.noid)
+      blob     = BlobCreator.call(work_id: work.noid, path: binary_fixture, original_filename: 'example.bin')
+
+      get "/resources/#{blob.parent.noid}/mods/versions/v1"
+      expect(response).to have_http_status(:not_found)
     end
 
     it '404s for an unknown version' do

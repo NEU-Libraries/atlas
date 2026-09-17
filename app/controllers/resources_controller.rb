@@ -20,6 +20,9 @@ class ResourcesController < ApplicationController
     # Person has no resourceful route, so polymorphic redirect_to can't build
     # its path — send it to the NOID-keyed endpoint.
     return redirect_to(person_path(@resource.noid)) if @resource.is_a?(Person)
+    # A Blob's typed route is /files/:id, so the polymorphic helper would be
+    # blob_url, which no route defines.
+    return redirect_to(file_path(@resource.noid)) if @resource.is_a?(Blob)
 
     redirect_to(@resource)
   end

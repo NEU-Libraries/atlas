@@ -139,6 +139,27 @@ exclusively FileSets.** So the METS Blob hangs off a sibling
 `GET /resources/:id` is the generic NOID resolver — it 302-redirects to the typed
 endpoint.
 
+### What the resolver covers, and the two types it names explicitly
+
+Resolution runs through `Resource.find`, a Valkyrie query, so the resolver
+answers for the Valkyrie-backed types only: Work, Collection, Community,
+FileSet, Blob, Delegate and Person. A Compilation is an ActiveRecord row
+([compilations.md](compilations.md)), so `/resources/:id` **404s on a
+Compilation NOID** even though `/compilations/:id` serves it. A client holding
+nothing but a NOID cannot tell that 404 from an unknown id.
+
+Two of the seven cannot reach the polymorphic `redirect_to`, so `#show` names
+their paths itself:
+
+| Type | Path it redirects to | Why the polymorphic helper is missing |
+|---|---|---|
+| `Person` | `/people/:noid` | no resourceful route — the endpoints are NOID-keyed one by one |
+| `Blob` | `/files/:noid` | the route is `resources :files`, so the helper is `file_url`, not `blob_url` |
+
+A new resource type whose route name does not match its class name needs a line
+there too. The polymorphic call raises `NoMethodError` on a missing helper, so
+the endpoint 500s rather than 404ing.
+
 ### One rule runs through every action here
 
 **`authorize!` runs before the 404**, falling back to the `Resource` class for an

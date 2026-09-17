@@ -20,7 +20,7 @@ RSpec.describe 'Collections via atlas_rb', :atlas_rb_server do
   it 'updates a Collection via multipart MODS upload' do
     collection = CollectionCreator.call(parent_id: community.noid)
 
-    AtlasRb::Collection.update(collection.noid, Rails.root.join('spec/fixtures/files/work-mods.xml').to_s, nuid: admin_nuid)
+    AtlasRb::Resource.put_mods(collection.noid, Rails.root.join('spec/fixtures/files/work-mods.xml').to_s, nuid: admin_nuid)
 
     found = AtlasRb::Collection.find(collection.noid, nuid: admin_nuid)
     expect(found['title']).to eq("What's New. How We Respond to Disaster. Episode 1")
@@ -40,7 +40,7 @@ RSpec.describe 'Collections via atlas_rb', :atlas_rb_server do
   it 'destroys a Collection via HTTP' do
     collection = CollectionCreator.call(parent_id: community.noid)
 
-    AtlasRb::Admin::Collection.destroy(collection.noid, confirm: :i_understand, nuid: admin_nuid)
+    AtlasRb::Admin::Resource.destroy(collection.noid, confirm: :i_understand, nuid: admin_nuid)
     expect(Collection.find(collection.noid)).to be_nil
   end
 
@@ -48,7 +48,7 @@ RSpec.describe 'Collections via atlas_rb', :atlas_rb_server do
     it 'round-trips the three thumbnail-tier URIs through atlas_rb and surfaces them on the next find' do
       collection = CollectionCreator.call(parent_id: community.noid)
 
-      AtlasRb::Collection.set_thumbnails(
+      AtlasRb::Resource.set_thumbnails(
         collection.noid,
         thumbnail:    'https://iiif.example/iiif/3/c.jp2/full/!85,85/0/default.jpg',
         thumbnail_2x: 'https://iiif.example/iiif/3/c.jp2/full/!170,170/0/default.jpg',

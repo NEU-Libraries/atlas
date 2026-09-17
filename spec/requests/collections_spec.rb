@@ -115,85 +115,6 @@ RSpec.describe 'Collections', type: :request do
         run_test!
       end
     end
-
-    patch 'Update a collection' do
-      tags 'Collections'
-      consumes 'multipart/form-data'
-      produces 'application/json'
-      description <<~DESC
-        Update a Collection's descriptive metadata by supplying a `binary`
-        MODS XML upload — the caller assembles the full document (descriptive
-        merge logic lives in the client, not Atlas). `metadata[permissions]`
-        adjusts the ACL. Any `metadata[title]` / `metadata[description]` keys
-        are ignored.
-
-        Thumbnail-family URI writes have their own purpose-specific
-        endpoint — see `PATCH /collections/{id}/thumbnails`.
-      DESC
-      parameter name: :binary, in: :formData, required: false
-      parameter name: :featured, in: :formData, required: false
-      parameter name: :origin, in: :formData, required: false
-      multipart_request_body(
-        {
-          binary:   { type: :string, format: :binary, description: 'MODS XML to apply to the Collection' },
-          featured: { type: :string, description: 'Toggle the showcase "Featured" flag ("true"/"false")' },
-          origin:   { type: :string, description: ORIGIN_PARAM_DESCRIPTION }
-        }
-      )
-
-      response '200', 'collection updated' do
-        let(:collection) { CollectionCreator.call(parent_id: community.noid) }
-        let(:id)         { collection.noid }
-        let(:binary)     { Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/work-mods.xml')) }
-        schema '$ref' => '#/components/schemas/Collection'
-        run_test!
-      end
-
-      response '200', 'toggle the Featured showcase flag' do
-        let(:collection) { CollectionCreator.call(parent_id: community.noid, featured: true) }
-        let(:id)         { collection.noid }
-        let(:featured)   { 'false' }
-        schema '$ref' => '#/components/schemas/Collection'
-        run_test! do |response|
-          expect(JSON.parse(response.body).dig('collection', 'featured')).to be(false)
-        end
-      end
-    end
-
-    delete 'Destroy a collection' do
-      tags 'Collections'
-      description <<~DESC
-        Permanently removes the Collection, its descriptive-metadata FileSet,
-        and the OCFL objects that hold the preserved bytes. This is a purge,
-        not a withdrawal, and it cannot be reversed — use
-        `POST /collections/{id}/tombstone` for that.
-
-        Refuses with 422 (`has_children`) while the Collection still holds a
-        Work or a sub-container, **including tombstoned ones**. That is
-        stricter than tombstone, which only counts live members: a member
-        left behind by a purge is orphaned for good. Empty the tree
-        leaf-first.
-
-        Admin only.
-      DESC
-
-      response '204', 'collection destroyed' do
-        let(:collection) { CollectionCreator.call(parent_id: community.noid) }
-        let(:id)         { collection.noid }
-        run_test! do
-          expect(Collection.find(collection.noid)).to be_nil
-        end
-      end
-
-      response '422', 'collection still has members' do
-        let(:collection) { CollectionCreator.call(parent_id: community.noid) }
-        let(:id)         { collection.noid }
-        before { WorkCreator.call(parent_id: collection.noid) }
-        run_test! do |response|
-          expect(JSON.parse(response.body)['code']).to eq('has_children')
-        end
-      end
-    end
   end
 
   path '/collections/{id}/mods' do
@@ -207,6 +128,45 @@ RSpec.describe 'Collections', type: :request do
         let(:collection) { CollectionCreator.call(parent_id: community.noid) }
         let(:id)         { collection.noid }
         let(:Accept)     { 'application/xml' }
+        run_test!
+      end
+    end
+  end
+
+  path '/collections/{id}/featured' do
+    parameter name: :id, in: :path, type: :string, description: 'NOID of the Collection'
+
+    let(:collection) { CollectionCreator.call(parent_id: community.noid) }
+
+    patch 'Set a collection’s showcase Featured flag' do
+      tags 'Collections'
+      consumes 'application/json'
+      produces 'application/json'
+      description <<~DESC
+        Toggles the showcase `featured` flag. A resource-attribute write, not
+        MODS and not the ACL, so it has its own path rather than a third
+        payload shape on a shared one. Collection-only: no other type carries
+        the flag, which is why this write stays typed while the rest moved to
+        `/resources/{id}`.
+      DESC
+      parameter name: :body, in: :body, schema: {
+        type:       :object,
+        required:   %w[featured],
+        properties: { featured: { type: :boolean } }
+      }
+
+      response '200', 'flag set' do
+        let(:id)   { collection.noid }
+        let(:body) { { featured: true } }
+        schema '$ref' => '#/components/schemas/Collection'
+        run_test! do |response|
+          expect(JSON.parse(response.body).dig('collection', 'featured')).to be(true)
+        end
+      end
+
+      response '404', 'unknown id' do
+        let(:id)   { 'does-not-exist' }
+        let(:body) { { featured: true } }
         run_test!
       end
     end
@@ -239,141 +199,6 @@ RSpec.describe 'Collections', type: :request do
     end
   end
 
-  path '/collections/{id}/thumbnails' do
-    parameter name: :id, in: :path, type: :string, description: 'NOID of the Collection'
-
-    patch 'Attach thumbnail-family IIIF Delegate URIs to a collection' do
-      tags 'Collections'
-      consumes 'application/json'
-      produces 'application/json'
-      description <<~DESC
-        Upserts one or more thumbnail-tier Delegates on the Collection
-        (85px `thumbnail`, 170px `thumbnail_2x`, 500px `preview`). Missing
-        keys are left untouched. Mirrors the Works endpoint of the same
-        shape; collection-level thumbnails surface in the Cerberus
-        browse UI.
-      DESC
-      parameter name: :body, in: :body, schema: {
-        type:       :object,
-        properties: {
-          thumbnail:    { type: :string, description: 'IIIF URL for the 85px thumbnail tier' },
-          thumbnail_2x: { type: :string, description: 'IIIF URL for the 170px retina thumbnail tier' },
-          preview:      { type: :string, description: 'IIIF URL for the 500px hero preview tier' }
-        }
-      }
-
-      response '200', 'all three thumbnail-family keys land in one PATCH' do
-        let(:collection) { CollectionCreator.call(parent_id: community.noid) }
-        let(:id) { collection.noid }
-        let(:body) do
-          {
-            thumbnail:    'https://iiif.example/iiif/3/c.jp2/full/!85,85/0/default.jpg',
-            thumbnail_2x: 'https://iiif.example/iiif/3/c.jp2/full/!170,170/0/default.jpg',
-            preview:      'https://iiif.example/iiif/3/c.jp2/full/500,/0/default.jpg'
-          }
-        end
-        schema '$ref' => '#/components/schemas/Collection'
-        run_test! do |response|
-          json = JSON.parse(response.body).fetch('collection')
-          expect(json['thumbnail']).to eq('https://iiif.example/iiif/3/c.jp2/full/!85,85/0/default.jpg')
-          expect(json['thumbnail_2x']).to eq('https://iiif.example/iiif/3/c.jp2/full/!170,170/0/default.jpg')
-          expect(json['preview']).to eq('https://iiif.example/iiif/3/c.jp2/full/500,/0/default.jpg')
-        end
-      end
-    end
-  end
-
-  path '/collections/{id}/parent' do
-    parameter name: :id, in: :path, type: :string, description: 'NOID of the Collection to move'
-
-    patch 'Re-parent a collection' do
-      tags 'Collections'
-      consumes 'application/json'
-      produces 'application/json'
-      description <<~DESC
-        Moves a Collection under a different parent Community or Collection.
-        Re-projects the moved subtree's descendant collections so their cached
-        ancestry stays correct; Works are never touched. Rejects cycles (the
-        new parent being the collection itself or one of its descendants), bad
-        parent types, and tombstoned node/parent with a 422.
-      DESC
-      parameter name: :body, in: :body, schema: {
-        type:       :object,
-        required:   %w[parent_id],
-        properties: { parent_id: { type: :string, description: 'NOID of the new parent Community or Collection' } }
-      }
-
-      response '200', 'collection moved under another collection' do
-        let(:community)    { CommunityCreator.call }
-        let(:destination)  { CollectionCreator.call(parent_id: community.noid) }
-        let(:collection)   { CollectionCreator.call(parent_id: community.noid) }
-        let(:id)           { collection.noid }
-        let(:body)         { { parent_id: destination.noid } }
-        schema '$ref' => '#/components/schemas/Collection'
-        run_test! do |response|
-          ancestors = JSON.parse(response.body).dig('collection', 'ancestors')
-          expect(ancestors.pluck('noid')).to include(destination.noid)
-        end
-      end
-
-      response '422', 'rejects a move into the collection\'s own descendant (cycle)' do
-        let(:community)  { CommunityCreator.call }
-        let(:collection) { CollectionCreator.call(parent_id: community.noid) }
-        let(:child)      { CollectionCreator.call(parent_id: collection.noid) }
-        let(:id)         { collection.noid }
-        let(:body)       { { parent_id: child.noid } }
-        run_test! do |response|
-          expect(JSON.parse(response.body)['error']).to eq('cycle')
-        end
-      end
-    end
-  end
-
-  path '/collections/{id}/tombstone' do
-    parameter name: :id, in: :path, type: :string
-
-    post 'Tombstone a collection' do
-      tags 'Collections'
-      produces 'application/json'
-      description 'Marks a Collection as tombstoned. Refuses with 422 if the collection has live (non-tombstoned) members.'
-
-      response '200', 'collection tombstoned' do
-        let(:collection) { CollectionCreator.call(parent_id: community.noid) }
-        let(:id)         { collection.noid }
-        schema '$ref' => '#/components/schemas/Collection'
-        run_test!
-      end
-
-      response '422', 'collection has live members' do
-        let(:collection) { CollectionCreator.call(parent_id: community.noid) }
-        let(:id)         { collection.noid }
-        before { WorkCreator.call(parent_id: collection.noid) }
-        run_test!
-      end
-    end
-  end
-
-  path '/collections/{id}/restore' do
-    parameter name: :id, in: :path, type: :string
-
-    post 'Restore a tombstoned collection' do
-      tags 'Collections'
-      produces 'application/json'
-      description 'Clears the tombstone flag on a Collection. Cerberus does not expose this — call from operator console.'
-
-      response '200', 'collection restored' do
-        let(:collection) do
-          c = CollectionCreator.call(parent_id: community.noid)
-          c.tombstoned = true
-          Atlas.persister.save(resource: c)
-        end
-        let(:id) { collection.noid }
-        schema '$ref' => '#/components/schemas/Collection'
-        run_test!
-      end
-    end
-  end
-
   # An ACL-only metadata PATCH must preserve depositor / proxy_uploader.
   # Permissions#permissions= writes the ACL slots; a naive version that also
   # wrote depositor/proxy_uploader would clear them whenever the caller omits
@@ -384,7 +209,7 @@ RSpec.describe 'Collections', type: :request do
     # rule allows only under a public container.
     let(:community) { public_community! }
 
-    it 'leaves depositor/proxy_uploader intact when metadata[permissions] omits them' do
+    it 'leaves depositor/proxy_uploader intact when the ACL payload omits them' do
       collection = CollectionCreator.call(
         parent_id:      community.noid,
         proxy_uploader: '000000002',
@@ -394,8 +219,8 @@ RSpec.describe 'Collections', type: :request do
       expect(collection.depositor).to      eq('900000001')
       expect(collection.proxy_uploader).to eq('000000002')
 
-      patch "/collections/#{collection.noid}",
-            params: { metadata: { permissions: { read: ['public'], edit: [], edit_users: [] } } }
+      patch "/resources/#{collection.noid}/permissions",
+            params: { permissions: { read: ['public'], edit: [], edit_users: [] } }
 
       expect(response).to have_http_status(:ok)
       reloaded = Collection.find(collection.noid)

@@ -47,10 +47,11 @@ RSpec.describe 'MODS version history endpoints', type: :request do
   let(:other_fixture) { Rails.root.join('spec/fixtures/files/collection-mods.xml').to_s }
 
   # Drive the real HTTP write path so the OCFL version + correlated
-  # AuditEvent are both produced exactly as production does it.
-  def edit_mods(noid, route: 'works', fixture: mods_fixture)
-    patch "/#{route}/#{noid}",
-          params: { binary: Rack::Test::UploadedFile.new(fixture) }
+  # AuditEvent are both produced exactly as production does it. The path is
+  # type-agnostic, so the three types differ only in the id.
+  def edit_mods(noid, fixture: mods_fixture)
+    put "/resources/#{noid}/mods",
+        params: { binary: Rack::Test::UploadedFile.new(fixture) }
     expect(response).to have_http_status(:ok)
   end
 
@@ -129,8 +130,8 @@ RSpec.describe 'MODS version history endpoints', type: :request do
     end
 
     it 'covers Collections and Communities through the same route' do
-      edit_mods(collection.noid, route: 'collections')
-      edit_mods(community.noid,  route: 'communities')
+      edit_mods(collection.noid)
+      edit_mods(community.noid)
 
       [collection, community].each do |resource|
         expect(versions_for(resource.noid).first)

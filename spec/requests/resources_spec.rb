@@ -36,6 +36,48 @@ RSpec.describe 'Resources', type: :request do
         run_test!
       end
     end
+
+    delete 'Purge a resource' do
+      tags 'Resources'
+      produces 'application/json'
+      description <<~DESC
+        Permanently removes the resource. This is a purge, not a withdrawal: it
+        deletes the metadata, cascades into members (a Work's FileSets and
+        their Blobs), and removes the OCFL objects that hold the preserved
+        bytes — every retained revision, not only the current one. Nothing
+        survives but the audit row, which records the NOIDs it removed.
+
+        Use `POST /resources/{id}/tombstone` for the user-visible withdrawal
+        path. That one keeps everything and can be reversed.
+
+        Refused with `422 has_children` while any Community, Collection or Work
+        is still a member — and unlike tombstone it refuses a member that is
+        merely tombstoned, because a purge cannot be undone and a member left
+        behind is orphaned for good.
+
+        Admin only.
+      DESC
+
+      response '204', 'resource purged' do
+        let(:id) { work.noid }
+        run_test! do
+          expect(Work.find(work.noid)).to be_nil
+        end
+      end
+
+      response '422', 'container still has members' do
+        let(:id) { collection.noid }
+        before { work }
+        run_test! do |response|
+          expect(JSON.parse(response.body)['code']).to eq('has_children')
+        end
+      end
+
+      response '404', 'unknown id' do
+        let(:id) { 'does-not-exist' }
+        run_test!
+      end
+    end
   end
 
   path '/resources/{id}/permissions' do
@@ -94,6 +136,60 @@ RSpec.describe 'Resources', type: :request do
         run_test!
       end
     end
+
+    patch "Adjust a resource's ACL" do
+      tags 'Resources'
+      consumes 'application/json'
+      produces 'application/json'
+      description <<~DESC
+        Adjusts the resource's ACL. PATCH, and the verb is honoured per key: a
+        key the payload omits keeps its stored value, and a key sent explicitly
+        empty is cleared. So changing one slot needs no read-the-whole-envelope
+        round trip. Accepts `embargo`, `depositor`, `proxy_uploader`,
+        `edit_users`, `read` and `edit`; anything else is ignored.
+
+        Two rules bound the write. A resource may be no more visible than its
+        container, so a read audience wider than the parent's is refused with
+        `422 visibility_exceeds_parent` (widen the parent instead). And a group
+        grant may only be removed by a member of that group — admin and the
+        devolved-admin tier excepted; a grant the caller cannot remove is
+        preserved rather than rejected, so the stored ACL may retain groups the
+        request omitted. Read it back with `GET /resources/{id}/permissions`.
+
+        Type-agnostic, and the response is the resource in its own typed shape.
+        Descriptive fields are not writable here — MODS has its own path.
+      DESC
+      parameter name: :payload, in: :body, required: true, schema: {
+        type:       :object,
+        properties: {
+          permissions: {
+            type:       :object,
+            properties: {
+              embargo:        { type: :string, description: 'Release date, or empty to clear' },
+              depositor:      { type: :string },
+              proxy_uploader: { type: :string },
+              edit_users:     { type: :array, items: { type: :string } },
+              read:           { type: :array, items: { type: :string } },
+              edit:           { type: :array, items: { type: :string } }
+            }
+          }
+        },
+        required:   ['permissions']
+      }
+
+      response '200', 'acl adjusted' do
+        let(:id)      { work.noid }
+        let(:payload) { { permissions: { read: [] } } }
+        schema '$ref' => '#/components/schemas/Work'
+        run_test!
+      end
+
+      response '404', 'unknown id' do
+        let(:id)      { 'does-not-exist' }
+        let(:payload) { { permissions: { read: [] } } }
+        run_test!
+      end
+    end
   end
 
   path '/resources/{id}/mods' do
@@ -122,6 +218,65 @@ RSpec.describe 'Resources', type: :request do
         let(:id)     { 'neu:nonexistent' }
         let(:Accept) { 'application/xml' }
         run_test!
+      end
+    end
+
+    put "Replace a resource's MODS document" do
+      tags 'Resources'
+      consumes 'multipart/form-data'
+      produces 'application/json'
+      description <<~DESC
+        Replaces the resource's descriptive metadata with the supplied `binary`
+        MODS XML upload. PUT and not PATCH because the caller assembles the
+        full document: descriptive merge logic lives in the client, e.g.
+        Cerberus, not Atlas.
+
+        Type-agnostic — the NOID is resolved and the write applies to a Work,
+        Collection or Community alike. A type that holds no MODS answers 404,
+        exactly as the GET on this path does. A request with no `binary`
+        attached is a 422.
+
+        Responds with the resource in its own typed shape, so the body matches
+        what `GET /{type}/{id}` returns.
+      DESC
+      parameter name: :binary, in: :formData, required: false
+      parameter name: :origin, in: :formData, required: false
+      multipart_request_body(
+        {
+          binary: { type: :string, format: :binary, description: 'MODS XML to apply to the resource' },
+          origin: { type: :string, description: ORIGIN_PARAM_DESCRIPTION }
+        }
+      )
+
+      response '200', 'mods replaced' do
+        let(:id)     { work.noid }
+        let(:binary) { Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/work-mods.xml')) }
+        schema '$ref' => '#/components/schemas/Work'
+        run_test!
+      end
+
+      response '404', 'unknown id, or a type that holds no MODS' do
+        let(:id)     { 'does-not-exist' }
+        let(:binary) { Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/work-mods.xml')) }
+        run_test!
+      end
+
+      response '422', 'no document attached' do
+        let(:id)     { work.noid }
+        let(:binary) { nil }
+        run_test!
+      end
+
+      response '409', 'optimistic-lock conflict (surfaced immediately, not retried)' do
+        let(:id)     { work.noid }
+        let(:binary) { Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/work-mods.xml')) }
+        before do
+          work # persist before stubbing so the creator's saves don't hit the stub
+          allow(Atlas.persister).to receive(:save).and_raise(Valkyrie::Persistence::StaleObjectError)
+        end
+        run_test! do |response|
+          expect(JSON.parse(response.body)['error']).to eq('stale_resource')
+        end
       end
     end
   end
@@ -232,6 +387,181 @@ RSpec.describe 'Resources', type: :request do
       response '404', 'unknown version' do
         let(:id)         { work.noid }
         let(:version_id) { 'v9999' }
+        run_test!
+      end
+    end
+  end
+
+  path '/resources/{id}/thumbnails' do
+    parameter name: :id, in: :path, type: :string, description: 'NOID of the resource'
+
+    patch 'Attach thumbnail-family IIIF Delegate URIs to a resource' do
+      tags 'Resources'
+      consumes 'application/json'
+      produces 'application/json'
+      description <<~DESC
+        Upserts one or more thumbnail-tier Delegates — the 85px `thumbnail`,
+        the 170px `thumbnail_2x`, and the 500px hero `preview`. Each non-blank
+        URI is dispatched to its matching Role; a key you omit is left
+        untouched.
+
+        Purpose-specific: machine-set IIIF URLs, a fixed three-key shape, no
+        user content. Type-agnostic, and the response is the resource in its
+        own typed shape.
+
+        Retry-safe: an optimistic-lock conflict is retried internally, and only
+        an exhausted budget surfaces as `409 stale_resource`.
+      DESC
+      parameter name: :body, in: :body, schema: {
+        type:       :object,
+        properties: {
+          thumbnail:    { type: :string, description: 'IIIF URI for the ~85px square thumbnail' },
+          thumbnail_2x: { type: :string, description: 'IIIF URI for the ~170px square 2x thumbnail' },
+          preview:      { type: :string, description: 'IIIF URI for the ~500px-wide preview' }
+        }
+      }
+
+      response '200', 'delegate uris attached' do
+        let(:id)   { work.noid }
+        let(:body) { { thumbnail: 'https://iiif.example/iiif/3/abc.jp2/full/!85,85/0/default.jpg' } }
+        schema '$ref' => '#/components/schemas/Work'
+        run_test!
+      end
+
+      response '404', 'unknown id' do
+        let(:id)   { 'does-not-exist' }
+        let(:body) { { thumbnail: 'https://iiif.example/85.jpg' } }
+        run_test!
+      end
+    end
+  end
+
+  path '/resources/{id}/parent' do
+    parameter name: :id, in: :path, type: :string, description: 'NOID of the resource to move'
+
+    patch 'Re-parent a resource' do
+      tags 'Resources'
+      consumes 'application/json'
+      produces 'application/json'
+      description <<~DESC
+        Moves a resource under a different parent. A Work carries no ancestry
+        field and has no descendants, so only its own membership changes; a
+        container's moved subtree is re-projected synchronously. Permissions
+        are untouched. Omit `parent_id` to move a Community to the top of the
+        tree.
+
+        Authorization is TWO-SIDED — the caller needs `:reparent` on the moved
+        node AND on the destination. Edit rights do not imply it for anyone but
+        admin and the devolved-admin tier.
+
+        A given-but-unresolvable `parent_id` is a `422 parent_not_found`, not a
+        404: the parent is request input, not the addressed resource. A
+        structurally invalid move (wrong parent type, a cycle, a tombstoned
+        node or parent) is also a 422.
+      DESC
+      parameter name: :body, in: :body, schema: {
+        type:       :object,
+        properties: { parent_id: { type: :string, description: 'NOID of the destination' } }
+      }
+
+      response '200', 'resource moved' do
+        let(:destination) { CollectionCreator.call(parent_id: community.noid) }
+        let(:id)          { work.noid }
+        let(:body)        { { parent_id: destination.noid } }
+        schema '$ref' => '#/components/schemas/Work'
+        run_test! do |response|
+          ancestors = JSON.parse(response.body).dig('work', 'ancestors')
+          expect(ancestors.pluck('noid')).to include(destination.noid)
+        end
+      end
+
+      response '404', 'unknown id' do
+        let(:id)   { 'does-not-exist' }
+        let(:body) { { parent_id: collection.noid } }
+        run_test!
+      end
+
+      response '422', 'destination does not resolve' do
+        let(:id)   { work.noid }
+        let(:body) { { parent_id: 'does-not-exist' } }
+        run_test! do |response|
+          expect(JSON.parse(response.body)['error']).to eq('parent_not_found')
+        end
+      end
+    end
+  end
+
+  path '/resources/{id}/tombstone' do
+    parameter name: :id, in: :path, type: :string, description: 'NOID of the resource'
+
+    post 'Tombstone a resource' do
+      tags 'Resources'
+      produces 'application/json'
+      description <<~DESC
+        Withdraws the resource. Everything stays in storage and the withdrawal
+        is reversible via `POST /resources/{id}/restore`; reads answer `410`
+        with a withdrawn stub. Use `DELETE /resources/{id}` for the
+        irreversible purge.
+
+        Refused with `422 has_live_children` while the resource still holds a
+        live Community, Collection or Work, so a withdrawal can never orphan a
+        readable descendant — empty the tree leaf-first. A Work's FileSets and
+        Blobs are not counted and ride along.
+
+        Conflicts surface immediately as `409 stale_resource` rather than being
+        retried: the caller decides whether a withdrawal still applies.
+      DESC
+
+      response '200', 'resource tombstoned' do
+        let(:id) { work.noid }
+        schema '$ref' => '#/components/schemas/Work'
+        run_test! do |response|
+          expect(JSON.parse(response.body).dig('work', 'tombstoned')).to be(true)
+        end
+      end
+
+      response '422', 'container still holds live children' do
+        let(:id) { collection.noid }
+        before { work }
+        run_test! do |response|
+          expect(JSON.parse(response.body)['code']).to eq('has_live_children')
+        end
+      end
+
+      response '404', 'unknown id' do
+        let(:id) { 'does-not-exist' }
+        run_test!
+      end
+    end
+  end
+
+  path '/resources/{id}/restore' do
+    parameter name: :id, in: :path, type: :string, description: 'NOID of the resource'
+
+    post 'Restore a tombstoned resource' do
+      tags 'Resources'
+      produces 'application/json'
+      description <<~DESC
+        Reverses a withdrawal: reads stop answering `410`. Admin only. No
+        confirmation marker — restoring is itself reversible, by tombstoning
+        again.
+      DESC
+
+      response '200', 'resource restored' do
+        let(:tombstoned) do
+          w = WorkCreator.call(parent_id: collection.noid)
+          w.tombstone(by: '000000004')
+          Atlas.persister.save(resource: w)
+        end
+        let(:id) { tombstoned.noid }
+        schema '$ref' => '#/components/schemas/Work'
+        run_test! do |response|
+          expect(JSON.parse(response.body).dig('work', 'tombstoned')).to be(false)
+        end
+      end
+
+      response '404', 'unknown id' do
+        let(:id) { 'does-not-exist' }
         run_test!
       end
     end

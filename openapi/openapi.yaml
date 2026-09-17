@@ -2525,71 +2525,6 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Collection"
-    patch:
-      summary: Update a collection
-      tags:
-      - Collections
-      description: |
-        Update a Collection's descriptive metadata by supplying a `binary`
-        MODS XML upload — the caller assembles the full document (descriptive
-        merge logic lives in the client, not Atlas). `metadata[permissions]`
-        adjusts the ACL. Any `metadata[title]` / `metadata[description]` keys
-        are ignored.
-
-        Thumbnail-family URI writes have their own purpose-specific
-        endpoint — see `PATCH /collections/{id}/thumbnails`.
-      parameters: []
-      requestBody:
-        required: false
-        content:
-          multipart/form-data:
-            schema:
-              type: object
-              properties:
-                binary:
-                  type: string
-                  format: binary
-                  description: MODS XML to apply to the Collection
-                featured:
-                  type: string
-                  description: Toggle the showcase "Featured" flag ("true"/"false")
-                origin:
-                  type: string
-                  description: Free-text tag naming the editing surface that produced
-                    this MODS upload (Cerberus sends `metadata_form`, `advanced_form`
-                    or `xml_editor`). Recorded verbatim on the audit event beside
-                    `source`, truncated at 64 characters. Omit it and the event carries
-                    no origin, which is what every event recorded before this field
-                    looks like.
-      responses:
-        '200':
-          description: toggle the Featured showcase flag
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/Collection"
-    delete:
-      summary: Destroy a collection
-      tags:
-      - Collections
-      description: |
-        Permanently removes the Collection, its descriptive-metadata FileSet,
-        and the OCFL objects that hold the preserved bytes. This is a purge,
-        not a withdrawal, and it cannot be reversed — use
-        `POST /collections/{id}/tombstone` for that.
-
-        Refuses with 422 (`has_children`) while the Collection still holds a
-        Work or a sub-container, **including tombstoned ones**. That is
-        stricter than tombstone, which only counts live members: a member
-        left behind by a purge is orphaned for good. Empty the tree
-        leaf-first.
-
-        Admin only.
-      responses:
-        '204':
-          description: collection destroyed
-        '422':
-          description: collection still has members
   "/collections/{id}/mods":
     parameters:
     - name: id
@@ -2604,6 +2539,44 @@ paths:
       responses:
         '200':
           description: mods returned
+  "/collections/{id}/featured":
+    parameters:
+    - name: id
+      in: path
+      description: NOID of the Collection
+      required: true
+      schema:
+        type: string
+    patch:
+      summary: Set a collection’s showcase Featured flag
+      tags:
+      - Collections
+      description: |
+        Toggles the showcase `featured` flag. A resource-attribute write, not
+        MODS and not the ACL, so it has its own path rather than a third
+        payload shape on a shared one. Collection-only: no other type carries
+        the flag, which is why this write stays typed while the rest moved to
+        `/resources/{id}`.
+      parameters: []
+      responses:
+        '200':
+          description: flag set
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Collection"
+        '404':
+          description: unknown id
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - featured
+              properties:
+                featured:
+                  type: boolean
   "/collections/{id}/children":
     parameters:
     - name: id
@@ -2626,128 +2599,6 @@ paths:
                   type: string
         '410':
           description: collection tombstoned
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/Collection"
-  "/collections/{id}/thumbnails":
-    parameters:
-    - name: id
-      in: path
-      description: NOID of the Collection
-      required: true
-      schema:
-        type: string
-    patch:
-      summary: Attach thumbnail-family IIIF Delegate URIs to a collection
-      tags:
-      - Collections
-      description: |
-        Upserts one or more thumbnail-tier Delegates on the Collection
-        (85px `thumbnail`, 170px `thumbnail_2x`, 500px `preview`). Missing
-        keys are left untouched. Mirrors the Works endpoint of the same
-        shape; collection-level thumbnails surface in the Cerberus
-        browse UI.
-      parameters: []
-      responses:
-        '200':
-          description: all three thumbnail-family keys land in one PATCH
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/Collection"
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                thumbnail:
-                  type: string
-                  description: IIIF URL for the 85px thumbnail tier
-                thumbnail_2x:
-                  type: string
-                  description: IIIF URL for the 170px retina thumbnail tier
-                preview:
-                  type: string
-                  description: IIIF URL for the 500px hero preview tier
-  "/collections/{id}/parent":
-    parameters:
-    - name: id
-      in: path
-      description: NOID of the Collection to move
-      required: true
-      schema:
-        type: string
-    patch:
-      summary: Re-parent a collection
-      tags:
-      - Collections
-      description: |
-        Moves a Collection under a different parent Community or Collection.
-        Re-projects the moved subtree's descendant collections so their cached
-        ancestry stays correct; Works are never touched. Rejects cycles (the
-        new parent being the collection itself or one of its descendants), bad
-        parent types, and tombstoned node/parent with a 422.
-      parameters: []
-      responses:
-        '200':
-          description: collection moved under another collection
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/Collection"
-        '422':
-          description: rejects a move into the collection's own descendant (cycle)
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-              - parent_id
-              properties:
-                parent_id:
-                  type: string
-                  description: NOID of the new parent Community or Collection
-  "/collections/{id}/tombstone":
-    parameters:
-    - name: id
-      in: path
-      required: true
-      schema:
-        type: string
-    post:
-      summary: Tombstone a collection
-      tags:
-      - Collections
-      description: Marks a Collection as tombstoned. Refuses with 422 if the collection
-        has live (non-tombstoned) members.
-      responses:
-        '200':
-          description: collection tombstoned
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/Collection"
-        '422':
-          description: collection has live members
-  "/collections/{id}/restore":
-    parameters:
-    - name: id
-      in: path
-      required: true
-      schema:
-        type: string
-    post:
-      summary: Restore a tombstoned collection
-      tags:
-      - Collections
-      description: Clears the tombstone flag on a Collection. Cerberus does not expose
-        this — call from operator console.
-      responses:
-        '200':
-          description: collection restored
           content:
             application/json:
               schema:
@@ -2831,68 +2682,6 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Community"
-    patch:
-      summary: Update a community
-      tags:
-      - Communities
-      description: |
-        Update a Community's descriptive metadata by supplying a `binary`
-        MODS XML upload — the caller assembles the full document (descriptive
-        merge logic lives in the client, not Atlas). `metadata[permissions]`
-        adjusts the ACL. Any `metadata[title]` / `metadata[description]` keys
-        are ignored.
-
-        Thumbnail-family URI writes have their own purpose-specific
-        endpoint — see `PATCH /communities/{id}/thumbnails`.
-      parameters: []
-      requestBody:
-        required: false
-        content:
-          multipart/form-data:
-            schema:
-              type: object
-              properties:
-                binary:
-                  type: string
-                  format: binary
-                  description: MODS XML to apply to the Community
-                origin:
-                  type: string
-                  description: Free-text tag naming the editing surface that produced
-                    this MODS upload (Cerberus sends `metadata_form`, `advanced_form`
-                    or `xml_editor`). Recorded verbatim on the audit event beside
-                    `source`, truncated at 64 characters. Omit it and the event carries
-                    no origin, which is what every event recorded before this field
-                    looks like.
-      responses:
-        '200':
-          description: community updated
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/Community"
-    delete:
-      summary: Destroy a community
-      tags:
-      - Communities
-      description: |
-        Permanently removes the Community, its descriptive-metadata FileSet,
-        and the OCFL objects that hold the preserved bytes. This is a purge,
-        not a withdrawal, and it cannot be reversed — use
-        `POST /communities/{id}/tombstone` for that.
-
-        Refuses with 422 (`has_children`) while the Community still holds a
-        Collection or a sub-community, **including tombstoned ones**. That is
-        stricter than tombstone, which only counts live members: a member
-        left behind by a purge is orphaned for good. Empty the tree
-        leaf-first.
-
-        Admin only.
-      responses:
-        '204':
-          description: community destroyed
-        '422':
-          description: community still has members
   "/communities/{id}/mods":
     parameters:
     - name: id
@@ -2929,127 +2718,6 @@ paths:
                   type: string
         '410':
           description: community tombstoned
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/Community"
-  "/communities/{id}/thumbnails":
-    parameters:
-    - name: id
-      in: path
-      description: NOID of the Community
-      required: true
-      schema:
-        type: string
-    patch:
-      summary: Attach thumbnail-family IIIF Delegate URIs to a community
-      tags:
-      - Communities
-      description: |
-        Upserts one or more thumbnail-tier Delegates on the Community
-        (85px `thumbnail`, 170px `thumbnail_2x`, 500px `preview`). Missing
-        keys are left untouched. Mirrors the Works endpoint of the same
-        shape; community-level thumbnails surface in the Cerberus
-        browse UI.
-      parameters: []
-      responses:
-        '200':
-          description: all three thumbnail-family keys land in one PATCH
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/Community"
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                thumbnail:
-                  type: string
-                  description: IIIF URL for the 85px thumbnail tier
-                thumbnail_2x:
-                  type: string
-                  description: IIIF URL for the 170px retina thumbnail tier
-                preview:
-                  type: string
-                  description: IIIF URL for the 500px hero preview tier
-  "/communities/{id}/parent":
-    parameters:
-    - name: id
-      in: path
-      description: NOID of the Community to move
-      required: true
-      schema:
-        type: string
-    patch:
-      summary: Re-parent a community
-      tags:
-      - Communities
-      description: |
-        Moves a Community under a different parent Community, or to the top of
-        the tree (omit `parent_id` or pass null). Re-projects the moved
-        subtree's descendant collections and sub-communities so their cached
-        ancestry stays correct; Works are never touched. Rejects cycles, bad
-        parent types, and tombstoned node/parent with a 422.
-      parameters: []
-      responses:
-        '200':
-          description: community moved to the top of the tree (null parent)
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/Community"
-        '422':
-          description: rejects an invalid parent type
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                parent_id:
-                  type: string
-                  nullable: true
-                  description: NOID of the new parent Community, or null for top-level
-  "/communities/{id}/tombstone":
-    parameters:
-    - name: id
-      in: path
-      required: true
-      schema:
-        type: string
-    post:
-      summary: Tombstone a community
-      tags:
-      - Communities
-      description: Marks a Community as tombstoned. Refuses with 422 if the community
-        has live (non-tombstoned) members.
-      responses:
-        '200':
-          description: community tombstoned
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/Community"
-        '422':
-          description: community has live members
-  "/communities/{id}/restore":
-    parameters:
-    - name: id
-      in: path
-      required: true
-      schema:
-        type: string
-    post:
-      summary: Restore a tombstoned community
-      tags:
-      - Communities
-      description: Clears the tombstone flag on a Community. Cerberus does not expose
-        this — call from operator console.
-      responses:
-        '200':
-          description: community restored
           content:
             application/json:
               schema:
@@ -4212,6 +3880,33 @@ paths:
       responses:
         '302':
           description: redirect to typed resource
+    delete:
+      summary: Purge a resource
+      tags:
+      - Resources
+      description: |
+        Permanently removes the resource. This is a purge, not a withdrawal: it
+        deletes the metadata, cascades into members (a Work's FileSets and
+        their Blobs), and removes the OCFL objects that hold the preserved
+        bytes — every retained revision, not only the current one. Nothing
+        survives but the audit row, which records the NOIDs it removed.
+
+        Use `POST /resources/{id}/tombstone` for the user-visible withdrawal
+        path. That one keeps everything and can be reversed.
+
+        Refused with `422 has_children` while any Community, Collection or Work
+        is still a member — and unlike tombstone it refuses a member that is
+        merely tombstoned, because a purge cannot be undone and a member left
+        behind is orphaned for good.
+
+        Admin only.
+      responses:
+        '204':
+          description: resource purged
+        '422':
+          description: container still has members
+        '404':
+          description: unknown id
   "/resources/{id}/permissions":
     parameters:
     - name: id
@@ -4254,6 +3949,68 @@ paths:
           description: caller may not read the resource
         '404':
           description: unknown id
+    patch:
+      summary: Adjust a resource's ACL
+      tags:
+      - Resources
+      description: |
+        Adjusts the resource's ACL. PATCH, and the verb is honoured per key: a
+        key the payload omits keeps its stored value, and a key sent explicitly
+        empty is cleared. So changing one slot needs no read-the-whole-envelope
+        round trip. Accepts `embargo`, `depositor`, `proxy_uploader`,
+        `edit_users`, `read` and `edit`; anything else is ignored.
+
+        Two rules bound the write. A resource may be no more visible than its
+        container, so a read audience wider than the parent's is refused with
+        `422 visibility_exceeds_parent` (widen the parent instead). And a group
+        grant may only be removed by a member of that group — admin and the
+        devolved-admin tier excepted; a grant the caller cannot remove is
+        preserved rather than rejected, so the stored ACL may retain groups the
+        request omitted. Read it back with `GET /resources/{id}/permissions`.
+
+        Type-agnostic, and the response is the resource in its own typed shape.
+        Descriptive fields are not writable here — MODS has its own path.
+      parameters: []
+      responses:
+        '200':
+          description: acl adjusted
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Work"
+        '404':
+          description: unknown id
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                permissions:
+                  type: object
+                  properties:
+                    embargo:
+                      type: string
+                      description: Release date, or empty to clear
+                    depositor:
+                      type: string
+                    proxy_uploader:
+                      type: string
+                    edit_users:
+                      type: array
+                      items:
+                        type: string
+                    read:
+                      type: array
+                      items:
+                        type: string
+                    edit:
+                      type: array
+                      items:
+                        type: string
+              required:
+              - permissions
+        required: true
   "/resources/{id}/mods":
     parameters:
     - name: id
@@ -4279,6 +4036,56 @@ paths:
           description: current mods returned
         '404':
           description: unknown id / non-Modsable / no MODS
+    put:
+      summary: Replace a resource's MODS document
+      tags:
+      - Resources
+      description: |
+        Replaces the resource's descriptive metadata with the supplied `binary`
+        MODS XML upload. PUT and not PATCH because the caller assembles the
+        full document: descriptive merge logic lives in the client, e.g.
+        Cerberus, not Atlas.
+
+        Type-agnostic — the NOID is resolved and the write applies to a Work,
+        Collection or Community alike. A type that holds no MODS answers 404,
+        exactly as the GET on this path does. A request with no `binary`
+        attached is a 422.
+
+        Responds with the resource in its own typed shape, so the body matches
+        what `GET /{type}/{id}` returns.
+      parameters: []
+      requestBody:
+        required: false
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                binary:
+                  type: string
+                  format: binary
+                  description: MODS XML to apply to the resource
+                origin:
+                  type: string
+                  description: Free-text tag naming the editing surface that produced
+                    this MODS upload (Cerberus sends `metadata_form`, `advanced_form`
+                    or `xml_editor`). Recorded verbatim on the audit event beside
+                    `source`, truncated at 64 characters. Omit it and the event carries
+                    no origin, which is what every event recorded before this field
+                    looks like.
+      responses:
+        '200':
+          description: mods replaced
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Work"
+        '404':
+          description: unknown id, or a type that holds no MODS
+        '422':
+          description: no document attached
+        '409':
+          description: optimistic-lock conflict (surfaced immediately, not retried)
   "/resources/{id}/mods/versions":
     parameters:
     - name: id
@@ -4332,6 +4139,164 @@ paths:
           description: historical MODS XML returned
         '404':
           description: unknown version
+  "/resources/{id}/thumbnails":
+    parameters:
+    - name: id
+      in: path
+      description: NOID of the resource
+      required: true
+      schema:
+        type: string
+    patch:
+      summary: Attach thumbnail-family IIIF Delegate URIs to a resource
+      tags:
+      - Resources
+      description: |
+        Upserts one or more thumbnail-tier Delegates — the 85px `thumbnail`,
+        the 170px `thumbnail_2x`, and the 500px hero `preview`. Each non-blank
+        URI is dispatched to its matching Role; a key you omit is left
+        untouched.
+
+        Purpose-specific: machine-set IIIF URLs, a fixed three-key shape, no
+        user content. Type-agnostic, and the response is the resource in its
+        own typed shape.
+
+        Retry-safe: an optimistic-lock conflict is retried internally, and only
+        an exhausted budget surfaces as `409 stale_resource`.
+      parameters: []
+      responses:
+        '200':
+          description: delegate uris attached
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Work"
+        '404':
+          description: unknown id
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                thumbnail:
+                  type: string
+                  description: IIIF URI for the ~85px square thumbnail
+                thumbnail_2x:
+                  type: string
+                  description: IIIF URI for the ~170px square 2x thumbnail
+                preview:
+                  type: string
+                  description: IIIF URI for the ~500px-wide preview
+  "/resources/{id}/parent":
+    parameters:
+    - name: id
+      in: path
+      description: NOID of the resource to move
+      required: true
+      schema:
+        type: string
+    patch:
+      summary: Re-parent a resource
+      tags:
+      - Resources
+      description: |
+        Moves a resource under a different parent. A Work carries no ancestry
+        field and has no descendants, so only its own membership changes; a
+        container's moved subtree is re-projected synchronously. Permissions
+        are untouched. Omit `parent_id` to move a Community to the top of the
+        tree.
+
+        Authorization is TWO-SIDED — the caller needs `:reparent` on the moved
+        node AND on the destination. Edit rights do not imply it for anyone but
+        admin and the devolved-admin tier.
+
+        A given-but-unresolvable `parent_id` is a `422 parent_not_found`, not a
+        404: the parent is request input, not the addressed resource. A
+        structurally invalid move (wrong parent type, a cycle, a tombstoned
+        node or parent) is also a 422.
+      parameters: []
+      responses:
+        '200':
+          description: resource moved
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Work"
+        '404':
+          description: unknown id
+        '422':
+          description: destination does not resolve
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                parent_id:
+                  type: string
+                  description: NOID of the destination
+  "/resources/{id}/tombstone":
+    parameters:
+    - name: id
+      in: path
+      description: NOID of the resource
+      required: true
+      schema:
+        type: string
+    post:
+      summary: Tombstone a resource
+      tags:
+      - Resources
+      description: |
+        Withdraws the resource. Everything stays in storage and the withdrawal
+        is reversible via `POST /resources/{id}/restore`; reads answer `410`
+        with a withdrawn stub. Use `DELETE /resources/{id}` for the
+        irreversible purge.
+
+        Refused with `422 has_live_children` while the resource still holds a
+        live Community, Collection or Work, so a withdrawal can never orphan a
+        readable descendant — empty the tree leaf-first. A Work's FileSets and
+        Blobs are not counted and ride along.
+
+        Conflicts surface immediately as `409 stale_resource` rather than being
+        retried: the caller decides whether a withdrawal still applies.
+      responses:
+        '200':
+          description: resource tombstoned
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Work"
+        '422':
+          description: container still holds live children
+        '404':
+          description: unknown id
+  "/resources/{id}/restore":
+    parameters:
+    - name: id
+      in: path
+      description: NOID of the resource
+      required: true
+      schema:
+        type: string
+    post:
+      summary: Restore a tombstoned resource
+      tags:
+      - Resources
+      description: |
+        Reverses a withdrawal: reads stop answering `410`. Admin only. No
+        confirmation marker — restoring is itself reversible, by tombstoning
+        again.
+      responses:
+        '200':
+          description: resource restored
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Work"
+        '404':
+          description: unknown id
   "/resources/preview":
     post:
       summary: Render a temporary resource preview
@@ -5017,77 +4982,6 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Work"
-    patch:
-      summary: Update a work
-      tags:
-      - Works
-      description: |
-        Update a Work's descriptive metadata by supplying a `binary` MODS XML
-        upload — the caller assembles the full document (descriptive merge logic
-        lives in the client, e.g. Cerberus, not Atlas). `metadata[permissions]`
-        adjusts the ACL. Any `metadata[title]` / `metadata[description]` keys are
-        ignored.
-
-        Two rules bound an ACL write. A resource may be no more visible than its
-        container, so a read audience wider than the parent's is refused with
-        `422 visibility_exceeds_parent` (widen the parent instead). And a group
-        grant may only be removed by a member of that group — admin and the
-        devolved-admin tier excepted; a grant the caller cannot remove is
-        preserved rather than rejected, so the stored ACL may retain groups the
-        request omitted. Read it back with `GET /resources/{id}/permissions`.
-
-        Programmatic Delegate writes (thumbnail-family URIs, sized image
-        derivatives) no longer ride this endpoint — see the dedicated
-        `PATCH /works/{id}/thumbnails` and `PATCH /works/{id}/image_derivatives`
-        routes.
-      parameters: []
-      requestBody:
-        required: false
-        content:
-          multipart/form-data:
-            schema:
-              type: object
-              properties:
-                binary:
-                  type: string
-                  format: binary
-                  description: MODS XML to apply to the Work
-                origin:
-                  type: string
-                  description: Free-text tag naming the editing surface that produced
-                    this MODS upload (Cerberus sends `metadata_form`, `advanced_form`
-                    or `xml_editor`). Recorded verbatim on the audit event beside
-                    `source`, truncated at 64 characters. Omit it and the event carries
-                    no origin, which is what every event recorded before this field
-                    looks like.
-      responses:
-        '200':
-          description: work updated
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/Work"
-        '409':
-          description: optimistic-lock conflict on the update (surfaced immediately,
-            not retried)
-    delete:
-      summary: Destroy a work
-      tags:
-      - Works
-      description: |
-        Permanently removes the Work. This is a purge, not a withdrawal: it
-        deletes the Work's metadata, cascades into its FileSets and their
-        Blobs, and removes the OCFL objects that hold the preserved bytes —
-        every retained revision, not only the current one. Nothing survives
-        but the audit row, which records the NOIDs it removed.
-
-        Use `POST /works/{id}/tombstone` for the user-visible withdrawal
-        path. That one keeps everything and can be reversed.
-
-        Admin only.
-      responses:
-        '204':
-          description: work destroyed
   "/works/{id}/mods":
     parameters:
     - name: id
@@ -5192,52 +5086,6 @@ paths:
                 "$ref": "#/components/schemas/WorkFileSets"
         '404':
           description: work not found
-  "/works/{id}/thumbnails":
-    parameters:
-    - name: id
-      in: path
-      description: NOID of the Work
-      required: true
-      schema:
-        type: string
-    patch:
-      summary: Attach thumbnail-family IIIF Delegate URIs to a work
-      tags:
-      - Works
-      description: |
-        Upserts one or more thumbnail-tier Delegates on the Work — the
-        85px `thumbnail`, the 170px `thumbnail_2x`, and the 500px hero
-        `preview`. Each non-blank URI is dispatched to DelegateUpdater
-        against its matching Role; missing keys are left untouched.
-
-        Purpose-specific: machine-set IIIF URLs, fixed three-key shape,
-        no user content. Cerberus's ThumbnailCreationJob is the primary
-        caller.
-      parameters: []
-      responses:
-        '200':
-          description: all three thumbnail-family keys land in one PATCH
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/Work"
-        '409':
-          description: optimistic-lock conflict survived the internal retry budget
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                thumbnail:
-                  type: string
-                  description: IIIF URL for the 85px thumbnail tier
-                thumbnail_2x:
-                  type: string
-                  description: IIIF URL for the 170px retina thumbnail tier
-                preview:
-                  type: string
-                  description: IIIF URL for the 500px hero preview tier
   "/works/{id}/image_derivatives":
     parameters:
     - name: id
@@ -5425,45 +5273,6 @@ paths:
                     FileSets)
               required:
               - text
-  "/works/{id}/parent":
-    parameters:
-    - name: id
-      in: path
-      description: NOID of the Work to move
-      required: true
-      schema:
-        type: string
-    patch:
-      summary: Re-parent a work
-      tags:
-      - Works
-      description: |
-        Moves a Work to a different Collection. Trivial sibling of the
-        collection/community re-parent: a Work has no descendants and carries
-        no ancestry field, so there is NO cascade — only its own a_member_of
-        changes. Permissions are untouched. Rejects a non-Collection parent
-        and tombstoned node/parent with a 422.
-      parameters: []
-      responses:
-        '200':
-          description: work moved to another collection
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/Work"
-        '404':
-          description: unknown work
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-              - parent_id
-              properties:
-                parent_id:
-                  type: string
-                  description: NOID of the destination Collection
   "/works/{id}/linked_members":
     parameters:
     - name: id
@@ -5689,46 +5498,6 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/WorkAssociations"
-  "/works/{id}/tombstone":
-    parameters:
-    - name: id
-      in: path
-      required: true
-      schema:
-        type: string
-    post:
-      summary: Tombstone a work
-      tags:
-      - Works
-      description: Marks a Work as tombstoned. Always succeeds; FileSets and Blobs
-        ride along with the parent Work.
-      responses:
-        '200':
-          description: work tombstoned
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/Work"
-  "/works/{id}/restore":
-    parameters:
-    - name: id
-      in: path
-      required: true
-      schema:
-        type: string
-    post:
-      summary: Restore a tombstoned work
-      tags:
-      - Works
-      description: Clears the tombstone flag on a Work. Cerberus does not expose this
-        — call from operator console.
-      responses:
-        '200':
-          description: work restored
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/Work"
   "/works/{id}/complete":
     parameters:
     - name: id

@@ -31,26 +31,26 @@ RSpec.describe 'Write-path status guard via atlas_rb', :atlas_rb_server do
   let(:missing)    { 'doesnotexist9' }
 
   describe 'a write to an id Atlas does not hold' do
-    it 'raises NotFoundError from Work.update, naming the verb and path' do
-      expect { AtlasRb::Work.update(missing, mods_path, nuid: admin_nuid) }
+    it 'raises NotFoundError from put_mods, naming the verb and path' do
+      expect { AtlasRb::Resource.put_mods(missing, mods_path, nuid: admin_nuid) }
         .to raise_error(AtlasRb::NotFoundError) do |error|
           expect(error.status).to eq(404)
-          expect(error.message).to include('PATCH', "/works/#{missing}")
+          expect(error.message).to include('PUT', "/resources/#{missing}/mods")
         end
     end
 
     it 'raises NotFoundError from Work.metadata' do
-      expect { AtlasRb::Work.metadata(missing, { 'title' => 'Nope' }, nuid: admin_nuid) }
+      expect { AtlasRb::Resource.set_permissions(missing, { 'title' => 'Nope' }, nuid: admin_nuid) }
         .to raise_error(AtlasRb::NotFoundError)
     end
 
     it 'raises NotFoundError from Collection.metadata' do
-      expect { AtlasRb::Collection.metadata(missing, { 'title' => 'Nope' }, nuid: admin_nuid) }
+      expect { AtlasRb::Resource.set_permissions(missing, { 'title' => 'Nope' }, nuid: admin_nuid) }
         .to raise_error(AtlasRb::NotFoundError)
     end
 
     it 'raises NotFoundError from Community.update' do
-      expect { AtlasRb::Community.update(missing, mods_path, nuid: admin_nuid) }
+      expect { AtlasRb::Resource.put_mods(missing, mods_path, nuid: admin_nuid) }
         .to raise_error(AtlasRb::NotFoundError)
     end
 
@@ -67,7 +67,7 @@ RSpec.describe 'Write-path status guard via atlas_rb', :atlas_rb_server do
     # NotFoundError subclasses ResourceError, so a caller that only wants
     # "the write failed" rescues the parent and still gets the status.
     it 'is rescuable as a ResourceError' do
-      expect { AtlasRb::Work.metadata(missing, { 'title' => 'Nope' }, nuid: admin_nuid) }
+      expect { AtlasRb::Resource.set_permissions(missing, { 'title' => 'Nope' }, nuid: admin_nuid) }
         .to raise_error(AtlasRb::ResourceError)
     end
   end
@@ -77,10 +77,10 @@ RSpec.describe 'Write-path status guard via atlas_rb', :atlas_rb_server do
       work = WorkCreator.call(parent_id: public_collection.noid)
       expect(work.read_groups).to include('public') # inherited from the container
 
-      updated = AtlasRb::Work.metadata(work.noid, { 'permissions' => { 'read' => [] } },
-                                       nuid: admin_nuid)
+      updated = AtlasRb::Resource.set_permissions(work.noid, { 'read' => [] },
+                                                  nuid: admin_nuid)
 
-      expect(updated['work']['id']).to eq(work.noid)
+      expect(updated['id']).to eq(work.noid)
       expect(Work.find(work.noid).read_groups).not_to include('public')
     end
 
@@ -94,7 +94,7 @@ RSpec.describe 'Write-path status guard via atlas_rb', :atlas_rb_server do
     it 'returns the tombstone body on a replay of a tombstoned resource' do
       key   = SecureRandom.uuid
       first = AtlasRb::Work.create(collection.noid, idempotency_key: key, nuid: admin_nuid)
-      AtlasRb::Work.tombstone(first['id'], nuid: admin_nuid)
+      AtlasRb::Resource.tombstone(first['id'], nuid: admin_nuid)
 
       replay = AtlasRb::Work.create(collection.noid, idempotency_key: key, nuid: admin_nuid)
 
@@ -108,7 +108,7 @@ RSpec.describe 'Write-path status guard via atlas_rb', :atlas_rb_server do
     it 'leaves the tombstone refusal a raw response to read' do
       work = WorkCreator.call(parent_id: collection.noid)
 
-      response = AtlasRb::Collection.tombstone(collection.noid, nuid: admin_nuid)
+      response = AtlasRb::Resource.tombstone(collection.noid, nuid: admin_nuid)
 
       expect(work).to be_present
       expect(response.status).to eq(422)

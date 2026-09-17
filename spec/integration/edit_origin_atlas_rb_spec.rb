@@ -31,7 +31,7 @@ RSpec.describe 'MODS edit origin via atlas_rb', :atlas_rb_server do
 
   it 'records the origin beside source on a Work update' do
     work = AtlasRb::Work.create(collection.noid, nuid: admin_nuid)
-    AtlasRb::Work.update(work['id'], mods_path, nuid: admin_nuid, origin: 'xml_editor')
+    AtlasRb::Resource.put_mods(work['id'], mods_path, nuid: admin_nuid, origin: 'xml_editor')
 
     expect(metadata_event(work['id'])['payload'])
       .to include('source' => 'mods', 'origin' => 'xml_editor')
@@ -39,7 +39,7 @@ RSpec.describe 'MODS edit origin via atlas_rb', :atlas_rb_server do
 
   it 'records the origin on a Collection update' do
     child = AtlasRb::Collection.create(collection.noid, nuid: admin_nuid)
-    AtlasRb::Collection.update(child['id'], mods_path, nuid: admin_nuid, origin: 'metadata_form')
+    AtlasRb::Resource.put_mods(child['id'], mods_path, nuid: admin_nuid, origin: 'metadata_form')
 
     expect(metadata_event(child['id'])['payload'])
       .to include('source' => 'mods', 'origin' => 'metadata_form')
@@ -47,7 +47,7 @@ RSpec.describe 'MODS edit origin via atlas_rb', :atlas_rb_server do
 
   it 'records the origin on a Community update' do
     child = AtlasRb::Community.create(nuid: admin_nuid)
-    AtlasRb::Community.update(child['id'], mods_path, nuid: admin_nuid, origin: 'advanced_form')
+    AtlasRb::Resource.put_mods(child['id'], mods_path, nuid: admin_nuid, origin: 'advanced_form')
 
     expect(metadata_event(child['id'])['payload'])
       .to include('source' => 'mods', 'origin' => 'advanced_form')
@@ -59,7 +59,7 @@ RSpec.describe 'MODS edit origin via atlas_rb', :atlas_rb_server do
   # the key's absence.
   it 'omits the key entirely when the caller passes no origin' do
     work = AtlasRb::Work.create(collection.noid, nuid: admin_nuid)
-    AtlasRb::Work.update(work['id'], mods_path, nuid: admin_nuid)
+    AtlasRb::Resource.put_mods(work['id'], mods_path, nuid: admin_nuid)
 
     payload = metadata_event(work['id'])['payload']
     expect(payload).to include('source' => 'mods')

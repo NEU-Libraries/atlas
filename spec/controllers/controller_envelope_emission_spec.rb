@@ -27,64 +27,64 @@ RSpec.describe 'Controller envelope emission' do
     JSON.parse(File.read(object_root.join(physical)), symbolize_names: true)
   end
 
-  describe WorksController, type: :controller do
+  describe ResourcesController, type: :controller do
     render_views
 
-    # Public root: the metadata_update examples below grant a public read, which
+    # Public root: the ACL examples below grant a public read, which
     # the containment rule allows only under a public container.
     let(:community)  { public_community! }
     let(:collection) { CollectionCreator.call(parent_id: community.noid) }
     let(:work)       { WorkCreator.call(parent_id: collection.noid) }
 
-    it 'metadata_update bumps the Work envelope head' do
+    it 'an ACL write bumps the Work envelope head' do
       head_before = head_version_for(work.noid)
 
-      patch :update,
-            params: { id: work.noid, metadata: { permissions: { read: ['public'], edit: [], edit_users: [] } } },
+      patch :update_permissions,
+            params: { id: work.noid, permissions: { read: ['public'], edit: [], edit_users: [] } },
             as:     :json
 
       expect(head_version_for(work.noid)).not_to eq(head_before)
     end
 
-    it 'binary_update does NOT bump the Work envelope head (MODS-only change)' do
+    it 'a MODS write does NOT bump the Work envelope head' do
       head_before = head_version_for(work.noid)
 
-      patch :update,
-            params: { id:     work.noid,
-                      binary: Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/work-mods.xml')) },
-            as:     :json
+      put :put_mods,
+          params: { id:     work.noid,
+                    binary: Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/work-mods.xml')) },
+          as:     :json
 
       expect(head_version_for(work.noid)).to eq(head_before)
     end
   end
 
-  describe CollectionsController, type: :controller do
+  describe ResourcesController, type: :controller do
     render_views
 
     let(:community)  { public_community! }
     let(:collection) { CollectionCreator.call(parent_id: community.noid) }
 
-    it 'metadata_update bumps the Collection envelope head' do
+    it 'an ACL write bumps the Collection envelope head' do
       head_before = head_version_for(collection.noid)
 
-      patch :update,
-            params: { id: collection.noid, metadata: { permissions: { read: ['public'], edit: [], edit_users: [] } } },
+      patch :update_permissions,
+            params: { id: collection.noid, permissions: { read: ['public'], edit: [], edit_users: [] } },
             as:     :json
 
       expect(head_version_for(collection.noid)).not_to eq(head_before)
     end
   end
 
-  describe CommunitiesController, type: :controller do
+  describe ResourcesController, type: :controller do
     render_views
 
     let(:community) { CommunityCreator.call }
 
-    it 'metadata_update bumps the Community envelope head' do
+    it 'an ACL write bumps the Community envelope head' do
       head_before = head_version_for(community.noid)
 
-      patch :update,
-            params: { id: community.noid, metadata: { permissions: { read: ['public'], edit: [], edit_users: [] } } },
+      patch :update_permissions,
+            params: { id: community.noid, permissions: { read: ['public'], edit: [], edit_users: [] } },
             as:     :json
 
       expect(head_version_for(community.noid)).not_to eq(head_before)

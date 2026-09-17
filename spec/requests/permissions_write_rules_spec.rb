@@ -41,8 +41,11 @@ RSpec.describe 'Permissions write rules', type: :request, default_auth: false do
     signed_auth_headers(nuid).merge('Content-Type' => 'application/json')
   end
 
-  def patch_permissions(path, nuid, permissions)
-    patch path, params: { metadata: { permissions: permissions } }.to_json, headers: json_headers(nuid)
+  # One path for every type, so these rules are asserted once rather than per
+  # type. The containment and grant-removal rules were always type-agnostic.
+  def patch_permissions(noid, nuid, permissions)
+    patch "/resources/#{noid}/permissions",
+          params: { permissions: permissions }.to_json, headers: json_headers(nuid)
   end
 
   # A root Community whose read audience is `read`, with a Collection under it
@@ -61,7 +64,7 @@ RSpec.describe 'Permissions write rules', type: :request, default_auth: false do
     it 'refuses a public read on a Collection inside a restricted Community (422)' do
       _community, collection = restricted_tree(read: [archives])
 
-      patch_permissions("/collections/#{collection.noid}", admin.nuid, { read: ['public'], edit: [archives] })
+      patch_permissions(collection.noid, admin.nuid, { read: ['public'], edit: [archives] })
 
       expect(response).to have_http_status(:unprocessable_content)
       expect(response.parsed_body).to include('error' => 'visibility_exceeds_parent')
@@ -72,7 +75,7 @@ RSpec.describe 'Permissions write rules', type: :request, default_auth: false do
       _community, collection = restricted_tree(read: [archives])
       work = WorkCreator.call(parent_id: collection.noid)
 
-      patch_permissions("/works/#{work.noid}", admin.nuid, { read: ['public'], edit: [archives] })
+      patch_permissions(work.noid, admin.nuid, { read: ['public'], edit: [archives] })
 
       expect(response).to have_http_status(:unprocessable_content)
       expect(Work.find(work.noid).read_groups).not_to include('public')
@@ -81,7 +84,7 @@ RSpec.describe 'Permissions write rules', type: :request, default_auth: false do
     it 'refuses a read group the container does not grant (422)' do
       _community, collection = restricted_tree(read: [archives])
 
-      patch_permissions("/collections/#{collection.noid}", admin.nuid,
+      patch_permissions(collection.noid, admin.nuid,
                         { read: [archives, marcom], edit: [archives] })
 
       expect(response).to have_http_status(:unprocessable_content)
@@ -89,7 +92,7 @@ RSpec.describe 'Permissions write rules', type: :request, default_auth: false do
 
     it 'permits narrowing, and permits any audience under a public container' do
       _community, collection = restricted_tree(read: [archives])
-      patch_permissions("/collections/#{collection.noid}", admin.nuid, { read: [], edit: [archives] })
+      patch_permissions(collection.noid, admin.nuid, { read: [], edit: [archives] })
       expect(response).to have_http_status(:ok)
 
       public_community = CommunityCreator.call
@@ -97,7 +100,7 @@ RSpec.describe 'Permissions write rules', type: :request, default_auth: false do
       public_community = Atlas.persister.save(resource: public_community)
       child = CollectionCreator.call(parent_id: public_community.noid)
 
-      patch_permissions("/collections/#{child.noid}", admin.nuid, { read: ['public'], edit: [] })
+      patch_permissions(child.noid, admin.nuid, { read: ['public'], edit: [] })
       expect(response).to have_http_status(:ok)
       expect(Collection.find(child.noid).read_groups).to include('public')
     end
@@ -109,7 +112,7 @@ RSpec.describe 'Permissions write rules', type: :request, default_auth: false do
     it 'refuses an edit-rights curator the same way it refuses an admin' do
       _community, collection = restricted_tree(read: [archives])
 
-      patch_permissions("/collections/#{collection.noid}", curator.nuid, { read: ['public'], edit: [archives] })
+      patch_permissions(collection.noid, curator.nuid, { read: ['public'], edit: [archives] })
 
       expect(response).to have_http_status(:unprocessable_content)
       expect(response.parsed_body).to include('error' => 'visibility_exceeds_parent')
@@ -118,7 +121,7 @@ RSpec.describe 'Permissions write rules', type: :request, default_auth: false do
     it 'leaves a root Community unconstrained' do
       community = CommunityCreator.call
 
-      patch_permissions("/communities/#{community.noid}", admin.nuid, { read: ['public'], edit: [] })
+      patch_permissions(community.noid, admin.nuid, { read: ['public'], edit: [] })
 
       expect(response).to have_http_status(:ok)
       expect(Community.find(community.noid).read_groups).to include('public')
@@ -138,7 +141,7 @@ RSpec.describe 'Permissions write rules', type: :request, default_auth: false do
     end
 
     it 'preserves a grant the caller is not a member of, rather than 403ing' do
-      patch_permissions("/collections/#{collection.noid}", curator.nuid,
+      patch_permissions(collection.noid, curator.nuid,
                         { read: ['public', archives], edit: [archives] })
 
       expect(response).to have_http_status(:ok)
@@ -147,7 +150,7 @@ RSpec.describe 'Permissions write rules', type: :request, default_auth: false do
     end
 
     it 'lets the caller remove a grant for their own group' do
-      patch_permissions("/collections/#{collection.noid}", curator.nuid,
+      patch_permissions(collection.noid, curator.nuid,
                         { read: ['public'], edit: [marcom] })
 
       expect(response).to have_http_status(:ok)
@@ -157,7 +160,7 @@ RSpec.describe 'Permissions write rules', type: :request, default_auth: false do
     end
 
     it 'lets the devolved-admin tier remove a grant for a group it is not in' do
-      patch_permissions("/collections/#{collection.noid}", delegate.nuid,
+      patch_permissions(collection.noid, delegate.nuid,
                         { read: ['public'], edit: [archives] })
 
       expect(response).to have_http_status(:ok)
@@ -165,7 +168,7 @@ RSpec.describe 'Permissions write rules', type: :request, default_auth: false do
     end
 
     it 'lets an admin remove any grant' do
-      patch_permissions("/collections/#{collection.noid}", admin.nuid, { read: ['public'], edit: [] })
+      patch_permissions(collection.noid, admin.nuid, { read: ['public'], edit: [] })
 
       expect(response).to have_http_status(:ok)
       saved = Collection.find(collection.noid)
@@ -178,7 +181,7 @@ RSpec.describe 'Permissions write rules', type: :request, default_auth: false do
       collection # create before counting
 
       expect do
-        patch_permissions("/collections/#{collection.noid}", curator.nuid,
+        patch_permissions(collection.noid, curator.nuid,
                           { read: ['public', archives], edit: [archives] })
       end.not_to change { AuditEvent.for_resource(collection.id).where(change_type: 'permissions').count }
     end

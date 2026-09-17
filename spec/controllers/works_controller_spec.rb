@@ -82,94 +82,6 @@ describe WorksController, type: :controller do
     end
   end
 
-  describe 'PATCH #update' do
-    let(:community) { CommunityCreator.call }
-    let(:collection) { CollectionCreator.call(parent_id: community.noid) }
-    let(:work) { WorkCreator.call(parent_id: collection.noid) }
-
-    it 'updates a work with provided XML binary' do
-      patch :update, params: { id: work.noid, binary: Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/work-mods.xml')) }, as: :json
-      expect(response).to have_http_status(:success)
-      expect(work.decorate.plain_title).to eq("What's New. How We Respond to Disaster. Episode 1")
-    end
-  end
-
-  describe 'DELETE #destroy' do
-    let(:community) { CommunityCreator.call }
-    let(:collection) { CollectionCreator.call(parent_id: community.noid) }
-    let(:work) { WorkCreator.call(parent_id: collection.noid) }
-
-    context 'when work exists' do
-      it 'destroys the work' do
-        delete :destroy, params: { id: work.noid }, as: :json
-        expect(response).to have_http_status(:success)
-        expect(Work.find(work.noid)).to be_nil
-      end
-
-      it 'cascades into its FileSets and Blobs' do
-        blob      = BlobCreator.call(path: Rails.root.join('spec/fixtures/files/example.png').to_s,
-                                     work_id: work.noid, original_filename: 'example.png')
-        file_sets = work.children.grep(FileSet)
-
-        delete :destroy, params: { id: work.noid }, as: :json
-
-        expect(Blob.find(blob.noid)).to be_nil
-        file_sets.each { |fs| expect(FileSet.find(fs.noid)).to be_nil }
-      end
-
-      it 'audits the destroy with the purge manifest' do
-        expect { delete :destroy, params: { id: work.noid }, as: :json }
-          .to change(AuditEvent, :count).by(1)
-
-        event = AuditEvent.last
-        expect(event.action).to eq('destroy')
-        expect(event.payload['purged']).to include(work.noid)
-      end
-    end
-  end
-
-  describe 'POST #tombstone' do
-    let(:community)  { CommunityCreator.call }
-    let(:collection) { CollectionCreator.call(parent_id: community.noid) }
-    let(:work)       { WorkCreator.call(parent_id: collection.noid) }
-
-    it 'tombstones a Work regardless of attached FileSets' do
-      # Works always tombstone — children (FileSets/Blobs) ride along.
-      post :tombstone, params: { id: work.noid }, as: :json
-
-      expect(response).to have_http_status(:success)
-      json = response.parsed_body['work']
-      expect(json['tombstoned']).to be(true)
-      expect(json['tombstoned_at']).to be_present
-
-      reloaded = Work.find(work.noid)
-      expect(reloaded.tombstoned).to be(true)
-      expect(reloaded.tombstoned_at).to be_present
-    end
-  end
-
-  describe 'POST #restore' do
-    let(:community)  { CommunityCreator.call }
-    let(:collection) { CollectionCreator.call(parent_id: community.noid) }
-    let(:work) do
-      w = WorkCreator.call(parent_id: collection.noid)
-      w.tombstoned = true
-      w.tombstoned_at = Time.current
-      w.tombstoned_by = '000000002'
-      Atlas.persister.save(resource: w)
-    end
-
-    it 'clears tombstone fields' do
-      post :restore, params: { id: work.noid }, as: :json
-
-      expect(response).to have_http_status(:success)
-      reloaded = Work.find(work.noid)
-      expect(reloaded.tombstoned).to be(false)
-      expect(reloaded.tombstoned_at).to be_nil
-      expect(reloaded.tombstoned_by).to be_nil
-    end
-  end
-
   # Optimistic-lock handling on the retry-safe Delegate-attach actions.
   # See StaleObjectRetry + the 409 rescue_from in ApplicationController.
   describe 'StaleObjectError handling on retry-safe actions' do
@@ -180,37 +92,6 @@ describe WorksController, type: :controller do
 
     # Make backoff sleeps instantaneous so the retry path doesn't add wall time.
     before { allow(controller).to receive(:sleep) }
-
-    describe 'PATCH #update_thumbnails' do
-      it 'retries a transient conflict and still lands the Delegate' do
-        calls = 0
-        allow(DelegateUpdater).to receive(:call).and_wrap_original do |original, **kwargs|
-          calls += 1
-          raise Valkyrie::Persistence::StaleObjectError if calls == 1
-
-          original.call(**kwargs)
-        end
-
-        patch :update_thumbnails, params: { id: work.noid, thumbnail: uri }, as: :json
-
-        expect(response).to have_http_status(:success)
-        expect(calls).to be >= 2
-        expect(response.parsed_body.dig('work', 'thumbnail')).to eq(uri)
-      end
-
-      it 'surfaces a 409 stale_resource envelope when retries exhaust' do
-        allow(DelegateUpdater).to receive(:call).and_raise(Valkyrie::Persistence::StaleObjectError)
-
-        patch :update_thumbnails, params: { id: work.noid, thumbnail: uri }, as: :json
-
-        expect(response).to have_http_status(:conflict)
-        json = response.parsed_body
-        expect(json['error']).to eq('stale_resource')
-        expect(json['resource_id']).to eq(work.noid)
-        expect(json['action']).to eq('update_thumbnails')
-        expect(json['message']).to be_present
-      end
-    end
 
     describe 'PATCH #update_image_derivatives' do
       it 'surfaces a 409 stale_resource envelope when retries exhaust' do
@@ -301,45 +182,6 @@ describe WorksController, type: :controller do
         expect(response.parsed_body.dig('work', 'in_progress')).to be false
         expect(response.parsed_body.dig('work', 'handle')).to be_nil
       end
-    end
-  end
-
-  # Retry-unsafe actions surface the conflict immediately (no retry) — a
-  # silent retry could clobber a concurrent caller's genuinely different
-  # intent. They still get the structured 409 envelope.
-  describe 'StaleObjectError handling on retry-unsafe actions' do
-    # Public root so the PATCH below reaches the save (and the stubbed
-    # conflict) rather than being refused by the containment rule.
-    let(:community)  { public_community! }
-    let(:collection) { CollectionCreator.call(parent_id: community.noid) }
-    let(:work)       { WorkCreator.call(parent_id: collection.noid) }
-
-    it 'PATCH #update surfaces 409 immediately without retrying' do
-      work # persist before stubbing save
-      calls = 0
-      allow(Atlas.persister).to receive(:save) do
-        calls += 1
-        raise Valkyrie::Persistence::StaleObjectError
-      end
-
-      patch :update, params: { id: work.noid, metadata: { permissions: { read: ['public'], edit: [], edit_users: [] } } }, as: :json
-
-      expect(response).to have_http_status(:conflict)
-      expect(calls).to eq(1) # surfaced on the first conflict, no retry
-      json = response.parsed_body
-      expect(json['error']).to eq('stale_resource')
-      expect(json['action']).to eq('update')
-    end
-
-    it 'POST #tombstone surfaces 409 immediately' do
-      work # persist before stubbing save
-      allow(Atlas.persister).to receive(:save).and_raise(Valkyrie::Persistence::StaleObjectError)
-
-      post :tombstone, params: { id: work.noid }, as: :json
-
-      expect(response).to have_http_status(:conflict)
-      expect(response.parsed_body['error']).to eq('stale_resource')
-      expect(response.parsed_body['action']).to eq('tombstone')
     end
   end
 
@@ -515,12 +357,6 @@ describe WorksController, type: :controller do
     it 'GET #mets 404s for a non-Work id' do
       get :mets, params: { id: community.noid }, as: :json
       expect(response).to have_http_status(:not_found)
-    end
-
-    it 'POST #tombstone 404s for a non-Work id (admin) instead of mutating it' do
-      post :tombstone, params: { id: community.noid }, as: :json
-      expect(response).to have_http_status(:not_found)
-      expect(Community.find(community.noid).tombstoned).to be_falsey
     end
   end
 end

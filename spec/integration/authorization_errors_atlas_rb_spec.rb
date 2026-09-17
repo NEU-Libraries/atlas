@@ -74,9 +74,8 @@ RSpec.describe 'Authorization and ACL errors via atlas_rb', :atlas_rb_server do
     it 'raises PermissionsError instead of returning a success-shaped envelope' do
       error = nil
       begin
-        AtlasRb::Collection.metadata(restricted_collection.noid,
-                                     { 'permissions' => { 'read' => ['public'] } },
-                                     nuid: admin_nuid)
+        AtlasRb::Resource.set_permissions(restricted_collection.noid, { 'read' => ['public'] },
+                                          nuid: admin_nuid)
       rescue AtlasRb::PermissionsError => e
         error = e
       end
@@ -91,16 +90,16 @@ RSpec.describe 'Authorization and ACL errors via atlas_rb', :atlas_rb_server do
       work = WorkCreator.call(parent_id: restricted_collection.noid)
 
       expect do
-        AtlasRb::Work.metadata(work.noid, { 'permissions' => { 'read' => ['public'] } }, nuid: admin_nuid)
+        AtlasRb::Resource.set_permissions(work.noid, { 'read' => ['public'] }, nuid: admin_nuid)
       end.to raise_error(AtlasRb::PermissionsError)
     end
 
     it 'leaves a permitted narrowing alone' do
-      result = AtlasRb::Collection.metadata(restricted_collection.noid,
-                                            { 'permissions' => { 'read' => [] } },
-                                            nuid: admin_nuid)
+      result = AtlasRb::Resource.set_permissions(restricted_collection.noid, { 'read' => [] },
+                                                 nuid: admin_nuid)
 
-      expect(result['collection']['id']).to eq(restricted_collection.noid)
+      # A generic write returns the resource unwrapped from its type key.
+      expect(result['id']).to eq(restricted_collection.noid)
     end
   end
 
@@ -140,7 +139,7 @@ RSpec.describe 'Authorization and ACL errors via atlas_rb', :atlas_rb_server do
       WorkCreator.call(parent_id: collection.noid)
 
       # No raise: the binding hands back the response for the caller to read.
-      response = AtlasRb::Collection.tombstone(collection.noid, nuid: admin_nuid)
+      response = AtlasRb::Resource.tombstone(collection.noid, nuid: admin_nuid)
 
       expect(response.status).to eq(422)
       expect(JSON.parse(response.body)['code']).to eq('has_live_children')

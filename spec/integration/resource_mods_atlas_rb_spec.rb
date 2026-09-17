@@ -17,7 +17,7 @@ RSpec.describe 'Type-agnostic current MODS via atlas_rb', :atlas_rb_server do
 
   it 'fetches a Work’s current MODS as XML and as the default JSON' do
     work = WorkCreator.call(parent_id: collection.noid)
-    AtlasRb::Work.update(work.noid, mods_fixture, nuid: admin_nuid)
+    AtlasRb::Resource.put_mods(work.noid, mods_fixture, nuid: admin_nuid)
 
     xml = AtlasRb::Resource.mods(work.noid, 'xml', nuid: admin_nuid)
     expect(xml).to be_a(String)

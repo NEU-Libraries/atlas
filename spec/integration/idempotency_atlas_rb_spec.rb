@@ -44,7 +44,7 @@ RSpec.describe 'Idempotency + in_progress bindings via atlas_rb', :atlas_rb_serv
     it 'returns the tombstoned payload on replay of a tombstoned Work (410 with body)' do
       key   = SecureRandom.uuid
       first = AtlasRb::Work.create(collection.noid, idempotency_key: key, nuid: admin_nuid)
-      AtlasRb::Work.tombstone(first['id'], nuid: admin_nuid)
+      AtlasRb::Resource.tombstone(first['id'], nuid: admin_nuid)
 
       replay = AtlasRb::Work.create(collection.noid, idempotency_key: key, nuid: admin_nuid)
 

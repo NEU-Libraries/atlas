@@ -22,7 +22,7 @@ RSpec.describe 'MODS version history via atlas_rb', :atlas_rb_server do
     work = WorkCreator.call(parent_id: collection.noid)
     # Edit MODS over the wire so Atlas mints a new version AND emits the
     # correlated `mods` AuditEvent attributed to the acting NUID.
-    AtlasRb::Work.update(work.noid, mods_fixture, nuid: admin_nuid)
+    AtlasRb::Resource.put_mods(work.noid, mods_fixture, nuid: admin_nuid)
 
     envelope = AtlasRb::Resource.mods_versions(work.noid, nuid: admin_nuid)
     expect(envelope['resource_id']).to eq(work.noid)

@@ -21,7 +21,7 @@ RSpec.describe 'Works via atlas_rb', :atlas_rb_server do
   it 'updates a Work via multipart MODS upload' do
     work = WorkCreator.call(parent_id: collection.noid)
 
-    AtlasRb::Work.update(work.noid, Rails.root.join('spec/fixtures/files/work-mods.xml').to_s, nuid: admin_nuid)
+    AtlasRb::Resource.put_mods(work.noid, Rails.root.join('spec/fixtures/files/work-mods.xml').to_s, nuid: admin_nuid)
 
     found = AtlasRb::Work.find(work.noid, nuid: admin_nuid)
     expect(found['title']).to eq("What's New. How We Respond to Disaster. Episode 1")
@@ -30,7 +30,7 @@ RSpec.describe 'Works via atlas_rb', :atlas_rb_server do
   it 'destroys a Work via HTTP' do
     work = WorkCreator.call(parent_id: collection.noid)
 
-    AtlasRb::Admin::Work.destroy(work.noid, confirm: :i_understand, nuid: admin_nuid)
+    AtlasRb::Admin::Resource.destroy(work.noid, confirm: :i_understand, nuid: admin_nuid)
     expect(Work.find(work.noid)).to be_nil
   end
 
@@ -185,7 +185,7 @@ RSpec.describe 'Works via atlas_rb', :atlas_rb_server do
     it 'round-trips the three thumbnail-tier URIs through atlas_rb and surfaces them on the next find' do
       work = WorkCreator.call(parent_id: collection.noid)
 
-      AtlasRb::Work.set_thumbnails(
+      AtlasRb::Resource.set_thumbnails(
         work.noid,
         thumbnail:    'https://iiif.example/iiif/3/abc.jp2/full/!85,85/0/default.jpg',
         thumbnail_2x: 'https://iiif.example/iiif/3/abc.jp2/full/!170,170/0/default.jpg',
@@ -204,8 +204,8 @@ RSpec.describe 'Works via atlas_rb', :atlas_rb_server do
       uri_v1 = 'https://iiif.example/iiif/3/abc.jp2/full/!85,85/0/default.jpg'
       uri_v2 = 'https://iiif.example/iiif/3/abc.jp2/full/!85,85/0/default.jpg?v2'
 
-      AtlasRb::Work.set_thumbnails(work.noid, thumbnail: uri_v1, nuid: admin_nuid)
-      AtlasRb::Work.set_thumbnails(work.noid, thumbnail: uri_v2, nuid: admin_nuid)
+      AtlasRb::Resource.set_thumbnails(work.noid, thumbnail: uri_v1, nuid: admin_nuid)
+      AtlasRb::Resource.set_thumbnails(work.noid, thumbnail: uri_v2, nuid: admin_nuid)
 
       reloaded = Work.find(work.noid)
       deriv_fs = reloaded.children.find { |c| c.is_a?(FileSet) && c.type == Classification.derivative.name }
@@ -219,8 +219,8 @@ RSpec.describe 'Works via atlas_rb', :atlas_rb_server do
       work = WorkCreator.call(parent_id: collection.noid)
       preview_uri = 'https://iiif.example/iiif/3/abc.jp2/full/500,/0/default.jpg'
 
-      AtlasRb::Work.set_thumbnails(work.noid, preview: preview_uri, nuid: admin_nuid)
-      AtlasRb::Work.set_thumbnails(work.noid, thumbnail: 'https://iiif.example/iiif/3/abc.jp2/full/!85,85/0/default.jpg', nuid: admin_nuid)
+      AtlasRb::Resource.set_thumbnails(work.noid, preview: preview_uri, nuid: admin_nuid)
+      AtlasRb::Resource.set_thumbnails(work.noid, thumbnail: 'https://iiif.example/iiif/3/abc.jp2/full/!85,85/0/default.jpg', nuid: admin_nuid)
 
       found = AtlasRb::Work.find(work.noid, nuid: admin_nuid)
       expect(found['preview']).to eq(preview_uri)
@@ -316,7 +316,7 @@ RSpec.describe 'Works via atlas_rb', :atlas_rb_server do
 
       error = nil
       begin
-        AtlasRb::Work.set_thumbnails(work.noid, thumbnail: 'https://iiif.example/85.jpg', nuid: admin_nuid)
+        AtlasRb::Resource.set_thumbnails(work.noid, thumbnail: 'https://iiif.example/85.jpg', nuid: admin_nuid)
       rescue AtlasRb::StaleResourceError => e
         error = e
       end

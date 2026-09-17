@@ -176,20 +176,20 @@ RSpec.describe 'Auth matrix', type: :request, default_auth: false do
       expect(response).to have_http_status(:forbidden)
     end
 
-    it 'blocks :update even for an admin — PATCH /works/:id (403)' do
-      patch "/works/#{work.noid}", params:  { title: ['Renamed'] }.to_json,
-                                   headers: json(mint(admin, read_only: true))
+    it 'blocks :update even for an admin — PATCH /resources/:id/permissions (403)' do
+      patch "/resources/#{work.noid}/permissions", params:  { permissions: { read: [] } }.to_json,
+                                                   headers: json(mint(admin, read_only: true))
       expect(response).to have_http_status(:forbidden)
     end
 
-    it 'blocks :destroy even for an admin — DELETE /works/:id (403)' do
-      delete "/works/#{work.noid}", headers: bearer(mint(admin, read_only: true))
+    it 'blocks :destroy even for an admin — DELETE /resources/:id (403)' do
+      delete "/resources/#{work.noid}", headers: bearer(mint(admin, read_only: true))
       expect(response).to have_http_status(:forbidden)
     end
 
-    it 'blocks :reparent even for an admin — PATCH /works/:id/parent (403)' do
-      patch "/works/#{work.noid}/parent", params:  { parent_id: collection.noid }.to_json,
-                                          headers: json(mint(admin, read_only: true))
+    it 'blocks :reparent even for an admin — PATCH /resources/:id/parent (403)' do
+      patch "/resources/#{work.noid}/parent", params:  { parent_id: collection.noid }.to_json,
+                                              headers: json(mint(admin, read_only: true))
       expect(response).to have_http_status(:forbidden)
     end
 
@@ -463,7 +463,7 @@ RSpec.describe 'Auth matrix', type: :request, default_auth: false do
     end
 
     it 'still rejects :system on unrelated Work mutations, even with a matching on_behalf_of' do
-      post "/works/#{work.noid}/tombstone", headers: system_headers(on_behalf_of: depositor_nuid)
+      post "/resources/#{work.noid}/tombstone", headers: system_headers(on_behalf_of: depositor_nuid)
       expect(response).to have_http_status(:forbidden)
     end
   end
@@ -486,7 +486,7 @@ RSpec.describe 'Auth matrix', type: :request, default_auth: false do
 
     it 'rejects the :system principal on Work tombstone' do
       work = WorkCreator.call(parent_id: collection.noid)
-      post "/works/#{work.noid}/tombstone", headers: system_headers
+      post "/resources/#{work.noid}/tombstone", headers: system_headers
       expect(response).to have_http_status(:forbidden)
     end
 
@@ -501,7 +501,7 @@ RSpec.describe 'Auth matrix', type: :request, default_auth: false do
     end
 
     it 'rejects the :system principal on Collection tombstone but permits create' do
-      post "/collections/#{collection.noid}/tombstone", headers: system_headers
+      post "/resources/#{collection.noid}/tombstone", headers: system_headers
       expect(response).to have_http_status(:forbidden)
 
       post '/collections',
@@ -512,7 +512,7 @@ RSpec.describe 'Auth matrix', type: :request, default_auth: false do
 
     it 'rejects the :system principal on Community tombstone but permits create' do
       empty_community = CommunityCreator.call
-      post "/communities/#{empty_community.noid}/tombstone", headers: system_headers
+      post "/resources/#{empty_community.noid}/tombstone", headers: system_headers
       expect(response).to have_http_status(:forbidden)
 
       post '/communities',
@@ -568,19 +568,19 @@ RSpec.describe 'Auth matrix', type: :request, default_auth: false do
 
     describe 'PATCH /collections/:id/parent (devolved-admin tier)' do
       it 'permits the delegate (:privileged + ADMIN_GROUP)' do
-        patch "/collections/#{collection.noid}/parent",
+        patch "/resources/#{collection.noid}/parent",
               params: { parent_id: destination.noid }.to_json, headers: json_headers(delegate.nuid)
         expect(response).to have_http_status(:ok)
       end
 
       it 'denies :privileged-without-the-group (staff) with 403' do
-        patch "/collections/#{collection.noid}/parent",
+        patch "/resources/#{collection.noid}/parent",
               params: { parent_id: destination.noid }.to_json, headers: json_headers(staff.nuid)
         expect(response).to have_http_status(:forbidden)
       end
 
       it 'denies the-group-without-:privileged with 403' do
-        patch "/collections/#{collection.noid}/parent",
+        patch "/resources/#{collection.noid}/parent",
               params: { parent_id: destination.noid }.to_json, headers: json_headers(delegate_wrong_role.nuid)
         expect(response).to have_http_status(:forbidden)
       end
@@ -589,7 +589,7 @@ RSpec.describe 'Auth matrix', type: :request, default_auth: false do
     describe 'PATCH /communities/:id/parent (devolved-admin tier)' do
       it 'permits the delegate to move a community to the top of the tree' do
         movable_community = CommunityCreator.call
-        patch "/communities/#{movable_community.noid}/parent",
+        patch "/resources/#{movable_community.noid}/parent",
               params: { parent_id: nil }.to_json, headers: json_headers(delegate.nuid)
         expect(response).to have_http_status(:ok)
       end
@@ -597,26 +597,26 @@ RSpec.describe 'Auth matrix', type: :request, default_auth: false do
 
     describe 'PATCH /works/:id/parent' do
       it 'permits the delegate — the devolved grant covers Work too, even with no Cerberus caller yet' do
-        patch "/works/#{work.noid}/parent",
+        patch "/resources/#{work.noid}/parent",
               params: { parent_id: destination.noid }.to_json, headers: json_headers(delegate.nuid)
         expect(response).to have_http_status(:ok)
       end
 
       it 'denies an edit-rights staff principal with 403' do
-        patch "/works/#{work.noid}/parent",
+        patch "/resources/#{work.noid}/parent",
               params: { parent_id: destination.noid }.to_json, headers: json_headers(staff.nuid)
         expect(response).to have_http_status(:forbidden)
         expect(response.parsed_body).to include('action' => 'reparent')
       end
 
       it 'denies the-group-without-:privileged with 403' do
-        patch "/works/#{work.noid}/parent",
+        patch "/resources/#{work.noid}/parent",
               params: { parent_id: destination.noid }.to_json, headers: json_headers(delegate_wrong_role.nuid)
         expect(response).to have_http_status(:forbidden)
       end
 
       it 'permits the :admin principal' do
-        patch "/works/#{work.noid}/parent",
+        patch "/resources/#{work.noid}/parent",
               params: { parent_id: destination.noid }.to_json, headers: json_headers(admin.nuid)
         expect(response).to have_http_status(:ok)
       end
@@ -663,32 +663,32 @@ RSpec.describe 'Auth matrix', type: :request, default_auth: false do
     # rights, but :restore is an operator action. `staff` holds edit rights on
     # the Work via STAFF_EDIT_GROUP and could restore it before, so these
     # examples pin a deliberate narrowing rather than a new denial.
-    describe 'POST /works/:id/restore' do
+    describe 'POST /resources/:id/restore' do
       before do
         work.tombstone(by: admin.nuid)
         Atlas.persister.save(resource: work)
       end
 
       it 'denies an edit-rights staff principal with 403' do
-        post "/works/#{work.noid}/restore", headers: json_headers(staff.nuid)
+        post "/resources/#{work.noid}/restore", headers: json_headers(staff.nuid)
         expect(response).to have_http_status(:forbidden)
         expect(response.parsed_body).to include('action' => 'restore')
         expect(Work.find(work.noid).tombstoned).to be(true)
       end
 
       it 'permits the delegate (:privileged + ADMIN_GROUP)' do
-        post "/works/#{work.noid}/restore", headers: json_headers(delegate.nuid)
+        post "/resources/#{work.noid}/restore", headers: json_headers(delegate.nuid)
         expect(response).to have_http_status(:ok)
         expect(Work.find(work.noid).tombstoned).to be(false)
       end
 
       it 'denies the-group-without-:privileged with 403' do
-        post "/works/#{work.noid}/restore", headers: json_headers(delegate_wrong_role.nuid)
+        post "/resources/#{work.noid}/restore", headers: json_headers(delegate_wrong_role.nuid)
         expect(response).to have_http_status(:forbidden)
       end
 
       it 'permits the :admin principal' do
-        post "/works/#{work.noid}/restore", headers: json_headers(admin.nuid)
+        post "/resources/#{work.noid}/restore", headers: json_headers(admin.nuid)
         expect(response).to have_http_status(:ok)
       end
     end

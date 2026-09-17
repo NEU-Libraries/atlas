@@ -153,6 +153,16 @@ class ResourcesController < ApplicationController
     authorize! :tombstone, resource || Resource
     return head(:not_found) unless resource && TYPED_IVARS.key?(resource.class)
 
+    # Refuses while the resource still holds a live container or Work, so a
+    # withdrawal can never orphan a readable descendant. This applies to every
+    # type without a special case: `live_children?` counts only those three, so
+    # a Work holding FileSets and Blobs always passes and they ride along.
+    if resource.live_children?
+      return render(json:   { error: "cannot tombstone a non-empty #{resource.class.name.downcase}",
+                              code:  'has_live_children' },
+                    status: :unprocessable_content)
+    end
+
     resource.tombstone(by: @current_user&.nuid)
     saved = Atlas.persister.save(resource: resource)
     audit!(resource: saved, action: 'tombstone', change_type: 'lifecycle')
@@ -177,6 +187,17 @@ class ResourcesController < ApplicationController
     resource = Resource.find(params.expect(:id))
     authorize! :destroy, resource || Resource
     return head(:not_found) unless resource && TYPED_IVARS.key?(resource.class)
+
+    # Refuses while any container or Work is still a member, and -- unlike
+    # tombstone -- refuses a member that is merely tombstoned: a purge cannot
+    # be undone, so a member left behind is orphaned for good. An operator
+    # empties the tree leaf-first instead. Uniform across types, because
+    # filtered_children counts only those three: a Work's FileSets and Blobs
+    # never block it and are cascaded into.
+    if resource.filtered_children.any?
+      message = "cannot destroy a #{resource.class.name.downcase} that still has members"
+      return render(json: { error: message, code: 'has_children' }, status: :unprocessable_content)
+    end
 
     ResourcePurger.call(resource: resource, actor_nuid: @current_user&.nuid,
                         on_behalf_of_nuid: @on_behalf_of)

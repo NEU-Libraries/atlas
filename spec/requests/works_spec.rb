@@ -295,85 +295,6 @@ RSpec.describe 'Works', type: :request do
         end
       end
     end
-
-    patch 'Update a work' do
-      tags 'Works'
-      consumes 'multipart/form-data'
-      produces 'application/json'
-      description <<~DESC
-        Update a Work's descriptive metadata by supplying a `binary` MODS XML
-        upload — the caller assembles the full document (descriptive merge logic
-        lives in the client, e.g. Cerberus, not Atlas). `metadata[permissions]`
-        adjusts the ACL. Any `metadata[title]` / `metadata[description]` keys are
-        ignored.
-
-        Two rules bound an ACL write. A resource may be no more visible than its
-        container, so a read audience wider than the parent's is refused with
-        `422 visibility_exceeds_parent` (widen the parent instead). And a group
-        grant may only be removed by a member of that group — admin and the
-        devolved-admin tier excepted; a grant the caller cannot remove is
-        preserved rather than rejected, so the stored ACL may retain groups the
-        request omitted. Read it back with `GET /resources/{id}/permissions`.
-
-        Programmatic Delegate writes (thumbnail-family URIs, sized image
-        derivatives) no longer ride this endpoint — see the dedicated
-        `PATCH /works/{id}/thumbnails` and `PATCH /works/{id}/image_derivatives`
-        routes.
-      DESC
-      parameter name: :binary, in: :formData, required: false
-      parameter name: :origin, in: :formData, required: false
-      multipart_request_body(
-        {
-          binary: { type: :string, format: :binary, description: 'MODS XML to apply to the Work' },
-          origin: { type: :string, description: ORIGIN_PARAM_DESCRIPTION }
-        }
-      )
-
-      response '200', 'work updated' do
-        let(:work)   { WorkCreator.call(parent_id: collection.noid) }
-        let(:id)     { work.noid }
-        let(:binary) { Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/work-mods.xml')) }
-        schema '$ref' => '#/components/schemas/Work'
-        run_test!
-      end
-
-      response '409', 'optimistic-lock conflict on the update (surfaced immediately, not retried)' do
-        let(:work)   { WorkCreator.call(parent_id: collection.noid) }
-        let(:id)     { work.noid }
-        let(:binary) { Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/work-mods.xml')) }
-        before do
-          work # persist before stubbing so the creator's saves don't hit the stub
-          allow(Atlas.persister).to receive(:save).and_raise(Valkyrie::Persistence::StaleObjectError)
-        end
-        run_test! do |response|
-          expect(JSON.parse(response.body)['error']).to eq('stale_resource')
-        end
-      end
-    end
-
-    delete 'Destroy a work' do
-      tags 'Works'
-      description <<~DESC
-        Permanently removes the Work. This is a purge, not a withdrawal: it
-        deletes the Work's metadata, cascades into its FileSets and their
-        Blobs, and removes the OCFL objects that hold the preserved bytes —
-        every retained revision, not only the current one. Nothing survives
-        but the audit row, which records the NOIDs it removed.
-
-        Use `POST /works/{id}/tombstone` for the user-visible withdrawal
-        path. That one keeps everything and can be reversed.
-
-        Admin only.
-      DESC
-
-      response '204', 'work destroyed' do
-        let(:work) { WorkCreator.call(parent_id: collection.noid) }
-        let(:id)   { work.noid }
-        run_test! do
-          expect(Work.find(work.noid)).to be_nil
-        end
-      end
-    end
   end
 
   path '/works/{id}/mods' do
@@ -618,95 +539,6 @@ RSpec.describe 'Works', type: :request do
       response '404', 'work not found' do
         let(:id) { 'nonexistent' }
         run_test!
-      end
-    end
-  end
-
-  path '/works/{id}/thumbnails' do
-    parameter name: :id, in: :path, type: :string, description: 'NOID of the Work'
-
-    patch 'Attach thumbnail-family IIIF Delegate URIs to a work' do
-      tags 'Works'
-      consumes 'application/json'
-      produces 'application/json'
-      description <<~DESC
-        Upserts one or more thumbnail-tier Delegates on the Work — the
-        85px `thumbnail`, the 170px `thumbnail_2x`, and the 500px hero
-        `preview`. Each non-blank URI is dispatched to DelegateUpdater
-        against its matching Role; missing keys are left untouched.
-
-        Purpose-specific: machine-set IIIF URLs, fixed three-key shape,
-        no user content. Cerberus's ThumbnailCreationJob is the primary
-        caller.
-      DESC
-      parameter name: :body, in: :body, schema: {
-        type:       :object,
-        properties: {
-          thumbnail:    { type: :string, description: 'IIIF URL for the 85px thumbnail tier' },
-          thumbnail_2x: { type: :string, description: 'IIIF URL for the 170px retina thumbnail tier' },
-          preview:      { type: :string, description: 'IIIF URL for the 500px hero preview tier' }
-        }
-      }
-
-      response '200', 'thumbnail Delegate is created and surfaces on read' do
-        let(:work) { WorkCreator.call(parent_id: collection.noid) }
-        let(:id) { work.noid }
-        let(:body) { { thumbnail: 'https://iiif.example/iiif/2/abc/full/!200,200/0/default.jpg' } }
-        schema '$ref' => '#/components/schemas/Work'
-        run_test! do |response|
-          expect(JSON.parse(response.body).dig('work', 'thumbnail'))
-            .to eq('https://iiif.example/iiif/2/abc/full/!200,200/0/default.jpg')
-
-          reloaded = Work.find(work.noid)
-          deriv_fs = reloaded.children.find { |c| c.is_a?(FileSet) && c.type == Classification.derivative.name }
-          expect(deriv_fs).not_to be_nil
-          members = Atlas.query.find_members(resource: deriv_fs).to_a
-          expect(members.size).to eq(1)
-          expect(members.first).to be_a(Delegate)
-          expect(members.first.use).to eq(Role.thumbnail_image.name)
-        end
-      end
-
-      response '200', 'all three thumbnail-family keys land in one PATCH' do
-        let(:work) { WorkCreator.call(parent_id: collection.noid) }
-        let(:id)   { work.noid }
-        let(:body) do
-          {
-            thumbnail:    'https://iiif.example/iiif/3/abc.jp2/full/!85,85/0/default.jpg',
-            thumbnail_2x: 'https://iiif.example/iiif/3/abc.jp2/full/!170,170/0/default.jpg',
-            preview:      'https://iiif.example/iiif/3/abc.jp2/full/500,/0/default.jpg'
-          }
-        end
-        schema '$ref' => '#/components/schemas/Work'
-        run_test! do |response|
-          json = JSON.parse(response.body).fetch('work')
-          expect(json['thumbnail']).to eq('https://iiif.example/iiif/3/abc.jp2/full/!85,85/0/default.jpg')
-          expect(json['thumbnail_2x']).to eq('https://iiif.example/iiif/3/abc.jp2/full/!170,170/0/default.jpg')
-          expect(json['preview']).to eq('https://iiif.example/iiif/3/abc.jp2/full/500,/0/default.jpg')
-
-          reloaded = Work.find(work.noid)
-          deriv_fs = reloaded.children.find { |c| c.is_a?(FileSet) && c.type == Classification.derivative.name }
-          members  = Atlas.query.find_members(resource: deriv_fs).to_a.grep(Delegate)
-          uses     = members.map(&:use)
-          expect(uses).to contain_exactly(
-            Role.thumbnail_image.name,
-            Role.thumbnail_image_2x.name,
-            Role.preview_image.name
-          )
-        end
-      end
-
-      response '409', 'optimistic-lock conflict survived the internal retry budget' do
-        let(:work) { WorkCreator.call(parent_id: collection.noid) }
-        let(:id)   { work.noid }
-        let(:body) { { thumbnail: 'https://iiif.example/iiif/2/abc/full/!85,85/0/default.jpg' } }
-        before do
-          allow_any_instance_of(WorksController).to receive(:sleep)
-          allow(DelegateUpdater).to receive(:call).and_raise(Valkyrie::Persistence::StaleObjectError)
-        end
-        run_test! do |response|
-          expect(JSON.parse(response.body)['error']).to eq('stale_resource')
-        end
       end
     end
   end
@@ -965,46 +797,6 @@ RSpec.describe 'Works', type: :request do
     end
   end
 
-  path '/works/{id}/parent' do
-    parameter name: :id, in: :path, type: :string, description: 'NOID of the Work to move'
-
-    patch 'Re-parent a work' do
-      tags 'Works'
-      consumes 'application/json'
-      produces 'application/json'
-      description <<~DESC
-        Moves a Work to a different Collection. Trivial sibling of the
-        collection/community re-parent: a Work has no descendants and carries
-        no ancestry field, so there is NO cascade — only its own a_member_of
-        changes. Permissions are untouched. Rejects a non-Collection parent
-        and tombstoned node/parent with a 422.
-      DESC
-      parameter name: :body, in: :body, schema: {
-        type:       :object,
-        required:   %w[parent_id],
-        properties: { parent_id: { type: :string, description: 'NOID of the destination Collection' } }
-      }
-
-      response '200', 'work moved to another collection' do
-        let(:destination) { CollectionCreator.call(parent_id: community.noid) }
-        let(:work)        { WorkCreator.call(parent_id: collection.noid) }
-        let(:id)          { work.noid }
-        let(:body)        { { parent_id: destination.noid } }
-        schema '$ref' => '#/components/schemas/Work'
-        run_test! do |response|
-          ancestors = JSON.parse(response.body).dig('work', 'ancestors')
-          expect(ancestors.pluck('noid')).to include(destination.noid)
-        end
-      end
-
-      response '404', 'unknown work' do
-        let(:id)   { 'doesnotexist' }
-        let(:body) { { parent_id: collection.noid } }
-        run_test!
-      end
-    end
-  end
-
   path '/works/{id}/linked_members' do
     parameter name: :id, in: :path, type: :string, description: 'NOID of the Work'
 
@@ -1242,44 +1034,6 @@ RSpec.describe 'Works', type: :request do
     end
   end
 
-  path '/works/{id}/tombstone' do
-    parameter name: :id, in: :path, type: :string
-
-    post 'Tombstone a work' do
-      tags 'Works'
-      produces 'application/json'
-      description 'Marks a Work as tombstoned. Always succeeds; FileSets and Blobs ride along with the parent Work.'
-
-      response '200', 'work tombstoned' do
-        let(:work) { WorkCreator.call(parent_id: collection.noid) }
-        let(:id)   { work.noid }
-        schema '$ref' => '#/components/schemas/Work'
-        run_test!
-      end
-    end
-  end
-
-  path '/works/{id}/restore' do
-    parameter name: :id, in: :path, type: :string
-
-    post 'Restore a tombstoned work' do
-      tags 'Works'
-      produces 'application/json'
-      description 'Clears the tombstone flag on a Work. Cerberus does not expose this — call from operator console.'
-
-      response '200', 'work restored' do
-        let(:work) do
-          w = WorkCreator.call(parent_id: collection.noid)
-          w.tombstoned = true
-          Atlas.persister.save(resource: w)
-        end
-        let(:id) { work.noid }
-        schema '$ref' => '#/components/schemas/Work'
-        run_test!
-      end
-    end
-  end
-
   path '/works/{id}/complete' do
     parameter name: :id, in: :path, type: :string
 
@@ -1490,8 +1244,8 @@ RSpec.describe 'Works', type: :request do
       expect(work.depositor).to      eq('900000001')
       expect(work.proxy_uploader).to eq('000000002')
 
-      patch "/works/#{work.noid}",
-            params: { metadata: { permissions: { read: ['public'], edit: [], edit_users: [] } } }
+      patch "/resources/#{work.noid}/permissions",
+            params: { permissions: { read: ['public'], edit: [], edit_users: [] } }
 
       expect(response).to have_http_status(:ok)
       reloaded = Work.find(work.noid)

@@ -29,7 +29,7 @@ RSpec.describe 'Communities via atlas_rb', :atlas_rb_server do
     parent = CommunityCreator.call
     created = AtlasRb::Community.create(parent.noid, nuid: admin_nuid)
 
-    AtlasRb::Admin::Community.destroy(created['id'], confirm: :i_understand, nuid: admin_nuid)
+    AtlasRb::Admin::Resource.destroy(created['id'], confirm: :i_understand, nuid: admin_nuid)
     expect(Community.find(created['id'])).to be_nil
   end
 
@@ -37,7 +37,7 @@ RSpec.describe 'Communities via atlas_rb', :atlas_rb_server do
     it 'round-trips the three thumbnail-tier URIs through atlas_rb and surfaces them on the next find' do
       community = CommunityCreator.call
 
-      AtlasRb::Community.set_thumbnails(
+      AtlasRb::Resource.set_thumbnails(
         community.noid,
         thumbnail:    'https://iiif.example/iiif/3/m.jp2/full/!85,85/0/default.jpg',
         thumbnail_2x: 'https://iiif.example/iiif/3/m.jp2/full/!170,170/0/default.jpg',

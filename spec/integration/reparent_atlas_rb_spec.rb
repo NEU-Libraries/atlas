@@ -27,28 +27,28 @@ RSpec.describe 'Re-parenting via atlas_rb', :atlas_rb_server do
                    nuid: '000000002', name: 'Doe, Jane', role: :privileged)
   end
 
-  describe 'AtlasRb::Work.reparent' do
+  describe 'moving a Work' do
     it 'moves a Work to a different Collection (no cascade)' do
       community   = CommunityCreator.call
       home        = CollectionCreator.call(parent_id: community.noid)
       destination = CollectionCreator.call(parent_id: community.noid)
       work        = WorkCreator.call(parent_id: home.noid)
 
-      result = AtlasRb::Work.reparent(work.noid, destination.noid, nuid: admin_nuid)
+      result = AtlasRb::Resource.reparent(work.noid, destination.noid, nuid: admin_nuid)
 
       expect(result['ancestors'].pluck('noid')).to include(destination.noid)
       expect(Work.find(work.noid).parent.noid).to eq(destination.noid)
     end
   end
 
-  describe 'AtlasRb::Collection.reparent' do
+  describe 'moving a Collection' do
     it 'moves a Collection and recomputes its descendant collections\' ancestry (cascade)' do
       community   = CommunityCreator.call
       destination = CommunityCreator.call
       home        = CollectionCreator.call(parent_id: community.noid)
       child       = CollectionCreator.call(parent_id: home.noid)
 
-      AtlasRb::Collection.reparent(home.noid, destination.noid, nuid: admin_nuid)
+      AtlasRb::Resource.reparent(home.noid, destination.noid, nuid: admin_nuid)
 
       expect(Collection.find(home.noid).parent.noid).to eq(destination.noid)
 
@@ -66,7 +66,7 @@ RSpec.describe 'Re-parenting via atlas_rb', :atlas_rb_server do
       # 1.2.1: the structural 422 surfaces as a typed error carrying Atlas's
       # machine-readable discriminator, instead of the swallowed nil of 1.2.0.
       expect do
-        AtlasRb::Collection.reparent(parent.noid, child.noid, nuid: admin_nuid)
+        AtlasRb::Resource.reparent(parent.noid, child.noid, nuid: admin_nuid)
       end.to raise_error(AtlasRb::ReparentError) { |e|
         expect(e.code).to eq('cycle')
         expect(e.resource_id).to eq(parent.noid)
@@ -77,13 +77,13 @@ RSpec.describe 'Re-parenting via atlas_rb', :atlas_rb_server do
     end
   end
 
-  describe 'AtlasRb::Community.reparent' do
+  describe 'moving a Community' do
     it 'moves a Community under another Community' do
       root        = CommunityCreator.call
       destination = CommunityCreator.call
       community   = CommunityCreator.call(parent_id: root.noid)
 
-      result = AtlasRb::Community.reparent(community.noid, destination.noid, nuid: admin_nuid)
+      result = AtlasRb::Resource.reparent(community.noid, destination.noid, nuid: admin_nuid)
 
       expect(result['ancestors'].pluck('noid')).to include(destination.noid)
       expect(Community.find(community.noid).parent.noid).to eq(destination.noid)
@@ -93,7 +93,7 @@ RSpec.describe 'Re-parenting via atlas_rb', :atlas_rb_server do
       root      = CommunityCreator.call
       community = CommunityCreator.call(parent_id: root.noid)
 
-      result = AtlasRb::Community.reparent(community.noid, nil, nuid: admin_nuid)
+      result = AtlasRb::Resource.reparent(community.noid, nil, nuid: admin_nuid)
 
       expect(result['ancestors']).to eq([])
       expect(Community.find(community.noid).a_member_of).to be_nil
@@ -109,7 +109,7 @@ RSpec.describe 'Re-parenting via atlas_rb', :atlas_rb_server do
       work      = WorkCreator.call(parent_id: home.noid)
 
       expect do
-        AtlasRb::Work.reparent(work.noid, community.noid, nuid: admin_nuid)
+        AtlasRb::Resource.reparent(work.noid, community.noid, nuid: admin_nuid)
       end.to raise_error(AtlasRb::ReparentError) { |e|
         expect(e.code).to eq('invalid_parent_type')
         expect(e.resource_id).to eq(work.noid)
@@ -125,7 +125,7 @@ RSpec.describe 'Re-parenting via atlas_rb', :atlas_rb_server do
       work        = WorkCreator.call(parent_id: home.noid)
 
       expect do
-        AtlasRb::Work.reparent(work.noid, destination.noid, nuid: editor.nuid)
+        AtlasRb::Resource.reparent(work.noid, destination.noid, nuid: editor.nuid)
       end.to raise_error(AtlasRb::ForbiddenError) { |e|
         expect(e.action).to eq('reparent')
         expect(e.subject).to eq('Work')

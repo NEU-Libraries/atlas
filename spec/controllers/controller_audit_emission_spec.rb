@@ -14,7 +14,7 @@ RSpec.describe 'Controller audit emission' do
 
   let(:actor) { '000000004' }
 
-  describe WorksController, type: :controller do
+  describe ResourcesController, type: :controller do
     render_views
 
     # Public root: the permissions example below grants a public read, which the
@@ -23,9 +23,9 @@ RSpec.describe 'Controller audit emission' do
     let(:collection) { CollectionCreator.call(parent_id: community.noid) }
     let(:work)       { WorkCreator.call(parent_id: collection.noid) }
 
-    it 'metadata_update (permissions) writes a permissions row with before/after ACL' do
-      patch :update,
-            params: { id: work.noid, metadata: { permissions: { read: ['public'], edit: [], edit_users: ['000000009'] } } },
+    it 'an ACL write writes a permissions row with before/after ACL' do
+      patch :update_permissions,
+            params: { id: work.noid, permissions: { read: ['public'], edit: [], edit_users: ['000000009'] } },
             as:     :json
 
       row = AuditEvent.for_resource(work.id).find_by(action: 'update', change_type: 'permissions')
@@ -43,8 +43,8 @@ RSpec.describe 'Controller audit emission' do
       # re-submitting the same effective ACL (the setter re-prepends staff)
       # changes nothing.
       expect do
-        patch :update,
-              params: { id: work.noid, metadata: { permissions: { read: ['public'], edit: [], edit_users: [] } } },
+        patch :update_permissions,
+              params: { id: work.noid, permissions: { read: ['public'], edit: [], edit_users: [] } },
               as:     :json
       end.not_to change { AuditEvent.for_resource(work.id).count }
 
@@ -58,7 +58,7 @@ RSpec.describe 'Controller audit emission' do
     describe 'embargo transitions' do
       def patch_embargo(date, **overrides)
         acl = { read: ['public'], edit: [], edit_users: [], embargo: date }.merge(overrides)
-        patch :update, params: { id: work.noid, metadata: { permissions: acl } }, as: :json
+        patch :update_permissions, params: { id: work.noid, permissions: acl }, as: :json
       end
 
       def permissions_rows
@@ -103,11 +103,11 @@ RSpec.describe 'Controller audit emission' do
       end
     end
 
-    it 'binary_update writes a metadata row sourced from MODS' do
-      patch :update,
-            params: { id:     work.noid,
-                      binary: Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/work-mods.xml')) },
-            as:     :json
+    it 'a MODS write writes a metadata row sourced from MODS' do
+      put :put_mods,
+          params: { id:     work.noid,
+                    binary: Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/work-mods.xml')) },
+          as:     :json
 
       row = AuditEvent.for_resource(work.id).find_by(action: 'update', change_type: 'metadata')
       expect(row.payload['source']).to eq('mods')
@@ -115,11 +115,11 @@ RSpec.describe 'Controller audit emission' do
 
     describe 'the caller-asserted edit origin' do
       def patch_mods(origin_params)
-        patch :update,
-              params: { id:     work.noid,
-                        binary: Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/work-mods.xml')) }
-                        .merge(origin_params),
-              as:     :json
+        put :put_mods,
+            params: { id:     work.noid,
+                      binary: Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/work-mods.xml')) }
+                      .merge(origin_params),
+            as:     :json
         AuditEvent.for_resource(work.id).find_by(action: 'update', change_type: 'metadata')
       end
 
@@ -152,22 +152,14 @@ RSpec.describe 'Controller audit emission' do
       expect(lifecycle).to contain_exactly('tombstone', 'restore')
     end
 
-    it 'complete writes a lifecycle row (restore/complete are no longer dead verbs)' do
-      post :complete, params: { id: work.noid }, as: :json
-
-      row = AuditEvent.for_resource(work.id).find_by(action: 'complete')
-      expect(row).not_to be_nil
-      expect(row.change_type).to eq('lifecycle')
-    end
-
     it 'records the On-Behalf-Of operator as on_behalf_of_nuid under acting-as' do
       # Acting-as rides a signed obo claim now (the On-Behalf-Of header is ignored
       # on the assertion path): admin operator (actor) acting as 000000123.
       request.headers['Authorization'] = "Bearer #{DefaultAuthHeaders.assertion_for(actor, obo: '000000123')}"
-      patch :update,
-            params: { id:     work.noid,
-                      binary: Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/work-mods.xml')) },
-            as:     :json
+      put :put_mods,
+          params: { id:     work.noid,
+                    binary: Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/work-mods.xml')) },
+          as:     :json
 
       row = AuditEvent.for_resource(work.id).find_by(action: 'update', change_type: 'metadata')
       expect(row.actor_nuid).to eq(actor)
@@ -175,17 +167,17 @@ RSpec.describe 'Controller audit emission' do
     end
   end
 
-  describe CollectionsController, type: :controller do
+  describe ResourcesController, type: :controller do
     render_views
 
     let(:community)  { CommunityCreator.call }
     let(:collection) { CollectionCreator.call(parent_id: community.noid) }
 
-    it 'binary_update and tombstone/restore emit for Collections too' do
-      patch :update,
-            params: { id:     collection.noid,
-                      binary: Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/work-mods.xml')) },
-            as:     :json
+    it 'MODS and tombstone/restore emit for Collections too' do
+      put :put_mods,
+          params: { id:     collection.noid,
+                    binary: Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/work-mods.xml')) },
+          as:     :json
       post  :tombstone, params: { id: collection.noid }, as: :json
       post  :restore,   params: { id: collection.noid }, as: :json
 
@@ -196,16 +188,16 @@ RSpec.describe 'Controller audit emission' do
     end
   end
 
-  describe CommunitiesController, type: :controller do
+  describe ResourcesController, type: :controller do
     render_views
 
     let(:community) { CommunityCreator.call }
 
-    it 'binary_update and tombstone/restore emit for Communities too' do
-      patch :update,
-            params: { id:     community.noid,
-                      binary: Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/work-mods.xml')) },
-            as:     :json
+    it 'MODS and tombstone/restore emit for Communities too' do
+      put :put_mods,
+          params: { id:     community.noid,
+                    binary: Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/work-mods.xml')) },
+          as:     :json
       post  :tombstone, params: { id: community.noid }, as: :json
       post  :restore,   params: { id: community.noid }, as: :json
 
@@ -225,13 +217,30 @@ RSpec.describe 'Controller audit emission' do
       expect(community.embargo_release_date).to be_nil
 
       expect do
-        patch :update,
-              params: { id:       community.noid,
-                        metadata: { permissions: { read: [], edit: [Permissions::STAFF_EDIT_GROUP], edit_users: [] } } },
+        patch :update_permissions,
+              params: { id:          community.noid,
+                        permissions: { read: [], edit: [Permissions::STAFF_EDIT_GROUP], edit_users: [] } },
               as:     :json
       end.not_to change { AuditEvent.for_resource(community.id).where(change_type: 'permissions').count }
 
       expect(response).to have_http_status(:ok)
+    end
+  end
+
+  # Still typed: completion is Work-only and has no generic counterpart.
+  describe WorksController, type: :controller do
+    render_views
+
+    let(:community)  { CommunityCreator.call }
+    let(:collection) { CollectionCreator.call(parent_id: community.noid) }
+    let(:work)       { WorkCreator.call(parent_id: collection.noid) }
+
+    it 'complete writes a lifecycle row' do
+      post :complete, params: { id: work.noid }, as: :json
+
+      row = AuditEvent.for_resource(work.id).find_by(action: 'complete')
+      expect(row).not_to be_nil
+      expect(row.change_type).to eq('lifecycle')
     end
   end
 

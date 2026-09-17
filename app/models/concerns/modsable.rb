@@ -79,8 +79,12 @@ module Modsable
 
   private
 
+    # Filters to FileSets before reading `type`, because this runs on every
+    # Resource and not only the container types that hold MODS. A FileSet's own
+    # members are Blobs and Delegates, and neither carries `type` -- so the
+    # unfiltered walk raises NoMethodError rather than answering "no MODS here".
     def descriptive_metadata_file_set
-      children.find { |fs| fs.type == Classification.descriptive_metadata.name }
+      children.grep(FileSet).find { |fs| fs.type == Classification.descriptive_metadata.name }
     end
 
     # Fail before the Blob is persisted, not after: a resource with no

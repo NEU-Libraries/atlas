@@ -357,9 +357,13 @@ fails on the code rather than on arithmetic.
 sixteen in one process. Each worker owns its own database, Solr core and OCFL
 storage root.
 
-**Run it detached, and poll for an end marker:**
+**Run it detached, and poll for an end marker.** The detached form calls the
+rake task directly, so it skips the Solr-core step `bin/parallel-spec` runs
+first. Run that step from the host yourself — it is idempotent, and without it
+workers 2–4 abort in `before(:suite)` with `UnsafeTarget` and 0 examples:
 
 ```bash
+bin/parallel-solr-cores 4
 docker exec -d -w <worktree> atlas-web-1 sh -c \
   'bundle exec rake parallel:spec > /tmp/run.log 2>&1; echo "DONE rc=$?" >> /tmp/run.log'
 ```

@@ -349,6 +349,26 @@ RSpec.describe Ability do
         expect(subject).not_to be_able_to(:read, leaf(Delegate, parent: private_work))
       end
 
+      # A page's Service File Delegate nests in a derivative FileSet under the
+      # page, so the walk must go three hops to reach the Work.
+      it 'walks three hops from a Service File Delegate to the Work' do
+        public_page  = leaf(FileSet, parent: public_work)
+        private_page = leaf(FileSet, parent: private_work)
+
+        expect(subject).to     be_able_to(:read, leaf(Delegate, parent: leaf(FileSet, parent: public_page)))
+        expect(subject).not_to be_able_to(:read, leaf(Delegate, parent: leaf(FileSet, parent: private_page)))
+      end
+
+      # A corrupt chain with no Work in it must end in deny, not hang.
+      it 'denies a leaf whose parent chain loops' do
+        a = FileSet.new(read_groups: ['public'])
+        b = leaf(FileSet, parent: a)
+        allow(a).to receive(:parent).and_return(b)
+
+        expect(leaf(Delegate, parent: a).read_authority).to be_nil
+        expect(subject).not_to be_able_to(:read, leaf(Delegate, parent: a))
+      end
+
       # No Work above it means nobody answers for it, and guessing would
       # defeat the gate — an unattached Blob is denied even though its own
       # copied ACL says public.

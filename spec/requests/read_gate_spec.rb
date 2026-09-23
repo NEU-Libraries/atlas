@@ -116,6 +116,50 @@ RSpec.describe 'Per-resource read gate', type: :request, default_auth: false do
     end
   end
 
+  # The deepest leaf in the tree: PATCH /iiif_service nests the Delegate in a
+  # derivative FileSet under the page, three levels below the Work. Built over
+  # the wire so the spec tracks the shape production writes.
+  describe "a page's Service File Delegate, three levels below its Work" do
+    def service_file_delegate_under(work)
+      admin = User.find_by(nuid: '000000004') ||
+              User.create!(email: 'admin3@example.invalid', password: SecureRandom.hex(16),
+                           nuid: '000000004', name: 'User, Admin', role: :admin)
+      page  = FileSetCreator.call(work_id: work.noid, classification: Classification.image, position: 1)
+      patch "/file_sets/#{page.noid}/iiif_service",
+            params:  { uri: 'https://iiif.example/iiif/3/page.jp2' }.to_json,
+            headers: signed_auth_headers(admin.nuid).merge('CONTENT_TYPE' => 'application/json')
+      expect(response).to have_http_status(:ok)
+
+      deriv = FileSet.find(page.noid).children.find { |c| c.is_a?(FileSet) && c.type == Classification.derivative.name }
+      Atlas.query.find_members(resource: deriv).to_a.grep(Delegate).sole
+    end
+
+    it 'serves the Delegate to a guest when the Work is public' do
+      delegate = service_file_delegate_under(public_work)
+      get "/delegates/#{delegate.noid}"
+      expect(response).to have_http_status(:ok)
+    end
+
+    it 'serves the Delegate to a caller with edit rights on a private Work' do
+      editor = User.create!(email: 'page-editor@example.invalid', password: SecureRandom.hex(16),
+                            nuid: '000000778', name: 'Doe, Jane', role: :standard,
+                            groups: ['northeastern:drs:dataset-editors'])
+      work = private_work
+      work.edit_groups = editor.groups
+      work = Atlas.persister.save(resource: work)
+      delegate = service_file_delegate_under(work)
+
+      get "/delegates/#{delegate.noid}", headers: signed_auth_headers(editor.nuid)
+      expect(response).to have_http_status(:ok)
+    end
+
+    it 'refuses the Delegate to a guest when the Work is private' do
+      delegate = service_file_delegate_under(private_work)
+      get "/delegates/#{delegate.noid}"
+      expect(response).to have_http_status(:forbidden)
+    end
+  end
+
   describe 'listings, which filter per row' do
     let!(:private_child) { private_work }
     let!(:public_child)  { public_work }

@@ -27,6 +27,7 @@ because a developer needs it before any of the other pages make sense.
 | [`authorization.md`](authorization.md) | The `Ability` tiers, the ACL envelope, the write guard, per-asset visibility |
 | [`error-contract.md`](error-contract.md) | The `rescue_from` shapes and the `error` codes `atlas_rb` keys on |
 | [`resource-graph.md`](resource-graph.md) | The tree and its DAG overlay, the traversal endpoints, the on-disk envelope |
+| [`search.md`](search.md) | The read gate every Solr list shares |
 | [`mods.md`](mods.md) | The dual representation, the derived attribute set, version history |
 | [`mods-browse.md`](mods-browse.md) | The browse-axis vocabulary the indexers and the decorator share |
 | [`mods-display.md`](mods-display.md) | The `DISPLAY` table, the coverage decisions, each renderer |

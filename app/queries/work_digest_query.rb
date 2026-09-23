@@ -17,13 +17,12 @@
 #
 # Resolution is always: one lucene work query — member-of any covered
 # container, Works only, not tombstoned, ACL-gated — with Solr-side pagination
-# (start/rows). The ACL fq mirrors Cerberus SearchBuilder#apply_gated_discovery
-# exactly: {!terms f=read_access_group_ssim}public,<user groups>, skipped
-# entirely for admins. Cerberus does not gate on embargo state at the discovery
-# layer, so neither does this query — the two resolutions must agree on
-# visibility.
+# (start/rows). The ACL fq is SolrReadGate, which admits what Ability's :read rule
+# admits, edit rights included. Cerberus does not gate on embargo state at the
+# discovery layer, so neither does this query.
 class WorkDigestQuery
   include SolrRefs
+  include SolrReadGate
 
   DEFAULT_PER_PAGE = 25
   MAX_PER_PAGE     = 100
@@ -73,14 +72,9 @@ class WorkDigestQuery
     def work_filters(union)
       fq = ["(#{union})", 'internal_resource_tesim:Work', '-tombstoned_bsi:true']
       fq.concat(extra_work_filters)
-      fq << acl_filter unless @user&.admin?
+      gate = read_gate_fq(@user)
+      fq << gate if gate
       fq
-    end
-
-    # Cerberus gated-discovery parity — see class comment.
-    def acl_filter
-      groups = (['public'] + Array(@user&.groups)).uniq
-      "{!terms f=read_access_group_ssim}#{groups.join(',')}"
     end
 
     # Same vocabulary as the find_many digest (resources/find_many.json.jbuilder),

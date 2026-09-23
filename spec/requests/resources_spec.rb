@@ -802,9 +802,10 @@ RSpec.describe 'Resources', type: :request do
         but the container set is the resource's own subtree (self +
         `ancestor_ids_ssim` descendants) instead of a Set recipe.
 
-        Gated per-Work to what the caller may discover (public + the caller's
-        groups; admins see everything; same semantics as Cerberus gated
-        discovery), so a restricted Work never leaks via the subtree. Tombstoned
+        Gated per-Work to what the caller may read: public, one of the caller's
+        read or edit groups, the caller as an edit user, or the caller as the
+        depositor. Admins see everything. So a restricted Work never leaks via
+        the subtree, and one the caller can edit is never hidden. Tombstoned
         works are dropped. Membership is **structural** (`a_member_of`) only;
         pass `include_linked=true` to also surface linked members
         (`a_linked_member_of`). Solr-side pagination via `page` / `per_page`
@@ -913,6 +914,43 @@ RSpec.describe 'Resources', type: :request do
       noids = descendant_noids(response)
       expect(noids).to contain_exactly(work_in_collection.noid, nested_work.noid)
       expect(noids).not_to include(private_work.noid)
+    end
+
+    describe 'edit rights imply read' do
+      let(:staff) do
+        User.create!(email: 'staff@example.com', password: SecureRandom.hex(16),
+                     nuid: '000000003', role: :privileged, groups: [Permissions::STAFF_EDIT_GROUP])
+      end
+      let(:depositor) do
+        User.create!(email: 'depositor@example.com', password: SecureRandom.hex(16),
+                     nuid: '000000005', role: :standard, groups: [])
+      end
+      # Readable by nobody's read group: reachable only through an edit grant.
+      let!(:staff_edited_work) do
+        Atlas.persister.save(resource: Work.new(a_member_of: collection.id, read_groups: [],
+                                                edit_groups: [Permissions::STAFF_EDIT_GROUP]))
+      end
+      let!(:deposited_work) do
+        Atlas.persister.save(resource: Work.new(a_member_of: collection.id, read_groups: [],
+                                                depositor: depositor.nuid))
+      end
+
+      it 'lists a Work to a caller whose group may only edit it' do
+        get "/resources/#{collection.noid}/descendant_works", headers: signed_auth_headers(staff.nuid)
+        expect(descendant_noids(response)).to include(staff_edited_work.noid)
+        expect(descendant_noids(response)).not_to include(deposited_work.noid)
+      end
+
+      it "lists a depositor's own private Work to them" do
+        get "/resources/#{collection.noid}/descendant_works", headers: signed_auth_headers(depositor.nuid)
+        expect(descendant_noids(response)).to include(deposited_work.noid)
+        expect(descendant_noids(response)).not_to include(staff_edited_work.noid)
+      end
+
+      it 'still hides both from a caller with neither' do
+        get "/resources/#{collection.noid}/descendant_works", headers: signed_auth_headers(reader.nuid)
+        expect(descendant_noids(response)).not_to include(staff_edited_work.noid, deposited_work.noid)
+      end
     end
 
     it 'is structural by default; ?include_linked=true unions linked members' do

@@ -3309,9 +3309,10 @@ paths:
         Resolves the recipe against the live index: works beneath any
         included Collection (transitively, linked members included), plus
         individually included works, minus set-asides, minus tombstoned
-        works — gated to what the caller may discover (public + the
-        caller's groups; admins see everything; same semantics as
-        Cerberus gated discovery). Solr-side pagination via `page` /
+        works — gated to what the caller may read (public, one of the
+        caller's read or edit groups, the caller as an edit user, or the
+        caller as the depositor; admins see everything). Solr-side
+        pagination via `page` /
         `per_page` (default 25, capped at 100).
       security:
       - BearerAuth: []
@@ -4474,9 +4475,10 @@ paths:
         but the container set is the resource's own subtree (self +
         `ancestor_ids_ssim` descendants) instead of a Set recipe.
 
-        Gated per-Work to what the caller may discover (public + the caller's
-        groups; admins see everything; same semantics as Cerberus gated
-        discovery), so a restricted Work never leaks via the subtree. Tombstoned
+        Gated per-Work to what the caller may read: public, one of the caller's
+        read or edit groups, the caller as an edit user, or the caller as the
+        depositor. Admins see everything. So a restricted Work never leaks via
+        the subtree, and one the caller can edit is never hidden. Tombstoned
         works are dropped. Membership is **structural** (`a_member_of`) only;
         pass `include_linked=true` to also surface linked members
         (`a_linked_member_of`). Solr-side pagination via `page` / `per_page`

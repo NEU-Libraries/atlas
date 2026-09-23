@@ -235,8 +235,9 @@ shape and query engine, but the container set is the resource's own subtree
 instead of a Set recipe. Only structural membership counts unless
 `?include_linked=true`.
 
-**Gating is per-Work inside the query**, for parity with Cerberus's gated
-discovery, so a restricted Work never leaks through the subtree. Ids are
+**Gating is per-Work inside the query**, through the shared read gate
+([`search.md`](search.md)), so a restricted Work never leaks through the subtree
+and one the caller can edit is never hidden. Ids are
 projected from Solr at every step, **so even a 10,000-deep collection never
 materializes its children.**
 

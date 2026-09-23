@@ -802,9 +802,10 @@ RSpec.describe 'Compilations', type: :request, default_auth: false do
           Resolves the recipe against the live index: works beneath any
           included Collection (transitively, linked members included), plus
           individually included works, minus set-asides, minus tombstoned
-          works — gated to what the caller may discover (public + the
-          caller's groups; admins see everything; same semantics as
-          Cerberus gated discovery). Solr-side pagination via `page` /
+          works — gated to what the caller may read (public, one of the
+          caller's read or edit groups, the caller as an edit user, or the
+          caller as the depositor; admins see everything). Solr-side
+          pagination via `page` /
           `per_page` (default 25, capped at 100).
         D
         security [{ BearerAuth: [], NuidHeader: [] }]

@@ -4,7 +4,14 @@ module Relationships
   extend ActiveSupport::Concern
 
   included do
+    # Answers only the receiver's own type, so `FileSet.find(<a Work id>)` is
+    # nil. Every typed route's 404 rests on this; see docs/resource-graph.md.
     def self.find(id)
+      found = find_any(id)
+      found if found.is_a?(self)
+    end
+
+    def self.find_any(id)
       # expect noid
       Atlas.query.find_by_alternate_identifier(alternate_identifier: id)
     rescue Valkyrie::Persistence::ObjectNotFoundError
@@ -15,6 +22,7 @@ module Relationships
         nil
       end
     end
+    private_class_method :find_any
   end
 
   def parent

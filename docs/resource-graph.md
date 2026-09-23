@@ -27,6 +27,22 @@ backbone stays a strict tree and **cycles are structurally impossible.**
 
 **It adds placement, never permission.** The Work keeps its single ACL.
 
+## A typed `find` answers only its own type
+
+A NOID names a resource of any type, and the underlying Valkyrie lookup returns
+whatever the id names. `Resource.find` keeps that behaviour: it is the generic
+resolver. A subclass's `find` — `Work.find`, `FileSet.find`, `Blob.find` and the
+rest — returns `nil` when the id names a resource of another type.
+
+So a wrong-type id reads exactly like an unknown id, and every typed route
+answers it with the 404 it already gives an unknown id. The typed controllers
+depend on this for safety as well as for correct reads. Their writes authorize
+at the class level (`:destroy, FileSet`), so without the type check
+`DELETE /file_sets/<a Collection id>` would purge the Collection and skip the
+`has_children` guard that `DELETE /resources/:id` applies.
+
+Code that genuinely accepts any type must call `Resource.find`.
+
 ## Work-to-Work associations
 
 `ASSOCIATION_TYPES` is five typed, directed edges: `is_codebook_for`,

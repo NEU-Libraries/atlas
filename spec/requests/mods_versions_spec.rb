@@ -129,6 +129,41 @@ RSpec.describe 'MODS version history endpoints', type: :request do
       expect(response).to have_http_status(:forbidden)
     end
 
+    describe 'the devolved-admin tier' do
+      let!(:delegate) do
+        User.create!(email: 'delegate-mods@example.invalid', password: SecureRandom.hex(16),
+                     nuid: '000000042', name: 'Williams, Delegate', role: :privileged,
+                     groups: [Permissions::ADMIN_GROUP])
+      end
+      let!(:staff_no_group) do
+        User.create!(email: 'staff-no-group@example.invalid', password: SecureRandom.hex(16),
+                     nuid: '000000043', name: 'Roe, Sam', role: :privileged,
+                     groups: [Permissions::STAFF_EDIT_GROUP])
+      end
+
+      it 'lists each Modsable type for a delegate (:privileged + ADMIN_GROUP), with attribution' do
+        work = WorkCreator.call(parent_id: collection.noid)
+        [work, collection, community].each do |resource|
+          edit_mods(resource.noid)
+          get "/resources/#{resource.noid}/mods/versions", headers: signed_auth_headers(delegate.nuid)
+          expect(response).to have_http_status(:ok)
+          expect(response.parsed_body['versions'].first).to include('actor_nuid' => editor_nuid)
+        end
+      end
+
+      it 'denies :privileged-without-the-group with 403' do
+        work = WorkCreator.call(parent_id: collection.noid)
+        get "/resources/#{work.noid}/mods/versions", headers: signed_auth_headers(staff_no_group.nuid)
+        expect(response).to have_http_status(:forbidden)
+      end
+
+      it 'does not open the generic audit-history index to a delegate' do
+        work = WorkCreator.call(parent_id: collection.noid)
+        get "/resources/#{work.noid}/history", headers: signed_auth_headers(delegate.nuid)
+        expect(response).to have_http_status(:forbidden)
+      end
+    end
+
     it 'covers Collections and Communities through the same route' do
       edit_mods(collection.noid)
       edit_mods(community.noid)

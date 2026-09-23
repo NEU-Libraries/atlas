@@ -235,6 +235,12 @@ RSpec.describe Ability do
       expect(subject).not_to be_able_to(:read, AuditEvent)
     end
 
+    it 'grants :read_versions on the three Modsable types, for their MODS version lists' do
+      expect(subject).to be_able_to(:read_versions, Work)
+      expect(subject).to be_able_to(:read_versions, Collection)
+      expect(subject).to be_able_to(:read_versions, Community)
+    end
+
     it 'grants none of the other admin-only structural mutations' do
       expect(subject).not_to be_able_to(:link_member, Work.new)
       expect(subject).not_to be_able_to(:link_member, stranger_collection)
@@ -253,6 +259,9 @@ RSpec.describe Ability do
       expect(subject).not_to be_able_to(:restore,       Collection.new(edit_groups: [Permissions::STAFF_EDIT_GROUP]))
       expect(subject).not_to be_able_to(:create,        AuditEvent)
       expect(subject).not_to be_able_to(:read_versions, Blob)
+      expect(subject).not_to be_able_to(:read_versions, Work)
+      expect(subject).not_to be_able_to(:read_versions, Collection)
+      expect(subject).not_to be_able_to(:read_versions, Community)
     end
   end
 
@@ -264,6 +273,7 @@ RSpec.describe Ability do
         expect(ability).not_to be_able_to(:reparent,      Collection.new)
         expect(ability).not_to be_able_to(:create,        AuditEvent)
         expect(ability).not_to be_able_to(:read_versions, Blob)
+        expect(ability).not_to be_able_to(:read_versions, Work)
       end
     end
   end

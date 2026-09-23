@@ -187,14 +187,16 @@ unresolvable id, **so the `check_authorization` hook cannot turn a miss into a
 | Action | Gate | Why |
 |---|---|---|
 | `permissions` | `:read` on **that resource** | The envelope names the Grouper groups and the depositor's NUID, so handing it to a caller who may not read the resource **discloses the rights of something they cannot see.** Cerberus reads this to drive its own gate, and its callers hold read or edit rights either way. |
-| `mods_versions` | `:read, AuditEvent` (admin) | The descriptor list carries audit-derived actor attribution, the same provenance `/history` exposes. |
+| `mods_versions` | `:read_versions` on the resolved record's class (admin and the devolved-admin tier) | The descriptor list carries audit-derived actor attribution, so it sits above the read gate. It uses the narrow verb that File versions use, not `:read, AuditEvent`, so a delegate reads the per-object list without opening `/history`. |
 | `mods_version` | `:read` on the resource | Same content sensitivity as the public head `/mods` — it is the descriptive metadata itself, not the attribution. |
 | `mods` | `:read` on the resolved record | Matching the typed per-record gate, **so a gated object's MODS is exactly as protected here as via `/works/:id/mods`.** |
 | `reindex`, `reindex_subtree` | `:system` | Operational actions, never user ones. |
 
 `mods_versions` returns an empty array rather than a 404 for absent MODS, a
 non-Modsable type, or an unresolvable id — mirroring `/history`'s "no events"
-shape.
+shape. A delegate holds `:read_versions` only on the Modsable types and `Blob`,
+so for any other type, or an unresolvable id, a delegate gets 403 where an
+admin gets the empty array.
 
 ### `/mods` renders the typed view
 

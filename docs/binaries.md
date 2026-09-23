@@ -137,7 +137,7 @@ derivative tier** — Small Image, Medium Image — back to Master Image.
 ## The version endpoints are admin-gated, but by a narrow verb
 
 `versions` and `find_many_versions` expose edit attribution, so they are gated
-like the MODS version list — **but through the dedicated `:read_versions` verb
+like the MODS version list — **through the dedicated `:read_versions` verb
 rather than the generic `:read, AuditEvent`.**
 
 That lets the devolved-admin tier see binary history **without also opening the

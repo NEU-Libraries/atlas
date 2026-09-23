@@ -253,8 +253,12 @@ Each grant is a named carve-out beneath the wildcard, not a promotion:
   Unscoped rather than conditioned on `mode`, because `POST /audit_events` has
   exactly one caller system-wide, and Cerberus's own admin-only acting-as gate is
   what prevents a delegate reaching acting-as.
-- **`:read_versions` on `Blob`.** A narrower verb than `:read, AuditEvent`, so the
-  grant cannot be mistaken for opening the audit-history surface.
+- **`:read_versions` on `Blob`, `Work`, `Collection` and `Community`.** The
+  per-object version lists: File versions for a `Blob`, MODS versions for the
+  three Modsable types. A narrower verb than `:read, AuditEvent`, so the grant
+  cannot be mistaken for opening the audit-history surface. A delegate can already
+  edit MODS and fetch any single MODS version on the read gate, so the list adds
+  only who made each edit.
 
 ### The tier depends on two different Grouper groups
 

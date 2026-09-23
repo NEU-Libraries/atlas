@@ -158,7 +158,7 @@ class Ability
       can :restore,   [Work, Collection, Community]
       can :associate, Work
       can :create, AuditEvent
-      can :read_versions, Blob
+      can :read_versions, [Blob, Work, Collection, Community]
     end
 
     # A nil authority denies. That covers an unresolvable resource and an

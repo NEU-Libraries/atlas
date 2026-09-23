@@ -345,8 +345,10 @@ RSpec.describe 'Resources', type: :request do
         from the audit log (`actor_nuid` etc. are null when no edit event
         matches — e.g. the seed version a resource is born with).
 
-        Admin-gated, like `/history`, because the descriptors expose the same
-        edit attribution. A resource with no MODS yields `{ "versions": [] }`.
+        Admin-gated, like the File version list, because the descriptors expose
+        edit attribution (the devolved-admin tier — :privileged role + the
+        repository:admin group — can also reach this; `/history` stays
+        admin-only). A resource with no MODS yields `{ "versions": [] }`.
       DESC
 
       response '200', 'versions listed (newest first)' do

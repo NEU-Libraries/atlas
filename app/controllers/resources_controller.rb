@@ -64,13 +64,15 @@ class ResourcesController < ApplicationController
     end
   end
 
-  # Admin-gated on :read, AuditEvent rather than the resource's own read gate,
-  # because the descriptors carry audit-derived attribution. An empty array
-  # rather than a 404, mirroring /history's "no events" shape.
+  # Gated by :read_versions, as File versions are, rather than the resource's
+  # own read gate, because the descriptors carry audit-derived attribution. The
+  # verb is granted per type, so it is checked against the resolved class. An
+  # empty array rather than a 404, mirroring /history's "no events" shape.
   def mods_versions
-    authorize! :read, AuditEvent
     @resource_id = params[:id]
-    @versions = MODSVersionHistory.descriptors(resource: Resource.find(@resource_id))
+    resource = Resource.find(@resource_id)
+    authorize! :read_versions, resource&.class || Resource
+    @versions = MODSVersionHistory.descriptors(resource: resource)
   end
 
   # The descriptive metadata itself rather than the attribution, so this rides

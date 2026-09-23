@@ -20,7 +20,7 @@ Source files:
 
 ```ruby
 def show
-  work = find_work(params[:id])
+  work = Work.find(params.expect(:id))
   authorize! :read, work || Work
   return head(:not_found) if work.nil?
 

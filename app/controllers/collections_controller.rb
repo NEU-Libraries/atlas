@@ -22,7 +22,7 @@ class CollectionsController < ApplicationController
   end
 
   def show
-    resource = find_collection(params[:id])
+    resource = Collection.find(params.expect(:id))
     authorize! :read, resource || Collection
     return head(:not_found) if resource.nil?
 
@@ -52,7 +52,7 @@ class CollectionsController < ApplicationController
   end
 
   def mods
-    collection = find_collection(params[:id])
+    collection = Collection.find(params.expect(:id))
     authorize! :read, collection || Collection
     return head(:not_found) if collection.nil? || collection.mods.nil?
 
@@ -66,7 +66,7 @@ class CollectionsController < ApplicationController
   # MODS and not the ACL, so it has its own path rather than a third payload
   # shape on a shared one.
   def update_featured
-    resource = find_collection(params[:id])
+    resource = Collection.find(params.expect(:id))
     authorize! :update, resource || Collection
     return head(:not_found) if resource.nil?
 
@@ -81,7 +81,7 @@ class CollectionsController < ApplicationController
   # can hold a restricted child, and listing that child's NOID here would hand
   # back the id the gated single-resource route refuses to serve.
   def children
-    resource = find_collection(params[:id])
+    resource = Collection.find(params.expect(:id))
     authorize! :read, resource || Collection
     return head(:not_found) if resource.nil?
 
@@ -92,17 +92,6 @@ class CollectionsController < ApplicationController
   end
 
   private
-
-    # Resolve :id to a Collection, or nil if the id is absent OR names a
-    # resource of another type. Valkyrie's `Collection.find` is not
-    # type-scoped, so a hand-edited /collections/<work-id> would otherwise feed
-    # a non-Collection into the Collection serializer and 500. Collapsing a
-    # wrong-type id to nil keeps the endpoint's type contract: it 404s exactly
-    # like an unknown id. (Mirrors WorksController#find_work.)
-    def find_collection(id)
-      collection = Collection.find(id)
-      collection if collection.is_a?(Collection)
-    end
 
     # Mirror of WorksController's provenance helpers — see that file for
     # the full rationale. Collections don't have a parent-default

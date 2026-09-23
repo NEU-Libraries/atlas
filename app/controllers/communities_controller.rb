@@ -21,7 +21,7 @@ class CommunitiesController < ApplicationController
   end
 
   def show
-    resource = find_community(params[:id])
+    resource = Community.find(params.expect(:id))
     authorize! :read, resource || Community
     return head(:not_found) if resource.nil?
 
@@ -51,7 +51,7 @@ class CommunitiesController < ApplicationController
 
   def mods
     # TODO: support raw XML, in addition to JSON and HTML
-    community = find_community(params[:id])
+    community = Community.find(params.expect(:id))
     authorize! :read, community || Community
     return head(:not_found) if community.nil? || community.mods.nil?
 
@@ -65,7 +65,7 @@ class CommunitiesController < ApplicationController
   # can hold a restricted child, and listing that child's NOID here would hand
   # back the id the gated single-resource route refuses to serve.
   def children
-    resource = find_community(params[:id])
+    resource = Community.find(params.expect(:id))
     authorize! :read, resource || Community
     return head(:not_found) if resource.nil?
 
@@ -76,17 +76,6 @@ class CommunitiesController < ApplicationController
   end
 
   private
-
-    # Resolve :id to a Community, or nil if the id is absent OR names a
-    # resource of another type. Valkyrie's `Community.find` is not
-    # type-scoped, so a hand-edited /communities/<work-id> would otherwise feed
-    # a non-Community into the Community serializer and 500. Collapsing a
-    # wrong-type id to nil keeps the endpoint's type contract: it 404s exactly
-    # like an unknown id. (Mirrors WorksController#find_work.)
-    def find_community(id)
-      community = Community.find(id)
-      community if community.is_a?(Community)
-    end
 
     # Mirror of WorksController's provenance helpers — see that file for
     # the full rationale. Communities are roots, so there's no parent

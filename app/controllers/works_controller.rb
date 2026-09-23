@@ -35,7 +35,7 @@ class WorksController < ApplicationController
   end
 
   def show
-    work = find_work(params[:id])
+    work = Work.find(params.expect(:id))
     authorize! :read, work || Work
     return head(:not_found) if work.nil?
 
@@ -74,7 +74,7 @@ class WorksController < ApplicationController
   end
 
   def mods
-    work = find_work(params[:id])
+    work = Work.find(params.expect(:id))
     authorize! :read, work || Work
     return head(:not_found) if work.nil? || work.mods.nil?
 
@@ -87,7 +87,7 @@ class WorksController < ApplicationController
   # Work-level METS (physical structMap — the preservation record of page
   # order). Built at /complete; 404 until then.
   def mets
-    work = find_work(params[:id])
+    work = Work.find(params.expect(:id))
     authorize! :read, work || Work
     return head(:not_found) if work.nil? || work.mets.nil?
 
@@ -98,7 +98,7 @@ class WorksController < ApplicationController
   end
 
   def assets
-    @work = find_work(params[:id])
+    @work = Work.find(params.expect(:id))
     authorize! :read, @work || Work
     return head(:not_found) if @work.nil?
 
@@ -111,7 +111,7 @@ class WorksController < ApplicationController
   # a IIIF manifest assembler needs. #assets flattens; this returns one
   # entry per page-bearing FileSet, position ASC.
   def file_sets
-    @work = find_work(params[:id])
+    @work = Work.find(params.expect(:id))
     authorize! :read, @work || Work
     return head(:not_found) if @work.nil?
 
@@ -122,7 +122,7 @@ class WorksController < ApplicationController
 
   def update_image_derivatives
     with_stale_object_retry do
-      @work = find_work(params[:id])
+      @work = Work.find(params.expect(:id))
       authorize! :update_image_derivatives, @work
       return head(:not_found) if @work.nil?
 
@@ -142,7 +142,7 @@ class WorksController < ApplicationController
   # validates the two invariants (tier ⊆ Work, and visibility narrows with
   # resolution) and 422s on violation before persisting.
   def update_derivative_permissions
-    @work = find_work(params[:id])
+    @work = Work.find(params.expect(:id))
     authorize! :update_derivative_permissions, @work
     return head(:not_found) if @work.nil?
 
@@ -163,7 +163,7 @@ class WorksController < ApplicationController
   # long PDF is MBs) — it's write-only here, read back only through Solr.
   def update_full_text
     with_stale_object_retry do
-      @work = find_work(params[:id])
+      @work = Work.find(params.expect(:id))
       authorize! :update_full_text, @work
       return head(:not_found) if @work.nil?
 
@@ -177,7 +177,7 @@ class WorksController < ApplicationController
 
   def complete
     with_stale_object_retry do
-      @work = find_work(params[:id])
+      @work = Work.find(params.expect(:id))
       authorize! :complete, @work
       return head(:not_found) if @work.nil?
 
@@ -206,7 +206,7 @@ class WorksController < ApplicationController
   # by itself, like the thumbnail and full-text setters.
   def mark_incomplete
     with_stale_object_retry do
-      @work = find_work(params[:id])
+      @work = Work.find(params.expect(:id))
       authorize! :mark_incomplete, @work
       return head(:not_found) if @work.nil?
 
@@ -221,7 +221,7 @@ class WorksController < ApplicationController
   # called when a later run of the same job succeeds.
   def clear_incomplete
     with_stale_object_retry do
-      @work = find_work(params[:id])
+      @work = Work.find(params.expect(:id))
       authorize! :clear_incomplete, @work
       return head(:not_found) if @work.nil?
 
@@ -256,18 +256,6 @@ class WorksController < ApplicationController
       assets = PageAssetsQuery.call(file_sets: pages)
       @pages = pages.map { |fs| [fs, assets.fetch(fs.id.to_s, [])] }
       render :file_sets
-    end
-
-    # Resolve :id to a Work, or nil if the id is absent OR names a resource of
-    # another type. Valkyrie's `Work.find` is not type-scoped — it returns
-    # whatever resource carries the id — so a hand-edited /works/<community-id>
-    # would otherwise feed a non-Work into the Work serializer (which calls
-    # Work-only methods like derivative_permissions_map) and 500. Collapsing a
-    # wrong-type id to nil keeps the endpoint's type contract: it 404s exactly
-    # like an unknown id, across the whole /works/:id surface.
-    def find_work(id)
-      work = Work.find(id)
-      work if work.is_a?(Work)
     end
 
     # The submitted tier policy, read straight from the JSON body rather than

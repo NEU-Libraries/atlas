@@ -214,6 +214,13 @@ only. A leaf privatised after its FileSets existed still carries
 `read: ['public']` on them. Reading a leaf's own copy would serve the bytes of a
 Work that has since been closed, which is the failure this gate exists to stop.
 
+**Leaves sit at varying depth, so the walk has no depth limit.** A Blob sits two
+levels below its Work (Blob › FileSet › Work). A page's Service File Delegate
+sits three: `PATCH /file_sets/:id/iiif_service` nests it in a derivative FileSet
+under the page, so the chain is Delegate › derivative FileSet › page FileSet ›
+Work. The walk stops at the first Work or container. Its hop cap exists only to
+end a corrupt parent chain that loops, and such a chain answers nil.
+
 **A nil authority denies.** That covers an unresolvable resource and an
 unattached leaf with nobody to answer for it, and deny is the safe answer for
 both.

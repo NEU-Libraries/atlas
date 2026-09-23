@@ -44,6 +44,7 @@ module OpenapiSchemas
       BlobVersionsBatch:  blob_versions_batch,
       BlobAncestry:       blob_ancestry,
       DescendantWorks:    descendant_works,
+      SearchResults:      search_results,
       WorkAssociations:   work_associations,
       MaintenanceMode:    maintenance_mode
     }.merge(compilation_schemas).merge(person_schemas)
@@ -450,6 +451,38 @@ module OpenapiSchemas
         thumbnail: { type: :string, nullable: true, description: 'IIIF URL of the thumbnail tier, or null' }
       },
       required:   %w[id noid klass title thumbnail]
+    }
+  end
+
+  # GET /resources/search (mirrors search/index + search/_result). Every
+  # field is read off the Solr doc.
+  def search_results
+    {
+      type:       :object,
+      properties: {
+        results:    { type: :array, items: search_result },
+        pagination: { '$ref' => '#/components/schemas/Pagination' }
+      },
+      required:   %w[results pagination]
+    }
+  end
+
+  def search_result
+    {
+      type:       :object,
+      properties: {
+        id:          { type: :string, description: 'PID' },
+        noid:        { type: :string, description: 'PID (same value as id; find_many digest parity)' },
+        klass:       { type: :string, enum: SearchQuery::TYPES, description: 'Resource type' },
+        title:       { type: :string, nullable: true },
+        creators:    { type: :array, items: { type: :string } },
+        year:        { type: :string, nullable: true, description: 'Publication year' },
+        thumbnail:   { type: :string, nullable: true, description: 'IIIF URL of the thumbnail tier, or null' },
+        in_progress: { type: :boolean, description: 'An unfinished deposit' },
+        embargoed:   { type: :boolean },
+        incomplete:  { type: :boolean }
+      },
+      required:   %w[id noid klass title creators year thumbnail in_progress embargoed incomplete]
     }
   end
 

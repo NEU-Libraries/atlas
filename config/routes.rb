@@ -113,6 +113,8 @@ Rails.application.routes.draw do
     end
 
     # Generics
+    # Before /resources/:id, which would otherwise read "search" as an id.
+    get '/resources/search', to: 'search#index', as: 'resource_search'
     get '/resources/:id', to: 'resources#show'
     get '/resources/:id/permissions', to: 'resources#permissions'
     get '/resources/:id/history', to: 'audit_events#index', as: 'resource_history'

@@ -45,6 +45,9 @@ class Ability
     # so it must stay readable while the window it describes is open.
     can :read, :maintenance
 
+    # The search itself; the per-document decision is the query's read gate.
+    can :read, :catalog
+
     apply_role_abilities(user)
     apply_group_abilities(user)
     apply_compilation_abilities(user)

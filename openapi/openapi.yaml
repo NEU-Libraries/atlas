@@ -1742,6 +1742,66 @@ components:
       required:
       - works
       - pagination
+    SearchResults:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                description: PID
+              noid:
+                type: string
+                description: PID (same value as id; find_many digest parity)
+              klass:
+                type: string
+                enum:
+                - Work
+                - Collection
+                - Community
+                - Person
+                description: Resource type
+              title:
+                type: string
+                nullable: true
+              creators:
+                type: array
+                items:
+                  type: string
+              year:
+                type: string
+                nullable: true
+                description: Publication year
+              thumbnail:
+                type: string
+                nullable: true
+                description: IIIF URL of the thumbnail tier, or null
+              in_progress:
+                type: boolean
+                description: An unfinished deposit
+              embargoed:
+                type: boolean
+              incomplete:
+                type: boolean
+            required:
+            - id
+            - noid
+            - klass
+            - title
+            - creators
+            - year
+            - thumbnail
+            - in_progress
+            - embargoed
+            - incomplete
+        pagination:
+          "$ref": "#/components/schemas/Pagination"
+      required:
+      - results
+      - pagination
     WorkAssociations:
       type: object
       properties:
@@ -4510,6 +4570,64 @@ paths:
                 "$ref": "#/components/schemas/DescendantWorks"
         '404':
           description: unknown id
+  "/resources/search":
+    get:
+      summary: Search the catalog
+      tags:
+      - Resources
+      description: |
+        Keyword search over Works, Collections, Communities and People, ranked
+        by relevance and read straight off Solr. The text is matched with the
+        same field weights Cerberus's search bar uses, because both come from
+        the Solr core's search handler.
+
+        Results are gated to what the caller may read: public, one of the
+        caller's read or edit groups, the caller as an edit user, or the caller
+        as the depositor. Admins see everything. Tombstoned items, featured
+        Collections, personal roots and the People Community never appear. An
+        unfinished deposit appears only to its depositor and to staff.
+
+        A blank `q` browses everything the caller may read, newest first.
+        `type` narrows to one type. Pagination via `page` / `per_page`
+        (default 25, capped at 100). An unknown `type` → 400.
+      parameters:
+      - name: q
+        in: query
+        required: false
+        description: Search text. Omit to browse.
+        schema:
+          type: string
+      - name: type
+        in: query
+        required: false
+        enum:
+        - Work
+        - Collection
+        - Community
+        - Person
+        description: "Narrow to one type. Omit to search all four.:\n * `Work` \n
+          * `Collection` \n * `Community` \n * `Person` \n "
+        schema:
+          type: string
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+      - name: per_page
+        in: query
+        required: false
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: narrowed to one type
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/SearchResults"
+        '400':
+          description: unknown type
   "/users/by_nuid/{nuid}/accounts":
     get:
       summary: List the accounts sharing a NUID

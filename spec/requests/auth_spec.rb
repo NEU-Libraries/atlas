@@ -164,6 +164,11 @@ RSpec.describe 'Auth matrix', type: :request, default_auth: false do
       expect(response).to have_http_status(:ok)
     end
 
+    it 'allows a search — GET /resources/search' do
+      get '/resources/search', params: { q: 'anything' }, headers: bearer(mint(admin, read_only: true))
+      expect(response).to have_http_status(:ok)
+    end
+
     it 'allows a read-shaped POST — POST /resources/find_many' do
       post '/resources/find_many', params:  { ids: [work.noid] }.to_json,
                                    headers: json(mint(admin, read_only: true))

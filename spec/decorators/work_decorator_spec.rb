@@ -542,6 +542,51 @@ RSpec.describe WorkDecorator do
     end
   end
 
+  # neu-mods projects the handle as an identifier and as the permanent URL, so
+  # the identifiers row must skip it or the table repeats "Permanent URL".
+  describe 'the handle' do
+    let(:handle) { 'https://repository.example.edu/handles/2047/d1' }
+
+    def parsed(identifiers_xml)
+      xml = <<~XML
+        <mods:mods xmlns:mods="http://www.loc.gov/mods/v3">
+          <mods:titleInfo><mods:title>A Work</mods:title></mods:titleInfo>
+          #{identifiers_xml}
+        </mods:mods>
+      XML
+      mods = Metadata::MODS.new.tap { |m| m.assign_attributes(NEU::MODS::Document.parse(xml).to_h) }
+      Work.new.tap { |w| allow(w).to receive(:mods).and_return(mods) }.decorate
+    end
+
+    it 'renders one Permanent URL row, without the HDL prefix' do
+      html = parsed(%(<mods:identifier type="hdl" displayLabel="Permanent URL">#{handle}</mods:identifier>))
+             .mods_rows
+
+      aggregate_failures do
+        expect(html.scan('<dt>Permanent URL</dt>').size).to eq(1)
+        expect(html).not_to include('HDL:')
+        expect(html).to include(handle)
+      end
+    end
+
+    it 'still renders the other identifiers beside it' do
+      work = parsed(%(<mods:identifier type="hdl" displayLabel="Permanent URL">#{handle}</mods:identifier>
+                      <mods:identifier type="doi">10.1234/x</mods:identifier>))
+
+      expect(work.mods_row(:identifiers)).to eq('<dt>Identifiers</dt><dd><p>DOI: 10.1234/x</p></dd>')
+    end
+
+    it 'keeps a second handle, which the Permanent URL row does not show' do
+      work = parsed(%(<mods:identifier type="hdl">#{handle}</mods:identifier>
+                      <mods:identifier type="hdl">http://hdl.handle.net/2047/d2</mods:identifier>))
+
+      row = work.mods_row(:identifiers)
+
+      expect(row).to include('href="http://hdl.handle.net/2047/d2"')
+      expect(row).not_to include(handle)
+    end
+  end
+
   # "Doe, J., Department of Physics" is how a reader tells one J. Doe from
   # another, and it is the basis of any future department browse.
   describe 'a creator carries its affiliation' do

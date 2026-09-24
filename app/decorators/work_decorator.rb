@@ -266,7 +266,7 @@ module WorkDecorator
   # cancelled ISBN is what a reader chasing an old citation has in hand.
   def identifiers
     grouped_rows(mods&.identifiers) do |entry|
-      next if entry.value.blank?
+      next if entry.value.blank? || permanent_url_entry?(entry)
 
       [entry.display_label.presence || IDENTIFIERS_LABEL,
        linked_value(identifier_value(entry), entry.href)]
@@ -481,6 +481,12 @@ module WorkDecorator
     def identifier_value(entry)
       rendered = entry.type.present? ? "#{entry.type.upcase}: #{entry.value}" : entry.value
       entry.invalid ? "#{rendered} #{INVALID_IDENTIFIER_MARK}" : rendered
+    end
+
+    # The Permanent URL row renders the first hdl identifier. Matching the value
+    # as well as the type keeps a record's second handle in the identifiers row.
+    def permanent_url_entry?(entry)
+      entry.type&.casecmp?('hdl') && entry.value == mods&.permanent_url
     end
 
     def qualified_language(entry)

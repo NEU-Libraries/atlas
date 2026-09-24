@@ -219,6 +219,15 @@ citation has in hand — so it is worth showing, and worth saying it will not
 resolve. Words rather than a symbol, and beside the value rather than in a
 tooltip, for the reason the date qualifiers give.
 
+**The handle renders once, in the Permanent URL row.** neu-mods returns the `hdl`
+identifier both in `#identifiers` and as `#permanent_url`, so the identifiers row
+skips it. That row shows the bare URL, with no `HDL:` prefix, under the record's
+own label. The filter lives in the decorator rather than in neu-mods because the
+Solr indexer and the OAI Dublin Core mapping both need the full identifier list.
+The skip matches the value as well as the type: `#permanent_url` reads only the
+first handle, so a record that states a second one still shows it among the
+identifiers.
+
 ### Languages
 
 "Spanish (subtitles)". An `@objectPart` says the language belongs to part of the

@@ -6,7 +6,7 @@ RSpec.describe ResponseCache, :response_cache do
   describe '.key' do
     it 'names the scope, the noid and the audience' do
       expect(described_class.key(scope: 'works.show', noid: 'abc123', audience: :any))
-        .to eq('atlas/response/v1/works.show/abc123/any')
+        .to eq('atlas/response/v2/works.show/abc123/any')
     end
 
     # The guard that keeps eviction honest: eviction walks SCOPES, so an

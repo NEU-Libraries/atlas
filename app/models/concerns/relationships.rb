@@ -48,10 +48,14 @@ module Relationships
   # breadcrumbs gets the title that was already loaded here, instead of one
   # HTTP round-trip per ancestor to re-fetch it. plain_title mirrors the
   # resource's own title field in the jbuilder partials; it lives on the
-  # decorator.
+  # decorator. The two flags mark the People Community and a personal root, so
+  # a client can hide structural entries without reading each one; the chain
+  # itself stays complete (see docs/people.md).
   def ancestors
     ancestor_resources.map do |r|
-      { noid: r.noid.to_s, klass: r.class.to_s, title: r.decorate.plain_title }
+      { noid: r.noid.to_s, klass: r.class.to_s, title: r.decorate.plain_title,
+        system_container: r.try(:system_container) || false,
+        personal_root: r.try(:personal_root) || false }
     end
   end
 

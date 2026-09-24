@@ -661,15 +661,17 @@ module OpenapiSchemas
   def ancestor_nodes
     {
       type:        :array,
-      description: 'Ancestor chain, root-first, with titles — array of {noid, klass, title} objects',
+      description: 'Ancestor chain, root-first, with titles and structural flags — array of {noid, klass, title, system_container, personal_root} objects',
       items:       {
         type:       :object,
         properties: {
-          noid:  { type: :string, description: 'Ancestor NOID' },
-          klass: { type: :string, description: 'Ancestor resource class name' },
-          title: { type: :string, description: 'Ancestor plain-text title (may be empty)' }
+          noid:             { type: :string, description: 'Ancestor NOID' },
+          klass:            { type: :string, description: 'Ancestor resource class name' },
+          title:            { type: :string, description: 'Ancestor plain-text title (may be empty)' },
+          system_container: { type: :boolean, description: 'True for the People system Community. Always false for a non-Community.' },
+          personal_root:    { type: :boolean, description: "True for a Person's personal-root Collection. Always false for a non-Collection." }
         },
-        required:   %w[noid klass title]
+        required:   %w[noid klass title system_container personal_root]
       }
     }
   end

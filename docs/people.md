@@ -93,6 +93,17 @@ copy carries the grant.
 rewrite breadcrumbs around it. **A personal root is a structural container, not
 content.**
 
+## Ancestor entries carry both flags
+
+Every entry in a resource's `ancestors` carries `system_container` and
+`personal_root`, so a client can recognize the People Community and a personal
+root from the chain alone. Without them, a client would need one read per
+ancestor to learn the flags, and only full admins can read the People Community.
+
+**Atlas keeps these entries in the chain.** The chain is a structural fact: the
+reparent cycle guard and the `AncestryIndexer` both walk it. Whether to show a
+structural entry is each client's decision.
+
 ## Provisioning is an unattributed system side effect
 
 The root and the People Community are created **without** an `actor_nuid`, so

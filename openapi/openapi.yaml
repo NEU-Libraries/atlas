@@ -120,8 +120,9 @@ components:
               description: Valkyrie internal id
             ancestors:
               type: array
-              description: Ancestor chain, root-first, with titles — array of {noid,
-                klass, title} objects
+              description: Ancestor chain, root-first, with titles and structural
+                flags — array of {noid, klass, title, system_container, personal_root}
+                objects
               items:
                 type: object
                 properties:
@@ -134,10 +135,20 @@ components:
                   title:
                     type: string
                     description: Ancestor plain-text title (may be empty)
+                  system_container:
+                    type: boolean
+                    description: True for the People system Community. Always false
+                      for a non-Community.
+                  personal_root:
+                    type: boolean
+                    description: True for a Person's personal-root Collection. Always
+                      false for a non-Collection.
                 required:
                 - noid
                 - klass
                 - title
+                - system_container
+                - personal_root
             thumbnail:
               type: string
               nullable: true
@@ -251,8 +262,9 @@ components:
               description: Valkyrie internal id
             ancestors:
               type: array
-              description: Ancestor chain, root-first, with titles — array of {noid,
-                klass, title} objects
+              description: Ancestor chain, root-first, with titles and structural
+                flags — array of {noid, klass, title, system_container, personal_root}
+                objects
               items:
                 type: object
                 properties:
@@ -265,10 +277,20 @@ components:
                   title:
                     type: string
                     description: Ancestor plain-text title (may be empty)
+                  system_container:
+                    type: boolean
+                    description: True for the People system Community. Always false
+                      for a non-Community.
+                  personal_root:
+                    type: boolean
+                    description: True for a Person's personal-root Collection. Always
+                      false for a non-Collection.
                 required:
                 - noid
                 - klass
                 - title
+                - system_container
+                - personal_root
             thumbnail:
               type: string
               nullable: true
@@ -355,8 +377,9 @@ components:
               description: Valkyrie internal id
             ancestors:
               type: array
-              description: Ancestor chain, root-first, with titles — array of {noid,
-                klass, title} objects
+              description: Ancestor chain, root-first, with titles and structural
+                flags — array of {noid, klass, title, system_container, personal_root}
+                objects
               items:
                 type: object
                 properties:
@@ -369,10 +392,20 @@ components:
                   title:
                     type: string
                     description: Ancestor plain-text title (may be empty)
+                  system_container:
+                    type: boolean
+                    description: True for the People system Community. Always false
+                      for a non-Community.
+                  personal_root:
+                    type: boolean
+                    description: True for a Person's personal-root Collection. Always
+                      false for a non-Collection.
                 required:
                 - noid
                 - klass
                 - title
+                - system_container
+                - personal_root
             thumbnail:
               type: string
               nullable: true
@@ -5093,7 +5126,7 @@ paths:
       - Works
       responses:
         '200':
-          description: ancestors carry each ancestor noid, klass and title (root-first)
+          description: ancestors flag the People Community and the personal root
           content:
             application/json:
               schema:

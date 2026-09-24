@@ -289,8 +289,27 @@ RSpec.describe 'Works', type: :request do
         run_test! do |response|
           chain = JSON.parse(response.body).fetch('work').fetch('ancestors')
           expect(chain).to eq([
-                                { 'noid' => community.noid,  'klass' => 'Community',  'title' => 'Root Community' },
-                                { 'noid' => collection.noid, 'klass' => 'Collection', 'title' => 'Parent Collection' }
+                                { 'noid' => community.noid, 'klass' => 'Community', 'title' => 'Root Community',
+                                  'system_container' => false, 'personal_root' => false },
+                                { 'noid' => collection.noid, 'klass' => 'Collection', 'title' => 'Parent Collection',
+                                  'system_container' => false, 'personal_root' => false }
+                              ])
+        end
+      end
+
+      response '200', 'ancestors flag the People Community and the personal root' do
+        let(:root)      { PersonalRootCreator.call(nuid: '001234567') }
+        let(:workspace) { CollectionCreator.call(parent_id: root.noid) }
+        let(:work)      { WorkCreator.call(parent_id: workspace.noid) }
+        let(:id)        { work.noid }
+        schema '$ref' => '#/components/schemas/Work'
+        run_test! do |response|
+          chain = JSON.parse(response.body).fetch('work').fetch('ancestors')
+          flags = chain.map { |a| a.values_at('title', 'system_container', 'personal_root') }
+          expect(flags).to eq([
+                                ['People',        true,  false],
+                                ['Personal Root', false, true],
+                                ['',              false, false]
                               ])
         end
       end

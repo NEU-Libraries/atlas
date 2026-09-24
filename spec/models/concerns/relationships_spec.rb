@@ -50,11 +50,26 @@ RSpec.describe Relationships do
       set_mods_primary_title!(collection, 'Parent Collection')
     end
 
-    it 'returns root-first {noid, klass, title} nodes carrying each ancestor title' do
+    it 'returns root-first nodes carrying each ancestor title, unflagged in an ordinary tree' do
       expect(work.ancestors).to eq([
-                                     { noid: community.noid,  klass: 'Community',  title: 'Root Community' },
-                                     { noid: collection.noid, klass: 'Collection', title: 'Parent Collection' }
+                                     { noid: community.noid, klass: 'Community', title: 'Root Community',
+                                       system_container: false, personal_root: false },
+                                     { noid: collection.noid, klass: 'Collection', title: 'Parent Collection',
+                                       system_container: false, personal_root: false }
                                    ])
+    end
+
+    it 'flags the People Community and the personal root, and nothing below them' do
+      root      = PersonalRootCreator.call(nuid: '001234567')
+      workspace = CollectionCreator.call(parent_id: root.noid)
+      deposit   = WorkCreator.call(parent_id: workspace.noid)
+
+      flags = deposit.ancestors.map { |a| a.slice(:noid, :system_container, :personal_root) }
+      expect(flags).to eq([
+                            { noid: root.parent.noid, system_container: true,  personal_root: false },
+                            { noid: root.noid,        system_container: false, personal_root: true },
+                            { noid: workspace.noid,   system_container: false, personal_root: false }
+                          ])
     end
 
     it 'returns [] for a top-level resource' do

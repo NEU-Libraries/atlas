@@ -107,7 +107,8 @@ class MODSIndexer
   # from "no discovery value". Only the second is a decision to revisit.
   NOT_INDEXED = {
     main_title:                 'title_tsim / title_plain_tsim here, title_ssi in SortIndexer',
-    names:                      'creator_ssim + contributor_ssim in CitationIndexer, creator_ssi in SortIndexer',
+    names:                      'creator_ssim + contributor_ssim in CitationIndexer, creator_ssi in SortIndexer, ' \
+                                'name_variant_teim in NameVariantIndexer',
     abstract:                   'description_tsim here',
     genres:                     'genre_ssim in GenreIndexer',
     permanent_url:              'permanent_url_ssi here',

@@ -8,6 +8,7 @@ Source files:
 - `app/indexers/mods_indexer.rb` — the descriptive field registry
 - `app/indexers/sort_indexer.rb` — the three sortable fields
 - `app/indexers/citation_indexer.rb` — creators, contributors, publication year
+- `app/indexers/name_variant_indexer.rb` — diminutive and formal forms of personal names
 - `app/indexers/person_indexer.rb` — a Person as a first-class result
 - `app/indexers/thumbnail_indexer.rb` — thumbnail-family Delegate URIs
 
@@ -313,6 +314,65 @@ alone. This indexer used to write the same values as `keyword_ssim`; that name
 said "keyword" while carrying `topical_subjects`, which are a wider set than the
 gem's `#keywords` — and having two indexers write one concept meant either could
 drift.
+
+## `NameVariantIndexer`
+
+Writes `name_variant_teim` so that a search for "Tim Smith" finds a record naming
+"Smith, Timothy", and a search for "Nicholas Myers" finds a photo keyworded
+"Nick Myers". Readers treat a diminutive and its formal name as the same name,
+and Solr does not. The field is match-only: `*_teim` is indexed and not stored,
+and nothing displays or facets it.
+
+The table is two public-domain CSV files vendored under `vendor/diminutives.db/`,
+read by `app/lib/name_variants.rb`. A name expands to every other name that
+shares a row with it. "Tim" sits under both Timon and Timothy, so it expands to
+Timon, Timothy and Timmy.
+
+### Where the names come from
+
+| Source | Rule |
+|---|---|
+| `names` (every `mods:name`, any role) | Always a candidate |
+| A `personal_name` subject heading | Its first part, so subdivisions are ignored |
+| A `topic` subject heading | Only when it is one part, two or three words, and every word is capitalized |
+
+**Topics matter most.** Cerberus's IPTC ingest writes each person in a photo as
+a plain `mods:topic`, with no name markup, so the names a photo search most needs
+arrive as topics.
+
+**The table is the only test of whether a string is a name.** A name parser such
+as Namae cannot do that job: it assumes its input is a name, and reads
+"Northeastern Alumni" as given name "Northeastern". The shape rule for topics
+only keeps long phrases and lowercase keywords out. A string expands only when
+its given name is a row in the table.
+
+### Splitting a name
+
+The comma form is how neu-mods composes a personal name (`Smith, Timothy J.`).
+Direct order is how a photo desk writes one (`Nick Myers`). A trailing LC date
+(`, 1917-1963`) is removed first. The given name is the first word after the
+comma, or the first word of a direct-order name. A middle name or initial is
+dropped. Each variant is written in direct order with the family name
+(`Tim Smith`), so a quoted phrase search matches as well as a plain one.
+
+A name without a family name expands to nothing. A titled name such as
+`Dr. Timothy Smith` also expands to nothing, because "Dr." is not in the table.
+
+### Known false positives
+
+Many diminutives are also English words: Art, Bill, Frank, Grace, Mark, Max and
+Rose among them. A topic such as "Art Exhibit" passes the shape rule, so a search
+for "Arthur" can match it. The two-word minimum keeps a lone "Art" or "Bill" out.
+Ambiguous diminutives widen the match: "Jo" sits in seven rows. The field needs a
+low boost in the search handler's `qf`, below the names it was derived from, so
+a variant match always ranks under a real one.
+
+"will" is a stopword in the search handler's analyzers, so a query for "Will"
+cannot reach this field. A record naming "Will Jones" still matches a search for
+"William".
+
+To stop a row expanding, filter it in `NameVariants`. The vendored files stay
+byte-identical to upstream.
 
 ## `PersonIndexer`
 

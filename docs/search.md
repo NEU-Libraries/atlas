@@ -25,7 +25,7 @@ same, so a browse lists the newest first.
 **The ranking comes from Solr, not from Atlas.** The query sets no `qf`, `pf` or
 `mm`, so the `search` handler in `blacklight-solr`'s `solrconfig.xml` supplies them,
 exactly as it does for Cerberus. **To make a field searchable, change `qf` there,
-not here.** The handler's `qf` does not yet reach subjects, names or dates.
+not here.** The handler's `qf` does not yet reach dates.
 
 **Rows come off the Solr doc.** Nothing is loaded from Postgres, so the read path
 costs one Solr request. `year` is `pub_date_ssim`, not `date_ssi`: that one is a

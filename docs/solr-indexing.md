@@ -367,9 +367,10 @@ Ambiguous diminutives widen the match: "Jo" sits in seven rows. The field needs 
 low boost in the search handler's `qf`, below the names it was derived from, so
 a variant match always ranks under a real one.
 
-"will" is a stopword in the search handler's analyzers, so a query for "Will"
-cannot reach this field. A record naming "Will Jones" still matches a search for
-"William".
+A diminutive that is also a stopword in the search handler's analyzers cannot
+match, because Solr drops it from both the query and the field. "will" is the
+only name in the table that the stopword list has held, and it must stay out of
+`stopwords.txt` for a search for "Will" to work.
 
 To stop a row expanding, filter it in `NameVariants`. The vendored files stay
 byte-identical to upstream.

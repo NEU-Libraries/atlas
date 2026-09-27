@@ -84,8 +84,8 @@ system-gated-but-human-driven shape.
 ## `GET /reset`
 
 The test and dev bootstrap escape hatch, and the most destructive write Atlas
-has. It wipes every table, purges the OCFL storage roots, and re-seeds the
-fixture users.
+has. It wipes every table, empties Solr, purges the OCFL storage roots, clears
+the response cache, and re-seeds the fixture users.
 
 ### It runs unauthenticated, on purpose
 
@@ -115,6 +115,25 @@ OCFL state is cumulative. So each run's `descMetadata.xml` and binaries would
 stack onto the prior run's object, **polluting a resource's MODS history with
 other resources' content across runs.** Emptying the storage root makes every
 reseeded object start at v1 with only its own content.
+
+### Why the response cache is cleared
+
+The reminted NOIDs collide with the response cache too. `ResponseCache` keys are
+`<namespace>/<scope>/<noid>/<audience>` and carry no version, so an entry cannot
+tell that its NOID now names a different resource. **Without a clear, a reused
+NOID serves the prior run's body — its metadata and its `resources.permissions`
+ACL — until the TTL expires.** Atlas's own authorization is unaffected, because
+it runs against the live resource before the cache is read.
+
+The normal write path evicts through `CacheEvictingPersister`, but the reset
+deletes rows directly and never reaches it. So the action calls
+`ResponseCache.clear!`, which deletes only the keys under `ResponseCache::NAMESPACE`.
+`Rails.cache.clear` would also work, but it empties the whole `atlas` Redis
+namespace rather than the entries this class owns.
+
+The clear is a no-op wherever `ResponseCache.enabled?` is false, which covers test
+and a development checkout without `tmp/caching-dev.txt`. Staging always runs
+Redis, so staging is where a missing clear shows.
 
 `purge_storage!` removes each root's **children** rather than the root itself,
 because the root is a container mount point and the adapter's path has to stay

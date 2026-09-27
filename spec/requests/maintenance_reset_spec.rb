@@ -121,6 +121,26 @@ RSpec.describe MaintenanceController do
         .to raise_error(/missing or not a directory/)
     end
   end
+
+  # The destructive steps are stubbed so the action runs without wiping the
+  # suite's own rows, Solr core or storage; only the cache clear is real.
+  describe '#reset (the response cache)', :response_cache do
+    before do
+      allow(controller).to receive(:delete_all_rows!)
+      allow(controller).to receive(:purge_storage!)
+      allow(controller).to receive(:seed_fixture_users!)
+      allow(RSolr).to receive(:connect).and_return(instance_double(RSolr::Client, delete_by_query: nil, commit: nil))
+    end
+
+    it "drops the prior run's cached bodies, so a reminted NOID misses" do
+      ResponseCache.write(scope: 'resources.permissions', noid: 'reused', status: 200, body: '{}',
+                          content_type: 'application/json')
+
+      controller.reset
+
+      expect(ResponseCache.read(scope: 'resources.permissions', noid: 'reused')).to be_nil
+    end
+  end
 end
 
 # The reset endpoint is an unauthenticated GET; its only gate against running in

@@ -107,6 +107,20 @@ class ResponseCache
       Rails.cache.delete_multi(keys)
     end
 
+    # Drop every entry under NAMESPACE and nothing else in the shared store;
+    # docs/availability.md says why /reset needs it. The matcher branches because
+    # RedisCacheStore accepts only a glob and MemoryStore only a Regexp.
+    def clear!
+      return unless enabled?
+
+      matcher = if Rails.cache.is_a?(ActiveSupport::Cache::RedisCacheStore)
+                  "#{NAMESPACE}/*"
+                else
+                  %r{\A#{Regexp.escape(NAMESPACE)}/}
+                end
+      Rails.cache.delete_matched(matcher)
+    end
+
     def key(scope:, noid:, audience:)
       raise ArgumentError, "unknown response cache scope #{scope.inspect}" unless SCOPES.include?(scope.to_s)
       unless AUDIENCES.include?(audience.to_sym)

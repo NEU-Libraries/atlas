@@ -39,6 +39,33 @@ RSpec.describe ResponseCache, :response_cache do
     end
   end
 
+  describe '.clear!' do
+    it 'drops every entry it owns and leaves the rest of the store alone' do
+      described_class.write(scope: 'works.show', noid: 'aaa', status: 200, body: '1', content_type: 'application/json')
+      described_class.write(scope: 'resources.permissions', noid: 'bbb', status: 200, body: '2',
+                            content_type: 'application/json')
+      Rails.cache.write('atlas/other/aaa', 'keep me')
+
+      described_class.clear!
+
+      expect(described_class.read(scope: 'works.show', noid: 'aaa')).to be_nil
+      expect(described_class.read(scope: 'resources.permissions', noid: 'bbb')).to be_nil
+      expect(Rails.cache.read('atlas/other/aaa')).to eq('keep me')
+    end
+
+    # RedisCacheStore raises on a Regexp, and no Redis runs in the suite, so the
+    # glob branch is pinned by what it hands the store.
+    it 'gives a Redis store a glob, not a Regexp' do
+      redis = ActiveSupport::Cache::RedisCacheStore.new(url: 'redis://unused.invalid:6379/0')
+      Rails.cache = redis
+      allow(redis).to receive(:delete_matched)
+
+      described_class.clear!
+
+      expect(redis).to have_received(:delete_matched).with("#{ResponseCache::NAMESPACE}/*")
+    end
+  end
+
   describe '.enabled?' do
     it 'is false on a null store, so the rest of the suite renders as before' do
       Rails.cache = ActiveSupport::Cache::NullStore.new

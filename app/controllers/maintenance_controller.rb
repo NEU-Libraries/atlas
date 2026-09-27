@@ -68,6 +68,9 @@ class MaintenanceController < ApplicationController
     # cumulative, so each run would stack onto the last and pollute a
     # resource's history with other resources' content.
     purge_storage!
+    # NOT optional either, for the same reason: the row DELETE bypasses the
+    # evicting persister, so a reminted NOID would serve the prior run's body.
+    ResponseCache.clear!
     seed_fixture_users!
   end
 

@@ -3,6 +3,8 @@
 require 'rails_helper'
 
 RSpec.describe Permissions do
+  include ActiveSupport::Testing::TimeHelpers
+
   let(:community)  { CommunityCreator.call }
   let(:collection) { CollectionCreator.call(parent_id: community.noid) }
   let(:work)       { WorkCreator.call(parent_id: collection.noid) }
@@ -33,6 +35,50 @@ RSpec.describe Permissions do
       before_groups = work.edit_groups.to_a
       work.delete_edit_group('not:in:the:list')
       expect(work.edit_groups.to_a).to eq(before_groups)
+    end
+  end
+
+  # Cerberus reads a release date as a day in Boston, so the embargo lifts at
+  # the start of that day Eastern, not at midnight UTC (20:00 the evening
+  # before in summer, 19:00 in winter).
+  describe '#embargoed?' do
+    let(:eastern) { ActiveSupport::TimeZone[Permissions::EMBARGO_TIME_ZONE] }
+
+    def embargoed_until(date)
+      work.permissions = work.permissions.merge(embargo: date)
+      work
+    end
+
+    it 'is false with no release date' do
+      expect(work).not_to be_embargoed
+    end
+
+    it 'lifts at the start of the release date in Eastern time' do
+      travel_to(eastern.parse('2026-10-01 00:30')) do
+        expect(embargoed_until('2026-10-01')).not_to be_embargoed
+        expect(embargoed_until('2026-10-02')).to be_embargoed
+      end
+    end
+
+    it 'holds through the evening before, after midnight UTC has passed' do
+      travel_to(eastern.parse('2026-09-30 23:30')) do
+        expect(embargoed_until('2026-10-01')).to be_embargoed
+      end
+      travel_to(eastern.parse('2026-12-31 19:30')) do
+        expect(embargoed_until('2027-01-01')).to be_embargoed
+      end
+    end
+
+    it 'reads the same day from a persisted date and from a Solr date string' do
+      Atlas.persister.save(resource: embargoed_until('2026-10-01'))
+      travel_to(eastern.parse('2026-09-30 23:30')) do
+        expect(Work.find(work.noid)).to be_embargoed
+        expect(described_class.embargo_active?('2026-10-01T00:00:00Z')).to be(true)
+      end
+      travel_to(eastern.parse('2026-10-01 00:30')) do
+        expect(Work.find(work.noid)).not_to be_embargoed
+        expect(described_class.embargo_active?('2026-10-01T00:00:00Z')).to be(false)
+      end
     end
   end
 

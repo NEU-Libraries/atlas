@@ -14,6 +14,11 @@ module Permissions
   # requires the :privileged role.
   ADMIN_GROUP      = 'northeastern:drs:repository:admin'
 
+  # Cerberus reads a release date as a calendar day in Boston. Scoped here
+  # rather than set as config.time_zone, which would shift the offset of every
+  # timestamp the API renders.
+  EMBARGO_TIME_ZONE = 'Eastern Time (US & Canada)'
+
   # The before/after payload shape of a `permissions` audit event. Embargo is
   # in the diff because nothing else records who moved it; the provenance
   # slots stay out, being write-once rather than part of a rights diff.
@@ -30,9 +35,17 @@ module Permissions
   end
 
   def embargoed?
-    return false if embargo_release_date.blank?
+    Permissions.embargo_active?(embargo_release_date)
+  end
 
-    embargo_release_date > DateTime.now
+  # Takes a stored DateTime or a Solr date string, so the indexer and
+  # SearchQuery apply one rule. The setter stores midnight UTC of the named
+  # day, so the UTC date is the day the depositor meant; comparing it to the
+  # Eastern date lifts the embargo at the start of that day in Boston.
+  def self.embargo_active?(release_date, now: Time.current)
+    return false if release_date.blank?
+
+    release_date.to_time.utc.to_date > now.in_time_zone(EMBARGO_TIME_ZONE).to_date
   end
 
   # Need to clone and mutate due to valkyrie array freeze

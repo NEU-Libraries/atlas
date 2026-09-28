@@ -5,6 +5,8 @@ require 'rails_helper'
 # Who finds what through GET /resources/search. default_auth: false because the
 # admin default skips the read gate and would prove nothing about it.
 RSpec.describe 'Search filters and the read gate', type: :request, default_auth: false do
+  include ActiveSupport::Testing::TimeHelpers
+
   let(:reader_group) { 'northeastern:drs:test-readers' }
 
   let!(:guest) do
@@ -119,6 +121,23 @@ RSpec.describe 'Search filters and the read gate', type: :request, default_auth:
       get '/resources/search', params: { q: 'zeppelin' }, headers: signed_auth_headers(depositor.nuid)
       row = response.parsed_body['results'].find { |r| r['noid'] == unfinished.noid }
       expect(row['in_progress']).to be(true)
+    end
+  end
+
+  # One indexed doc, read on either side of the release date: the flag must
+  # follow the clock, not the moment the Work was indexed.
+  describe 'the embargoed flag' do
+    let!(:embargoed) { work('Embargoed', embargo_release_date: DateTime.parse('2026-10-01')) }
+    let(:eastern)    { ActiveSupport::TimeZone[Permissions::EMBARGO_TIME_ZONE] }
+
+    def embargoed_at(time)
+      travel_to(time) { get '/resources/search', params: { q: 'zeppelin' } }
+      response.parsed_body['results'].find { |r| r['noid'] == embargoed.noid }['embargoed']
+    end
+
+    it 'holds until the release date begins in Eastern time, then lifts without a re-index' do
+      expect(embargoed_at(eastern.parse('2026-09-30 23:30'))).to be(true)
+      expect(embargoed_at(eastern.parse('2026-10-01 00:30'))).to be(false)
     end
   end
 

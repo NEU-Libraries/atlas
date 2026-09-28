@@ -12,7 +12,7 @@ class SearchQuery
 
   # What Cerberus's result row shows, plus the id fields a client drills in by.
   FIELDS = %w[alternate_ids_ssim internal_resource_tesim title_tsim creator_ssim pub_date_ssim
-              thumbnail_ssi in_progress_bsi embargoed_bsi incomplete_bsi].freeze
+              thumbnail_ssi in_progress_bsi embargo_release_date_dtsi incomplete_bsi].freeze
 
   Result = Struct.new(:results, :pagination, keyword_init: true)
 
@@ -84,7 +84,7 @@ class SearchQuery
         year:        Array(doc['pub_date_ssim']).first,
         thumbnail:   doc['thumbnail_ssi'],
         in_progress: doc['in_progress_bsi'].to_s == 'true',
-        embargoed:   doc['embargoed_bsi'].to_s == 'true',
+        embargoed:   Permissions.embargo_active?(Array(doc['embargo_release_date_dtsi']).first),
         incomplete:  doc['incomplete_bsi'].to_s == 'true'
       }
     end

@@ -21,26 +21,22 @@ RSpec.describe EmbargoIndexer do
   end
 
   describe '#to_solr' do
-    it 'returns an empty hash for a Work with no embargo set' do
-      result = described_class.new(resource: work).to_solr
-      expect(result[:embargo_release_date_dtsi]).to be_nil
-      expect(result[:embargoed_bsi]).to eq('false')
+    it 'leaves the date absent for a Work with no embargo set' do
+      expect(described_class.new(resource: work).to_solr).to eq(embargo_release_date_dtsi: nil)
     end
 
-    it 'projects a future release date as an active embargo' do
+    it 'projects the release date, past or future' do
+      %w[2999-01-01 2000-01-01].each do |date|
+        with_embargo(work, date)
+        expect(described_class.new(resource: work).to_solr).to eq(embargo_release_date_dtsi: DateTime.parse(date))
+      end
+    end
+
+    # A flag would be a snapshot that goes stale on the release date, because
+    # nothing re-indexes a Work then. Readers compute it from the date instead.
+    it 'indexes no embargoed flag' do
       with_embargo(work, '2999-01-01')
-
-      result = described_class.new(resource: work).to_solr
-      expect(result[:embargo_release_date_dtsi]).to eq(DateTime.parse('2999-01-01'))
-      expect(result[:embargoed_bsi]).to eq('true')
-    end
-
-    it 'projects a past release date as an expired (non-active) embargo' do
-      with_embargo(work, '2000-01-01')
-
-      result = described_class.new(resource: work).to_solr
-      expect(result[:embargo_release_date_dtsi]).to eq(DateTime.parse('2000-01-01'))
-      expect(result[:embargoed_bsi]).to eq('false')
+      expect(described_class.new(resource: work).to_solr).not_to have_key(:embargoed_bsi)
     end
 
     it 'returns an empty hash for non-Work resources' do
@@ -52,16 +48,16 @@ RSpec.describe EmbargoIndexer do
   end
 
   describe 'end-to-end through the composite indexer' do
-    it 'lands both fields on the Work doc when saved' do
+    it 'lands the date, and no flag, on the Work doc when saved' do
       with_embargo(work, '2999-01-01')
       Atlas.persister.save(resource: work)
 
       doc = embargo_fields_in_solr(work)
       expect(Date.parse(doc['embargo_release_date_dtsi'])).to eq(Date.parse('2999-01-01'))
-      expect(doc['embargoed_bsi']).to be(true)
+      expect(doc).not_to have_key('embargoed_bsi')
     end
 
-    it 'refreshes the fields on a later permissions-only save (Permissions tab, post-deposit)' do
+    it 'refreshes the date on a later permissions-only save (Permissions tab, post-deposit)' do
       Atlas.persister.save(resource: work)
       expect(embargo_fields_in_solr(work)['embargo_release_date_dtsi']).to be_nil
 
@@ -69,7 +65,6 @@ RSpec.describe EmbargoIndexer do
 
       doc = embargo_fields_in_solr(work)
       expect(Date.parse(doc['embargo_release_date_dtsi'])).to eq(Date.parse('2999-01-01'))
-      expect(doc['embargoed_bsi']).to be(true)
     end
   end
 end

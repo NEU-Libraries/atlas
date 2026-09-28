@@ -46,7 +46,11 @@ one names its source there. The one intended difference is the read gate below.
 | `internal_resource_tesim:<type>` | `SearchBuilder#scope_to_resource_type` | only when `type` is given |
 
 Embargoed items are not filtered, because Cerberus does not filter them. A row
-carries `embargoed` so a client can say so.
+carries `embargoed` so a client can say so. The flag is computed at read time
+from `embargo_release_date_dtsi`, not stored in Solr: a stored flag would stay
+`true` after the release date, because nothing re-indexes a Work on that day.
+An embargo lifts at the start of its release date in Eastern time, which is how
+Cerberus reads the date.
 
 **Compilations never appear.** A Set is an ActiveRecord row and is not in Solr.
 

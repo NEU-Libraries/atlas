@@ -38,14 +38,19 @@ module Permissions
     Permissions.embargo_active?(embargo_release_date)
   end
 
-  # Takes a stored DateTime or a Solr date string, so the indexer and
-  # SearchQuery apply one rule. The setter stores midnight UTC of the named
-  # day, so the UTC date is the day the depositor meant; comparing it to the
-  # Eastern date lifts the embargo at the start of that day in Boston.
+  # Takes a stored DateTime or a Solr date string, so every reader applies one
+  # rule.
   def self.embargo_active?(release_date, now: Time.current)
     return false if release_date.blank?
 
-    release_date.to_time.utc.to_date > now.in_time_zone(EMBARGO_TIME_ZONE).to_date
+    embargo_released_at(release_date) > now
+  end
+
+  # The start of the release day in Boston. The setter stores midnight UTC of
+  # the named day, so the UTC date is the day the depositor meant.
+  def self.embargo_released_at(release_date)
+    day = release_date.to_time.utc.to_date
+    ActiveSupport::TimeZone[EMBARGO_TIME_ZONE].local(day.year, day.month, day.day)
   end
 
   # Need to clone and mutate due to valkyrie array freeze

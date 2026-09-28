@@ -46,7 +46,8 @@ module OpenapiSchemas
       DescendantWorks:    descendant_works,
       SearchResults:      search_results,
       WorkAssociations:   work_associations,
-      MaintenanceMode:    maintenance_mode
+      MaintenanceMode:    maintenance_mode,
+      EmbargoRelease:     embargo_release
     }.merge(compilation_schemas).merge(person_schemas)
   end
   # rubocop:enable Metrics/AbcSize
@@ -77,6 +78,13 @@ module OpenapiSchemas
            since:       { type: :string, format: :'date-time', nullable: true, description: 'When the window opened; null when closed' },
            message:     { type: :string, nullable: true, description: 'Operator note for the client-side banner' },
            retry_after: { type: :integer, description: 'Seconds a refused caller should wait; mirrored into the 503 Retry-After header' }
+         })
+  end
+
+  def embargo_release
+    bare({
+           released: { type: :array, items: { type: :string },
+                       description: 'NOIDs of the Works that gained an Embargo released row on this call' }
          })
   end
 

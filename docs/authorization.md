@@ -106,9 +106,10 @@ enumerated, and everything outside the list is denied — it cannot author Works
 mutate any resource, or tombstone, restore or destroy anything.
 
 It holds `:provision` and `:mint_token` on `User` for the SSO path,
-`:read_directory`, `:maintain` on `:maintenance`, and `:reindex` on `Resource`.
-Reindex is a side-effect-free Solr re-projection: no Postgres write, no lifecycle
-transition, no audit row.
+`:read_directory`, `:maintain` on `:maintenance`, `:reindex` on `Resource`, and
+`:release` on `:embargo`. Reindex is a side-effect-free Solr re-projection: no
+Postgres write, no lifecycle transition, no audit row. Release writes audit rows
+only, never a resource — see [`write-safety.md`](write-safety.md).
 
 `:system` also holds `%i[create update]` on `Person`, because name authority and
 affiliations are curatorial rather than self-service.

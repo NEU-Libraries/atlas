@@ -172,6 +172,10 @@ Rails.application.routes.draw do
     post '/resources/:id/reindex', to: 'resources#reindex'
     post '/resources/:id/reindex_subtree', to: 'resources#reindex_subtree'
 
+    # :system-gated. Cerberus calls it nightly; each lapsed embargo gets one
+    # stored audit row, dated to the release moment. Safe to repeat.
+    post '/embargoes/release', to: 'embargoes#release', as: 'release_embargoes'
+
     # Session-scoped audit emit (no resource to hang on): impersonation
     # start/end. Admin-gated. See AtlasRb::AuditEvent.emit.
     post '/audit_events', to: 'audit_events#create', as: 'audit_events'

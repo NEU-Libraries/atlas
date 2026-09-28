@@ -9,6 +9,7 @@ class AuditEvent < ApplicationRecord
                       associate disassociate
                       add_file replace_file remove_file
                       add_affiliation remove_affiliation
+                      release_embargo
                       mint_token revoke_token
                       publish unpublish
                       impersonation_started impersonation_ended

@@ -75,6 +75,7 @@ class Ability
         # `:create, Work` check even though its parent passes here.
         can :create_child, [Community, Collection]
         can :reindex, Resource
+        can :release, :embargo
         can %i[create update], Person
 
         # Scoped on both sides: only a featured Collection, and only a Work

@@ -180,6 +180,40 @@ a spurious "Updated · Permissions" row.
 that differs only in order is the same grant.** The payload still records the
 ACLs in their stored order.
 
+### Embargo release rows
+
+An embargo lapsing is not a write, so no controller runs at the boundary and
+nothing would record it. `POST /embargoes/release` closes that gap:
+`EmbargoReleaseRecorder` writes one `release_embargo` row per lapsed Work.
+Cerberus calls it nightly from its own recurring jobs, because Atlas runs no
+scheduler.
+
+**The history holds stored rows only.** A client must not draw an "Embargo
+released" line from the release date at render time. A derived line mixes what
+was recorded with what is inferred, and it would vanish if a lapsed embargo were
+later removed.
+
+The rules the recorder keeps:
+
+- **The row is dated to the release moment**, the start of the release day in
+  Eastern time (`Permissions.embargo_released_at`), not to the call. A late or
+  missed run therefore cannot misdate the history.
+- **It is keyed on the release date**, not the Work. Repeating a call writes
+  nothing, and a Work embargoed again earns a second row when that embargo
+  lapses.
+- **An embargo set after its own release moment gets no row.** Cerberus refuses
+  a past date, but Atlas accepts one from any API client. A row dated before the
+  change that set the embargo would put the history out of order. Only a
+  `permissions` row whose `embargo` differs between `before` and `after` counts
+  as a change.
+- **Solr only nominates.** The candidates come from a range query on
+  `embargo_release_date_dtsi` over the last seven days, or from `since`. Solr's
+  midnight UTC passes hours before the Eastern boundary, and the index is
+  derived, so the Postgres resource decides.
+
+The actor is the calling principal, and `event_source` is `job` when that
+principal is `:system`.
+
 ## The history surface
 
 `AuditEventsController#index` **deliberately does not load the Valkyrie

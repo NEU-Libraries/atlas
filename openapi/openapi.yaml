@@ -1887,6 +1887,17 @@ components:
       - since
       - message
       - retry_after
+    EmbargoRelease:
+      type: object
+      properties:
+        released:
+          type: array
+          items:
+            type: string
+          description: NOIDs of the Works that gained an Embargo released row on this
+            call
+      required:
+      - released
     Compilation:
       type: object
       properties:
@@ -3472,6 +3483,52 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Delegate"
+  "/embargoes/release":
+    post:
+      summary: Record the embargoes that have lapsed (system-only)
+      tags:
+      - Resources
+      description: |
+        Writes one `release_embargo` audit row for each Work whose embargo has
+        lapsed and has none for that release date. The row is dated to the
+        start of the release day in Eastern time, not to the call, so a late
+        call does not misdate the history. Cerberus calls it nightly; Atlas
+        runs no scheduler.
+
+        Safe to repeat. A Work whose embargo was set after its own release
+        moment gets no row. By default it looks back seven days, so a missed
+        night catches up on the next; `since` (an ISO 8601 date) widens that.
+        Returns the NOIDs that gained a row. Non-system, non-admin callers → 403.
+      security:
+      - BearerAuth: []
+      parameters:
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          type: string
+      - name: User
+        in: header
+        required: false
+        description: System principal, e.g. "NUID 000000000"
+        schema:
+          type: string
+      - name: since
+        in: query
+        schema:
+          type: string
+          format: date
+        required: false
+        description: Earliest release date to consider. Defaults to seven days ago.
+      responses:
+        '200':
+          description: lapsed embargoes recorded
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/EmbargoRelease"
+        '400':
+          description: since is not an ISO 8601 date
   "/file_sets":
     get:
       summary: List file sets

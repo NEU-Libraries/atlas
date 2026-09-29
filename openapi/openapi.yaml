@@ -1737,7 +1737,8 @@ components:
               original_filename:
                 type: string
                 nullable: true
-                description: Stable original filename (preserved across revisions)
+                description: This revision's filename. A replace can rename the file,
+                  so revisions can differ
             required:
             - revision
             - version_id
@@ -2325,8 +2326,14 @@ paths:
 
         `size`, `mime_type` and `digest` are re-derived from the new bytes, so a
         consumer can set Content-Length and serve Range requests from the
-        response. `original_filename` and `label` describe the deposit and do
-        not change — use a fresh upload for a different filename.
+        response.
+
+        An `original_filename` renames the file from this revision on, which is
+        how a replacement of a different type (a `.docx` replaced by a `.pdf`)
+        downloads under the right extension. Each revision keeps its own name,
+        so `GET /files/{id}/versions` lists them and a rollback restores one.
+        For the original file, `label` and the FileSet's classification follow
+        the new type; a derivative keeps its tier label.
 
         Idempotent on the optional `Idempotency-Key` header: a double-submit of
         the replace form with the same key returns the existing Blob instead of
@@ -2350,6 +2357,10 @@ paths:
                   type: string
                   format: binary
                   description: New revision bytes
+                original_filename:
+                  type: string
+                  description: The replacement's own filename. Omit it to keep the
+                    current name.
                 expected_digest:
                   type: string
                   description: Optional verify-on-ingest checksum, "<algorithm>:<hexvalue>".

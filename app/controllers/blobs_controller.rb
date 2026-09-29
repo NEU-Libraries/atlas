@@ -44,9 +44,10 @@ class BlobsController < ApplicationController
     audit_add_file(@blob)
   end
 
-  # Appends a revision, NOID preserved. Idempotent on the Idempotency-Key
-  # header, so a double-submit returns the existing Blob rather than minting a
-  # second OCFL version.
+  # Appends a revision, NOID preserved. An original_filename renames the file
+  # from this revision on. Idempotent on the Idempotency-Key header, so a
+  # double-submit returns the existing Blob rather than minting a second OCFL
+  # version.
   def update
     authorize! :update, Blob
 
@@ -61,7 +62,7 @@ class BlobsController < ApplicationController
     path = uploaded_path(params.expect(:binary))
     assign_track_fields(blob)
     verify_digest!(path, params[:expected_digest])
-    @blob = append_revision(blob, create_file(path, blob).version_id, source_path: path)
+    @blob = append_revision(blob, path, name: params[:original_filename].presence || blob.original_filename)
     record_idempotency_key!(@blob.noid, Blob)
   end
 
@@ -99,13 +100,17 @@ class BlobsController < ApplicationController
     file = BinaryVersionHistory.find_file(blob: blob, version_id: params[:version_id])
     return head(:not_found) if file.nil?
 
-    stream_file(blob, file)
+    # Served as the revision it is: an earlier .docx downloads as a .docx even
+    # after a replace made the head a .pdf.
+    name = blob.filename_at(params[:version_id])
+    stream_file(file, filename: name, type: mime_type(file.disk_path.to_s, name: name))
   rescue Valkyrie::StorageAdapter::FileNotFound
     head :not_found
   end
 
-  # Non-destructive: vN's bytes are appended as vN+1. OCFL dedups the
-  # identical content, so no bytes are copied -- only a pointer is cut.
+  # Non-destructive: vN's bytes are appended as vN+1 under vN's filename. OCFL
+  # dedups the identical content, so no bytes are copied -- only a pointer is
+  # cut.
   def rollback
     authorize! :update, Blob
     blob = Blob.find(params.expect(:id))
@@ -114,9 +119,8 @@ class BlobsController < ApplicationController
     file = BinaryVersionHistory.find_file(blob: blob, version_id: params[:version_id])
     return head(:not_found) if file.nil?
 
-    source_path = file.disk_path.to_s
-    @blob = append_revision(blob, create_file(source_path, blob, blob.original_filename).version_id,
-                            source_path: source_path, rolled_back_from: params[:version_id])
+    name  = blob.filename_at(params[:version_id])
+    @blob = append_revision(blob, file.disk_path.to_s, name: name, rolled_back_from: params[:version_id])
     render :update
   end
 
@@ -192,9 +196,8 @@ class BlobsController < ApplicationController
     # send_file hands a Pathname to Rack::Files which chunks at the Rack layer,
     # so this is memory-safe for 20GB+ files. Used by #version_content (a pinned
     # prior version); #content goes through #serve_bytes for Range support.
-    def stream_file(blob, file)
-      send_file file.disk_path, type: blob.mime_type, disposition: 'attachment',
-                                filename: blob.original_filename
+    def stream_file(file, filename:, type:)
+      send_file file.disk_path, type: type, disposition: 'attachment', filename: filename
     end
 
     # Range support exists so a browser media element can seek. Multi-range is
@@ -207,7 +210,7 @@ class BlobsController < ApplicationController
       response.set_header('Accept-Ranges', 'bytes')
 
       range = parse_byte_range(request.get_header('HTTP_RANGE'), total)
-      return stream_file(blob, file) if range.nil?
+      return stream_file(file, filename: blob.original_filename, type: blob.mime_type) if range.nil?
 
       if range == :unsatisfiable
         response.set_header('Content-Range', "bytes */#{total}")
@@ -266,35 +269,13 @@ class BlobsController < ApplicationController
     end
 
     # version_id is stored as a plain string so BinaryVersionHistory can
-    # correlate it back EXACTLY. Shared by the PATCH and rollback paths, which
-    # differ only in where the bytes came from.
-    def append_revision(blob, version_id, source_path:, rolled_back_from: nil)
-      blob.file_identifiers += [version_id]
-      refresh_head_facts(blob, version_id, source_path)
-      saved = Atlas.persister.save(resource: blob)
-      # properties.json carries the head facts just refreshed.
-      saved.write_preservation_envelope!
-      payload = { blob_noid: saved.noid, version_id: version_id.to_s }
+    # correlate it back EXACTLY.
+    def append_revision(blob, source_path, name:, rolled_back_from: nil)
+      saved, version_id = BlobRevisionAppender.call(blob: blob, source_path: source_path, name: name)
+      payload = { blob_noid: saved.noid, version_id: version_id.to_s, filename: saved.original_filename }
       payload[:rolled_back_from] = rolled_back_from if rolled_back_from
       audit_file!(action: 'replace_file', resource: parent_work_of(saved), payload: payload)
       saved
-    end
-
-    # These three are a read-path cache over the storage layer, so a new
-    # revision MUST re-derive all three: a stale size is what a consumer sets
-    # Content-Length and its Range arithmetic from, and a replaced audio file
-    # would truncate mid-stream.
-    #
-    # The MIME hint is the DEPOSITED filename, not the upload's own staged temp
-    # path -- Marcel answers application/octet-stream for `up.tmp` where
-    # `data.csv` answers text/csv. Magic bytes still win over the hint.
-    #
-    # original_filename, use and label stay as deposited. label especially:
-    # re-deriving it would relabel a replaced derivative tier back to Original.
-    def refresh_head_facts(blob, version_id, source_path)
-      blob.digest    = recorded_digest(version_id)
-      blob.size      = ::File.size(source_path)
-      blob.mime_type = mime_type(source_path, name: blob.original_filename)
     end
 
     # RESOURCE_TYPES admits no Blob or FileSet, so a file event hangs off the

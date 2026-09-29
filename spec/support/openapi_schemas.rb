@@ -869,7 +869,7 @@ module OpenapiSchemas
               on_behalf_of_nuid: { type: :string, nullable: true, description: 'Impersonation target NUID from the correlated event; usually null' },
               digest:            { type: :string, nullable: true, description: 'Fixity as recorded at that version, "<algorithm>:<hexvalue>"' },
               size:              { type: :integer, nullable: true, description: 'Byte size of this revision' },
-              original_filename: { type: :string, nullable: true, description: 'Stable original filename (preserved across revisions)' }
+              original_filename: { type: :string, nullable: true, description: "This revision's filename. A replace can rename the file, so revisions can differ" }
             },
             required:   %w[revision version_id file_identifier created actor_nuid on_behalf_of_nuid digest size original_filename]
           }

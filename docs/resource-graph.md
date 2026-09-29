@@ -118,7 +118,7 @@ Postgres or Solr.**
 | v2 → v3 | Added `position` — FileSet page order within a multipage Work, null elsewhere |
 | v3 → v4 | Added `associations` — the typed Work-to-Work edges, keyed by predicate |
 | v4 → v5 | Added `handle` |
-| v5 → v6 | Added a Blob's `language` and `track_label` |
+| v5 → v6 | Added a Blob's `language`, `track_label` and `revision_filenames` |
 
 **`position` is additive even though the Work-level METS structMap is the
 canonical record of order.** It keeps each FileSet's own OCFL object

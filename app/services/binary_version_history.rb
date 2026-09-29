@@ -77,7 +77,7 @@ class BinaryVersionHistory
         on_behalf_of_nuid: event&.on_behalf_of_nuid,
         digest:            qualified_digest(facts[:digest]),
         size:              facts[:size],
-        original_filename: blob.original_filename
+        original_filename: blob.filename_for(file_identifier)
       }
     end
 

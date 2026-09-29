@@ -206,6 +206,57 @@ describe BlobsController, type: :controller do
     end
   end
 
+  describe 'replacing a file with one of another type' do
+    let(:docx) { Rails.root.join('spec/fixtures/files/example.docx') }
+    let(:pdf)  { Rails.root.join('spec/fixtures/files/example.pdf') }
+    let(:blob) { BlobCreator.call(path: docx.to_s, work_id: work.noid, original_filename: 'report.docx') }
+
+    before do
+      replacement = Rack::Test::UploadedFile.new(pdf)
+      patch :update, params: { id: blob.noid, binary: replacement, original_filename: 'report.pdf' }, as: :json
+      # A controller spec reuses one request object, so the PATCH's multipart
+      # body would otherwise be re-parsed by the GET that follows.
+      request.env.delete('CONTENT_TYPE')
+      request.env.delete('RAW_POST_DATA')
+    end
+
+    it 'downloads the head under its new name and type' do
+      get :content, params: { id: blob.noid }
+
+      expect(response.headers['Content-Type']).to eq('application/pdf')
+      expect(response.headers['Content-Disposition']).to include('report.pdf')
+    end
+
+    it 'lists each revision under its own name' do
+      get :versions, params: { id: blob.noid }, as: :json
+
+      expect(response.parsed_body['versions'].pluck('original_filename')).to eq(%w[report.pdf report.docx])
+    end
+
+    it 'downloads an earlier revision as what it was' do
+      seed = BinaryVersionHistory.descriptors(blob: Blob.find(blob.noid)).last[:version_id]
+      get :version_content, params: { id: blob.noid, version_id: seed }
+
+      expect(response.headers['Content-Disposition']).to include('report.docx')
+      expect(response.headers['Content-Type']).to include('wordprocessingml')
+    end
+
+    it "restores the earlier revision's name, type, label and classification on rollback" do
+      seed = BinaryVersionHistory.descriptors(blob: Blob.find(blob.noid)).last[:version_id]
+      post :rollback, params: { id: blob.noid, version_id: seed }, as: :json
+
+      rolled_back = Blob.find(blob.noid)
+      expect(rolled_back).to have_attributes(original_filename: 'report.docx', label: 'msword')
+      expect(rolled_back.mime_type).to include('wordprocessingml')
+      expect(FileSet.find(rolled_back.parent.id).type).to eq(blob.parent.type)
+    end
+
+    it 'records the new name on the replace event' do
+      event = AuditEvent.where(action: 'replace_file').last
+      expect(event.payload).to include('filename' => 'report.pdf')
+    end
+  end
+
   describe 'DELETE #destroy' do
     let(:blob) { BlobCreator.call(path: Rails.root.join('spec/fixtures/files/example.png').to_s, work_id: work.noid, original_filename: 'example.png') }
 

@@ -67,6 +67,7 @@ class BlobCreator < ApplicationService
     def upload_and_save(blob)
       file = create_file(@path, blob)
       blob.file_identifiers += [file.version_id]
+      blob.record_revision_filename(file.version_id, @original_filename)
       blob.digest = recorded_digest(file.version_id)
       # TODO: implement bespoke Blob permissions for differentiated access
       blob.permissions = Work.find(@work_id).permissions if @work_id

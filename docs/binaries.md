@@ -76,8 +76,9 @@ an error.
 ## `version_facts` must key on the full identifier
 
 This is the subtle one. Each identifier carries **both** its version and its
-logical path, and both matter: **a replace writes the bytes under the uploaded
-file's name, so a revision's logical path need not be the current one.**
+logical path, and both matter: **a revision's logical path is its own filename,
+so it need not be the current one.** Blobs replaced before the name was used
+also carry the uploaded temp file's name as a logical path.
 
 Asking the inventory only for the versions holding the *current* path therefore
 answers nothing for the superseded revisions — **which is how a fixity column
@@ -108,7 +109,30 @@ preserved.
 **OCFL dedups the identical content, so no bytes are copied** — only a new
 version pointer is cut.
 
-`rolled_back_from` records which version a revision reinstated.
+`rolled_back_from` records which version a revision reinstated. **The
+reinstated revision takes back its own filename**, so its label, MIME type and
+FileSet classification follow it as they would on a replace.
+
+## A replace can rename the file
+
+A replacement can be a different type — a `.docx` replaced by a `.pdf` — so
+`PATCH /files/:id` takes an optional `original_filename`. Without it the
+download keeps the old extension and will not open.
+
+**The name belongs to the revision, not the Blob.** `revision_filenames` maps
+each OCFL version label to that revision's name, and `original_filename` is the
+head's. Keyed per revision so that a rollback pairs older bytes with the older
+name, and so a superseded revision downloads as what it was.
+
+- **A Blob deposited before names were recorded never changed its name**, so
+  `original_filename` answers for all of its revisions. The first rename pins
+  them to that name before it moves on.
+- **The name is also each revision's OCFL logical path**, so the object on disk
+  names its own files.
+- **The map rides the envelope** (schema v6): nothing else records what an
+  earlier revision was called.
+- **A replace rewrites the FileSet's METS**, whose `FLocat` names the head
+  revision.
 
 ## Head facts are a read-path cache, and must be re-derived
 
@@ -118,7 +142,7 @@ so a new revision re-derives all three.
 **A stale `size` is what a consumer sets `Content-Length` and its Range
 arithmetic from — a replaced audio file would truncate mid-stream.**
 
-### The MIME hint is the deposited filename, not the upload's
+### The MIME hint is the revision's filename, not the upload's
 
 Marcel needs a real extension for formats with weak magic bytes. **A staged temp
 path like `up.tmp` makes it answer `application/octet-stream` where `data.csv`
@@ -127,12 +151,14 @@ answers `text/csv`.**
 Magic bytes still win over the hint, so a genuine format change is still
 detected.
 
-### Three fields stay as deposited
+### Only the original file is relabelled
 
-`original_filename`, `use` and `label`.
+For the original file (`use` is `original_file`), `label` and the FileSet's
+classification follow the new name and type, because consumers branch on them.
 
-**`label` especially: re-deriving it from bytes would relabel any replaced
-derivative tier** — Small Image, Medium Image — back to Original Image.
+**A derivative keeps its `label`, because the label names its tier.**
+Re-deriving it would relabel a replaced Small Image or Medium Image as an
+Original Image. `use` never changes.
 
 ## A caption carries its language
 

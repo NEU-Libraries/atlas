@@ -18,6 +18,11 @@ class Blob < Resource
   # A caption's language (BCP 47) and the name a player shows for it. Blob-level,
   # not per revision: replacing a caption's bytes keeps its language.
   attribute :language, Valkyrie::Types::String
+  # { OCFL version label => that revision's filename }, JSON-encoded because the
+  # metadata adapter mangles Hash values. A replace can rename the file, so the
+  # name belongs to the revision; original_filename is the head's. See
+  # docs/binaries.md.
+  attribute :revision_filenames, Valkyrie::Types::String
   attribute :track_label, Valkyrie::Types::String
 
   # BCP 47 in shape only. Atlas does not consult the IANA registry, so the
@@ -65,6 +70,35 @@ class Blob < Resource
     file&.io&.path
   end
 
+  def revision_filenames_map
+    return {} if revision_filenames.blank?
+
+    JSON.parse(revision_filenames)
+  rescue JSON::ParserError
+    {}
+  end
+
+  # A Blob deposited before names were recorded per revision never changed its
+  # name, so original_filename is right for every one of its revisions.
+  def filename_at(version_label)
+    revision_filenames_map.fetch(version_label.to_s, original_filename)
+  end
+
+  def filename_for(file_identifier)
+    filename_at(revision_label(file_identifier))
+  end
+
+  # Call after appending file_identifier. Revisions from before names were
+  # recorded are pinned to the current name first, so a rename cannot rewrite
+  # what they were called.
+  def record_revision_filename(file_identifier, name)
+    map = revision_filenames_map
+    file_identifiers.each { |fid| map[revision_label(fid)] ||= original_filename }
+    map[revision_label(file_identifier)] = name
+    self.revision_filenames = JSON.dump(map)
+    self.original_filename = name
+  end
+
   def extension
     original_filename&.split('.')&.last
   end
@@ -86,20 +120,27 @@ class Blob < Resource
   # a reconstitution tool that descMetadata.xml is MODS, not a content blob.
   def graph_payload
     {
-      schema_version:    Preservable::ENVELOPE_SCHEMA_VERSION,
-      noid:              noid,
-      type:              'Blob',
-      use:               use,
-      original_filename: original_filename,
-      mime_type:         mime_type,
-      size:              size,
-      label:             label,
-      language:          language,
-      track_label:       track_label
+      schema_version:     Preservable::ENVELOPE_SCHEMA_VERSION,
+      noid:               noid,
+      type:               'Blob',
+      use:                use,
+      original_filename:  original_filename,
+      mime_type:          mime_type,
+      size:               size,
+      label:              label,
+      language:           language,
+      track_label:        track_label,
+      revision_filenames: revision_filenames_map
     }
   end
 
   def graph_filename
     'properties.json'
   end
+
+  private
+
+    def revision_label(file_identifier)
+      Valkyrie.config.storage_adapter.version_label_for(file_identifier)
+    end
 end

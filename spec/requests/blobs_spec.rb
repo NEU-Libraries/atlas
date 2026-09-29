@@ -173,8 +173,14 @@ RSpec.describe 'Files (Blobs)', type: :request do
 
         `size`, `mime_type` and `digest` are re-derived from the new bytes, so a
         consumer can set Content-Length and serve Range requests from the
-        response. `original_filename` and `label` describe the deposit and do
-        not change — use a fresh upload for a different filename.
+        response.
+
+        An `original_filename` renames the file from this revision on, which is
+        how a replacement of a different type (a `.docx` replaced by a `.pdf`)
+        downloads under the right extension. Each revision keeps its own name,
+        so `GET /files/{id}/versions` lists them and a rollback restores one.
+        For the original file, `label` and the FileSet's classification follow
+        the new type; a derivative keeps its tier label.
 
         Idempotent on the optional `Idempotency-Key` header: a double-submit of
         the replace form with the same key returns the existing Blob instead of
@@ -182,29 +188,33 @@ RSpec.describe 'Files (Blobs)', type: :request do
       DESC
       parameter name: :binary,          in: :formData, required: true
       parameter name: :expected_digest, in: :formData, required: false
+      parameter name: :original_filename, in: :formData, required: false
       parameter name: :language,        in: :formData, required: false
       parameter name: :track_label,     in: :formData, required: false
       parameter name: :'Idempotency-Key', in: :header, type: :string, required: false,
                 description: 'Client-supplied UUID; repeats return the existing resource without a new revision.'
       multipart_request_body(
         {
-          binary:          { type: :string, format: :binary, description: 'New revision bytes' },
-          expected_digest: { type:        :string,
-                             description: 'Optional verify-on-ingest checksum, "<algorithm>:<hexvalue>". 422 on mismatch.' },
-          language:        { type:        :string,
-                             description: 'BCP 47 language of the track. Omit to keep it; send an empty value to clear it.' },
-          track_label:     { type:        :string,
-                             description: 'Display name for the track. Omit to keep it; send an empty value to clear it.' }
+          binary:            { type: :string, format: :binary, description: 'New revision bytes' },
+          original_filename: { type:        :string,
+                               description: "The replacement's own filename. Omit it to keep the current name." },
+          expected_digest:   { type:        :string,
+                               description: 'Optional verify-on-ingest checksum, "<algorithm>:<hexvalue>". 422 on mismatch.' },
+          language:          { type:        :string,
+                               description: 'BCP 47 language of the track. Omit to keep it; send an empty value to clear it.' },
+          track_label:       { type:        :string,
+                               description: 'Display name for the track. Omit to keep it; send an empty value to clear it.' }
         },
         required: %i[binary]
       )
 
       response '200', 'revision appended' do
-        let(:blob)            { BlobCreator.call(work_id: work.noid, original_filename: 'example.bin', path: fixture.to_s) }
-        let(:id)              { blob.noid }
-        let(:replacement)     { Rails.root.join('spec/fixtures/files/example.tif') }
-        let(:binary)          { Rack::Test::UploadedFile.new(replacement) }
-        let(:expected_digest) { nil }
+        let(:blob)              { BlobCreator.call(work_id: work.noid, original_filename: 'example.bin', path: fixture.to_s) }
+        let(:id)                { blob.noid }
+        let(:replacement)       { Rails.root.join('spec/fixtures/files/example.tif') }
+        let(:binary)            { Rack::Test::UploadedFile.new(replacement) }
+        let(:original_filename) { 'scan.tif' }
+        let(:expected_digest)   { nil }
         let(:'Idempotency-Key') { nil }
         schema '$ref' => '#/components/schemas/Blob'
         run_test! do |response|
@@ -212,6 +222,8 @@ RSpec.describe 'Files (Blobs)', type: :request do
           expect(body.dig('blob', 'digest')).to match(/\Asha512:[0-9a-f]+\z/)
           expect(body.dig('blob', 'size')).to eq(File.size(replacement))
           expect(body.dig('blob', 'mime_type')).to eq('image/tiff')
+          expect(body.dig('blob', 'original_filename')).to eq('scan.tif')
+          expect(body.dig('blob', 'filename')).to end_with('.tif')
         end
       end
 

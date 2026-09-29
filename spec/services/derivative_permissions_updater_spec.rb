@@ -30,15 +30,15 @@ RSpec.describe DerivativePermissionsUpdater do
       work = work_with(['public'])
       described_class.call(work: work, policy: { 'large' => ['grp:archives'] })
       # service is absent → cascades to large; large is gated, service and the
-      # master (image original Blob) inherit it.
+      # original (image original Blob) inherit it.
       expect(work.derivative_gate_for(Delegate.new(use: Role.service_file.name))).to eq(['grp:archives'])
       expect(work.derivative_gate_for(Blob.new(mime_type: 'image/tiff'))).to eq(['grp:archives'])
       expect(work.derivative_gate_for(Delegate.new(use: Role.small_image.name))).to eq(['public'])
     end
 
-    it 'accepts master reserved to a subset of the image ladder above it' do
+    it 'accepts original reserved to a subset of the image ladder above it' do
       work = work_with(['public'])
-      expect { described_class.call(work: work, policy: { 'service' => ['grp:a', 'grp:b'], 'master' => ['grp:a'] }) }
+      expect { described_class.call(work: work, policy: { 'service' => ['grp:a', 'grp:b'], 'original' => ['grp:a'] }) }
         .not_to raise_error
       expect(work.derivative_gate_for(Blob.new(mime_type: 'image/tiff'))).to eq(['grp:a'])
     end
@@ -49,6 +49,12 @@ RSpec.describe DerivativePermissionsUpdater do
       expect(work.derivative_gate_for(Blob.new(mime_type: 'application/pdf'))).to eq(['grp:pdf'])
       expect(work.derivative_gated?(Blob.new(mime_type: 'audio/mpeg'))).to be(true) # [] private
       expect(work.derivative_gated?(Blob.new(mime_type: 'video/mp4'))).to be(false) # absent → Work (public)
+    end
+
+    it 'accepts the former master key and stores it as original' do
+      work = work_with(['public'])
+      described_class.call(work: work, policy: { 'master' => ['grp:a'] })
+      expect(work.derivative_permissions_map).to eq(original: ['grp:a'])
     end
 
     it 'collapses a value containing public to [public]' do
@@ -83,10 +89,10 @@ RSpec.describe DerivativePermissionsUpdater do
         .to raise_error(Exceptions::DerivativePermissionsError) { |e| expect(e.code).to eq(:tier_ordering_violation) }
     end
 
-    it 'rejects master more visible than the tier above it (tier_ordering_violation)' do
+    it 'rejects original more visible than the tier above it (tier_ordering_violation)' do
       work = work_with(['public'])
-      # master is the ladder floor — it may be no wider than service.
-      expect { described_class.call(work: work, policy: { 'service' => ['grp:a'], 'master' => ['public'] }) }
+      # original is the ladder floor — it may be no wider than service.
+      expect { described_class.call(work: work, policy: { 'service' => ['grp:a'], 'original' => ['public'] }) }
         .to raise_error(Exceptions::DerivativePermissionsError) { |e| expect(e.code).to eq(:tier_ordering_violation) }
     end
 

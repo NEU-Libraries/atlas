@@ -93,21 +93,21 @@ RSpec.describe 'Works via atlas_rb', :atlas_rb_server do
       expect(Work.find(work.noid).derivative_gated?(Delegate.new(use: Role.large_image.name))).to be(true)
     end
 
-    it 'gates the master Blob (image original) via the widened vocabulary' do
+    it 'gates the original Blob (image original) via the widened vocabulary' do
       work = WorkCreator.call(parent_id: collection.noid)
       work.publicize
       Atlas.persister.save(resource: work)
       file_set = FileSetCreator.call(work_id: work.noid, classification: Classification.image)
       BlobCreator.call(path:              Rails.root.join('spec/fixtures/files/example.png').to_s,
                        file_set_id:       file_set.noid,
-                       original_filename: 'master.png')
+                       original_filename: 'original.png')
 
       AtlasRb::Work.set_derivative_permissions(
-        work.noid, policy: { master: ['northeastern:drs:x:archives'] }, nuid: admin_nuid
+        work.noid, policy: { original: ['northeastern:drs:x:archives'] }, nuid: admin_nuid
       )
-      master = AtlasRb::Work.assets(work.noid, nuid: admin_nuid).find { |a| a['original_filename'] == 'master.png' }
-      expect(master['gated']).to be(true)
-      expect(master['permission']).to eq(['northeastern:drs:x:archives'])
+      original = AtlasRb::Work.assets(work.noid, nuid: admin_nuid).find { |a| a['original_filename'] == 'original.png' }
+      expect(original['gated']).to be(true)
+      expect(original['permission']).to eq(['northeastern:drs:x:archives'])
     end
 
     it 'raises the typed DerivativePermissionsError on an invariant violation' do

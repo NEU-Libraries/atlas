@@ -21,11 +21,11 @@ module TierVisibility
     Role.service_file.name => :service
   }.freeze
 
-  # Most-visible -> least-visible, with `master` (the original) as the floor.
+  # Most-visible -> least-visible, with `original` (the deposited image) as the floor.
   # Order is load-bearing: resolved_tier_gate walks it so an absent tier
   # inherits the next lower-resolution one, which is what makes a sparse
   # policy monotonic. Reordering this opens the full-resolution leak.
-  IMAGE_LADDER = %i[small medium large service master].freeze
+  IMAGE_LADDER = %i[small medium large service original].freeze
 
   # No resolution ordering exists across these, so each is validated only
   # against the Work and an absent key inherits the Work directly.
@@ -34,7 +34,7 @@ module TierVisibility
   # The complete accepted policy vocabulary.
   TIERS = (IMAGE_LADDER + INDEPENDENT_MEDIA).freeze
 
-  MEDIA_TIER_BY_MEDIA_TYPE = { 'image' => :master, 'audio' => :audio, 'video' => :video }.freeze
+  MEDIA_TIER_BY_MEDIA_TYPE = { 'image' => :original, 'audio' => :audio, 'video' => :video }.freeze
 
   # PDF is keyed on the full mime string rather than a media type, so it is
   # answered before the lookup. Anything with no tier rides the Work's own gate.

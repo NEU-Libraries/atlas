@@ -132,7 +132,20 @@ detected.
 `original_filename`, `use` and `label`.
 
 **`label` especially: re-deriving it from bytes would relabel any replaced
-derivative tier** — Small Image, Medium Image — back to Master Image.
+derivative tier** — Small Image, Medium Image — back to Original Image.
+
+## The deposited file is "Original"
+
+The librarians asked to stop calling the deposited file "master". The word is
+gone from every place it meant that file: the `Label` keys (`image_original`,
+`audio_original`, `video_original`), their names ("Original Image" and so on),
+the `original_` download prefix, and the image tier key in
+`derivative_permissions` (see [`authorization.md`](authorization.md)). It also
+matches the role Atlas already gives the file, `original_file`.
+
+**A Blob and a Delegate store the label's KEY, not its name**, so a stored key
+that `Label.find` no longer knows renders a null `label` and a null `filename`.
+Renaming a key again means rewriting the stored records, not just the enum.
 
 ## The version endpoints are admin-gated, but by a narrow verb
 

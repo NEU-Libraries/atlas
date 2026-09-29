@@ -5,8 +5,8 @@
 # persists:
 #   1. no tier may be more visible than the Work itself, and
 #   2. within the image ladder, visibility narrows as resolution grows
-#      (master ⊆ service ⊆ large ⊆ medium ⊆ small) — otherwise a gated `large`
-#      rendition is voided by an open full-res / master tier. Non-image media
+#      (original ⊆ service ⊆ large ⊆ medium ⊆ small) — otherwise a gated `large`
+#      rendition is voided by an open full-res / original tier. Non-image media
 #      (audio / video / pdf) gate independently: only invariant 1 applies, no
 #      cross-media ordering.
 #
@@ -16,6 +16,11 @@
 # Raises Exceptions::DerivativePermissionsError (a 422) on an unknown tier or a
 # violated invariant, before anything is written — nothing is left behind.
 class DerivativePermissionsUpdater < ApplicationService
+  # The image floor's former key, stored as `original` so a Cerberus deployed
+  # before or after this Atlas keeps its policy writes accepted.
+  # TODO: remove the alias in the release after `original` ships.
+  TIER_ALIASES = { master: :original }.freeze
+
   def initialize(work:, policy:)
     @work   = work
     @policy = policy || {}
@@ -31,7 +36,7 @@ class DerivativePermissionsUpdater < ApplicationService
 
     def normalize(policy)
       policy.to_h.each_with_object({}) do |(key, value), acc|
-        tier = key.to_sym
+        tier = TIER_ALIASES.fetch(key.to_sym, key.to_sym)
         unless TierVisibility::TIERS.include?(tier)
           raise Exceptions::DerivativePermissionsError.new(:unknown_tier, "unknown derivative tier: #{key}")
         end
@@ -55,7 +60,7 @@ class DerivativePermissionsUpdater < ApplicationService
     end
 
     # Image ladder: its top (small) ⊆ Work and each step narrows, which by
-    # transitivity keeps the whole ladder down to `master` ⊆ Work.
+    # transitivity keeps the whole ladder down to `original` ⊆ Work.
     def validate_image_ladder!
       unless TierVisibility.audience_subset?(@work.resolved_tier_gate(:small), Array(@work.read_groups))
         raise Exceptions::DerivativePermissionsError.new(

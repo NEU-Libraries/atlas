@@ -99,7 +99,7 @@ describe MimeHelper do
     end
 
     it 'labels by classification when the extension has no label' do
-      expect(default_label(fixture('example.tif'))).to eq(Label.image_master)
+      expect(default_label(fixture('example.tif'))).to eq(Label.image_original)
     end
 
     it 'labels structured-text formats (xml, csv, json, tsv) as structured_text' do

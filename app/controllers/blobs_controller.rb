@@ -277,7 +277,7 @@ class BlobsController < ApplicationController
     # `data.csv` answers text/csv. Magic bytes still win over the hint.
     #
     # original_filename, use and label stay as deposited. label especially:
-    # re-deriving it would relabel a replaced derivative tier back to Master.
+    # re-deriving it would relabel a replaced derivative tier back to Original.
     def refresh_head_facts(blob, version_id, source_path)
       blob.digest    = recorded_digest(version_id)
       blob.size      = ::File.size(source_path)

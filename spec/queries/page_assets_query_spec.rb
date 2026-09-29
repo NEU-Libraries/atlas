@@ -9,7 +9,7 @@ RSpec.describe PageAssetsQuery do
   # and the members of a :derivative FileSet nested under it (where per-page
   # IIIF Delegates land). Built through the persister so the fixture is exactly
   # the shape being queried, with no creator side effects in the way.
-  let!(:master) { Atlas.persister.save(resource: Blob.new(use: Role.original_file.name)) }
+  let!(:original) { Atlas.persister.save(resource: Blob.new(use: Role.original_file.name)) }
   let!(:service) do
     Atlas.persister.save(
       resource: Delegate.new(use: Role.service_file.name, uri: 'https://iiif.test/one')
@@ -27,7 +27,7 @@ RSpec.describe PageAssetsQuery do
   end
   let!(:page_one) do
     Atlas.persister.save(
-      resource: FileSet.new(type: Classification.image.name, member_ids: [master.id, nested.id])
+      resource: FileSet.new(type: Classification.image.name, member_ids: [original.id, nested.id])
     )
   end
   let!(:page_two) { Atlas.persister.save(resource: FileSet.new(type: Classification.image.name)) }
@@ -39,7 +39,7 @@ RSpec.describe PageAssetsQuery do
   end
 
   it "flattens a nested derivative FileSet's members onto the page" do
-    expect(assets.fetch(page_one.id.to_s).map(&:noid)).to eq([master.noid, service.noid])
+    expect(assets.fetch(page_one.id.to_s).map(&:noid)).to eq([original.noid, service.noid])
   end
 
   it 'excludes an asset whose role is not downloadable' do

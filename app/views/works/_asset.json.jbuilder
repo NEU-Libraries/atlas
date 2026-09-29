@@ -31,7 +31,7 @@ json.classification classification
 # Per-asset read gate (advisory — Cerberus / the IIIF auth layer enforce).
 # `gated` says this asset must be authorized rather than fetched directly
 # (at the IIIF server for a Delegate tier, at Atlas for a held Blob — the
-# original/master and any pdf/audio/video rendition). Blobs classify by media
+# original and any pdf/audio/video rendition). Blobs classify by media
 # type, Delegates by tier `use`. The group list behind the gate is withheld
 # from guests (public traffic) to avoid leaking Grouper group names — a guest
 # has no groups to match on, so `gated` alone is all they can act on.

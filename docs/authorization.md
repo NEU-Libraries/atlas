@@ -450,14 +450,19 @@ asset so those layers can act.
 
 ### The image ladder cascades
 
-`IMAGE_LADDER` is `%i[small medium large service master]`, ordered most-visible to
-least, with `master` — the original image binary — as the floor.
+`IMAGE_LADDER` is `%i[small medium large service original]`, ordered most-visible
+to least, with `original` — the deposited image binary — as the floor.
 
-Visibility must narrow as resolution grows (`master ⊆ service ⊆ large ⊆ medium ⊆
+Visibility must narrow as resolution grows (`original ⊆ service ⊆ large ⊆ medium ⊆
 small ⊆ the Work`), so an absent tier inherits the next lower-resolution tier, and
 `small` falls back to the Work's own `read_groups`. **This makes a sparse policy
 monotonic by construction**: gating only `large` also gates `service` and
-`master`, which closes the full-resolution leak.
+`original`, which closes the full-resolution leak.
+
+**The floor was once keyed `master`.** `DerivativePermissionsUpdater` still
+accepts `master` on write and stores it as `original`, so a Cerberus deployed a
+little before or after Atlas keeps its policy writes accepted. The alias is
+meant to last one release, and nothing is ever *read* under the old name.
 
 Thumbnail and preview chrome is deliberately outside `TIER_FOR_ROLE`. It is the
 open display pipe, public by construction, and never gated.
@@ -470,7 +475,7 @@ against the Work (`tier ⊆ resource`) and an absent key inherits the Work direc
 with no cascade.
 
 `media_tier` classifies a held Blob from its detected MIME type: an image original
-is `master`, `application/pdf` is `pdf`, and audio and video take their media
+is `original`, `application/pdf` is `pdf`, and audio and video take their media
 type. PDF is keyed on the full MIME string rather than a media type, so it is
 handled before the lookup. Anything else — text, office documents, archives,
 metadata — has no tier and rides the Work's own read gate.

@@ -9,7 +9,7 @@ json.work do
   json.preview @work.thumbnail_uri_for(Role.preview_image.name)
   # Per-asset derivative read policy (sparse tier => [read groups]; see
   # TierVisibility). Keys span the image ladder (small/medium/large/service/
-  # master) plus independent media (audio/video/pdf). Echoed for Cerberus's
+  # original) plus independent media (audio/video/pdf). Echoed for Cerberus's
   # editing UI; the effective per-asset gate is surfaced on /works/:id/assets.
   json.derivative_permissions @work.derivative_permissions_map
   json.title @work.plain_title

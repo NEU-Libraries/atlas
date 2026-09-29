@@ -31,8 +31,8 @@ RSpec.describe TierVisibility do
   end
 
   describe '.media_tier (Blob mime => policy tier)' do
-    it 'maps an image original to master, pdf/audio/video to their own tiers' do
-      expect(described_class.media_tier('image/tiff')).to eq(:master)
+    it 'maps an image original to original, pdf/audio/video to their own tiers' do
+      expect(described_class.media_tier('image/tiff')).to eq(:original)
       expect(described_class.media_tier('application/pdf')).to eq(:pdf)
       expect(described_class.media_tier('audio/mpeg')).to eq(:audio)
       expect(described_class.media_tier('video/mp4')).to eq(:video)
@@ -51,11 +51,11 @@ RSpec.describe TierVisibility do
                derivative_permissions: JSON.dump(large: ['grp:archives']))
     end
 
-    it 'gates large to its group and cascades service AND master down to it' do
+    it 'gates large to its group and cascades service AND original down to it' do
       expect(work.derivative_gate_for(delegate(Role.large_image.name))).to eq(['grp:archives'])
       expect(work.derivative_gated?(delegate(Role.large_image.name))).to be(true)
       expect(work.derivative_gate_for(delegate(Role.service_file.name))).to eq(['grp:archives'])
-      # The image original Blob is the `master` floor — gating `large` closes it too.
+      # The image original Blob is the `original` floor — gating `large` closes it too.
       expect(work.derivative_gate_for(blob('image/tiff'))).to eq(['grp:archives'])
       expect(work.derivative_gated?(blob('image/tiff'))).to be(true)
     end
@@ -65,9 +65,9 @@ RSpec.describe TierVisibility do
       expect(work.derivative_gated?(delegate(Role.small_image.name))).to be(false)
     end
 
-    it 'lets master be reserved without moving the sized copies above it' do
+    it 'lets original be reserved without moving the sized copies above it' do
       w = Work.new(read_groups:            ['public'],
-                   derivative_permissions: JSON.dump(master: ['grp:archives']))
+                   derivative_permissions: JSON.dump(original: ['grp:archives']))
       expect(w.derivative_gated?(blob('image/tiff'))).to be(true)
       expect(w.derivative_gate_for(blob('image/tiff'))).to eq(['grp:archives'])
       # only the floor moved — the sized copies stay public

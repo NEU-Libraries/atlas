@@ -471,7 +471,7 @@ RSpec.describe 'Works', type: :request do
         end
       end
 
-      response '200', 'the gate also surfaces on held Blob entries (master / pdf)' do
+      response '200', 'the gate also surfaces on held Blob entries (original / pdf)' do
         let(:work) do
           w = WorkCreator.call(parent_id: collection.noid)
           w.publicize
@@ -480,16 +480,16 @@ RSpec.describe 'Works', type: :request do
         let(:id)       { work.noid }
         let(:file_set) { FileSetCreator.call(work_id: work.noid, classification: Classification.image) }
         before do
-          # An image original Blob is the `master`; gate it to a group.
+          # An image original Blob is the `original` tier; gate it to a group.
           BlobCreator.call(path:              Rails.root.join('spec/fixtures/files/example.png').to_s,
                            file_set_id:       file_set.noid,
-                           original_filename: 'master.png')
-          DerivativePermissionsUpdater.call(work: Work.find(work.noid), policy: { master: ['northeastern:drs:x:archives'] })
+                           original_filename: 'original.png')
+          DerivativePermissionsUpdater.call(work: Work.find(work.noid), policy: { original: ['northeastern:drs:x:archives'] })
         end
         schema '$ref' => '#/components/schemas/WorkAssets'
         run_test! do |response|
-          master = JSON.parse(response.body).find { |a| a['original_filename'] == 'master.png' }
-          expect(master).to include('gated' => true, 'permission' => ['northeastern:drs:x:archives'])
+          original = JSON.parse(response.body).find { |a| a['original_filename'] == 'original.png' }
+          expect(original).to include('gated' => true, 'permission' => ['northeastern:drs:x:archives'])
         end
       end
     end
@@ -638,7 +638,7 @@ RSpec.describe 'Works', type: :request do
       description <<~DESC
         Replaces the Work's per-asset read policy for its downloadable renditions —
         which Grouper groups may fetch each binary. Two media families: the image
-        ladder `small` / `medium` / `large` / `service` (deep-zoom) / `master` (the
+        ladder `small` / `medium` / `large` / `service` (deep-zoom) / `original` (the
         original image), and the independent media `audio` / `video` / `pdf`. Each
         tier is an array of read-group tokens (the resource vocabulary: `public`,
         Grouper group names, `[]` = private).
@@ -650,7 +650,7 @@ RSpec.describe 'Works', type: :request do
         Invariants are enforced (422 on violation): a tier may not be more visible
         than the Work (`tier_exceeds_resource`); within the image ladder visibility
         must narrow as resolution grows —
-        `master` ⊆ `service` ⊆ `large` ⊆ `medium` ⊆ `small` (`tier_ordering_violation`;
+        `original` ⊆ `service` ⊆ `large` ⊆ `medium` ⊆ `small` (`tier_ordering_violation`;
         independent media impose no ordering); an unrecognized tier key is
         `unknown_tier`.
 
@@ -663,14 +663,14 @@ RSpec.describe 'Works', type: :request do
       parameter name: :body, in: :body, schema: {
         type:       :object,
         properties: {
-          small:   { type: :array, items: { type: :string }, description: 'Read groups for the small image tier' },
-          medium:  { type: :array, items: { type: :string }, description: 'Read groups for the medium image tier' },
-          large:   { type: :array, items: { type: :string }, description: 'Read groups for the large image tier' },
-          service: { type: :array, items: { type: :string }, description: 'Read groups for the service (deep-zoom) image tier' },
-          master:  { type: :array, items: { type: :string }, description: 'Read groups for the master (original image) — the image-ladder floor' },
-          audio:   { type: :array, items: { type: :string }, description: 'Read groups for audio renditions (independent)' },
-          video:   { type: :array, items: { type: :string }, description: 'Read groups for video renditions (independent)' },
-          pdf:     { type: :array, items: { type: :string }, description: 'Read groups for PDF renditions (independent)' }
+          small:    { type: :array, items: { type: :string }, description: 'Read groups for the small image tier' },
+          medium:   { type: :array, items: { type: :string }, description: 'Read groups for the medium image tier' },
+          large:    { type: :array, items: { type: :string }, description: 'Read groups for the large image tier' },
+          service:  { type: :array, items: { type: :string }, description: 'Read groups for the service (deep-zoom) image tier' },
+          original: { type: :array, items: { type: :string }, description: 'Read groups for the original image — the image-ladder floor. `master` is accepted as an alias for one release and stored as `original`' },
+          audio:    { type: :array, items: { type: :string }, description: 'Read groups for audio renditions (independent)' },
+          video:    { type: :array, items: { type: :string }, description: 'Read groups for video renditions (independent)' },
+          pdf:      { type: :array, items: { type: :string }, description: 'Read groups for PDF renditions (independent)' }
         }
       }
 
@@ -690,18 +690,18 @@ RSpec.describe 'Works', type: :request do
         end
       end
 
-      response '200', 'accepts the widened vocabulary (master + independent media)' do
+      response '200', 'accepts the widened vocabulary (original + independent media)' do
         let(:work) do
           w = WorkCreator.call(parent_id: collection.noid)
           w.publicize
           Atlas.persister.save(resource: w)
         end
         let(:id)   { work.noid }
-        let(:body) { { master: ['northeastern:drs:x:archives'], pdf: ['northeastern:drs:x:pdf'] } }
+        let(:body) { { original: ['northeastern:drs:x:archives'], pdf: ['northeastern:drs:x:pdf'] } }
         schema '$ref' => '#/components/schemas/Work'
         run_test! do |response|
           dp = JSON.parse(response.body).dig('work', 'derivative_permissions')
-          expect(dp['master']).to eq(['northeastern:drs:x:archives'])
+          expect(dp['original']).to eq(['northeastern:drs:x:archives'])
           expect(dp['pdf']).to eq(['northeastern:drs:x:pdf'])
         end
       end

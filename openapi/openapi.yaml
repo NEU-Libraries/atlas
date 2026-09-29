@@ -223,7 +223,7 @@ components:
                 items:
                   type: string
               description: 'Per-asset derivative read policy: sparse map of tier =>
-                [read groups]. Image ladder small/medium/large/service/master plus
+                [read groups]. Image ladder small/medium/large/service/original plus
                 independent media audio/video/pdf. Empty when unset (tiers inherit
                 the Work visibility).'
           required:
@@ -837,8 +837,8 @@ components:
               type: boolean
               description: 'True if this binary must be authorized rather than downloaded
                 directly (its audience is not public). Blobs classify by media type:
-                image original => master, plus pdf/audio/video; other types ride the
-                Work gate'
+                image original => original, plus pdf/audio/video; other types ride
+                the Work gate'
             permission:
               type: array
               items:
@@ -952,7 +952,7 @@ components:
                     type: boolean
                     description: 'True if this binary must be authorized rather than
                       downloaded directly (its audience is not public). Blobs classify
-                      by media type: image original => master, plus pdf/audio/video;
+                      by media type: image original => original, plus pdf/audio/video;
                       other types ride the Work gate'
                   permission:
                     type: array
@@ -5264,7 +5264,7 @@ paths:
         Role.downloadable?.
       responses:
         '200':
-          description: the gate also surfaces on held Blob entries (master / pdf)
+          description: the gate also surfaces on held Blob entries (original / pdf)
           content:
             application/json:
               schema:
@@ -5360,7 +5360,7 @@ paths:
       description: |
         Replaces the Work's per-asset read policy for its downloadable renditions —
         which Grouper groups may fetch each binary. Two media families: the image
-        ladder `small` / `medium` / `large` / `service` (deep-zoom) / `master` (the
+        ladder `small` / `medium` / `large` / `service` (deep-zoom) / `original` (the
         original image), and the independent media `audio` / `video` / `pdf`. Each
         tier is an array of read-group tokens (the resource vocabulary: `public`,
         Grouper group names, `[]` = private).
@@ -5372,7 +5372,7 @@ paths:
         Invariants are enforced (422 on violation): a tier may not be more visible
         than the Work (`tier_exceeds_resource`); within the image ladder visibility
         must narrow as resolution grows —
-        `master` ⊆ `service` ⊆ `large` ⊆ `medium` ⊆ `small` (`tier_ordering_violation`;
+        `original` ⊆ `service` ⊆ `large` ⊆ `medium` ⊆ `small` (`tier_ordering_violation`;
         independent media impose no ordering); an unrecognized tier key is
         `unknown_tier`.
 
@@ -5384,7 +5384,7 @@ paths:
       parameters: []
       responses:
         '200':
-          description: accepts the widened vocabulary (master + independent media)
+          description: accepts the widened vocabulary (original + independent media)
           content:
             application/json:
               schema:
@@ -5420,12 +5420,13 @@ paths:
                   items:
                     type: string
                   description: Read groups for the service (deep-zoom) image tier
-                master:
+                original:
                   type: array
                   items:
                     type: string
-                  description: Read groups for the master (original image) — the image-ladder
-                    floor
+                  description: Read groups for the original image — the image-ladder
+                    floor. `master` is accepted as an alias for one release and stored
+                    as `original`
                 audio:
                   type: array
                   items:

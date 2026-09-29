@@ -3,11 +3,11 @@
 class Label < Enumerations::Base
   # Audio
   value :audio,               name: 'Audio File',          prefix: 'audio_' # default for Audio classification
-  value :audio_master,        name: 'Master Audio File',   prefix: 'master_'
+  value :audio_original,      name: 'Original Audio File', prefix: 'original_'
 
   # Image
   value :image_large,         name: 'Large Image',         prefix: 'highres_'
-  value :image_master,        name: 'Master Image',        prefix: 'master_' # default for Image classification
+  value :image_original,      name: 'Original Image',      prefix: 'original_' # default for Image classification
   value :image_medium,        name: 'Medium Image',        prefix: 'medres_'
   value :image_small,         name: 'Small Image',         prefix: 'lowres_'
 
@@ -24,7 +24,7 @@ class Label < Enumerations::Base
 
   # Video
   value :video,               name: 'Video File',          prefix: 'video_' # default for Video classification
-  value :video_master,        name: 'Master Video File',   prefix: 'master_'
+  value :video_original,      name: 'Original Video File', prefix: 'original_'
 
   # Archive - hm, mime_helper seems to have missed this use case. Should correlate with .zip and .tar
   value :zip,                 name: 'Zip File',            prefix: 'zipped_'

@@ -81,7 +81,7 @@ module MimeHelper
 
     def classification_label(classification)
       case classification
-      when Classification.image then Label.image_master
+      when Classification.image then Label.image_original
       when Classification.video then Label.video
       when Classification.audio then Label.audio
       when Classification.text then Label.text

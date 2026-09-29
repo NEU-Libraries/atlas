@@ -4414,6 +4414,11 @@ paths:
 
         Conflicts surface immediately as `409 stale_resource` rather than being
         retried: the caller decides whether a withdrawal still applies.
+
+        A FileSet is accepted too, and answers in the FileSet shape. It drops
+        out of `GET /works/{id}/assets` and `/file_sets`, which is how a caption
+        or other attached file is withdrawn reversibly. Admins and the
+        devolved-admin tier only.
       responses:
         '200':
           description: resource tombstoned

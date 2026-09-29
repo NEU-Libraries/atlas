@@ -21,6 +21,11 @@ class ResourcesController < ApplicationController
     Community  => '@community'
   }.freeze
 
+  # Tombstone and restore also answer for a FileSet, so a caption or other
+  # attached file can be withdrawn reversibly. Every other generic write stays
+  # on TYPED_IVARS. See docs/resource-graph.md.
+  LIFECYCLE_IVARS = TYPED_IVARS.merge(FileSet => '@file_set').freeze
+
   def show
     resource = Resource.find(params.expect(:id))
     authorize! :read, resource || Resource
@@ -153,7 +158,7 @@ class ResourcesController < ApplicationController
   def tombstone
     resource = Resource.find(params.expect(:id))
     authorize! :tombstone, resource || Resource
-    return head(:not_found) unless resource && TYPED_IVARS.key?(resource.class)
+    return head(:not_found) unless resource && LIFECYCLE_IVARS.key?(resource.class)
 
     # Refuses while the resource still holds a live container or Work, so a
     # withdrawal can never orphan a readable descendant. This applies to every
@@ -167,18 +172,18 @@ class ResourcesController < ApplicationController
 
     resource.tombstone(by: @current_user&.nuid)
     saved = Atlas.persister.save(resource: resource)
-    audit!(resource: saved, action: 'tombstone', change_type: 'lifecycle')
+    audit_lifecycle!(saved, 'tombstone')
     render_typed(saved, 'show')
   end
 
   def restore
     resource = Resource.find(params.expect(:id))
     authorize! :restore, resource || Resource
-    return head(:not_found) unless resource && TYPED_IVARS.key?(resource.class)
+    return head(:not_found) unless resource && LIFECYCLE_IVARS.key?(resource.class)
 
     resource.restore
     saved = Atlas.persister.save(resource: resource)
-    audit!(resource: saved, action: 'restore', change_type: 'lifecycle')
+    audit_lifecycle!(saved, 'restore')
     render_typed(saved, 'show')
   end
 
@@ -276,8 +281,19 @@ class ResourcesController < ApplicationController
     # write answers in the shape a typed find already parses and there is no
     # second representation of a type to drift.
     def render_typed(resource, view)
-      instance_variable_set(TYPED_IVARS.fetch(resource.class), resource.decorate)
+      instance_variable_set(LIFECYCLE_IVARS.fetch(resource.class), resource.decorate)
       render template: "#{resource.class.name.tableize}/#{view}"
+    end
+
+    # AuditEvent admits no FileSet, so a FileSet's event hangs off its Work as
+    # a file event, the way BlobsController records one.
+    def audit_lifecycle!(resource, action)
+      return audit!(resource: resource, action: action, change_type: 'lifecycle') unless resource.is_a?(FileSet)
+
+      work = resource.parent
+      return unless work.is_a?(Work)
+
+      audit!(resource: work, action: action, change_type: 'file', payload: { file_set_noid: resource.noid })
     end
 
     # The multipart upload arrives as a Rack or ActionDispatch upload

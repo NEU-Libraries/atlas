@@ -512,6 +512,11 @@ RSpec.describe 'Resources', type: :request do
 
         Conflicts surface immediately as `409 stale_resource` rather than being
         retried: the caller decides whether a withdrawal still applies.
+
+        A FileSet is accepted too, and answers in the FileSet shape. It drops
+        out of `GET /works/{id}/assets` and `/file_sets`, which is how a caption
+        or other attached file is withdrawn reversibly. Admins and the
+        devolved-admin tier only.
       DESC
 
       response '200', 'resource tombstoned' do
@@ -566,6 +571,65 @@ RSpec.describe 'Resources', type: :request do
         let(:id) { 'does-not-exist' }
         run_test!
       end
+    end
+  end
+
+  # Plain (non-rswag) coverage of who may withdraw a FileSet and what the
+  # listings do with it afterwards.
+  describe 'POST /resources/:id/tombstone on a FileSet', type: :request do
+    let(:fixture)  { Rails.root.join('spec/fixtures/files/example.bin').to_s }
+    let(:blob)     { BlobCreator.call(work_id: work.noid, original_filename: 'a.bin', path: fixture) }
+    let(:file_set) { blob.parent }
+    let!(:delegate) do
+      User.create!(email: 'delegate-tombstone@example.invalid', password: SecureRandom.hex(16),
+                   nuid: '000000052', name: 'Williams, Delegate', role: :privileged,
+                   groups: [Permissions::ADMIN_GROUP])
+    end
+    let!(:standard) do
+      User.create!(email: 'standard-tombstone@example.invalid', password: SecureRandom.hex(16),
+                   nuid: '000000053', name: 'Roe, Sam', role: :standard, groups: [])
+    end
+
+    it 'lets the devolved-admin tier tombstone and restore it' do
+      post "/resources/#{file_set.noid}/tombstone", headers: signed_auth_headers(delegate.nuid)
+      expect(response).to have_http_status(:ok)
+      expect(response.parsed_body.dig('file_set', 'tombstoned')).to be(true)
+      expect(FileSet.find(file_set.noid).tombstoned).to be(true)
+
+      post "/resources/#{file_set.noid}/restore", headers: signed_auth_headers(delegate.nuid)
+      expect(response).to have_http_status(:ok)
+      expect(FileSet.find(file_set.noid).tombstoned).to be(false)
+    end
+
+    it 'refuses a standard user with 403, even one who can edit the Work' do
+      work.edit_users = [standard.nuid]
+      Atlas.persister.save(resource: work)
+
+      post "/resources/#{file_set.noid}/tombstone", headers: signed_auth_headers(standard.nuid)
+      expect(response).to have_http_status(:forbidden)
+    end
+
+    it 'drops the tombstoned FileSet from the asset listing, and restore brings it back' do
+      post "/resources/#{file_set.noid}/tombstone"
+      get "/works/#{work.noid}/assets"
+      expect(response.parsed_body.pluck('noid')).not_to include(blob.noid)
+
+      post "/resources/#{file_set.noid}/restore"
+      get "/works/#{work.noid}/assets"
+      expect(response.parsed_body.pluck('noid')).to include(blob.noid)
+    end
+
+    it 'records the event on the parent Work as a file event' do
+      post "/resources/#{file_set.noid}/tombstone"
+
+      event = AuditEvent.for_resource(work.id).find_by(action: 'tombstone')
+      expect(event).to have_attributes(change_type: 'file')
+      expect(event.payload).to eq('file_set_noid' => file_set.noid)
+    end
+
+    it 'still 404s on the other generic writes' do
+      patch "/resources/#{file_set.noid}/permissions", params: { permissions: {} }
+      expect(response).to have_http_status(:not_found)
     end
   end
 

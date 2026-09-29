@@ -46,6 +46,13 @@ RSpec.describe PageAssetsQuery do
     expect(assets.fetch(page_one.id.to_s).map(&:noid)).not_to include(thumbnail.noid)
   end
 
+  it "skips a tombstoned nested FileSet's members" do
+    nested.tombstone(by: '000000004')
+    Atlas.persister.save(resource: nested)
+
+    expect(assets.fetch(page_one.id.to_s).map(&:noid)).to eq([original.noid])
+  end
+
   it 'returns an empty list for a page with no assets' do
     expect(assets.fetch(page_two.id.to_s)).to eq([])
   end

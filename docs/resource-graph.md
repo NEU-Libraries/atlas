@@ -198,6 +198,26 @@ shape. A delegate holds `:read_versions` only on the Modsable types and `Blob`,
 so for any other type, or an unresolvable id, a delegate gets 403 where an
 admin gets the empty array.
 
+### A FileSet can be tombstoned, and nothing else below a Work can
+
+`tombstone` and `restore` answer for a FileSet as well as the three typed
+containers; every other generic write still 404s on one. **This is how a
+caption, or any other attached file, is withdrawn reversibly.** `DELETE
+/files/:id` is the only other removal, and it takes every retained revision
+with it.
+
+- **The FileSet, not the Blob, is the unit.** Its Blobs ride along, as a Work's
+  FileSets do, because `live_children?` counts only containers and Works.
+- **The asset listings drop a tombstoned FileSet.** `GET /works/:id/assets` and
+  `/file_sets` skip it, and `PageAssetsQuery` skips a tombstoned nested FileSet,
+  so no consumer needs its own filter. The Blob's own reads still answer, as a
+  tombstoned Work's Blobs do.
+- **The audit row hangs off the parent Work**, with `change_type: 'file'` and the
+  FileSet's NOID in the payload, because `AuditEvent` admits no FileSet.
+- **Only the devolved-admin tier and admins may do it.** A standard user's edit
+  rights on the Work do not extend to it. See
+  [`authorization.md`](authorization.md).
+
 ### `/mods` renders the typed view
 
 `TYPED_MODS_VIEWS` maps a resolved class to its ivar and template, so the

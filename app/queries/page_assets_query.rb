@@ -38,7 +38,9 @@ class PageAssetsQuery
     def union_members(resources)
       return {} if resources.empty?
 
+      # A tombstoned nested FileSet is withdrawn, so its members never list.
       Atlas.query.custom_queries.find_many_members(resources: resources)
+           .transform_values { |members| members.reject { |m| m.is_a?(FileSet) && m.tombstoned } }
     end
 
     def ordered_members(resources)

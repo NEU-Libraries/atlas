@@ -240,7 +240,7 @@ class WorksController < ApplicationController
       # read still has the FileSet in hand. Members come from one batched read
       # for every FileSet at once: a many-page Work would otherwise cost a query
       # per page.
-      file_sets = @work.children.reject { |fs| Classification.metadata?(fs.type) }
+      file_sets = @work.children.reject { |fs| fs.tombstoned || Classification.metadata?(fs.type) }
       members   = Atlas.query.custom_queries.find_many_ordered_members(resources: file_sets)
 
       @assets = file_sets.flat_map do |fs|
@@ -252,7 +252,7 @@ class WorksController < ApplicationController
     end
 
     def render_file_sets
-      pages  = @work.page_file_sets
+      pages  = @work.page_file_sets.reject(&:tombstoned)
       assets = PageAssetsQuery.call(file_sets: pages)
       @pages = pages.map { |fs| [fs, assets.fetch(fs.id.to_s, [])] }
       render :file_sets

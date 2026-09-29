@@ -255,6 +255,9 @@ Each grant is a named carve-out beneath the wildcard, not a promotion:
   happens to show. Unconditional and system-wide, not scoped to the delegate's own
   `edit_groups`.
 - **`:restore` on the same three.** Beside `:reparent` for the same reason.
+- **`:tombstone` and `:restore` on `FileSet`.** Delegates remove a caption or other
+  attached file reversibly, and put it back. Standard users get neither, because
+  Atlas cannot cheaply trace a FileSet to the Work whose edit rights would apply.
 - **`:associate` on `Work`.** See the alias table above.
 - **`:create` on `AuditEvent`.** Unblocks Cerberus's impersonation session-start
   write; view-as and acting-as both call it before establishing a session.

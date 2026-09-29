@@ -159,7 +159,8 @@ class Ability
       return unless user.admin_delegate?
 
       can :reparent,  [Work, Collection, Community]
-      can :restore,   [Work, Collection, Community]
+      can :restore,   [Work, Collection, Community, FileSet]
+      can :tombstone, FileSet
       can :associate, Work
       can :create, AuditEvent
       can :read_versions, [Blob, Work, Collection, Community]

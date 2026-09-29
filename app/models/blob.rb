@@ -15,6 +15,35 @@ class Blob < Resource
   # it keeps the fixity read path off the storage layer so reconciliation can
   # compare expected vs. stored without streaming bytes back down.
   attribute :digest, Valkyrie::Types::String
+  # A caption's language (BCP 47) and the name a player shows for it. Blob-level,
+  # not per revision: replacing a caption's bytes keeps its language.
+  attribute :language, Valkyrie::Types::String
+  attribute :track_label, Valkyrie::Types::String
+
+  # BCP 47 in shape only. Atlas does not consult the IANA registry, so the
+  # caller owns the vocabulary; this only stops a label landing in the field.
+  LANGUAGE_FORMAT = /\A[a-z]{2,3}(-[a-z0-9]{1,8})*\z/i
+  TRACK_LABEL_MAX_LENGTH = 64
+
+  # Only the keys the caller sent, so an update never clears a field it did not
+  # mention. A blank value clears. Raises Exceptions::BlobMetadataError.
+  def self.track_fields(given)
+    fields = given.to_h.stringify_keys.slice('language', 'track_label').transform_values { |v| v.to_s.strip.presence }
+    validate_track_fields!(fields)
+    fields.symbolize_keys
+  end
+
+  def self.validate_track_fields!(fields)
+    if fields['language'] && !LANGUAGE_FORMAT.match?(fields['language'])
+      raise Exceptions::BlobMetadataError.new(
+        :invalid_language, "language must be a BCP 47 tag such as en or es-MX; got #{fields['language'].inspect}"
+      )
+    end
+    return unless fields['track_label'] && fields['track_label'].length > TRACK_LABEL_MAX_LENGTH
+
+    raise Exceptions::BlobMetadataError.new(:invalid_track_label,
+                                            "track_label must be at most #{TRACK_LABEL_MAX_LENGTH} characters")
+  end
 
   def versions
     file_identifiers.count
@@ -64,7 +93,9 @@ class Blob < Resource
       original_filename: original_filename,
       mime_type:         mime_type,
       size:              size,
-      label:             label
+      label:             label,
+      language:          language,
+      track_label:       track_label
     }
   end
 

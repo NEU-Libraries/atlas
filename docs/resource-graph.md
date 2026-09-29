@@ -110,7 +110,7 @@ resource's own NOID-keyed OCFL object. **The bus-factor test: a librarian with
 disk access alone can rebuild the resource graph and the ACLs without Atlas,
 Postgres or Solr.**
 
-`ENVELOPE_SCHEMA_VERSION` is 5, and each bump records one decision:
+`ENVELOPE_SCHEMA_VERSION` is 6, and each bump records one decision:
 
 | Version | Change |
 |---|---|
@@ -118,6 +118,7 @@ Postgres or Solr.**
 | v2 → v3 | Added `position` — FileSet page order within a multipage Work, null elsewhere |
 | v3 → v4 | Added `associations` — the typed Work-to-Work edges, keyed by predicate |
 | v4 → v5 | Added `handle` |
+| v5 → v6 | Added a Blob's `language` and `track_label` |
 
 **`position` is additive even though the Work-level METS structMap is the
 canonical record of order.** It keeps each FileSet's own OCFL object

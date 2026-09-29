@@ -32,13 +32,13 @@ class BlobsController < ApplicationController
       return render_idempotent_resource(@blob)
     end
 
-    file = params[:binary]
     @blob = BlobCreator.call(
       work_id:           params[:work_id],
       original_filename: params[:original_filename],
       use:               params[:use],
       expected_digest:   params[:expected_digest],
-      path:              file.tempfile.path.presence || file.path
+      path:              uploaded_path(params[:binary]),
+      **Blob.track_fields(params.to_unsafe_h)
     )
     record_idempotency_key!(@blob.noid, Blob)
     audit_add_file(@blob)
@@ -58,8 +58,8 @@ class BlobsController < ApplicationController
     blob = Blob.find(params.expect(:id))
     return head(:not_found) if blob.nil?
 
-    binary = params.expect(:binary)
-    path = binary.tempfile.path.presence || binary.path
+    path = uploaded_path(params.expect(:binary))
+    assign_track_fields(blob)
     verify_digest!(path, params[:expected_digest])
     @blob = append_revision(blob, create_file(path, blob).version_id, source_path: path)
     record_idempotency_key!(@blob.noid, Blob)
@@ -178,6 +178,17 @@ class BlobsController < ApplicationController
 
   private
 
+    # The multipart upload arrives as a Rack or ActionDispatch upload
+    # depending on the client, and only one of the two exposes #tempfile.
+    def uploaded_path(file)
+      file.tempfile.path.presence || file.path
+    end
+
+    # Validates before assigning, so a malformed field refuses the whole write.
+    def assign_track_fields(blob)
+      Blob.track_fields(params.to_unsafe_h).each { |key, value| blob.public_send(:"#{key}=", value) }
+    end
+
     # send_file hands a Pathname to Rack::Files which chunks at the Rack layer,
     # so this is memory-safe for 20GB+ files. Used by #version_content (a pinned
     # prior version); #content goes through #serve_bytes for Range support.
@@ -261,6 +272,8 @@ class BlobsController < ApplicationController
       blob.file_identifiers += [version_id]
       refresh_head_facts(blob, version_id, source_path)
       saved = Atlas.persister.save(resource: blob)
+      # properties.json carries the head facts just refreshed.
+      saved.write_preservation_envelope!
       payload = { blob_noid: saved.noid, version_id: version_id.to_s }
       payload[:rolled_back_from] = rolled_back_from if rolled_back_from
       audit_file!(action: 'replace_file', resource: parent_work_of(saved), payload: payload)

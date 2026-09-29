@@ -9,6 +9,8 @@ json.blob do
   json.digest @blob.digest
   json.filename @blob.filename
   json.label Label.find(@blob.label)&.name
+  json.language @blob.language
+  json.track_label @blob.track_label
   json.file_identifiers @blob.file_identifiers
   json.tombstoned @blob.tombstoned
   json.tombstoned_at @blob.tombstoned_at&.to_s

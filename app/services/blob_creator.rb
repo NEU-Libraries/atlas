@@ -4,13 +4,16 @@ class BlobCreator < ApplicationService
   include FileHelper
   include MimeHelper
 
-  def initialize(path:, work_id: nil, file_set_id: nil, original_filename: nil, use: nil, expected_digest: nil)
+  def initialize(path:, work_id: nil, file_set_id: nil, original_filename: nil, use: nil, expected_digest: nil,
+                 language: nil, track_label: nil)
     @work_id = resolve_id(work_id) unless work_id.nil?
     @path = path
     @file_set_id = file_set_id
     @original_filename = original_filename
     @use = use || Role.original_file.name
     @expected_digest = expected_digest
+    @language = language
+    @track_label = track_label
   end
 
   def call
@@ -48,7 +51,9 @@ class BlobCreator < ApplicationService
           mime_type:         mime_type(@path, name: @original_filename),
           size:              File.size(@path),
           label:             label.symbol, # default_label always resolves (unknowns ground to Label.zip)
-          use:               @use
+          use:               @use,
+          language:          @language,
+          track_label:       @track_label
         )
       )
     end

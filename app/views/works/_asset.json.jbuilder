@@ -7,7 +7,7 @@
 # file_sets.json (grouped per page) so the two shapes can't drift.
 case asset
 when Blob
-  json.extract! asset, :noid, :mime_type, :original_filename, :size
+  json.extract! asset, :noid, :mime_type, :original_filename, :size, :language, :track_label
   json.filename asset.filename
   json.label Label.find(asset.label)&.name
 when Delegate

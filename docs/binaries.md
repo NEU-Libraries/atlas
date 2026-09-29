@@ -134,6 +134,20 @@ detected.
 **`label` especially: re-deriving it from bytes would relabel any replaced
 derivative tier** — Small Image, Medium Image — back to Original Image.
 
+## A caption carries its language
+
+A Blob holds a `language` (BCP 47, such as `en` or `es-MX`) and a `track_label`,
+the name a player shows for the track. Cerberus serves one `<track>` per caption
+Blob, so without these every caption would read as English.
+
+- **They are Blob-level, not per revision.** Replacing a caption's bytes keeps
+  its language unless the update sends a new one.
+- **An update changes only the keys it sends.** An empty value clears one.
+- **Atlas checks the shape of the tag, not the IANA registry.** The caller owns
+  the vocabulary; the check only stops a display label landing in `language`.
+- **Both ride the envelope** (schema v6), because a person chose them and
+  nothing can derive them again. See [`resource-graph.md`](resource-graph.md).
+
 ## The deposited file is "Original"
 
 The librarians asked to stop calling the deposited file "master". The word is

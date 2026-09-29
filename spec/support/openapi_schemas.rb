@@ -145,6 +145,8 @@ module OpenapiSchemas
                                    description: 'Fixity digest of the head revision, "<algorithm>:<hexvalue>" (e.g. sha512:…), recorded at ingest from the OCFL inventory' },
               filename:          { type: :string, nullable: true },
               label:             { type: :string, nullable: true },
+              language:          { type: :string, nullable: true, description: 'BCP 47 language of a caption or other text track (e.g. en, es-MX)' },
+              track_label:       { type: :string, nullable: true, description: 'Display name a player shows for the track (e.g. "Español")' },
               file_identifiers:  {
                 type:  :array,
                 items: { type: :object, additionalProperties: true,
@@ -289,6 +291,8 @@ module OpenapiSchemas
             size:              { type: :integer, nullable: true },
             filename:          { type: :string, nullable: true },
             label:             { type: :string, nullable: true },
+            language:          { type: :string, nullable: true, description: 'BCP 47 language of a caption or other text track; null when unset' },
+            track_label:       { type: :string, nullable: true, description: 'Display name a player shows for the track; null when unset' },
             role:              { type: :string, nullable: true, description: 'Stable machine token for the asset role — the Role key (e.g. service_file, small_image, original_file). Match on this, not the human `use` label' },
             classification:    { type: :string, nullable: true,
                                  description: 'Classification name of the containing FileSet (Image/PDF/Structured Text/…; "File" = unidentified). Download consumers key on "File" to zip opaque binaries on the fly' },

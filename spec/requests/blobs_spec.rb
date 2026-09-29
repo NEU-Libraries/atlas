@@ -36,10 +36,17 @@ RSpec.describe 'Files (Blobs)', type: :request do
         request from the same caller with the same key returns the
         originally-created Blob without re-uploading. 410 + tombstone
         payload if the underlying Blob has been tombstoned.
+
+        `language` and `track_label` describe a caption or other text track.
+        A malformed `language` is refused `422 invalid_language`, and a
+        `track_label` over 64 characters `422 invalid_track_label`, before
+        anything is stored.
       DESC
       parameter name: :work_id,           in: :formData, required: true
       parameter name: :original_filename, in: :formData, required: false
       parameter name: :expected_digest,   in: :formData, required: false
+      parameter name: :language,          in: :formData, required: false
+      parameter name: :track_label,       in: :formData, required: false
       parameter name: :binary,            in: :formData, required: true
       parameter name: :'Idempotency-Key', in: :header, type: :string, required: false,
                 description: 'Client-supplied UUID; repeats return the existing resource.'
@@ -50,6 +57,8 @@ RSpec.describe 'Files (Blobs)', type: :request do
           expected_digest:   { type:        :string,
                                description: 'Optional verify-on-ingest checksum, "<algorithm>:<hexvalue>" ' \
                                             '(sha512/sha256/sha1/md5). Rejected 422 if the bytes do not match.' },
+          language:          { type: :string, description: 'BCP 47 language of a caption or other text track (e.g. en, es-MX)' },
+          track_label:       { type: :string, description: 'Display name a player shows for the track, at most 64 characters' },
           binary:            { type: :string, format: :binary, description: 'File bytes to upload' }
         },
         required: %i[work_id binary]
@@ -173,13 +182,19 @@ RSpec.describe 'Files (Blobs)', type: :request do
       DESC
       parameter name: :binary,          in: :formData, required: true
       parameter name: :expected_digest, in: :formData, required: false
+      parameter name: :language,        in: :formData, required: false
+      parameter name: :track_label,     in: :formData, required: false
       parameter name: :'Idempotency-Key', in: :header, type: :string, required: false,
                 description: 'Client-supplied UUID; repeats return the existing resource without a new revision.'
       multipart_request_body(
         {
           binary:          { type: :string, format: :binary, description: 'New revision bytes' },
           expected_digest: { type:        :string,
-                             description: 'Optional verify-on-ingest checksum, "<algorithm>:<hexvalue>". 422 on mismatch.' }
+                             description: 'Optional verify-on-ingest checksum, "<algorithm>:<hexvalue>". 422 on mismatch.' },
+          language:        { type:        :string,
+                             description: 'BCP 47 language of the track. Omit to keep it; send an empty value to clear it.' },
+          track_label:     { type:        :string,
+                             description: 'Display name for the track. Omit to keep it; send an empty value to clear it.' }
         },
         required: %i[binary]
       )

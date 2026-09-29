@@ -82,6 +82,59 @@ describe BlobsController, type: :controller do
     end
   end
 
+  describe 'a caption track language and label' do
+    let(:caption) { Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/example.bin')) }
+
+    it 'stores both on create and renders them' do
+      post :create, params: { work_id: work.noid, binary: caption, language: 'es-MX', track_label: 'Español' }, as: :json
+
+      expect(response.parsed_body['blob']).to include('language' => 'es-MX', 'track_label' => 'Español')
+      expect(Blob.find(response.parsed_body.dig('blob', 'id')).graph_payload)
+        .to include(language: 'es-MX', track_label: 'Español')
+    end
+
+    it 'refuses a malformed language before storing anything' do
+      work
+      expect { post :create, params: { work_id: work.noid, binary: caption, language: 'Spanish (Mexico)' }, as: :json }
+        .not_to(change { Atlas.query.find_all_of_model(model: Blob).count })
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(response.parsed_body['error']).to eq('invalid_language')
+    end
+
+    it 'refuses an over-long track label' do
+      post :create, params: { work_id: work.noid, binary: caption, track_label: 'x' * 65 }, as: :json
+
+      expect(response.parsed_body['error']).to eq('invalid_track_label')
+    end
+
+    context 'when replacing the bytes' do
+      let(:blob) do
+        BlobCreator.call(path: Rails.root.join('spec/fixtures/files/example.bin').to_s, work_id: work.noid,
+                         original_filename: 'en.vtt', language: 'en', track_label: 'English')
+      end
+
+      it 'keeps a language the update does not mention' do
+        patch :update, params: { id: blob.noid, binary: caption }, as: :json
+
+        expect(Blob.find(blob.noid)).to have_attributes(language: 'en', track_label: 'English')
+      end
+
+      it 'changes the one it sends and clears one sent empty' do
+        patch :update, params: { id: blob.noid, binary: caption, language: 'fr', track_label: '' }, as: :json
+
+        expect(Blob.find(blob.noid)).to have_attributes(language: 'fr', track_label: nil)
+      end
+
+      it 'refuses a malformed language without appending a revision' do
+        patch :update, params: { id: blob.noid, binary: caption, language: 'not a tag' }, as: :json
+
+        expect(response).to have_http_status(:unprocessable_content)
+        expect(Blob.find(blob.noid).versions).to eq(1)
+      end
+    end
+  end
+
   describe 'PATCH #update' do
     let(:blob) { BlobCreator.call(path: Rails.root.join('spec/fixtures/files/example.png').to_s, work_id: work.noid, original_filename: 'example.png') }
     let(:replacement) { Rails.root.join('spec/fixtures/files/example.tif') }

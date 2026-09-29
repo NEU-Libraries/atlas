@@ -43,6 +43,7 @@ either without a contract bump:
 | `Exceptions::LinkedMemberError` | 422 | The exception's code | Target missing, not a Collection, tombstoned; the Work tombstoned; already a structural member |
 | `Exceptions::WorkAssociationError` | 422 | The exception's code | Unknown type; target missing, not a Work, or the Work itself; either end tombstoned |
 | `Exceptions::FixityMismatch` | 422 | The exception's code | Uploaded bytes do not match `expected_digest`, or an unsupported digest algorithm |
+| `Exceptions::BlobMetadataError` | 422 | The exception's code | A Blob's `language` is not shaped like a BCP 47 tag, or its `track_label` is over 64 characters |
 | `Exceptions::DerivativePermissionsError` | 422 | The exception's code | Unknown tier, a tier more visible than its Work, or visibility not narrowing with resolution |
 | `Exceptions::PermissionsError` | 422 | The exception's code | An ACL write breaking a rights invariant — today, a read audience wider than the structural parent's |
 | `Exceptions::ReadOnlyMode` | 503 | `read_only_mode` | A write reached Atlas during a maintenance window |

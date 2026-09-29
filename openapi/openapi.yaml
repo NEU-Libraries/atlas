@@ -543,6 +543,15 @@ components:
             label:
               type: string
               nullable: true
+            language:
+              type: string
+              nullable: true
+              description: BCP 47 language of a caption or other text track (e.g.
+                en, es-MX)
+            track_label:
+              type: string
+              nullable: true
+              description: Display name a player shows for the track (e.g. "Español")
             file_identifiers:
               type: array
               items:
@@ -569,6 +578,8 @@ components:
           - digest
           - filename
           - label
+          - language
+          - track_label
           - file_identifiers
           - tombstoned
           - tombstoned_at
@@ -821,6 +832,15 @@ components:
             label:
               type: string
               nullable: true
+            language:
+              type: string
+              nullable: true
+              description: BCP 47 language of a caption or other text track; null
+                when unset
+            track_label:
+              type: string
+              nullable: true
+              description: Display name a player shows for the track; null when unset
             role:
               type: string
               nullable: true
@@ -936,6 +956,16 @@ components:
                   label:
                     type: string
                     nullable: true
+                  language:
+                    type: string
+                    nullable: true
+                    description: BCP 47 language of a caption or other text track;
+                      null when unset
+                  track_label:
+                    type: string
+                    nullable: true
+                    description: Display name a player shows for the track; null when
+                      unset
                   role:
                     type: string
                     nullable: true
@@ -2202,6 +2232,11 @@ paths:
         request from the same caller with the same key returns the
         originally-created Blob without re-uploading. 410 + tombstone
         payload if the underlying Blob has been tombstoned.
+
+        `language` and `track_label` describe a caption or other text track.
+        A malformed `language` is refused `422 invalid_language`, and a
+        `track_label` over 64 characters `422 invalid_track_label`, before
+        anything is stored.
       parameters:
       - name: Idempotency-Key
         in: header
@@ -2225,6 +2260,14 @@ paths:
                   type: string
                   description: Optional verify-on-ingest checksum, "<algorithm>:<hexvalue>"
                     (sha512/sha256/sha1/md5). Rejected 422 if the bytes do not match.
+                language:
+                  type: string
+                  description: BCP 47 language of a caption or other text track (e.g.
+                    en, es-MX)
+                track_label:
+                  type: string
+                  description: Display name a player shows for the track, at most
+                    64 characters
                 binary:
                   type: string
                   format: binary
@@ -2311,6 +2354,14 @@ paths:
                   type: string
                   description: Optional verify-on-ingest checksum, "<algorithm>:<hexvalue>".
                     422 on mismatch.
+                language:
+                  type: string
+                  description: BCP 47 language of the track. Omit to keep it; send
+                    an empty value to clear it.
+                track_label:
+                  type: string
+                  description: Display name for the track. Omit to keep it; send an
+                    empty value to clear it.
               required:
               - binary
       responses:

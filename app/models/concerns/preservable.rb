@@ -11,7 +11,7 @@
 module Preservable
   extend ActiveSupport::Concern
 
-  ENVELOPE_SCHEMA_VERSION = 5
+  ENVELOPE_SCHEMA_VERSION = 6
 
   def graph_payload
     {

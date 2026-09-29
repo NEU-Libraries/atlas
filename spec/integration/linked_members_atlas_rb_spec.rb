@@ -13,9 +13,9 @@ require 'rails_helper'
 # write paths are admin-only — raises AtlasRb::ForbiddenError, instead of the
 # swallowed nil / parsed-hash of 1.2.0.
 #
-# 1.9.1 adds a second, narrower write path alongside the admin-only one above:
-# AtlasRb::System::Work.add_linked_member (showcase publishing on a depositor's
-# behalf), covered in its own describe block below.
+# A second, narrower write path sits alongside the admin-only one above:
+# AtlasRb::System::Work.add_linked_member and .remove_linked_member (showcase
+# publishing on a depositor's behalf), covered in their own describe block below.
 RSpec.describe 'Linked membership via atlas_rb', :atlas_rb_server do
   # Admin (wildcard) — linked-member writes are admin-only, so the happy-path
   # calls run as admin.
@@ -87,13 +87,13 @@ RSpec.describe 'Linked membership via atlas_rb', :atlas_rb_server do
     expect(AtlasRb::Work.linked_members(work.noid, nuid: admin_nuid)).to eq([])
   end
 
-  # Showcase publishing (Cerberus's "Publish to my community" deposit branch):
-  # AtlasRb::System::Work.add_linked_member, the :system-only companion to the
-  # human-facing calls above. System path (like account_switching_atlas_rb_spec):
+  # Showcase publishing (Cerberus's "Publish to my community" deposit branch, and
+  # the showcase-category swap on its Work Edit page): the :system-only
+  # companions to the human-facing calls above. System path (like account_switching_atlas_rb_spec):
   # atlas_rb's system_connection and the server's require_auth share one
   # credentials object in-process, so pointing both at the same secret
   # authenticates as :system.
-  describe 'AtlasRb::System::Work.add_linked_member' do
+  describe 'AtlasRb::System::Work linked members' do
     let(:system_secret) { 'test-system-token' }
     let!(:system_user) do
       User.find_by(nuid: AtlasRb::System::NUID) ||
@@ -130,6 +130,43 @@ RSpec.describe 'Linked membership via atlas_rb', :atlas_rb_server do
       expect do
         AtlasRb::System::Work.add_linked_member(own_work.noid, other.noid, on_behalf_of: depositor_nuid)
       end.to raise_error(AtlasRb::ForbiddenError)
+    end
+
+    it 'swaps a depositor-owned Work from one showcase to another, attributing the unlink to the depositor' do
+      new_showcase = CollectionCreator.call(parent_id: community.noid, featured: true)
+      AtlasRb::System::Work.add_linked_member(own_work.noid, showcase.noid, on_behalf_of: depositor_nuid)
+
+      after_remove = AtlasRb::System::Work.remove_linked_member(own_work.noid, showcase.noid,
+                                                                on_behalf_of: depositor_nuid)
+      expect(after_remove).to eq([])
+      after_add = AtlasRb::System::Work.add_linked_member(own_work.noid, new_showcase.noid,
+                                                          on_behalf_of: depositor_nuid)
+      expect(after_add).to eq([new_showcase.noid])
+
+      event = AuditEvent.where(action: 'unlink_member', resource_id: own_work.id.to_s).sole
+      expect(event.actor_nuid).to        eq(AtlasRb::System::NUID)
+      expect(event.on_behalf_of_nuid).to eq(depositor_nuid)
+    end
+
+    it 'refuses to unlink when on_behalf_of does not own the Work, leaving the link in place' do
+      AtlasRb::System::Work.add_linked_member(own_work.noid, showcase.noid, on_behalf_of: depositor_nuid)
+
+      expect do
+        AtlasRb::System::Work.remove_linked_member(own_work.noid, showcase.noid, on_behalf_of: '000000999')
+      end.to raise_error(AtlasRb::ForbiddenError)
+
+      expect(AtlasRb::Work.linked_members(own_work.noid, nuid: admin_nuid)).to eq([showcase.noid])
+    end
+
+    # An admin link into an ordinary Collection is not the depositor's to undo.
+    it 'refuses to unlink from a Collection that is not featured' do
+      AtlasRb::Work.add_linked_member(own_work.noid, other.noid, nuid: admin_nuid)
+
+      expect do
+        AtlasRb::System::Work.remove_linked_member(own_work.noid, other.noid, on_behalf_of: depositor_nuid)
+      end.to raise_error(AtlasRb::ForbiddenError)
+
+      expect(AtlasRb::Work.linked_members(own_work.noid, nuid: admin_nuid)).to eq([other.noid])
     end
   end
 end

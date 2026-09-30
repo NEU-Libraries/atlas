@@ -9,6 +9,6 @@ json.array! @pages do |file_set, assets|
   json.position file_set.position
   json.tombstoned file_set.tombstoned
   json.assets assets do |asset|
-    json.partial! 'works/asset', asset: asset, classification: file_set.type
+    json.partial! 'works/asset', asset: asset, file_set: file_set
   end
 end

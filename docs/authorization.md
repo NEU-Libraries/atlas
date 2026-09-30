@@ -258,6 +258,10 @@ Each grant is a named carve-out beneath the wildcard, not a promotion:
 - **`:tombstone` and `:restore` on `FileSet`.** Delegates remove a caption or other
   attached file reversibly, and put it back. Standard users get neither, because
   Atlas cannot cheaply trace a FileSet to the Work whose edit rights would apply.
+- **`:read_withdrawn` on `Work`.** `GET /works/:id/withdrawn_assets`, the listing
+  that names a tombstoned FileSet so it can be restored. It goes to the tiers
+  that can act on what it lists; edit rights on the Work do not reach it, because
+  they do not reach `:restore` either.
 - **`:associate` on `Work`.** See the alias table above.
 - **`:create` on `AuditEvent`.** Unblocks Cerberus's impersonation session-start
   write; view-as and acting-as both call it before establishing a session.

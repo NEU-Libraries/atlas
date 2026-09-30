@@ -29,6 +29,7 @@ module OpenapiSchemas
       BlobsIndex:         blobs_index,
       WorkAssets:         work_assets,
       WorkFileSets:       work_file_sets,
+      WithdrawnAssets:    work_withdrawn_assets,
       Pagination:         pagination,
       User:               user,
       ProvisionedUser:    provisioned_user,
@@ -276,9 +277,27 @@ module OpenapiSchemas
     }
   end
 
-  # Polymorphic per-asset item shared by WorkAssets (flattened) and
-  # WorkFileSets (grouped per page) — mirrors the shared
-  # works/_asset.json.jbuilder partial.
+  # GET /works/:id/withdrawn_assets — the WorkAssets item for a tombstoned
+  # FileSet, plus the FileSet's tombstone stamp. Mirrors
+  # app/views/works/withdrawn_assets.json.jbuilder.
+  def work_withdrawn_assets
+    stamp = {
+      tombstoned_at: { type: :string, nullable: true, description: 'ISO-8601 timestamp the FileSet was tombstoned' },
+      tombstoned_by: { type: :string, nullable: true, description: 'NUID of the user who tombstoned the FileSet' }
+    }
+    {
+      type:  :array,
+      items: {
+        oneOf: asset_item[:oneOf].map do |branch|
+          branch.merge(properties: branch[:properties].merge(stamp))
+        end
+      }
+    }
+  end
+
+  # Polymorphic per-asset item shared by WorkAssets (flattened),
+  # WorkFileSets (grouped per page) and WithdrawnAssets — mirrors the
+  # shared works/_asset.json.jbuilder partial.
   def asset_item
     {
       oneOf: [
@@ -286,6 +305,7 @@ module OpenapiSchemas
           type:        :object,
           properties:  {
             noid:              { type: :string },
+            file_set:          { type: :string, description: 'NOID of the FileSet the asset is listed under — the id tombstone and restore take' },
             mime_type:         { type: :string, nullable: true },
             original_filename: { type: :string, nullable: true },
             size:              { type: :integer, nullable: true },
@@ -308,6 +328,7 @@ module OpenapiSchemas
           type:        :object,
           properties:  {
             noid:           { type: :string },
+            file_set:       { type: :string, description: 'NOID of the FileSet the asset is listed under' },
             mime_type:      { type: :string, nullable: true },
             use:            { type: :string, nullable: true, description: 'Human display label for the role (e.g. "Service File"); match on `role` for a stable token' },
             uri:            { type: :string, nullable: true },

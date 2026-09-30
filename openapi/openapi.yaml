@@ -817,6 +817,10 @@ components:
           properties:
             noid:
               type: string
+            file_set:
+              type: string
+              description: NOID of the FileSet the asset is listed under — the id
+                tombstone and restore take
             mime_type:
               type: string
               nullable: true
@@ -874,6 +878,9 @@ components:
           properties:
             noid:
               type: string
+            file_set:
+              type: string
+              description: NOID of the FileSet the asset is listed under
             mime_type:
               type: string
               nullable: true
@@ -941,6 +948,10 @@ components:
                 properties:
                   noid:
                     type: string
+                  file_set:
+                    type: string
+                    description: NOID of the FileSet the asset is listed under — the
+                      id tombstone and restore take
                   mime_type:
                     type: string
                     nullable: true
@@ -999,6 +1010,9 @@ components:
                 properties:
                   noid:
                     type: string
+                  file_set:
+                    type: string
+                    description: NOID of the FileSet the asset is listed under
                   mime_type:
                     type: string
                     nullable: true
@@ -1045,6 +1059,134 @@ components:
         - position
         - tombstoned
         - assets
+    WithdrawnAssets:
+      type: array
+      items:
+        oneOf:
+        - type: object
+          properties:
+            noid:
+              type: string
+            file_set:
+              type: string
+              description: NOID of the FileSet the asset is listed under — the id
+                tombstone and restore take
+            mime_type:
+              type: string
+              nullable: true
+            original_filename:
+              type: string
+              nullable: true
+            size:
+              type: integer
+              nullable: true
+            filename:
+              type: string
+              nullable: true
+            label:
+              type: string
+              nullable: true
+            language:
+              type: string
+              nullable: true
+              description: BCP 47 language of a caption or other text track; null
+                when unset
+            track_label:
+              type: string
+              nullable: true
+              description: Display name a player shows for the track; null when unset
+            role:
+              type: string
+              nullable: true
+              description: Stable machine token for the asset role — the Role key
+                (e.g. service_file, small_image, original_file). Match on this, not
+                the human `use` label
+            classification:
+              type: string
+              nullable: true
+              description: Classification name of the containing FileSet (Image/PDF/Structured
+                Text/…; "File" = unidentified). Download consumers key on "File" to
+                zip opaque binaries on the fly
+            gated:
+              type: boolean
+              description: 'True if this binary must be authorized rather than downloaded
+                directly (its audience is not public). Blobs classify by media type:
+                image original => original, plus pdf/audio/video; other types ride
+                the Work gate'
+            permission:
+              type: array
+              items:
+                type: string
+              nullable: true
+              description: Effective read-group set gating this binary (public / Grouper
+                groups / [] private); null for guests, to whom group names are not
+                disclosed
+            tombstoned_at:
+              type: string
+              nullable: true
+              description: ISO-8601 timestamp the FileSet was tombstoned
+            tombstoned_by:
+              type: string
+              nullable: true
+              description: NUID of the user who tombstoned the FileSet
+          required:
+          - noid
+          description: Blob asset — held binary
+        - type: object
+          properties:
+            noid:
+              type: string
+            file_set:
+              type: string
+              description: NOID of the FileSet the asset is listed under
+            mime_type:
+              type: string
+              nullable: true
+            use:
+              type: string
+              nullable: true
+              description: Human display label for the role (e.g. "Service File");
+                match on `role` for a stable token
+            uri:
+              type: string
+              nullable: true
+            label:
+              type: string
+              nullable: true
+            role:
+              type: string
+              nullable: true
+              description: Stable machine token for the asset role — the Role key
+                (e.g. service_file, small_image). Match on this, not the human `use`
+                label
+            classification:
+              type: string
+              nullable: true
+              description: Classification name of the containing FileSet (e.g. Derivative
+                for IIIF tiers)
+            gated:
+              type: boolean
+              description: True if this derivative tier must be authorized rather
+                than linked directly (its audience is not public)
+            permission:
+              type: array
+              items:
+                type: string
+              nullable: true
+              description: Effective read-group set gating this tier (public / Grouper
+                groups / [] private); null for guests, to whom group names are not
+                disclosed
+            tombstoned_at:
+              type: string
+              nullable: true
+              description: ISO-8601 timestamp the FileSet was tombstoned
+            tombstoned_by:
+              type: string
+              nullable: true
+              description: NUID of the user who tombstoned the FileSet
+          required:
+          - noid
+          description: Delegate asset — external pointer (e.g. IIIF URL)
     Pagination:
       type: object
       description: pagy pagination block
@@ -5336,6 +5478,36 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/WorkAssets"
+  "/works/{id}/withdrawn_assets":
+    parameters:
+    - name: id
+      in: path
+      description: NOID of the Work
+      required: true
+      schema:
+        type: string
+    get:
+      summary: List the assets of a work's withdrawn FileSets
+      tags:
+      - Works
+      description: |
+        The assets of the Work's tombstoned FileSets, which `/works/{id}/assets`
+        and `/works/{id}/file_sets` drop. Each entry has the `/assets` shape,
+        including `file_set` — the id `POST /resources/{id}/restore` takes —
+        plus that FileSet's `tombstoned_at` and `tombstoned_by`.
+
+        Admin and devolved-admin tiers only, the tiers that may tombstone and
+        restore a FileSet. Anyone else gets 403, including a user with edit
+        rights on the Work. Not response-cached.
+      responses:
+        '200':
+          description: withdrawn assets listed
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/WithdrawnAssets"
+        '404':
+          description: work not found
   "/works/{id}/file_sets":
     parameters:
     - name: id

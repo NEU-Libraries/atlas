@@ -243,6 +243,12 @@ RSpec.describe Ability do
       expect(subject).to be_able_to(:read_versions, Community)
     end
 
+    it 'grants :read_withdrawn on Work, unconditionally, beside :tombstone and :restore on FileSet' do
+      expect(subject).to be_able_to(:read_withdrawn, stranger_work)
+      expect(subject).to be_able_to(:tombstone,      FileSet.new)
+      expect(subject).to be_able_to(:restore,        FileSet.new)
+    end
+
     it 'grants none of the other admin-only structural mutations' do
       expect(subject).not_to be_able_to(:link_member, Work.new)
       expect(subject).not_to be_able_to(:link_member, stranger_collection)
@@ -264,6 +270,7 @@ RSpec.describe Ability do
       expect(subject).not_to be_able_to(:read_versions, Work)
       expect(subject).not_to be_able_to(:read_versions, Collection)
       expect(subject).not_to be_able_to(:read_versions, Community)
+      expect(subject).not_to be_able_to(:read_withdrawn, Work.new(edit_groups: [Permissions::STAFF_EDIT_GROUP]))
     end
   end
 
@@ -276,6 +283,7 @@ RSpec.describe Ability do
         expect(ability).not_to be_able_to(:create,        AuditEvent)
         expect(ability).not_to be_able_to(:read_versions, Blob)
         expect(ability).not_to be_able_to(:read_versions, Work)
+        expect(ability).not_to be_able_to(:read_withdrawn, Work)
       end
     end
   end

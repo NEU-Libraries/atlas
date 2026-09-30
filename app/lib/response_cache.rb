@@ -24,7 +24,7 @@
 class ResponseCache
   # Bump the version when a cached view changes shape. The Redis store survives
   # a deploy, so without the bump old-shape bodies serve until their TTL.
-  NAMESPACE = 'atlas/response/v2'
+  NAMESPACE = 'atlas/response/v3'
 
   # One entry per (scope, noid, audience). The format is folded into the scope
   # because /works/:id/mods answers three of them and they must not collide.

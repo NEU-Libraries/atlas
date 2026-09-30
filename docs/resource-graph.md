@@ -213,6 +213,15 @@ with it.
   `/file_sets` skip it, and `PageAssetsQuery` skips a tombstoned nested FileSet,
   so no consumer needs its own filter. The Blob's own reads still answer, as a
   tombstoned Work's Blobs do.
+- **`GET /works/:id/withdrawn_assets` lists what the others drop.** Without it,
+  Restore needs an id that nothing can look up once the withdrawing page is
+  gone. It is a separate route, not a flag on `/assets`, so withdrawn files sit
+  behind the tier that withdraws them rather than one parameter away from every
+  public download listing and its response cache. It covers the Work's direct
+  FileSets only, as `/assets` does: a tombstoned nested FileSet is not listed.
+- **Every asset entry carries `file_set`**, the NOID of the FileSet it is listed
+  under, because tombstone and restore take a FileSet id and an asset entry
+  otherwise names only the Blob or Delegate.
 - **The audit row hangs off the parent Work**, with `change_type: 'file'` and the
   FileSet's NOID in the payload, because `AuditEvent` admits no FileSet.
 - **Only the devolved-admin tier and admins may do it.** A standard user's edit

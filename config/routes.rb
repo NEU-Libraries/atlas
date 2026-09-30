@@ -209,6 +209,10 @@ Rails.application.routes.draw do
     # Downloads
     get '/works/:id/assets', to: 'works#assets', as: 'work_assets'
 
+    # The tombstoned FileSets' assets, which /assets drops. Operator tier only,
+    # so Restore has an id to act on after the withdrawing page is gone.
+    get '/works/:id/withdrawn_assets', to: 'works#withdrawn_assets', as: 'work_withdrawn_assets'
+
     # Ordered page listing (multipage Works): one entry per page-bearing
     # FileSet, position ASC, with each page's downloadable assets nested.
     # Unpaginated by design — manifest assembly needs the whole sequence

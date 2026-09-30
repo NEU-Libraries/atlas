@@ -414,6 +414,7 @@ RSpec.describe 'Works', type: :request do
           # Labeled, consumer-facing name: <Label#prefix><noid>.<ext> —
           # distinct from the deposited original_filename.
           expect(blob['filename']).to match(/\.png\z/)
+          expect(blob['file_set']).to eq(file_set.noid)
         end
       end
 
@@ -492,6 +493,96 @@ RSpec.describe 'Works', type: :request do
           expect(original).to include('gated' => true, 'permission' => ['northeastern:drs:x:archives'])
         end
       end
+    end
+  end
+
+  path '/works/{id}/withdrawn_assets' do
+    parameter name: :id, in: :path, type: :string, description: 'NOID of the Work'
+
+    get "List the assets of a work's withdrawn FileSets" do
+      tags 'Works'
+      produces 'application/json'
+      description <<~DESC
+        The assets of the Work's tombstoned FileSets, which `/works/{id}/assets`
+        and `/works/{id}/file_sets` drop. Each entry has the `/assets` shape,
+        including `file_set` — the id `POST /resources/{id}/restore` takes —
+        plus that FileSet's `tombstoned_at` and `tombstoned_by`.
+
+        Admin and devolved-admin tiers only, the tiers that may tombstone and
+        restore a FileSet. Anyone else gets 403, including a user with edit
+        rights on the Work. Not response-cached.
+      DESC
+
+      response '200', 'withdrawn assets listed' do
+        let(:work) { WorkCreator.call(parent_id: collection.noid) }
+        let(:id)   { work.noid }
+        let(:fixture)   { Rails.root.join('spec/fixtures/files/example.bin').to_s }
+        let(:withdrawn) { BlobCreator.call(work_id: work.noid, original_filename: 'es.vtt', path: fixture) }
+        let(:live)      { BlobCreator.call(work_id: work.noid, original_filename: 'live.bin', path: fixture) }
+        before do
+          live
+          file_set = withdrawn.parent
+          file_set.tombstone(by: '000000004')
+          Atlas.persister.save(resource: file_set)
+        end
+        schema '$ref' => '#/components/schemas/WithdrawnAssets'
+        run_test! do |response|
+          entries = JSON.parse(response.body)
+          expect(entries.pluck('noid')).to eq([withdrawn.noid])
+          expect(entries.first).to include('file_set' => withdrawn.parent.noid, 'tombstoned_by' => '000000004')
+          expect(entries.first['tombstoned_at']).to be_present
+        end
+      end
+
+      response '404', 'work not found' do
+        let(:id) { 'doesnotexist' }
+        run_test!
+      end
+    end
+  end
+
+  # Plain (non-rswag) coverage of who may read the withdrawn listing.
+  describe 'GET /works/:id/withdrawn_assets tiers', type: :request do
+    let(:work)    { WorkCreator.call(parent_id: collection.noid) }
+    let(:fixture) { Rails.root.join('spec/fixtures/files/example.bin').to_s }
+    let(:blob)    { BlobCreator.call(work_id: work.noid, original_filename: 'a.bin', path: fixture) }
+    let!(:delegate) do
+      User.create!(email: 'delegate-withdrawn@example.invalid', password: SecureRandom.hex(16),
+                   nuid: '000000054', name: 'Williams, Delegate', role: :privileged,
+                   groups: [Permissions::ADMIN_GROUP])
+    end
+    let!(:standard) do
+      User.create!(email: 'standard-withdrawn@example.invalid', password: SecureRandom.hex(16),
+                   nuid: '000000055', name: 'Roe, Sam', role: :standard, groups: [])
+    end
+
+    it 'lists a FileSet the delegate tombstoned, and drops it again on restore' do
+      post "/resources/#{blob.parent.noid}/tombstone", headers: signed_auth_headers(delegate.nuid)
+      get "/works/#{work.noid}/withdrawn_assets", headers: signed_auth_headers(delegate.nuid)
+      expect(response).to have_http_status(:ok)
+      expect(response.parsed_body.pluck('file_set')).to eq([blob.parent.noid])
+      expect(response.parsed_body.first['tombstoned_by']).to eq(delegate.nuid)
+
+      post "/resources/#{blob.parent.noid}/restore", headers: signed_auth_headers(delegate.nuid)
+      get "/works/#{work.noid}/withdrawn_assets", headers: signed_auth_headers(delegate.nuid)
+      expect(response.parsed_body).to eq([])
+    end
+
+    it 'refuses a standard user with 403, even one who can edit the Work' do
+      work.edit_users = [standard.nuid]
+      Atlas.persister.save(resource: work)
+
+      get "/works/#{work.noid}/withdrawn_assets", headers: signed_auth_headers(standard.nuid)
+      expect(response).to have_http_status(:forbidden)
+    end
+
+    it 'leaves the metadata FileSet out even if it is tombstoned' do
+      metadata = work.children.find { |fs| Classification.metadata?(fs.type) }
+      metadata.tombstone(by: delegate.nuid)
+      Atlas.persister.save(resource: metadata)
+
+      get "/works/#{work.noid}/withdrawn_assets", headers: signed_auth_headers(delegate.nuid)
+      expect(response.parsed_body).to eq([])
     end
   end
 

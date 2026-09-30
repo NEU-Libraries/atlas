@@ -161,6 +161,7 @@ class Ability
       can :reparent,  [Work, Collection, Community]
       can :restore,   [Work, Collection, Community, FileSet]
       can :tombstone, FileSet
+      can :read_withdrawn, Work
       can :associate, Work
       can :create, AuditEvent
       can :read_versions, [Blob, Work, Collection, Community]

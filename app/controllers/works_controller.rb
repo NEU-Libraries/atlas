@@ -120,6 +120,18 @@ class WorksController < ApplicationController
     end
   end
 
+  # The only read that names a withdrawn FileSet, so Restore stays reachable
+  # after the page that tombstoned it is gone. A separate route rather than a
+  # flag on #assets keeps withdrawn files off the public download listing and
+  # out of its response cache; the gate is the tier that may tombstone one.
+  def withdrawn_assets
+    @work = Work.find(params.expect(:id))
+    authorize! :read_withdrawn, @work || Work
+    return head(:not_found) if @work.nil?
+
+    render_assets(withdrawn: true)
+  end
+
   def update_image_derivatives
     with_stale_object_retry do
       @work = Work.find(params.expect(:id))
@@ -234,21 +246,21 @@ class WorksController < ApplicationController
 
   private
 
-    def render_assets
-      # Pair each downloadable member with its FileSet's classification (fs.type)
-      # so the flattened view can surface it per asset — the grouped #file_sets
-      # read still has the FileSet in hand. Members come from one batched read
-      # for every FileSet at once: a many-page Work would otherwise cost a query
-      # per page.
-      file_sets = @work.children.reject { |fs| fs.tombstoned || Classification.metadata?(fs.type) }
+    # Pair each downloadable member with its FileSet so the flattened view can
+    # surface the FileSet's NOID and classification per asset. Members come
+    # from one batched read for every FileSet at once: a many-page Work would
+    # otherwise cost a query per page.
+    def render_assets(withdrawn: false)
+      file_sets = @work.children.reject { |fs| Classification.metadata?(fs.type) }
+                       .select { |fs| fs.tombstoned.present? == withdrawn }
       members   = Atlas.query.custom_queries.find_many_ordered_members(resources: file_sets)
 
       @assets = file_sets.flat_map do |fs|
         members.fetch(fs.id.to_s, [])
                .select { |m| Role.downloadable?(m.use) }
-               .map    { |m| [m, fs.type] }
+               .map    { |m| [m, fs] }
       end
-      render :assets
+      render(withdrawn ? :withdrawn_assets : :assets)
     end
 
     def render_file_sets

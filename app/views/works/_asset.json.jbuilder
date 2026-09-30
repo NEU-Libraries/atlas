@@ -22,11 +22,13 @@ end
 # display label is not a stable key, so match on `role`, not `use`.
 json.role Role.find_by(name: asset.use)&.to_s
 
-# Classification of the containing FileSet (a Classification#name — e.g. 'Image',
-# 'PDF', 'Structured Text', or 'File' for an unidentified binary). Carried onto
-# each asset so a download consumer branches without a separate FileSet lookup —
-# Cerberus keys on 'File' to zip opaque downloads on the fly.
-json.classification classification
+# The FileSet the asset is listed under, and its classification (a
+# Classification#name — e.g. 'Image', 'PDF', or 'File' for an unidentified
+# binary). Both ride on each asset so a consumer needs no FileSet lookup:
+# tombstone and restore take the FileSet's NOID, and Cerberus keys on 'File'
+# to zip opaque downloads on the fly.
+json.file_set file_set.noid
+json.classification file_set.type
 
 # Per-asset read gate (advisory — Cerberus / the IIIF auth layer enforce).
 # `gated` says this asset must be authorized rather than fetched directly

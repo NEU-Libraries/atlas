@@ -2,12 +2,12 @@
 
 require 'rails_helper'
 
-# atlas_rb 1.3.2 — AtlasRb::User wraps the read-only user directory
-# (UsersController#index / #show). Cerberus consumes this for the User Inbox
-# recipient typeahead and sender-name display (and any surface that today
-# renders a bare NUID). Exercised end-to-end through the live server: proves
-# the gem's query-param serialization, Mash wrapping, the 404 → nil
-# translation on find_by_nuid, and the excluded-role contract over the wire.
+# AtlasRb::User wraps the read-only user directory (UsersController#index /
+# #show). Cerberus consumes this for the User Inbox recipient typeahead and
+# sender-name display (and any surface that renders a bare NUID). Exercised
+# end-to-end through the live server: proves the gem's query-param
+# serialization, Mash wrapping, the 404 → nil translation on find_by_nuid, the
+# curated Person display_name, and the excluded-role contract over the wire.
 RSpec.describe 'User directory via atlas_rb', :atlas_rb_server do
   let(:admin_nuid) { ATLAS_RB_SERVER_ADMIN_NUID }
 
@@ -30,7 +30,20 @@ RSpec.describe 'User directory via atlas_rb', :atlas_rb_server do
     entries = AtlasRb::User.search('jane', nuid: admin_nuid)
 
     expect(entries.pluck('nuid')).to eq([jane.nuid, janet.nuid])
-    expect(entries.first.keys).to contain_exactly('nuid', 'name')
+    expect(entries.first.keys).to contain_exactly('nuid', 'name', 'display_name')
+  end
+
+  # A librarian renamed the Person, and the SSO name never
+  # follows. The picker must find the curated name and show it.
+  it 'searches and returns the curated Person display_name' do
+    PersonCreator.call(nuid: jane.nuid, display_name: 'Mickey Gasper')
+
+    entry = AtlasRb::User.search('gasper', nuid: admin_nuid).sole
+
+    expect(entry.to_h).to eq('nuid' => jane.nuid, 'name' => 'Doe, Jane', 'display_name' => 'Mickey Gasper')
+    expect(AtlasRb::User.find_by_nuid(jane.nuid, nuid: admin_nuid).display_name).to eq('Mickey Gasper')
+    expect(AtlasRb::User.resolve([jane.nuid, janet.nuid], nuid: admin_nuid).pluck('display_name'))
+      .to eq(['Mickey Gasper', nil])
   end
 
   it 'wraps each entry in a Mash (dot access alongside string keys)' do
@@ -41,11 +54,12 @@ RSpec.describe 'User directory via atlas_rb', :atlas_rb_server do
     expect(entry.name).to eq(entry['name'])
   end
 
-  it 'resolves a single NUID to nuid + name' do
+  it 'resolves a single NUID to nuid, name and a null display_name without a Person' do
     entry = AtlasRb::User.find_by_nuid(jane.nuid, nuid: admin_nuid)
 
     expect(entry).to be_a(AtlasRb::Mash)
     expect(entry.name).to eq('Doe, Jane')
+    expect(entry.to_h).to include('display_name' => nil)
   end
 
   it 'returns nil for unknown and excluded-role NUIDs alike' do

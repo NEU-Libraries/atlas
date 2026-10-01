@@ -52,5 +52,12 @@ namespace :atlas do
     rescue Valkyrie::Storage::OCFL::PoolSealed => e
       Rails.logger.warn "atlas:storage:seal_full_roots — #{e.message}; add a root before the next deposit"
     end
+
+    desc 'Recompute the storage footprint ledger by walking every storage root. Idempotent.'
+    task rebuild_footprints: :environment do
+      report = StorageFootprintRebuilder.call
+      Rails.logger.info "atlas:storage:rebuild_footprints complete — #{report[:objects]} objects, " \
+                        "#{report[:bytes]} bytes, #{report[:corrected]} corrected, #{report[:removed]} stale rows removed"
+    end
   end
 end

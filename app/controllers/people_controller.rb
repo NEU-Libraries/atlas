@@ -5,8 +5,8 @@
 # server-side — NEU IT Security treats surfacing NUIDs in public URLs as an
 # enumeration risk. NUID stays the key only where it must: create (one Person
 # per NUID, the correlation key) and the ?nuids= resolve batch (NuidResolver,
-# never user-facing). Reads sit on the authenticated floor; create/update/
-# affiliation writes are :system + admin.
+# never user-facing). Reads sit on the authenticated floor, except the
+# admin-only ?q= search; create/update/affiliation writes are :system + admin.
 class PeopleController < ApplicationController
   include LazyPagination
   include StaleObjectRetry
@@ -18,6 +18,8 @@ class PeopleController < ApplicationController
   #                           (public address) + server-side nuid.
   # GET /people?nuids=a,b,c — batch resolve to authoritative display_name
   #                           (supersedes User.resolve); unresolved nuids drop.
+  # GET /people?q=fragment  — admin typeahead over name, NUID and account email,
+  #                           paginated over the matches.
   def index
     authorize! :read, Person
 
@@ -26,6 +28,9 @@ class PeopleController < ApplicationController
       # size follows the match count. Still paginated for a uniform shape.
       people = Atlas.query.custom_queries.find_people_by_nuids(nuids: batch_nuids)
       @pagination, items = paginate_array(people)
+    elsif search_fragment
+      authorize! :search, Person
+      @pagination, items = paginate_source(SearchPage.new(search_fragment), per_page: params[:per_page])
     else
       @pagination, items = paginate_model(Person, per_page: params[:per_page])
     end
@@ -121,7 +126,29 @@ class PeopleController < ApplicationController
     render :show
   end
 
+  # The ?q= matches as a SQL page source, so the pagination block counts
+  # matches rather than the whole registry.
+  class SearchPage
+    include LazyPagination::SqlPage
+
+    def initialize(fragment)
+      @fragment = fragment
+    end
+
+    def count
+      Atlas.query.custom_queries.count_people_matching(fragment: @fragment)
+    end
+
+    def page(limit:, offset:)
+      Atlas.query.custom_queries.find_people_matching(fragment: @fragment, limit: limit, offset: offset)
+    end
+  end
+
   private
+
+    def search_fragment
+      params[:q].to_s.strip.presence
+    end
 
     # Addressable lookups are by NOID (Resource.find resolves the alternate_id),
     # scoped to Person so a non-Person NOID reads as absent. The NUID-keyed

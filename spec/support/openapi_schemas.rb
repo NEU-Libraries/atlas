@@ -597,15 +597,17 @@ module OpenapiSchemas
 
   # GET /users/by_nuid/{nuid} (and each GET /users item) — minimal-
   # disclosure directory entry pinned to users/_directory_entry.json.jbuilder:
-  # nuid + name only, never email/role/groups.
+  # nuid, name and the Person display_name, never email/role/groups.
   def user_directory_entry
     {
       type:       :object,
       properties: {
-        nuid: { type: :string },
-        name: { type: :string, nullable: true }
+        nuid:         { type: :string },
+        name:         { type: :string, nullable: true, description: 'The SSO-fed account name' },
+        display_name: { type: :string, nullable: true,
+                        description: 'The curated Person name for this NUID; null when there is no Person' }
       },
-      required:   %w[nuid name]
+      required:   %w[nuid name display_name]
     }
   end
 

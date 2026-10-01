@@ -13,7 +13,13 @@ module LazyPagination
   # once to count and again to reach the offset.
   def paginate_model(klass, filters: {}, per_page: nil)
     scope = filters.present? ? filtered_all(klass, filters) : ModelPage.new(klass)
-    pagy, items = pagy(scope, count: scope.count, **per_page_vars(per_page))
+    paginate_source(scope, per_page: per_page)
+  end
+
+  # Paginate any page source: a SqlPage (count + page) whose slice comes from
+  # SQL, or an array sliced in memory.
+  def paginate_source(source, per_page: nil)
+    pagy, items = pagy(source, count: source.count, **per_page_vars(per_page))
     [pagy_metadata(pagy), items]
   end
 
@@ -27,19 +33,24 @@ module LazyPagination
     [pagy_metadata(pagy), items]
   end
 
-  # Serves all three shapes paginate_model and paginate_array pass in: a
-  # ModelPage reads its slice from Postgres, an array or a lazy enumerator is
-  # sliced in memory.
+  # Serves every shape the paginators pass in: a SqlPage reads its slice from
+  # Postgres, an array or a lazy enumerator is sliced in memory.
   def pagy_get_items(collection, pagy)
-    return collection.page(limit: pagy.items, offset: pagy.offset) if collection.is_a?(ModelPage)
+    return collection.page(limit: pagy.items, offset: pagy.offset) if collection.is_a?(SqlPage)
 
     collection.drop(pagy.offset).first(pagy.items)
   end
 
-  # A model's resources as a countable, sliceable page source, so pagy keeps
-  # doing the page parsing and overflow handling while the count and the slice
-  # go to SQL instead of to a full enumeration.
+  # Marks a page source whose #count and #page(limit:, offset:) go to SQL, so
+  # pagy keeps doing the page parsing and overflow handling without a full
+  # enumeration. A marker rather than respond_to?(:page), so an unrelated
+  # object that happens to have a #page is still sliced in memory.
+  module SqlPage; end
+
+  # A model's resources as a SqlPage.
   class ModelPage
+    include SqlPage
+
     def initialize(klass)
       @klass = klass
     end

@@ -1325,9 +1325,16 @@ components:
         name:
           type: string
           nullable: true
+          description: The SSO-fed account name
+        display_name:
+          type: string
+          nullable: true
+          description: The curated Person name for this NUID; null when there is no
+            Person
       required:
       - nuid
       - name
+      - display_name
     UserDirectory:
       type: array
       items:
@@ -4099,11 +4106,22 @@ paths:
         address) plus the server-side nuid. With `?nuids=a,b,c`: batch-resolve to
         the authoritative display_name (supersedes the SSO users directory's
         name), dropping unresolved nuids — page size follows the match count.
+        With `?q=fragment` (admin only): the Persons whose display_name contains
+        the fragment, whose NUID starts with it, or whose account email contains
+        it, all case-insensitive. Ordered by display_name and paginated over the
+        matches, so `pagination` counts matches. A non-admin caller receives 403.
       parameters:
       - name: nuids
         in: query
         required: false
         description: Comma-separated NUIDs to batch-resolve
+        schema:
+          type: string
+      - name: q
+        in: query
+        required: false
+        description: 'Typeahead fragment: display_name or email infix, NUID prefix
+          (admin only)'
         schema:
           type: string
       - name: page
@@ -4119,7 +4137,7 @@ paths:
           type: integer
       responses:
         '200':
-          description: batch resolve by nuids (no pagination)
+          description: search by q, paginated over the matches
           content:
             application/json:
               schema:
@@ -5074,13 +5092,17 @@ paths:
         Read-only user directory. Two modes, same response shape:
 
         - `?q=<fragment>` — typeahead search: case-insensitive match on
-          name, prefix match on NUID. Capped at 10, ordered by name.
+          the account name or the curated Person `display_name`, prefix
+          match on NUID. Capped at 10, ordered by the name an entry shows
+          (`display_name` when set, else `name`).
         - `?nuids=a,b,c` — batch resolve (up to 100): exact NUIDs to
           entries; unknown NUIDs are dropped.
 
         Rows with role `anonymous`, `guest`, or `system` are never
         returned. With neither parameter the list is empty. Entries carry
-        `nuid` + `name` only — a directory, not a profile endpoint.
+        `nuid`, `name` and `display_name` only — a directory, not a profile
+        endpoint. `display_name` is the Person's curated name, or null when
+        the NUID has no Person.
       parameters:
       - name: q
         in: query
@@ -5107,7 +5129,7 @@ paths:
       tags:
       - User
       description: |
-        Single NUID to `{ nuid, name }`. Unknown NUIDs and rows with role
+        Single NUID to `{ nuid, name, display_name }`. Unknown NUIDs and rows with role
         `anonymous`, `guest`, or `system` both read as absent (404).
       parameters:
       - name: nuid

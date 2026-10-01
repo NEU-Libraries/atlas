@@ -144,6 +144,11 @@ Rails.application.config.to_prepare do
     Valkyrie::MetadataAdapter.find(:postgres).query_service
                              .custom_queries.register_query_handler(FindPeopleByNuids)
 
+    # Person typeahead search (app/queries/search_people.rb), counted and paged
+    # in SQL for GET /people?q=. Same shared postgres query service.
+    Valkyrie::MetadataAdapter.find(:postgres).query_service
+                             .custom_queries.register_query_handler(SearchPeople)
+
     # Batched containment read (app/queries/find_many_members.rb): the children
     # of many parents in two queries rather than two per parent, for the read
     # paths that render a set of resources (resources#find_many, a Work's

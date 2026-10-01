@@ -33,13 +33,37 @@ class User < ApplicationRecord
 
   scope :directory, -> { where.not(role: DIRECTORY_EXCLUDED_ROLES) }
 
-  # Typeahead match: case-insensitive infix on name, prefix on nuid (so
-  # typing a known NUID works too). Unordered/uncapped — callers order
-  # and limit.
+  # The curated Person name for the account's NUID, NULL when there is no
+  # Person or its name is blank. See docs/people.md.
+  PERSON_DISPLAY_NAME_SQL = "NULLIF(#{SearchPeople.display_name_sql('people')}, '')".freeze
+
+  # The name a directory entry shows, so the order matches what a picker reads.
+  DIRECTORY_ORDER_SQL = Arel.sql("COALESCE(#{PERSON_DISPLAY_NAME_SQL}, users.name), users.nuid")
+
+  # Containment on the array-wrapped nuid, so the jsonb_path_ops index serves
+  # the join.
+  scope :with_person_name, lambda {
+    joins(<<~SQL.squish)
+      LEFT JOIN orm_resources people
+        ON people.internal_resource = 'Person'
+       AND people.metadata @> jsonb_build_object('nuid', jsonb_build_array(users.nuid))
+    SQL
+      .select("users.*, #{PERSON_DISPLAY_NAME_SQL} AS person_display_name")
+  }
+
+  # Directory rows carrying person_display_name, in the order a picker shows.
+  def self.directory_entries
+    directory.with_person_name.order(DIRECTORY_ORDER_SQL)
+  end
+
+  # Typeahead match: case-insensitive infix on the SSO name and the curated
+  # Person name, prefix on nuid (so typing a known NUID works too). Uncapped —
+  # callers limit.
   def self.directory_search(fragment)
     pattern = sanitize_sql_like(fragment)
-    directory.where('name ILIKE :infix OR nuid LIKE :prefix',
-                    infix: "%#{pattern}%", prefix: "#{pattern}%")
+    directory_entries.where("users.name ILIKE :infix OR #{PERSON_DISPLAY_NAME_SQL} ILIKE :infix " \
+                            'OR users.nuid LIKE :prefix',
+                            infix: "%#{pattern}%", prefix: "#{pattern}%")
   end
 
   # Every account sharing a NUID (a person's staff/student logins), oldest

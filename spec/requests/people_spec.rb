@@ -22,15 +22,22 @@ RSpec.describe 'People', type: :request do
         address) plus the server-side nuid. With `?nuids=a,b,c`: batch-resolve to
         the authoritative display_name (supersedes the SSO users directory's
         name), dropping unresolved nuids — page size follows the match count.
+        With `?q=fragment` (admin only): the Persons whose display_name contains
+        the fragment, whose NUID starts with it, or whose account email contains
+        it, all case-insensitive. Ordered by display_name and paginated over the
+        matches, so `pagination` counts matches. A non-admin caller receives 403.
       DESC
       parameter name: :nuids, in: :query, type: :string, required: false,
                 description: 'Comma-separated NUIDs to batch-resolve'
+      parameter name: :q, in: :query, type: :string, required: false,
+                description: 'Typeahead fragment: display_name or email infix, NUID prefix (admin only)'
       parameter name: :page, in: :query, type: :integer, required: false
       parameter name: :per_page, in: :query, type: :integer, required: false,
                 description: "Page size (capped at #{LazyPagination::MAX_PER_PAGE})"
 
       response '200', 'paginated list' do
         let(:nuids) { nil }
+        let(:q) { nil }
         let(:page) { nil }
         let(:per_page) { nil }
         schema '$ref' => '#/components/schemas/PeopleIndex'
@@ -44,6 +51,7 @@ RSpec.describe 'People', type: :request do
       response '200', 'per_page caps the page size' do
         let!(:bob) { PersonCreator.call(nuid: '007654321', display_name: 'Bob Roe') }
         let(:nuids) { nil }
+        let(:q) { nil }
         let(:page) { 1 }
         let(:per_page) { 1 }
         schema '$ref' => '#/components/schemas/PeopleIndex'
@@ -57,6 +65,7 @@ RSpec.describe 'People', type: :request do
       response '200', 'batch resolve by nuids (no pagination)' do
         let!(:bob) { PersonCreator.call(nuid: '007654321', display_name: 'Bob Roe') }
         let(:nuids) { '001234567,007654321,000000000' }
+        let(:q) { nil }
         let(:page) { nil }
         let(:per_page) { nil }
         schema '$ref' => '#/components/schemas/PeopleIndex'
@@ -65,6 +74,21 @@ RSpec.describe 'People', type: :request do
           names = body['people'].pluck('display_name')
           # No truncation despite pagination — page size follows match count.
           expect(names).to contain_exactly('Jane Doe', 'Bob Roe')
+        end
+      end
+
+      response '200', 'search by q, paginated over the matches' do
+        let!(:janet) { PersonCreator.call(nuid: '002345678', display_name: 'Janet Smith') }
+        let!(:bob) { PersonCreator.call(nuid: '007654321', display_name: 'Bob Roe') }
+        let(:nuids) { nil }
+        let(:q) { 'JAN' }
+        let(:page) { 1 }
+        let(:per_page) { 1 }
+        schema '$ref' => '#/components/schemas/PeopleIndex'
+        run_test! do |response|
+          body = JSON.parse(response.body)
+          expect(body['people'].pluck('display_name')).to eq(['Jane Doe'])
+          expect(body['pagination']).to include('count' => 2, 'pages' => 2)
         end
       end
     end
@@ -120,6 +144,44 @@ RSpec.describe 'People', type: :request do
         let(:body) { { nuid: '004443333', display_name: 'Nope' } }
         run_test!
       end
+    end
+  end
+
+  # Search behavior the OpenAPI example above doesn't pin down.
+  describe 'GET /people?q=' do
+    def search(fragment, headers: {})
+      get '/people', params: { q: fragment }, headers: headers
+      response.parsed_body
+    end
+
+    it 'matches a NUID prefix, but not a NUID infix' do
+      expect(search('0012')['people'].pluck('nuid')).to eq(['001234567'])
+      expect(search('234567')['people']).to eq([])
+    end
+
+    it 'matches the email of an account holding the NUID' do
+      User.create!(email: 'j.doe@northeastern.edu', password: SecureRandom.hex(16),
+                   nuid: jane.nuid, role: :standard)
+      expect(search('J.DOE@')['people'].pluck('nuid')).to eq([jane.nuid])
+    end
+
+    it 'orders the matches by display_name' do
+      PersonCreator.call(nuid: '003333333', display_name: 'Adam Doe')
+      expect(search('doe')['people'].pluck('display_name')).to eq(['Adam Doe', 'Jane Doe'])
+    end
+
+    it 'escapes SQL LIKE metacharacters' do
+      expect(search('%')['people']).to eq([])
+    end
+
+    it 'lists everyone for a blank q' do
+      expect(search(' ')['people'].pluck('nuid')).to include(jane.nuid)
+    end
+
+    it 'refuses a non-admin caller' do
+      User.create!(email: 'lib@example.edu', password: SecureRandom.hex(16), nuid: '005550000', role: :standard)
+      search('jane', headers: signed_auth_headers('005550000'))
+      expect(response).to have_http_status(:forbidden)
     end
   end
 

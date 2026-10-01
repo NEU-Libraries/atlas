@@ -158,7 +158,7 @@ grant — present or future — can bypass them.
 Both answer the same question, "is this action read-shaped?", from one allowlist:
 
 ```ruby
-READ_ONLY_TOKEN_ACTIONS = %i[read read_directory read_versions index_all preview].freeze
+READ_ONLY_TOKEN_ACTIONS = %i[read read_directory read_versions index_all search preview].freeze
 ```
 
 **One allowlist is the point.** A write-shaped action added next year is refused

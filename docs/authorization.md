@@ -174,6 +174,12 @@ attach FileSets and Blobs to it. `:destroy` is absent on both — admin only.
 `can :manage, :all`. Minimal membership by design. It bypasses both role
 enumeration and group ACLs.
 
+Some verbs exist only to be held through this wildcard. `:index_all` is one.
+`:search` on `Person` is another: `GET /people?q=` matches on NUID and account
+email, so it is an enumeration tool, and only `:admin` may hold it. Both are
+reads, so both are on `READ_ONLY_TOKEN_ACTIONS` (see
+[`authentication.md`](authentication.md)).
+
 ## The group ACL axis
 
 `apply_group_abilities` grants `%i[update tombstone]` on `Work`, `Collection` and

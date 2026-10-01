@@ -8,6 +8,7 @@ Source files:
 - `app/services/person_creator.rb`
 - `app/services/personal_root_creator.rb`
 - `app/queries/find_people_by_nuids.rb`
+- `app/queries/search_people.rb`
 - `app/controllers/people_controller.rb`
 - `app/indexers/person_indexer.rb`
 
@@ -137,3 +138,36 @@ type.**
 NUIDs ride as bind parameters; only the placeholder count derives from input.
 Postgres-specific by construction, like the other custom queries in
 [`read-performance.md`](read-performance.md).
+
+## Searching People
+
+`GET /people?q=` is the admin People-index typeahead. A fragment matches a
+`display_name` by case-insensitive infix, a NUID by prefix, and the email of any
+account holding that NUID by case-insensitive infix. People are not in Solr, so
+`SearchPeople` matches in Postgres, reading `metadata->'display_name'->>0`
+because of the array-wrapping above.
+
+**The match is counted and paged in SQL**, through a `LazyPagination::SqlPage`
+source, so the `pagination` block counts matches rather than the registry. The
+matches are ordered by `display_name`, which is what an admin reads.
+
+It is admin-only. Matching on NUID and email would let any other caller
+enumerate both; see [`authorization.md`](authorization.md).
+
+## The user directory shows the curated name
+
+The SSO feed rewrites `users.name` on every login, so a librarian's correction
+lives only on the Person. `GET /users` therefore left-joins each account to the
+Person for its NUID and:
+
+- **matches the fragment against both names**, so a renamed person is found by
+  the name a librarian gave them, and still by the SSO name;
+- **returns the Person's name as `display_name`**, or `null` when the NUID has no
+  Person or its name is blank;
+- **orders by the name an entry shows**: `display_name` when set, else `name`.
+
+`display_name` discloses nothing new: a Person is public, and `/people/:id`
+already serves the name. The join uses the same containment shape as
+`FindPeopleByNuids`, so the `jsonb_path_ops` index serves it, and the name
+expression comes from `SearchPeople.display_name_sql`, so the two searches match
+one way.

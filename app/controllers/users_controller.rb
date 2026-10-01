@@ -8,14 +8,14 @@ class UsersController < ApplicationController
 
   # GET /users?q=<fragment> — typeahead search (capped, name-ordered).
   # GET /users?nuids=a,b,c — batch NUID resolve, same response shape.
-  # Minimal disclosure: entries carry nuid + name only.
+  # Minimal disclosure: entries carry nuid, name and the Person display_name.
   def index
     authorize! :read_directory, User
 
     @users = if params[:nuids].present?
-               User.directory.where(nuid: batch_nuids).order(:name)
+               User.directory_entries.where(nuid: batch_nuids)
              elsif params[:q].present?
-               User.directory_search(params[:q]).order(:name).limit(SEARCH_LIMIT)
+               User.directory_search(params[:q]).limit(SEARCH_LIMIT)
              else
                User.none
              end
@@ -26,7 +26,7 @@ class UsersController < ApplicationController
   def show
     authorize! :read_directory, User
 
-    @user = User.directory.find_by(nuid: params[:nuid])
+    @user = User.directory_entries.find_by(nuid: params[:nuid])
     head(:not_found) if @user.nil?
   end
 

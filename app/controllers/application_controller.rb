@@ -17,7 +17,7 @@ class ApplicationController < ActionController::API
   # The only actions a read-only credential may reach, shared by the per-token
   # and repository-wide floors in #authorize! below. An allowlist on purpose: a
   # write-shaped action added later is refused without being enumerated here.
-  READ_ONLY_TOKEN_ACTIONS = %i[read read_directory read_versions index_all preview].freeze
+  READ_ONLY_TOKEN_ACTIONS = %i[read read_directory read_versions index_all search preview].freeze
 
   before_action :require_auth
 

@@ -40,6 +40,64 @@ RSpec.describe 'Tombstone bindings via atlas_rb', :atlas_rb_server do
     end
   end
 
+  describe 'the removal reason' do
+    let(:community)  { CommunityCreator.call }
+    let(:collection) { CollectionCreator.call(parent_id: community.noid) }
+    let(:work)       { WorkCreator.call(parent_id: collection.noid) }
+    let(:reason)     { Resource::TOMBSTONE_REASONS.fourth }
+
+    # The head relationships.json of the resource's own OCFL object, read off
+    # disk the way a rebuild without Atlas would read it.
+    def envelope_on_disk(noid)
+      adapter = Valkyrie.config.storage_adapter
+      adapter.storage_roots.each_key do |root|
+        id = "#{Valkyrie::Storage::OCFL::PROTOCOL}#{adapter.tag}/@#{root}/#{noid}/relationships.json"
+        return JSON.parse(adapter.find_by(id: id).read)
+      rescue Valkyrie::StorageAdapter::FileNotFound
+        next
+      end
+      nil
+    end
+
+    it 'carries the reason on the read, in the 410 body' do
+      AtlasRb::Resource.tombstone(work.noid, reason: reason, nuid: nuid)
+
+      found = AtlasRb::Work.find(work.noid, nuid: nuid)
+      expect(found['tombstoned']).to be true
+      expect(found['tombstone_reason']).to eq(reason)
+    end
+
+    it 'refuses a reason outside the policy with 422 and leaves the Work live' do
+      response = AtlasRb::Resource.tombstone(work.noid, reason: 'Removed for fun', nuid: nuid)
+
+      expect(response.status).to eq(422)
+      expect(JSON.parse(response.body)['code']).to eq('invalid_reason')
+      expect(AtlasRb::Work.find(work.noid, nuid: nuid)['tombstoned']).to be false
+    end
+
+    it 'records the reason on the tombstone audit event' do
+      AtlasRb::Resource.tombstone(work.noid, reason: reason, nuid: nuid)
+
+      event = AuditEvent.for_resource(work.id).find_by(action: 'tombstone')
+      expect(event.payload['reason']).to eq(reason)
+    end
+
+    # A rebuild from disk alone must not bring a withdrawn Work back as live,
+    # nor lose the policy note.
+    it 'writes the withdrawal into the preservation envelope, and restore clears it' do
+      AtlasRb::Resource.tombstone(work.noid, reason: reason, nuid: nuid)
+
+      tombstone = envelope_on_disk(work.noid)['tombstone']
+      expect(tombstone).to include('by' => nuid, 'reason' => reason)
+      expect(tombstone['at']).to be_present
+
+      AtlasRb::Admin::Resource.restore(work.noid, nuid: nuid)
+
+      expect(envelope_on_disk(work.noid)['tombstone']).to be_nil
+      expect(AtlasRb::Work.find(work.noid, nuid: nuid)['tombstone_reason']).to be_nil
+    end
+  end
+
   describe 'AtlasRb::Collection' do
     let(:community) { CommunityCreator.call }
 

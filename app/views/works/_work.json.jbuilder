@@ -19,6 +19,7 @@ json.work do
   json.tombstoned @work.tombstoned
   json.tombstoned_at @work.tombstoned_at&.to_s
   json.tombstoned_by @work.tombstoned_by
+  json.tombstone_reason @work.tombstone_reason
   json.depositor @work.depositor
   json.proxy_uploader @work.proxy_uploader
   json.in_progress @work.in_progress

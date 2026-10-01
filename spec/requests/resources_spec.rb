@@ -517,26 +517,51 @@ RSpec.describe 'Resources', type: :request do
         out of `GET /works/{id}/assets` and `/file_sets`, which is how a caption
         or other attached file is withdrawn reversibly. Admins and the
         devolved-admin tier only.
+
+        `reason` is optional. When given, it must be one of the removal notes
+        the library's withdrawal policy allows, word for word, or the call
+        answers `422 invalid_reason`. It is returned as `tombstone_reason`,
+        recorded on the audit event and kept in the preservation envelope.
+        It carries no date: a reader takes that from `tombstoned_at`.
       DESC
+      consumes 'application/json'
+      parameter name: :body, in: :body, required: false, schema: {
+        type:       :object,
+        properties: { reason: { type: :string, enum: Resource::TOMBSTONE_REASONS } }
+      }
 
       response '200', 'resource tombstoned' do
-        let(:id) { work.noid }
+        let(:id)   { work.noid }
+        let(:body) { { reason: Resource::TOMBSTONE_REASONS.last } }
         schema '$ref' => '#/components/schemas/Work'
         run_test! do |response|
-          expect(JSON.parse(response.body).dig('work', 'tombstoned')).to be(true)
+          withdrawn = JSON.parse(response.body)['work']
+          expect(withdrawn['tombstoned']).to be(true)
+          expect(withdrawn['tombstone_reason']).to eq(Resource::TOMBSTONE_REASONS.last)
         end
       end
 
       response '422', 'container still holds live children' do
-        let(:id) { collection.noid }
+        let(:id)   { collection.noid }
+        let(:body) { {} }
         before { work }
         run_test! do |response|
           expect(JSON.parse(response.body)['code']).to eq('has_live_children')
         end
       end
 
+      response '422', 'reason is not a policy removal note' do
+        let(:id)   { work.noid }
+        let(:body) { { reason: 'Removed because I felt like it' } }
+        run_test! do |response|
+          expect(JSON.parse(response.body)['code']).to eq('invalid_reason')
+          expect(Work.find(work.noid).tombstoned).to be(false)
+        end
+      end
+
       response '404', 'unknown id' do
-        let(:id) { 'does-not-exist' }
+        let(:id)   { 'does-not-exist' }
+        let(:body) { {} }
         run_test!
       end
     end
@@ -549,21 +574,23 @@ RSpec.describe 'Resources', type: :request do
       tags 'Resources'
       produces 'application/json'
       description <<~DESC
-        Reverses a withdrawal: reads stop answering `410`. Admin only. No
-        confirmation marker — restoring is itself reversible, by tombstoning
-        again.
+        Reverses a withdrawal: reads stop answering `410`, and
+        `tombstone_reason` is cleared. Admin only. No confirmation marker —
+        restoring is itself reversible, by tombstoning again.
       DESC
 
       response '200', 'resource restored' do
         let(:tombstoned) do
           w = WorkCreator.call(parent_id: collection.noid)
-          w.tombstone(by: '000000004')
+          w.tombstone(by: '000000004', reason: Resource::TOMBSTONE_REASONS.first)
           Atlas.persister.save(resource: w)
         end
         let(:id) { tombstoned.noid }
         schema '$ref' => '#/components/schemas/Work'
         run_test! do |response|
-          expect(JSON.parse(response.body).dig('work', 'tombstoned')).to be(false)
+          restored = JSON.parse(response.body)['work']
+          expect(restored['tombstoned']).to be(false)
+          expect(restored['tombstone_reason']).to be_nil
         end
       end
 

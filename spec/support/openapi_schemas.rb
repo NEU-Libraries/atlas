@@ -125,13 +125,14 @@ module OpenapiSchemas
   # detail payload and the flat index rows render.
   def file_set_props
     {
-      id:            { type: :string, description: 'NOID' },
-      type:          { type: :string, nullable: true },
-      position:      { type: :integer, nullable: true,
+      id:               { type: :string, description: 'NOID' },
+      type:             { type: :string, nullable: true },
+      position:         { type: :integer, nullable: true,
                        description: '1-based page order within the parent Work; null = unordered' },
-      tombstoned:    { type: :boolean, description: 'Withdrawn-from-discovery flag' },
-      tombstoned_at: { type: :string, nullable: true, description: 'ISO-8601 timestamp set when tombstoned' },
-      tombstoned_by: { type: :string, nullable: true, description: 'NUID of the user who tombstoned the resource' }
+      tombstoned:       { type: :boolean, description: 'Withdrawn-from-discovery flag' },
+      tombstoned_at:    { type: :string, nullable: true, description: 'ISO-8601 timestamp set when tombstoned' },
+      tombstoned_by:    { type: :string, nullable: true, description: 'NUID of the user who tombstoned the resource' },
+      tombstone_reason: tombstone_reason_prop
     }
   end
 
@@ -660,20 +661,26 @@ module OpenapiSchemas
 
   # ---- helpers ----
 
+  def tombstone_reason_prop
+    { type: :string, nullable: true, enum: Resource::TOMBSTONE_REASONS,
+      description: 'The policy removal note chosen at withdrawal, or null. The date comes from tombstoned_at.' }
+  end
+
   def base_resource_props
     {
-      id:            { type: :string, description: 'NOID' },
-      valkyrie_id:   { type: :string, description: 'Valkyrie internal id' },
-      ancestors:     ancestor_nodes,
-      thumbnail:     { type: :string, nullable: true, description: 'IIIF URL of the :thumbnail_image Delegate (~85px), or null' },
-      thumbnail_2x:  { type: :string, nullable: true, description: 'IIIF URL of the :thumbnail_image_2x Delegate (~170px retina), or null' },
-      preview:       { type: :string, nullable: true, description: 'IIIF URL of the :preview_image Delegate (~500px hero), or null' },
-      title:         { type: :string, nullable: true },
-      description:   { type: :string, nullable: true },
-      permanent_url: { type: :string, nullable: true },
-      tombstoned:    { type: :boolean, description: 'Withdrawn-from-discovery flag' },
-      tombstoned_at: { type: :string, nullable: true, description: 'ISO-8601 timestamp set when tombstoned' },
-      tombstoned_by: { type: :string, nullable: true, description: 'NUID of the user who tombstoned the resource' }
+      id:               { type: :string, description: 'NOID' },
+      valkyrie_id:      { type: :string, description: 'Valkyrie internal id' },
+      ancestors:        ancestor_nodes,
+      thumbnail:        { type: :string, nullable: true, description: 'IIIF URL of the :thumbnail_image Delegate (~85px), or null' },
+      thumbnail_2x:     { type: :string, nullable: true, description: 'IIIF URL of the :thumbnail_image_2x Delegate (~170px retina), or null' },
+      preview:          { type: :string, nullable: true, description: 'IIIF URL of the :preview_image Delegate (~500px hero), or null' },
+      title:            { type: :string, nullable: true },
+      description:      { type: :string, nullable: true },
+      permanent_url:    { type: :string, nullable: true },
+      tombstoned:       { type: :boolean, description: 'Withdrawn-from-discovery flag' },
+      tombstoned_at:    { type: :string, nullable: true, description: 'ISO-8601 timestamp set when tombstoned' },
+      tombstoned_by:    { type: :string, nullable: true, description: 'NUID of the user who tombstoned the resource' },
+      tombstone_reason: tombstone_reason_prop
     }.merge(provenance_props)
   end
 

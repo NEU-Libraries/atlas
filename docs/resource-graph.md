@@ -84,14 +84,15 @@ Atlas release to be accepted.
 
 ## Which derived fields reach the preservation envelope
 
-This is the distinction the preservation-first principle turns on, and three of
-the Work's attributes land on different sides of it.
+This is the distinction the preservation-first principle turns on, and these
+attributes land on different sides of it.
 
 | Attribute | In the OCFL envelope? | Why |
 |---|---|---|
 | `handle` | **Yes**, schema v5 | An external Handle service holds the other half of the binding and the outside world cites it. **Nothing in the repository can re-derive it**, so a rebuild that lost it would break every outside citation. |
 | `full_text` | No | A regenerable search aid, re-sent on any re-ingest. Postgres only, so `FullTextIndexer` re-reads and re-projects it on every reindex. |
 | `derivative_permissions` | No | Derived and advisory — Cerberus and the IIIF layer enforce it. |
+| `tombstoned_at`, `tombstoned_by`, `tombstone_reason` | **Yes**, schema v7, as one `tombstone` block | A withdrawal is a person's decision that nothing else records. A rebuild that lost it would bring withdrawn objects back into view, and drop the removal note the withdrawal policy requires. |
 
 `full_text` and `derivative_permissions` are omitted for the same reason the
 fungible thumbnail derivatives are: **they can be made again.**
@@ -110,7 +111,7 @@ resource's own NOID-keyed OCFL object. **The bus-factor test: a librarian with
 disk access alone can rebuild the resource graph and the ACLs without Atlas,
 Postgres or Solr.**
 
-`ENVELOPE_SCHEMA_VERSION` is 6, and each bump records one decision:
+`ENVELOPE_SCHEMA_VERSION` is 7, and each bump records one decision:
 
 | Version | Change |
 |---|---|
@@ -119,6 +120,7 @@ Postgres or Solr.**
 | v3 → v4 | Added `associations` — the typed Work-to-Work edges, keyed by predicate |
 | v4 → v5 | Added `handle` |
 | v5 → v6 | Added a Blob's `language`, `track_label` and `revision_filenames` |
+| v6 → v7 | Added `tombstone` — `at`, `by` and `reason` while withdrawn, null while live |
 
 **`position` is additive even though the Work-level METS structMap is the
 canonical record of order.** It keeps each FileSet's own OCFL object
@@ -198,6 +200,32 @@ non-Modsable type, or an unresolvable id — mirroring `/history`'s "no events"
 shape. A delegate holds `:read_versions` only on the Modsable types and `Blob`,
 so for any other type, or an unresolvable id, a delegate gets 403 where an
 admin gets the empty array.
+
+### A withdrawal carries a policy removal note
+
+`POST /resources/:id/tombstone` takes an optional `reason`, and the reads return
+it as `tombstone_reason`. The library's withdrawal policy requires a note that
+stays in view after removal, and it fixes the wording, so Atlas accepts only the
+five notes in `Resource::TOMBSTONE_REASONS` and refuses anything else with `422
+invalid_reason`. Cerberus keeps its own copy of the list for the picker, but
+Atlas is the authority.
+
+- **The note carries no date.** The policy writes each note with a date, and
+  `tombstoned_at` already holds it. A stored date could disagree with the stamp.
+- **It is not in MODS.** The obvious home is `accessCondition
+  type="suppressed"`, but the display decorator and the OAI `dc:rights` export
+  both read accessCondition, so every reader would have to learn to skip it. A
+  tombstone and a restore would also each need a MODS write beside the
+  resource save. The note is lifecycle state, so it lives with the other
+  tombstone fields.
+- **It rides the envelope instead,** with `tombstoned_at` and `tombstoned_by`,
+  so the preserved record keeps it. Tombstone and restore both rewrite the
+  envelope. A derivative FileSet is the exception, because it has no OCFL object
+  of its own.
+- **Restore clears it,** and the tombstone audit event records it in
+  `payload.reason`.
+- **It is not indexed.** Discovery excludes tombstoned resources, so nothing
+  searches on the note.
 
 ### A FileSet can be tombstoned, and nothing else below a Work can
 

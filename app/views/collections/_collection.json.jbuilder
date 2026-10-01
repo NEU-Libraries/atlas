@@ -13,6 +13,7 @@ json.collection do
   json.tombstoned @collection.tombstoned
   json.tombstoned_at @collection.tombstoned_at&.to_s
   json.tombstoned_by @collection.tombstoned_by
+  json.tombstone_reason @collection.tombstone_reason
   json.depositor @collection.depositor
   json.proxy_uploader @collection.proxy_uploader
   json.featured @collection.featured

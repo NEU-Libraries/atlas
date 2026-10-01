@@ -78,7 +78,7 @@ RSpec.describe HandleMinter do
 
     payload = Work.find(work.id).graph_payload
     expect(payload[:handle]).to eq("DRSDEV/#{work.noid}")
-    expect(payload[:schema_version]).to eq(6)
+    expect(payload[:schema_version]).to eq(7)
   end
 
   # The resource attribute reaches the API and the Work page. MODS is what gets

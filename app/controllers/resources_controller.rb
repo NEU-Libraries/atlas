@@ -160,19 +160,13 @@ class ResourcesController < ApplicationController
     authorize! :tombstone, resource || Resource
     return head(:not_found) unless resource && LIFECYCLE_IVARS.key?(resource.class)
 
-    # Refuses while the resource still holds a live container or Work, so a
-    # withdrawal can never orphan a readable descendant. This applies to every
-    # type without a special case: `live_children?` counts only those three, so
-    # a Work holding FileSets and Blobs always passes and they ride along.
-    if resource.live_children?
-      return render(json:   { error: "cannot tombstone a non-empty #{resource.class.name.downcase}",
-                              code:  'has_live_children' },
-                    status: :unprocessable_content)
-    end
+    reason  = params[:reason].presence
+    refusal = tombstone_refusal(resource, reason)
+    return render(json: refusal, status: :unprocessable_content) if refusal
 
-    resource.tombstone(by: @current_user&.nuid)
-    saved = Atlas.persister.save(resource: resource)
-    audit_lifecycle!(saved, 'tombstone')
+    resource.tombstone(by: @current_user&.nuid, reason: reason)
+    saved = save_lifecycle(resource)
+    audit_lifecycle!(saved, 'tombstone', reason ? { reason: reason } : {})
     render_typed(saved, 'show')
   end
 
@@ -182,7 +176,7 @@ class ResourcesController < ApplicationController
     return head(:not_found) unless resource && LIFECYCLE_IVARS.key?(resource.class)
 
     resource.restore
-    saved = Atlas.persister.save(resource: resource)
+    saved = save_lifecycle(resource)
     audit_lifecycle!(saved, 'restore')
     render_typed(saved, 'show')
   end
@@ -285,15 +279,39 @@ class ResourcesController < ApplicationController
       render template: "#{resource.class.name.tableize}/#{view}"
     end
 
+    # Refuses while the resource still holds a live container or Work, so a
+    # withdrawal can never orphan a readable descendant. This applies to every
+    # type without a special case: `live_children?` counts only those three, so
+    # a Work holding FileSets and Blobs always passes and they ride along.
+    def tombstone_refusal(resource, reason)
+      if resource.live_children?
+        { error: "cannot tombstone a non-empty #{resource.class.name.downcase}", code: 'has_live_children' }
+      elsif reason && Resource::TOMBSTONE_REASONS.exclude?(reason)
+        { error: 'reason is not one of the policy removal notes', code: 'invalid_reason' }
+      end
+    end
+
+    # The envelope carries the withdrawal, so a rebuild from disk keeps it. A
+    # derivative FileSet has no OCFL object of its own, and this must not
+    # create one.
+    def save_lifecycle(resource)
+      saved = Atlas.persister.save(resource: resource)
+      saved.write_preservation_envelope! unless saved.is_a?(FileSet) && !Classification.preserved?(saved.type)
+      saved
+    end
+
     # AuditEvent admits no FileSet, so a FileSet's event hangs off its Work as
     # a file event, the way BlobsController records one.
-    def audit_lifecycle!(resource, action)
-      return audit!(resource: resource, action: action, change_type: 'lifecycle') unless resource.is_a?(FileSet)
+    def audit_lifecycle!(resource, action, payload = {})
+      unless resource.is_a?(FileSet)
+        return audit!(resource: resource, action: action, change_type: 'lifecycle',
+                      payload: payload)
+      end
 
       work = resource.parent
       return unless work.is_a?(Work)
 
-      audit!(resource: work, action: action, change_type: 'file', payload: { file_set_noid: resource.noid })
+      audit!(resource: work, action: action, change_type: 'file', payload: payload.merge(file_set_noid: resource.noid))
     end
 
     # The multipart upload arrives as a Rack or ActionDispatch upload

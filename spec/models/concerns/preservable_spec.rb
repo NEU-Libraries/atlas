@@ -15,7 +15,7 @@ RSpec.describe Preservable do
     context 'on a root Community' do
       it 'reports type, empty a_member_of, empty member_ids' do
         payload = community.graph_payload
-        expect(payload[:schema_version]).to eq(6)
+        expect(payload[:schema_version]).to eq(7)
         expect(payload[:noid]).to eq(community.noid)
         expect(payload[:type]).to eq('Community')
         expect(payload[:classification]).to eq('Community')
@@ -73,6 +73,24 @@ RSpec.describe Preservable do
       end
     end
 
+    context 'on a tombstoned resource' do
+      it 'emits a null tombstone while the resource is live' do
+        expect(work.graph_payload).to have_key(:tombstone)
+        expect(work.graph_payload[:tombstone]).to be_nil
+      end
+
+      it 'records when, by whom and why it was withdrawn' do
+        work.tombstone(by: '000000004', reason: Resource::TOMBSTONE_REASONS.first)
+        withdrawn = Atlas.persister.save(resource: work)
+
+        expect(withdrawn.graph_payload[:tombstone]).to eq(
+          at:     withdrawn.tombstoned_at.iso8601,
+          by:     '000000004',
+          reason: Resource::TOMBSTONE_REASONS.first
+        )
+      end
+    end
+
     context 'on a resource class that carries no associations' do
       it 'reports an empty map rather than nil' do
         expect(collection.graph_payload[:associations]).to eq({})
@@ -111,7 +129,7 @@ RSpec.describe Preservable do
       it 'reports the role-bearing fields needed for preservation' do
         payload = mods_blob.graph_payload
 
-        expect(payload[:schema_version]).to eq(6)
+        expect(payload[:schema_version]).to eq(7)
         expect(payload[:noid]).to eq(mods_blob.noid)
         expect(payload[:type]).to eq('Blob')
         expect(payload[:use]).to eq(Role.descriptive_metadata.name)
@@ -158,7 +176,7 @@ RSpec.describe Preservable do
     it 'mirrors the keys Permissions#permissions= consumes' do
       payload = work.permissions_payload
 
-      expect(payload[:schema_version]).to eq(6)
+      expect(payload[:schema_version]).to eq(7)
       expect(payload[:noid]).to eq(work.noid)
       expect(payload).to have_key(:embargo)
       expect(payload).to have_key(:depositor)

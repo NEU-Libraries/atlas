@@ -11,7 +11,7 @@
 module Preservable
   extend ActiveSupport::Concern
 
-  ENVELOPE_SCHEMA_VERSION = 6
+  ENVELOPE_SCHEMA_VERSION = 7
 
   def graph_payload
     {
@@ -23,7 +23,8 @@ module Preservable
       handle:         respond_to?(:handle) ? handle : nil,
       a_member_of:    parent_noids,
       member_ids:     member_noids,
-      associations:   association_noids
+      associations:   association_noids,
+      tombstone:      tombstone_payload
     }
   end
 
@@ -40,6 +41,14 @@ module Preservable
   end
 
   private
+
+    # A withdrawal and its policy note are a human decision that nothing else
+    # records, so a rebuild from disk must not bring the resource back as live.
+    def tombstone_payload
+      return nil unless tombstoned
+
+      { at: tombstoned_at&.iso8601, by: tombstoned_by, reason: tombstone_reason }
+    end
 
     def parent_noids
       ids = Array(respond_to?(:a_member_of) ? a_member_of : []).compact

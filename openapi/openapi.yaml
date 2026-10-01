@@ -183,6 +183,17 @@ components:
               type: string
               nullable: true
               description: NUID of the user who tombstoned the resource
+            tombstone_reason:
+              type: string
+              nullable: true
+              enum:
+              - Removed from view by legal order
+              - Removed from view at request of copyright holder
+              - Removed from view at Northeastern University's discretion
+              - Removed from view at Northeastern University Library's discretion
+              - Removed from view at contributor or content curator's discretion
+              description: The policy removal note chosen at withdrawal, or null.
+                The date comes from tombstoned_at.
             depositor:
               type: string
               nullable: true
@@ -239,6 +250,7 @@ components:
           - tombstoned
           - tombstoned_at
           - tombstoned_by
+          - tombstone_reason
           - depositor
           - proxy_uploader
           - in_progress
@@ -325,6 +337,17 @@ components:
               type: string
               nullable: true
               description: NUID of the user who tombstoned the resource
+            tombstone_reason:
+              type: string
+              nullable: true
+              enum:
+              - Removed from view by legal order
+              - Removed from view at request of copyright holder
+              - Removed from view at Northeastern University's discretion
+              - Removed from view at Northeastern University Library's discretion
+              - Removed from view at contributor or content curator's discretion
+              description: The policy removal note chosen at withdrawal, or null.
+                The date comes from tombstoned_at.
             depositor:
               type: string
               nullable: true
@@ -357,6 +380,7 @@ components:
           - tombstoned
           - tombstoned_at
           - tombstoned_by
+          - tombstone_reason
           - depositor
           - proxy_uploader
           - featured
@@ -440,6 +464,17 @@ components:
               type: string
               nullable: true
               description: NUID of the user who tombstoned the resource
+            tombstone_reason:
+              type: string
+              nullable: true
+              enum:
+              - Removed from view by legal order
+              - Removed from view at request of copyright holder
+              - Removed from view at Northeastern University's discretion
+              - Removed from view at Northeastern University Library's discretion
+              - Removed from view at contributor or content curator's discretion
+              description: The policy removal note chosen at withdrawal, or null.
+                The date comes from tombstoned_at.
             depositor:
               type: string
               nullable: true
@@ -470,6 +505,7 @@ components:
           - tombstoned
           - tombstoned_at
           - tombstoned_by
+          - tombstone_reason
           - depositor
           - proxy_uploader
           - system_container
@@ -502,6 +538,17 @@ components:
               type: string
               nullable: true
               description: NUID of the user who tombstoned the resource
+            tombstone_reason:
+              type: string
+              nullable: true
+              enum:
+              - Removed from view by legal order
+              - Removed from view at request of copyright holder
+              - Removed from view at Northeastern University's discretion
+              - Removed from view at Northeastern University Library's discretion
+              - Removed from view at contributor or content curator's discretion
+              description: The policy removal note chosen at withdrawal, or null.
+                The date comes from tombstoned_at.
           required:
           - id
           - type
@@ -509,6 +556,7 @@ components:
           - tombstoned
           - tombstoned_at
           - tombstoned_by
+          - tombstone_reason
       required:
       - file_set
     Blob:
@@ -731,6 +779,17 @@ components:
           type: string
           nullable: true
           description: NUID of the user who tombstoned the resource
+        tombstone_reason:
+          type: string
+          nullable: true
+          enum:
+          - Removed from view by legal order
+          - Removed from view at request of copyright holder
+          - Removed from view at Northeastern University's discretion
+          - Removed from view at Northeastern University Library's discretion
+          - Removed from view at contributor or content curator's discretion
+          description: The policy removal note chosen at withdrawal, or null. The
+            date comes from tombstoned_at.
       required:
       - id
       - type
@@ -738,6 +797,7 @@ components:
       - tombstoned
       - tombstoned_at
       - tombstoned_by
+      - tombstone_reason
     BlobSummary:
       type: object
       properties:
@@ -4623,6 +4683,13 @@ paths:
         out of `GET /works/{id}/assets` and `/file_sets`, which is how a caption
         or other attached file is withdrawn reversibly. Admins and the
         devolved-admin tier only.
+
+        `reason` is optional. When given, it must be one of the removal notes
+        the library's withdrawal policy allows, word for word, or the call
+        answers `422 invalid_reason`. It is returned as `tombstone_reason`,
+        recorded on the audit event and kept in the preservation envelope.
+        It carries no date: a reader takes that from `tombstoned_at`.
+      parameters: []
       responses:
         '200':
           description: resource tombstoned
@@ -4631,9 +4698,23 @@ paths:
               schema:
                 "$ref": "#/components/schemas/Work"
         '422':
-          description: container still holds live children
+          description: reason is not a policy removal note
         '404':
           description: unknown id
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  enum:
+                  - Removed from view by legal order
+                  - Removed from view at request of copyright holder
+                  - Removed from view at Northeastern University's discretion
+                  - Removed from view at Northeastern University Library's discretion
+                  - Removed from view at contributor or content curator's discretion
   "/resources/{id}/restore":
     parameters:
     - name: id
@@ -4647,9 +4728,9 @@ paths:
       tags:
       - Resources
       description: |
-        Reverses a withdrawal: reads stop answering `410`. Admin only. No
-        confirmation marker — restoring is itself reversible, by tombstoning
-        again.
+        Reverses a withdrawal: reads stop answering `410`, and
+        `tombstone_reason` is cleared. Admin only. No confirmation marker —
+        restoring is itself reversible, by tombstoning again.
       responses:
         '200':
           description: resource restored

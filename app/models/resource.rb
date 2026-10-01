@@ -1,6 +1,17 @@
 # frozen_string_literal: true
 
 class Resource < Valkyrie::Resource
+  # The removal notes the library's withdrawal policy allows, in its wording.
+  # The date is not part of the note: a reader takes it from tombstoned_at.
+  # See docs/resource-graph.md.
+  TOMBSTONE_REASONS = [
+    'Removed from view by legal order',
+    'Removed from view at request of copyright holder',
+    "Removed from view at Northeastern University's discretion",
+    "Removed from view at Northeastern University Library's discretion",
+    "Removed from view at contributor or content curator's discretion"
+  ].freeze
+
   include Valkyrie::Resource::AccessControls
   include Relationships
   include Permissions
@@ -12,9 +23,10 @@ class Resource < Valkyrie::Resource
               [Valkyrie::ID.new(Minter.mint)]
             }
 
-  attribute :tombstoned,    Valkyrie::Types::Bool.default(false)
-  attribute :tombstoned_at, Valkyrie::Types::DateTime.optional
-  attribute :tombstoned_by, Valkyrie::Types::String.optional
+  attribute :tombstoned,       Valkyrie::Types::Bool.default(false)
+  attribute :tombstoned_at,    Valkyrie::Types::DateTime.optional
+  attribute :tombstoned_by,    Valkyrie::Types::String.optional
+  attribute :tombstone_reason, Valkyrie::Types::String.optional
 
   enable_optimistic_locking
 
@@ -26,15 +38,17 @@ class Resource < Valkyrie::Resource
     ActiveDecorator::Decorator.instance.decorate(self)
   end
 
-  def tombstone(by:)
-    self.tombstoned    = true
-    self.tombstoned_at = Time.current
-    self.tombstoned_by = by
+  def tombstone(by:, reason: nil)
+    self.tombstoned       = true
+    self.tombstoned_at    = Time.current
+    self.tombstoned_by    = by
+    self.tombstone_reason = reason
   end
 
   def restore
-    self.tombstoned    = false
-    self.tombstoned_at = nil
-    self.tombstoned_by = nil
+    self.tombstoned       = false
+    self.tombstoned_at    = nil
+    self.tombstoned_by    = nil
+    self.tombstone_reason = nil
   end
 end

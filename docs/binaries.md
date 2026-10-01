@@ -9,6 +9,9 @@ Source files:
 - `app/services/binary_version_history.rb` — the revision list
 - `app/services/file_event_ledger.rb` — attribution lookup
 - `app/services/storage_root_sealer.rb` — deciding a root is full
+- `app/models/storage_footprint.rb`, `app/services/storage_footprint_recorder.rb`,
+  `app/queries/storage_footprint_query.rb`, `app/indexers/storage_indexer.rb`,
+  `app/services/storage_footprint_rebuilder.rb` — what the storage costs
 
 The storage adapter itself is `app/lib/valkyrie/storage/ocfl.rb`.
 
@@ -268,3 +271,92 @@ per object, most of them inventory bookkeeping. **So two million objects is
 roughly twenty-six million files.**
 
 Raise it against a key budget for the destination rather than by feel.
+
+## What the storage costs
+
+Each Work, Collection and Community carries `storage_bytes_ls` on its Solr doc:
+the bytes it owns on disk. A Work owns its own object, its FileSets and their
+Blobs. A container owns its own object, its MODS FileSet and Blob, and its METS
+Blob. **A subtree's storage is a Solr sum** of that field over the docs a subtree
+filter selects, the same filter Cerberus's "Unfiltered counts" panel uses:
+
+```
+json.facet={"total":"sum(storage_bytes_ls)"}
+```
+
+The measure is **impact on disk**, because the question behind it is storage
+cost. So an owner's figure counts every file of every OCFL object it owns:
+
+- originals, derivatives and captions, **every revision of each**;
+- withdrawn files, because a tombstone keeps the bytes;
+- MODS and METS versions and every envelope version;
+- each version's inventory and sidecar, the head pair and the object marker.
+
+A rolled-back revision is counted once, because OCFL stores its bytes once.
+Bytes outside OCFL are not Atlas's to count, so nothing here covers Cerberus's
+JP2s, its staged uploads or the IIIF cache.
+
+### Bytes are counted as they are written, not walked
+
+A byte total by walking needs a stat of every file, about thirteen per object,
+and on a network mount that is too slow even for a background count. So the
+adapter counts instead. `perform_upload` is the one place every version is
+written, and it knows what it adds: the staged version directory, the change in
+size of the head inventory pair, and the object marker on the first write. It
+passes that sum to its `footprint_recorder`, which adds it to the object's row in
+`storage_footprints`. `delete_object` removes the row.
+
+The increment is a single upsert, so two writes to one object cannot lose each
+other's bytes. **A failed ledger write is logged and does not fail the upload.**
+By then the version is committed, and failing would make the caller retry and
+cut another version.
+
+### Each owner holds its own bytes, never a subtree total
+
+A subtree total on a container's doc would change on every write anywhere
+beneath it, and on every move. Own bytes change only when the owner's own
+objects do. A move changes nothing, because the subtree filter follows the
+graph. A purge deletes the doc, and with it the bytes.
+
+**Load lands on writes, not reads.** A read is a docValues sum, so a 544k-Work
+Community costs Solr one pass over a column, and Postgres nothing.
+`StorageIndexer` computes an owner's figure with one small recursive query over
+the ledger, which stops at the next Work or container. It follows
+`a_member_of` and `member_ids`, never `a_linked_member_of`.
+
+### An owner is re-indexed once per action
+
+An envelope is written *after* the save that indexes a resource, and a Work is
+not otherwise re-indexed when its files change. So the recorder re-indexes the
+owner of every object it records, through `Atlas.index_adapter`, which writes
+Solr only.
+
+**It batches.** One ingest writes six or more versions under one Work, and the
+MODS indexers make a Work re-index the expensive part. Every controller action
+and every `ApplicationService.call` runs in a batch, and the owners touched are
+re-indexed once when the outermost one ends, before the response is sent. A
+write outside any batch, from a console say, re-indexes at once.
+
+**An in-progress Work is skipped.** A bulk deposit uploads one page per
+request, so re-indexing during ingest would re-index the Work once per page. Its
+figure waits for `POST /works/:id/complete`, which saves the Work and so indexes
+it, and the METS and envelope versions that action writes afterwards fall in the
+same batch. A Work left in progress keeps the figure from its last save.
+
+Owners are resolved when the batch ends, not when the bytes land. A new Blob's
+bytes are written before the edge that links it, so resolving early would find
+no owner. **A forgotten object is the exception**: a purge deletes storage
+before the resource, so the recorder resolves the owner first.
+
+A failed re-index is logged and does not fail the write. The bytes are on disk
+and in the ledger, so the next write to that owner, or a reindex, corrects the
+figure.
+
+### The ledger is derived, so it can be rebuilt
+
+`rake atlas:storage:rebuild_footprints` measures every object in every root,
+corrects the rows that differ, drops rows for objects no root holds, and
+re-indexes only the owners of the rows it changed. It is the recovery path after
+a failed ledger write, and it is a full walk, so it is an operator task. A fresh
+environment needs neither it nor a backfill, because `reset:data` rebuilds every
+object through the write path.

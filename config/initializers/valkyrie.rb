@@ -18,7 +18,9 @@ Rails.application.config.to_prepare do
       # The value the r001 path already hashes to, now fixed so the storage can
       # move (a different mount, a different provider) without breaking ids.
       tag: '7c483a4a',
-      file_mover: FileUtils.method(:cp)
+      file_mover: FileUtils.method(:cp),
+      # Keeps each object's byte total and re-indexes its owner (app/services/storage_footprint_recorder.rb).
+      footprint_recorder: StorageFootprintRecorder
     ),
     :disk
   )
@@ -34,7 +36,8 @@ Rails.application.config.to_prepare do
       # differs, but the ids minted into it must not.
       tag: 'testdisk',
       root_name: 'r001',
-      file_mover: FileUtils.method(:cp)
+      file_mover: FileUtils.method(:cp),
+      footprint_recorder: StorageFootprintRecorder
     ),
     :test_disk
   )
@@ -65,7 +68,8 @@ Rails.application.config.to_prepare do
           PersonalRootIndexer,
           SystemContainerIndexer,
           EmbargoIndexer,
-          OAIIndexer
+          OAIIndexer,
+          StorageIndexer
         )
       ),
       :index_solr
@@ -92,7 +96,8 @@ Rails.application.config.to_prepare do
           PersonalRootIndexer,
           SystemContainerIndexer,
           EmbargoIndexer,
-          OAIIndexer
+          OAIIndexer,
+          StorageIndexer
         )
       ),
       :test_solr

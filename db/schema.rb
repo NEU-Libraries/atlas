@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_26_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_01_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "uuid-ossp"
@@ -139,6 +139,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_26_120000) do
     t.index ["metadata"], name: "index_orm_resources_on_metadata", using: :gin
     t.index ["metadata"], name: "index_orm_resources_on_metadata_jsonb_path_ops", opclass: :jsonb_path_ops, using: :gin
     t.index ["updated_at"], name: "index_orm_resources_on_updated_at"
+  end
+
+  create_table "storage_footprints", primary_key: "object_key", id: :string, force: :cascade do |t|
+    t.bigint "bytes", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
   end
 
   create_table "users", force: :cascade do |t|

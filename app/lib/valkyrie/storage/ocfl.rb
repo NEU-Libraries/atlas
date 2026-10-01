@@ -48,12 +48,17 @@ module Valkyrie
       class AmbiguousObject < StandardError
       end
 
-      attr_reader :storage_roots, :pool_name, :file_mover, :clock, :user_agent, :digest_algorithm
+      attr_reader :storage_roots, :pool_name, :file_mover, :clock, :user_agent, :digest_algorithm,
+                  :footprint_recorder
 
       # Holds one root or several. `storage_roots:` is an ordered name => path
       # map; `storage_root:` with `root_name:` is the one-root spelling of the
       # same thing. A name is a name and never a location, so a root can move
       # between mounts or providers without any stored id changing.
+      #
+      # `footprint_recorder:` answers add!(key:, bytes:) and forget!(key:). It
+      # hears the bytes each version adds to an object, so a byte total never
+      # needs a walk of the storage. See docs/binaries.md.
       def initialize(storage_root: nil,
                      storage_roots: nil,
                      tag: nil,
@@ -63,9 +68,11 @@ module Valkyrie
                      tuple_sizes: [2, 2],
                      file_mover: FileUtils.method(:mv),
                      clock: Time.method(:now),
+                     footprint_recorder: nil,
                      user_agent: { name:    'Atlas',
                                    address: 'mailto:library-systems@northeastern.edu' })
         @storage_roots = build_roots(storage_root, storage_roots, root_name, tuple_sizes)
+        @footprint_recorder = footprint_recorder
         @pool_name = pool_name
         @tag = tag
         @digest_algorithm = digest_algorithm
@@ -306,6 +313,26 @@ module Valkyrie
         return if root_name.nil?
 
         FileUtils.rm_rf(storage_roots.fetch(root_name).object_root_for(key.to_s))
+        record_footprint { |recorder| recorder.forget!(key: key.to_s) }
+      end
+
+      # The bytes an object holds on disk, measured by walking it, or nil when
+      # no root holds it. The ledger's answer for the same object, computed
+      # from scratch: the rebuild and the specs compare against this.
+      def measure_object(key:)
+        root_name = existing_root_name(key.to_s)
+        return nil if root_name.nil?
+
+        tree_bytes(storage_roots.fetch(root_name).object_root_for(key.to_s))
+      end
+
+      # Every object key one root holds. The directory an object lives in is
+      # named by its key under the tuple layout.
+      def object_keys(root_name:)
+        root = storage_roots.fetch(root_name.to_s)
+        tuples = Array.new(root.number_of_tuples) { '*' }
+        markers = Dir.glob(root.base_path.join(*tuples, '*', OBJECT_NAMASTE).to_s)
+        markers.map { |path| ::File.basename(::File.dirname(path)) }
       end
 
       private
@@ -534,7 +561,7 @@ module Valkyrie
         def perform_upload(root_name:, key:, sources:)
           root = bootstrap_root!(root_name)
           object_root = root.object_root_for(key)
-          bootstrap_object!(object_root)
+          added_bytes = bootstrap_object!(object_root)
 
           base_inventory = load_inventory(object_root: object_root) ||
                            Inventory.empty(id: inventory_id_for(key), digest_algorithm: digest_algorithm)
@@ -557,12 +584,16 @@ module Valkyrie
           ::File.write(tmp_dir.join(INVENTORY_FILENAME), inv_json)
           ::File.write(tmp_dir.join("#{INVENTORY_FILENAME}#{SIDECAR_SUFFIX}"), sidecar_body(inv_json))
           fsync_staged!(tmp_dir)
+          added_bytes += tree_bytes(tmp_dir)
 
           version_dir = object_root.join(next_v)
           FileUtils.mv(tmp_dir.to_s, version_dir.to_s)
           fsync_dir(object_root)
 
+          head_bytes = head_pair_bytes(object_root)
           update_head_pointer(object_root, inv_json)
+          added_bytes += head_pair_bytes(object_root) - head_bytes
+          record_footprint { |recorder| recorder.add!(key: key, bytes: added_bytes) }
 
           entries.map do |entry|
             physical = object_root.join(new_inventory.content_path_for(entry[:digest]))
@@ -598,10 +629,37 @@ module Valkyrie
           end
         end
 
+        # Answers the bytes it wrote, so a new object's marker is counted.
         def bootstrap_object!(object_root)
           FileUtils.mkdir_p(object_root)
           namaste = object_root.join(OBJECT_NAMASTE)
-          ::File.write(namaste, "ocfl_object_1.1\n") unless namaste.exist?
+          return 0 if namaste.exist?
+
+          ::File.write(namaste, "ocfl_object_1.1\n")
+        end
+
+        # Every regular file under a directory, dotfiles included: a deposited
+        # filename can start with a dot, and its bytes are stored all the same.
+        def tree_bytes(dir)
+          Pathname.glob(dir.join('**', '*'), ::File::FNM_DOTMATCH).sum { |path| path.file? ? path.size : 0 }
+        end
+
+        def head_pair_bytes(object_root)
+          [INVENTORY_FILENAME, "#{INVENTORY_FILENAME}#{SIDECAR_SUFFIX}"].sum do |name|
+            path = object_root.join(name)
+            path.exist? ? path.size : 0
+          end
+        end
+
+        # The version is committed by the time this runs, so a ledger failure
+        # must not fail the write: the caller would retry and cut another
+        # version. The rebuild task corrects the drift it leaves.
+        def record_footprint
+          return if footprint_recorder.nil?
+
+          yield footprint_recorder
+        rescue StandardError => e
+          Rails.logger.error("storage footprint not recorded: #{e.class}: #{e.message}")
         end
 
         def stage_version_dir(object_root, version_number)

@@ -584,4 +584,95 @@ RSpec.describe Valkyrie::Storage::OCFL do
       expect(storage_adapter.find_version_metadata_for(ids: [])).to eq({})
     end
   end
+
+  describe 'storage footprint' do
+    # A ledger in memory, shaped like StorageFootprint.
+    let(:ledger) do
+      Class.new do
+        attr_reader :totals
+
+        def initialize = @totals = Hash.new(0)
+        def add!(key:, bytes:) = @totals[key] += bytes
+        def forget!(key:) = @totals.delete(key)
+      end.new
+    end
+
+    let(:recording_adapter) do
+      described_class.new(storage_root: tmpdir, file_mover: FileUtils.method(:cp), footprint_recorder: ledger)
+    end
+
+    # Independent of the adapter's own walk, so the two cannot share a bug.
+    def bytes_on_disk(key)
+      object_root = recording_adapter.storage_roots.values.first.object_root_for(key)
+      Find.find(object_root.to_s).sum { |path| File.file?(path) ? File.size(path) : 0 }
+    end
+
+    def upload(io, name, resource = noid_resource)
+      recording_adapter.upload(file: io, original_filename: name, resource: resource)
+    end
+
+    it 'records exactly the bytes a new object holds on disk' do
+      upload(file, 'example.bin')
+
+      expect(ledger.totals['abcd1234e']).to eq(bytes_on_disk('abcd1234e'))
+      expect(recording_adapter.measure_object(key: 'abcd1234e')).to eq(bytes_on_disk('abcd1234e'))
+    end
+
+    it 'keeps the total exact across new content, deduplicated content and a revision' do
+      stored = upload(file, 'example.bin')
+      upload(other_file, 'example.png')
+      Rails.root.join('spec/fixtures/files/example.bin').open { |same| upload(same, 'copy.bin') }
+      Rails.root.join('spec/fixtures/files/example.png').open do |io|
+        recording_adapter.upload_version(id: stored.id, file: io)
+      end
+
+      expect(ledger.totals['abcd1234e']).to eq(bytes_on_disk('abcd1234e'))
+    end
+
+    it 'counts a file whose name starts with a dot' do
+      upload(file, '.hidden')
+
+      expect(ledger.totals['abcd1234e']).to eq(bytes_on_disk('abcd1234e'))
+    end
+
+    it 'counts a deduplicated version as its bookkeeping alone' do
+      upload(file, 'example.bin')
+      before = ledger.totals['abcd1234e']
+      Rails.root.join('spec/fixtures/files/example.bin').open { |same| upload(same, 'again.bin') }
+
+      expect(ledger.totals['abcd1234e'] - before).to be < Rails.root.join('spec/fixtures/files/example.bin').size
+      expect(ledger.totals['abcd1234e']).to eq(bytes_on_disk('abcd1234e'))
+    end
+
+    it 'keeps each object to its own total' do
+      upload(file, 'example.bin')
+      upload(other_file, 'example.png', other_resource)
+
+      expect(ledger.totals.keys).to contain_exactly('abcd1234e', 'wxyz9876f')
+      expect(ledger.totals['wxyz9876f']).to eq(bytes_on_disk('wxyz9876f'))
+    end
+
+    it 'forgets the object it deletes' do
+      upload(file, 'example.bin')
+      recording_adapter.delete_object(key: 'abcd1234e')
+
+      expect(ledger.totals).not_to have_key('abcd1234e')
+      expect(recording_adapter.measure_object(key: 'abcd1234e')).to be_nil
+    end
+
+    it 'commits the write even when the recorder fails' do
+      allow(ledger).to receive(:add!).and_raise(ActiveRecord::ConnectionNotEstablished)
+
+      stored = upload(file, 'example.bin')
+
+      expect(recording_adapter.find_by(id: stored.id).read).to eq(Rails.root.join('spec/fixtures/files/example.bin').binread)
+    end
+
+    it 'lists the object keys a root holds' do
+      upload(file, 'example.bin')
+      upload(other_file, 'example.png', other_resource)
+
+      expect(recording_adapter.object_keys(root_name: 'r001')).to contain_exactly('abcd1234e', 'wxyz9876f')
+    end
+  end
 end

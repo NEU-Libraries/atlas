@@ -79,5 +79,7 @@ RSpec.configure do |config|
     # cheaper to prevent here than to diagnose later from a flaky failure.
     AtlasRb::Transport.reset_connections!
     Atlas.persister.wipe!
+    # The server thread commits its ledger rows, so they outlive the example.
+    StorageFootprint.delete_all
   end
 end

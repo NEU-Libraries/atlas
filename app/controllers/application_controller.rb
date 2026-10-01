@@ -20,6 +20,9 @@ class ApplicationController < ActionController::API
   READ_ONLY_TOKEN_ACTIONS = %i[read read_directory read_versions index_all search preview].freeze
 
   before_action :require_auth
+  # One re-index per touched Work or container per action, not one per OCFL
+  # version the action writes.
+  around_action { |_controller, action| StorageFootprintRecorder.batch(&action) }
 
   # Raises CanCan::AuthorizationNotPerformed when an action forgets to call
   # authorize!, so a new endpoint without a gate fails its first test.

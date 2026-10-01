@@ -102,6 +102,8 @@ RSpec.configure do |config|
   config.before(:suite) do
     FileUtils.rm_rf(TestStorage.root)
     Atlas.persister.wipe!
+    # The ledger describes the storage just removed.
+    StorageFootprint.delete_all
     # AR-managed rows that integration specs commit outside the per-example
     # transaction (the Capybara::Server Puma thread holds its own connection
     # — most writes ARE rolled back via Rails 5+ connection sharing, but

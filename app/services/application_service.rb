@@ -4,8 +4,10 @@ class ApplicationService
   include MODSBuilder
   include NoidHelper
 
+  # Batched for the storage re-index, so a creator writing several versions
+  # re-indexes each touched owner once. Nested calls join the outer batch.
   def self.call(**)
-    new(**).call
+    StorageFootprintRecorder.batch { new(**).call }
   end
 
   private

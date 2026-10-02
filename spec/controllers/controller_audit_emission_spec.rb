@@ -194,14 +194,15 @@ RSpec.describe 'Controller audit emission' do
     let(:community) { CommunityCreator.call }
 
     it 'MODS and tombstone/restore emit for Communities too' do
+      nested = CommunityCreator.call(parent_id: community.noid)
       put :put_mods,
-          params: { id:     community.noid,
+          params: { id:     nested.noid,
                     binary: Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/work-mods.xml')) },
           as:     :json
-      post  :tombstone, params: { id: community.noid }, as: :json
-      post  :restore,   params: { id: community.noid }, as: :json
+      post  :tombstone, params: { id: nested.noid }, as: :json
+      post  :restore,   params: { id: nested.noid }, as: :json
 
-      rows = AuditEvent.for_resource(community.id)
+      rows = AuditEvent.for_resource(nested.id)
       expect(rows.where(change_type: 'metadata').count).to eq(1)
       expect(rows.where(change_type: 'lifecycle').pluck(:action)).to contain_exactly('tombstone', 'restore')
       expect(rows.pluck(:resource_type).uniq).to eq(['Community'])

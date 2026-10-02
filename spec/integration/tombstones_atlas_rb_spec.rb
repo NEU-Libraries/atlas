@@ -127,7 +127,7 @@ RSpec.describe 'Tombstone bindings via atlas_rb', :atlas_rb_server do
 
   describe 'AtlasRb::Community' do
     it 'tombstones an empty Community and stamps the audit fields' do
-      community = CommunityCreator.call
+      community = CommunityCreator.call(parent_id: CommunityCreator.call.noid)
 
       AtlasRb::Resource.tombstone(community.noid, nuid: nuid)
 
@@ -138,7 +138,7 @@ RSpec.describe 'Tombstone bindings via atlas_rb', :atlas_rb_server do
     end
 
     it 'restores a tombstoned Community and clears the audit fields' do
-      community = CommunityCreator.call
+      community = CommunityCreator.call(parent_id: CommunityCreator.call.noid)
       AtlasRb::Resource.tombstone(community.noid, nuid: nuid)
 
       AtlasRb::Admin::Resource.restore(community.noid, nuid: nuid)

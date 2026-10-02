@@ -89,14 +89,26 @@ RSpec.describe 'Re-parenting via atlas_rb', :atlas_rb_server do
       expect(Community.find(community.noid).parent.noid).to eq(destination.noid)
     end
 
-    it 'moves a Community to the top of the tree with a nil parent' do
+    it 'refuses to move a Community to the top of the tree' do
       root      = CommunityCreator.call
       community = CommunityCreator.call(parent_id: root.noid)
 
-      result = AtlasRb::Resource.reparent(community.noid, nil, nuid: admin_nuid)
+      expect do
+        AtlasRb::Resource.reparent(community.noid, nil, nuid: admin_nuid)
+      end.to raise_error(AtlasRb::ReparentError) { |e| expect(e.code).to eq('parent_required') }
 
-      expect(result['ancestors']).to eq([])
-      expect(Community.find(community.noid).a_member_of).to be_nil
+      expect(Community.find(community.noid).parent.noid).to eq(root.noid)
+    end
+
+    it 'refuses to move a top-level Community' do
+      root        = CommunityCreator.call
+      destination = CommunityCreator.call
+
+      expect do
+        AtlasRb::Resource.reparent(root.noid, destination.noid, nuid: admin_nuid)
+      end.to raise_error(AtlasRb::ReparentError) { |e| expect(e.code).to eq('top_level_community') }
+
+      expect(Community.find(root.noid).parent).to be_nil
     end
   end
 

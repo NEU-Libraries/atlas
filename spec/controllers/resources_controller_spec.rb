@@ -218,6 +218,34 @@ describe ResourcesController, type: :controller do
       expect(response.parsed_body['code']).to eq('has_live_children')
     end
 
+    it 'refuses a top-level Community ahead of its live children' do
+      work
+      post :tombstone, params: { id: community.noid }, as: :json
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(response.parsed_body['code']).to eq('top_level_community')
+      expect(Community.find(community.noid).tombstoned).to be(false)
+    end
+
+    it 'refuses the People Community, which has no parent either' do
+      people = CommunityCreator.call
+      people.system_container = true
+      Atlas.persister.save(resource: people)
+
+      post :tombstone, params: { id: people.noid }, as: :json
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(response.parsed_body['code']).to eq('top_level_community')
+    end
+
+    it 'withdraws a nested Community' do
+      nested = CommunityCreator.call(parent_id: community.noid)
+      post :tombstone, params: { id: nested.noid }, as: :json
+
+      expect(response).to have_http_status(:success)
+      expect(Community.find(nested.noid).tombstoned).to be(true)
+    end
+
     it 'succeeds when the only members are themselves tombstoned' do
       child = WorkCreator.call(parent_id: collection.noid)
       child.tombstoned = true
@@ -300,6 +328,23 @@ describe ResourcesController, type: :controller do
   end
 
   describe 'DELETE #destroy' do
+    it 'refuses an empty top-level Community' do
+      empty_root = CommunityCreator.call
+      delete :destroy, params: { id: empty_root.noid }, as: :json
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(response.parsed_body['code']).to eq('top_level_community')
+      expect(Community.find(empty_root.noid)).to be_present
+    end
+
+    it 'refuses a top-level Community ahead of its members' do
+      work
+      delete :destroy, params: { id: community.noid }, as: :json
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(response.parsed_body['code']).to eq('top_level_community')
+    end
+
     it 'purges the resource' do
       delete :destroy, params: { id: work.noid }, as: :json
 

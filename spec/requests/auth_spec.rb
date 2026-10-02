@@ -592,10 +592,10 @@ RSpec.describe 'Auth matrix', type: :request, default_auth: false do
     end
 
     describe 'PATCH /communities/:id/parent (devolved-admin tier)' do
-      it 'permits the delegate to move a community to the top of the tree' do
-        movable_community = CommunityCreator.call
+      it 'permits the delegate to move a community under another' do
+        movable_community = CommunityCreator.call(parent_id: community.noid)
         patch "/resources/#{movable_community.noid}/parent",
-              params: { parent_id: nil }.to_json, headers: json_headers(delegate.nuid)
+              params: { parent_id: CommunityCreator.call.noid }.to_json, headers: json_headers(delegate.nuid)
         expect(response).to have_http_status(:ok)
       end
     end

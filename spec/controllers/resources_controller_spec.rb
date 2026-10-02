@@ -262,6 +262,41 @@ describe ResourcesController, type: :controller do
       expect(reloaded.tombstoned_at).to be_nil
       expect(reloaded.tombstoned_by).to be_nil
     end
+
+    it 'refuses while the parent is tombstoned, and leaves the resource withdrawn' do
+      parent = Collection.find(tombstoned.parent.noid)
+      parent.tombstone(by: '000000002')
+      Atlas.persister.save(resource: parent)
+
+      post :restore, params: { id: tombstoned.noid }, as: :json
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(response.parsed_body['code']).to eq('tombstoned_parent')
+      expect(Work.find(tombstoned.noid).tombstoned).to be(true)
+    end
+
+    it 'restores once the parent is restored' do
+      parent = Collection.find(tombstoned.parent.noid)
+      parent.tombstone(by: '000000002')
+      saved = Atlas.persister.save(resource: parent)
+      post :restore, params: { id: saved.noid }, as: :json
+      expect(response).to have_http_status(:success)
+
+      post :restore, params: { id: tombstoned.noid }, as: :json
+
+      expect(response).to have_http_status(:success)
+      expect(Work.find(tombstoned.noid).tombstoned).to be(false)
+    end
+
+    it 'never refuses a top-level Community' do
+      community.tombstone(by: '000000002')
+      Atlas.persister.save(resource: community)
+
+      post :restore, params: { id: community.noid }, as: :json
+
+      expect(response).to have_http_status(:success)
+      expect(Community.find(community.noid).tombstoned).to be(false)
+    end
   end
 
   describe 'DELETE #destroy' do

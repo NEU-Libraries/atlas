@@ -577,6 +577,11 @@ RSpec.describe 'Resources', type: :request do
         Reverses a withdrawal: reads stop answering `410`, and
         `tombstone_reason` is cleared. Admin only. No confirmation marker —
         restoring is itself reversible, by tombstoning again.
+
+        Refused with `422 tombstoned_parent` while the resource's parent is
+        still tombstoned, so a restore can never surface a resource inside a
+        withdrawn container — restore the tree root-first. A top-level
+        Community has no parent and is never refused.
       DESC
 
       response '200', 'resource restored' do
@@ -591,6 +596,24 @@ RSpec.describe 'Resources', type: :request do
           restored = JSON.parse(response.body)['work']
           expect(restored['tombstoned']).to be(false)
           expect(restored['tombstone_reason']).to be_nil
+        end
+      end
+
+      response '422', 'parent is still tombstoned' do
+        let(:tombstoned) do
+          w = WorkCreator.call(parent_id: collection.noid)
+          w.tombstone(by: '000000004')
+          Atlas.persister.save(resource: w)
+        end
+        let(:id) { tombstoned.noid }
+        before do
+          parent = Collection.find(tombstoned.parent.noid)
+          parent.tombstone(by: '000000004')
+          Atlas.persister.save(resource: parent)
+        end
+        run_test! do |response|
+          expect(JSON.parse(response.body)['code']).to eq('tombstoned_parent')
+          expect(Work.find(tombstoned.noid).tombstoned).to be(true)
         end
       end
 

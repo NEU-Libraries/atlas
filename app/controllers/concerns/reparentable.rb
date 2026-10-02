@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
-# The re-parent move: PATCH /resources/:id/parent with { parent_id }, or no
-# parent_id to move a Community to the top of the tree. See
+# The re-parent move: PATCH /resources/:id/parent with { parent_id }. See
 # docs/resource-graph.md.
 #
 # Authorization is TWO-SIDED -- :reparent on both the moved node and the
@@ -17,6 +16,7 @@ module Reparentable
     def reparent_resolved(node)
       destination = reparent_destination
       authorize! :reparent, destination if destination
+      refuse_top_level_move!(node, destination)
 
       Reparenter.call(
         node:              node,
@@ -26,6 +26,18 @@ module Reparentable
       )
 
       node
+    end
+
+    # Moving a root demotes it, and moving a Community to the top mints a second
+    # root nothing protects. Refused here rather than in Reparenter, which an
+    # operator at the console may still call directly.
+    def refuse_top_level_move!(node, destination)
+      if node.top_level_community?
+        raise Exceptions::ReparentError.new('top_level_community', 'cannot move a top-level community')
+      end
+      return unless node.is_a?(Community) && destination.nil?
+
+      raise Exceptions::ReparentError.new('parent_required', 'a community requires a parent')
     end
 
     # A given-but-unresolvable parent is a 422 and NOT a 404: the parent is

@@ -55,6 +55,10 @@ RSpec.describe 'Resources', type: :request do
         merely tombstoned, because a purge cannot be undone and a member left
         behind is orphaned for good.
 
+        Refused with `422 top_level_community` for a Community with no parent —
+        the repository root or the People Community — whatever it holds. The
+        API offers no way to remove a root.
+
         Admin only.
       DESC
 
@@ -70,6 +74,14 @@ RSpec.describe 'Resources', type: :request do
         before { work }
         run_test! do |response|
           expect(JSON.parse(response.body)['code']).to eq('has_children')
+        end
+      end
+
+      response '422', 'top-level community' do
+        let(:id) { community.noid }
+        run_test! do |response|
+          expect(JSON.parse(response.body)['code']).to eq('top_level_community')
+          expect(Community.find(community.noid)).to be_present
         end
       end
 
@@ -449,8 +461,9 @@ RSpec.describe 'Resources', type: :request do
         Moves a resource under a different parent. A Work carries no ancestry
         field and has no descendants, so only its own membership changes; a
         container's moved subtree is re-projected synchronously. Permissions
-        are untouched. Omit `parent_id` to move a Community to the top of the
-        tree.
+        are untouched. Nothing moves to or from the top of the tree: a missing
+        `parent_id` is a `422 parent_required`, and moving a Community that has
+        no parent is a `422 top_level_community`.
 
         Authorization is TWO-SIDED — the caller needs `:reparent` on the moved
         node AND on the destination. Edit rights do not imply it for anyone but
@@ -490,6 +503,22 @@ RSpec.describe 'Resources', type: :request do
           expect(JSON.parse(response.body)['error']).to eq('parent_not_found')
         end
       end
+
+      response '422', 'top-level community' do
+        let(:id)   { community.noid }
+        let(:body) { { parent_id: CommunityCreator.call.noid } }
+        run_test! do |response|
+          expect(JSON.parse(response.body)['error']).to eq('top_level_community')
+        end
+      end
+
+      response '422', 'no parent given' do
+        let(:id)   { CommunityCreator.call(parent_id: community.noid).noid }
+        let(:body) { {} }
+        run_test! do |response|
+          expect(JSON.parse(response.body)['error']).to eq('parent_required')
+        end
+      end
     end
   end
 
@@ -504,6 +533,10 @@ RSpec.describe 'Resources', type: :request do
         is reversible via `POST /resources/{id}/restore`; reads answer `410`
         with a withdrawn stub. Use `DELETE /resources/{id}` for the
         irreversible purge.
+
+        Refused with `422 top_level_community` for a Community with no parent —
+        the repository root or the People Community. The API offers no way to
+        withdraw a root.
 
         Refused with `422 has_live_children` while the resource still holds a
         live Community, Collection or Work, so a withdrawal can never orphan a
@@ -547,6 +580,15 @@ RSpec.describe 'Resources', type: :request do
         before { work }
         run_test! do |response|
           expect(JSON.parse(response.body)['code']).to eq('has_live_children')
+        end
+      end
+
+      response '422', 'top-level community' do
+        let(:id)   { community.noid }
+        let(:body) { {} }
+        run_test! do |response|
+          expect(JSON.parse(response.body)['code']).to eq('top_level_community')
+          expect(Community.find(community.noid).tombstoned).to be(false)
         end
       end
 

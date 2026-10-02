@@ -227,6 +227,25 @@ Atlas is the authority.
 - **It is not indexed.** Discovery excludes tombstoned resources, so nothing
   searches on the note.
 
+### A top-level Community cannot be withdrawn, purged or moved
+
+Two Communities have no parent: the repository root and the People Community.
+Every ancestor chain, trail and gated query hangs from one of them, so
+`tombstone` and `destroy` answer `422 top_level_community` for either, and so
+does a re-parent (see below). The API offers no way to remove a root, to admins
+and the system principal alike; it is an operator task.
+
+- **The refusal comes first.** It runs before `has_live_children` and
+  `has_children`, so the answer cannot reveal whether a root is empty.
+- **It lives in the controllers only.** `Resource#tombstone`, `Reparenter`,
+  `ResourcePurger` and the persister do not check it, so an operator at the
+  Rails console can still withdraw, purge or move a root.
+- **It does not stop a client-side cascade.** A client that withdraws a subtree
+  deepest first reaches the root last, after everything under it is withdrawn.
+  Such a client must refuse a root before it starts.
+- **Restore is not refused,** so a root withdrawn at the console can still come
+  back through the API.
+
 ### Withdrawal runs leaf-first, restore runs root-first
 
 Neither action cascades, so each refuses the order that would leave a readable
@@ -329,8 +348,7 @@ pathologically large subtree the caller roots lower or drives it in chunks.
 
 ## Re-parenting is two-sided
 
-`PATCH /<type>/:id/parent` takes `{ parent_id }`, or no `parent_id` for moving a
-Community to the top of the tree.
+`PATCH /<type>/:id/parent` takes `{ parent_id }`.
 
 **`authorize! :reparent` runs on both the moved node and the destination.**
 Moving structure is an admin-adjacent operation: `:admin` holds it through
@@ -343,5 +361,10 @@ surfaces as a 422.
 **A given-but-unresolvable parent is a 422, not a 404**, because the parent is
 request input rather than the addressed resource.
 
-A nil `parent_id` means "move to the top of the tree", which is only valid for a
-Community. `Reparenter`'s type rule rejects it for a Work or Collection.
+**Nothing moves to or from the top of the tree.** A nil `parent_id` is `422
+parent_required` for every type. Moving a top-level Community anywhere is `422
+top_level_community`, because it would demote the root. Moving any Community to
+the top would mint a second root that nothing protects. `Reparenter` itself
+still accepts a nil destination for a Community, so a console operator can make
+that move; the refusal lives in `Reparentable`, for the reason given under
+[the top-level Community](#a-top-level-community-cannot-be-withdrawn-purged-or-moved).

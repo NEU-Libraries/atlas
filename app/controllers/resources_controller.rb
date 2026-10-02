@@ -192,6 +192,12 @@ class ResourcesController < ApplicationController
     authorize! :destroy, resource || Resource
     return head(:not_found) unless resource && TYPED_IVARS.key?(resource.class)
 
+    # Ahead of has_children, so the answer cannot reveal whether a root is empty.
+    if resource.top_level_community?
+      refusal = { error: 'cannot destroy a top-level community', code: 'top_level_community' }
+      return render(json: refusal, status: :unprocessable_content)
+    end
+
     # Refuses while any container or Work is still a member, and -- unlike
     # tombstone -- refuses a member that is merely tombstoned: a purge cannot
     # be undone, so a member left behind is orphaned for good. An operator
@@ -282,12 +288,15 @@ class ResourcesController < ApplicationController
       render template: "#{resource.class.name.tableize}/#{view}"
     end
 
-    # Refuses while the resource still holds a live container or Work, so a
-    # withdrawal can never orphan a readable descendant. This applies to every
-    # type without a special case: `live_children?` counts only those three, so
-    # a Work holding FileSets and Blobs always passes and they ride along.
+    # A top-level Community is refused first, so the answer cannot reveal
+    # whether a root is empty. Otherwise refuses while the resource still holds
+    # a live container or Work, so a withdrawal can never orphan a readable
+    # descendant: `live_children?` counts only those three, so a Work holding
+    # FileSets and Blobs always passes and they ride along.
     def tombstone_refusal(resource, reason)
-      if resource.live_children?
+      if resource.top_level_community?
+        { error: 'cannot tombstone a top-level community', code: 'top_level_community' }
+      elsif resource.live_children?
         { error: "cannot tombstone a non-empty #{resource.class.name.downcase}", code: 'has_live_children' }
       elsif reason && Resource::TOMBSTONE_REASONS.exclude?(reason)
         { error: 'reason is not one of the policy removal notes', code: 'invalid_reason' }

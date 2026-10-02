@@ -38,6 +38,13 @@ class Resource < Valkyrie::Resource
     ActiveDecorator::Decorator.instance.decorate(self)
   end
 
+  # The repository root or the People Community. The API refuses to withdraw,
+  # purge or move one; nothing below the controllers does, so an operator at the
+  # console still can. See docs/resource-graph.md.
+  def top_level_community?
+    is_a?(Community) && parent.nil?
+  end
+
   def tombstone(by:, reason: nil)
     self.tombstoned       = true
     self.tombstoned_at    = Time.current

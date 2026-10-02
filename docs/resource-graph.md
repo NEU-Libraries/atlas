@@ -227,6 +227,17 @@ Atlas is the authority.
 - **It is not indexed.** Discovery excludes tombstoned resources, so nothing
   searches on the note.
 
+### Withdrawal runs leaf-first, restore runs root-first
+
+Neither action cascades, so each refuses the order that would leave a readable
+resource inside a withdrawn one. `tombstone` answers `422 has_live_children`
+while the resource still holds a live Community, Collection or Work. `restore`
+answers `422 tombstoned_parent` while the resource's parent is still
+tombstoned; otherwise a Work would come back discoverable inside a withdrawn
+Collection. A top-level Community has no parent, so its restore is never
+refused. The reparenter refuses the matching move into a tombstoned parent with
+the same code.
+
 ### A FileSet can be tombstoned, and nothing else below a Work can
 
 `tombstone` and `restore` answer for a FileSet as well as the three typed

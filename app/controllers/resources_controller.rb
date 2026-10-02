@@ -175,6 +175,9 @@ class ResourcesController < ApplicationController
     authorize! :restore, resource || Resource
     return head(:not_found) unless resource && LIFECYCLE_IVARS.key?(resource.class)
 
+    refusal = restore_refusal(resource)
+    return render(json: refusal, status: :unprocessable_content) if refusal
+
     resource.restore
     saved = save_lifecycle(resource)
     audit_lifecycle!(saved, 'restore')
@@ -289,6 +292,15 @@ class ResourcesController < ApplicationController
       elsif reason && Resource::TOMBSTONE_REASONS.exclude?(reason)
         { error: 'reason is not one of the policy removal notes', code: 'invalid_reason' }
       end
+    end
+
+    # The mirror of `tombstone_refusal`: restoring under a withdrawn parent
+    # would make the resource discoverable inside it, so restores run
+    # root-first. A top-level Community has no parent and always passes.
+    def restore_refusal(resource)
+      return unless resource.parent&.tombstoned
+
+      { error: 'restore the parent first', code: 'tombstoned_parent' }
     end
 
     # The envelope carries the withdrawal, so a rebuild from disk keeps it. A

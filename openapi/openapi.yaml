@@ -4749,6 +4749,11 @@ paths:
         Reverses a withdrawal: reads stop answering `410`, and
         `tombstone_reason` is cleared. Admin only. No confirmation marker —
         restoring is itself reversible, by tombstoning again.
+
+        Refused with `422 tombstoned_parent` while the resource's parent is
+        still tombstoned, so a restore can never surface a resource inside a
+        withdrawn container — restore the tree root-first. A top-level
+        Community has no parent and is never refused.
       responses:
         '200':
           description: resource restored
@@ -4756,6 +4761,8 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Work"
+        '422':
+          description: parent is still tombstoned
         '404':
           description: unknown id
   "/resources/preview":

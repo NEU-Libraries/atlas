@@ -243,6 +243,13 @@ RSpec.describe Ability do
       expect(subject).to be_able_to(:read_versions, Community)
     end
 
+    it 'grants :read_index on every indexed type, and not on a Set' do
+      [Work, Collection, Community, FileSet, Blob, Delegate, Person].each do |klass|
+        expect(subject).to be_able_to(:read_index, klass)
+      end
+      expect(subject).not_to be_able_to(:read_index, Compilation)
+    end
+
     it 'grants :read_withdrawn on Work, unconditionally, beside :tombstone and :restore on FileSet' do
       expect(subject).to be_able_to(:read_withdrawn, stranger_work)
       expect(subject).to be_able_to(:tombstone,      FileSet.new)
@@ -270,6 +277,7 @@ RSpec.describe Ability do
       expect(subject).not_to be_able_to(:read_versions, Work)
       expect(subject).not_to be_able_to(:read_versions, Collection)
       expect(subject).not_to be_able_to(:read_versions, Community)
+      expect(subject).not_to be_able_to(:read_index,    Work)
       expect(subject).not_to be_able_to(:read_withdrawn, Work.new(edit_groups: [Permissions::STAFF_EDIT_GROUP]))
     end
   end

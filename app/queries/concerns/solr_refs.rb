@@ -35,6 +35,10 @@ module SolrRefs
       docs.pluck('id')
     end
 
+    def noid_filter(noid)
+      "{!terms f=alternate_ids_ssim}id-#{noid}"
+    end
+
     def solr_ref(noid)
       %("id-#{noid}")
     end

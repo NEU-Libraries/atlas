@@ -280,6 +280,12 @@ Each grant is a named carve-out beneath the wildcard, not a promotion:
   cannot be mistaken for opening the audit-history surface. A delegate can already
   edit MODS and fetch any single MODS version on the read gate, so the list adds
   only who made each edit.
+- **`:read_index` on every indexed type.** `GET /resources/:id/solr`, which
+  returns an object's raw Solr document. A
+  verb of its own rather than `:read_versions`, which means "who edited what":
+  sharing one verb would tie two unrelated grants together. Both endpoints also
+  check `:read` on the object, so the grant opens no object the delegate could not
+  already read. See [`solr-indexing.md`](solr-indexing.md#reading-a-document-back-get-resourcesidsolr).
 
 ### The tier depends on two different Grouper groups
 

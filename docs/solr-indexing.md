@@ -11,6 +11,9 @@ Source files:
 - `app/indexers/name_variant_indexer.rb` — diminutive and formal forms of personal names
 - `app/indexers/person_indexer.rb` — a Person as a first-class result
 - `app/indexers/thumbnail_indexer.rb` — thumbnail-family Delegate URIs
+- `app/controllers/index_documents_controller.rb` and `app/queries/index_document_query.rb`
+  — `GET /resources/:id/solr`
+- `app/controllers/concerns/index_read_gate.rb` — the gate for reading one object's index
 
 The browse-axis vocabulary these indexers share with the decorator is
 [`mods-browse.md`](mods-browse.md).
@@ -412,3 +415,48 @@ It returns an empty hash for resources with no derivative FileSet — Blobs,
 Delegates, FileSets themselves, and resources whose ingest has not minted
 derivatives yet. The composite indexer fires on every save, so that early return
 is what keeps the fast path fast.
+
+## Reading a document back: `GET /resources/:id/solr`
+
+Returns one object's Solr document exactly as Solr stores it, so an API client
+such as Hyperion can debug the index without a Solr query from inside the Docker
+network. The shape is in [`openapi.yaml`](../openapi/openapi.yaml). Atlas passes
+the document through and does not shape it; the client formats it.
+
+**A missing document is itself the fault.** The endpoint answers 404 with
+`error: not_indexed` when the object exists but Solr holds nothing for it, and
+`POST /resources/:id/reindex` is the fix. A Set answers a plain 404, because a
+Compilation is an ActiveRecord row and is never indexed.
+
+The request sets `fl=*`. The `search` handler's default `fl` adds `score`, and a
+score on a `*:*` query means nothing.
+
+### Who may call it
+
+Two checks, in this order, in `IndexReadGate#authorize_index_read!`:
+
+1. **`:read_index` on the object's class.** Admins hold it through the wildcard;
+   delegated admins hold it on every indexed type. See
+   [`authorization.md`](authorization.md#the-devolved-admin-tier).
+2. **`:read` on the object.** The document holds the access lists, the depositor
+   and the in-progress flags, so it must not open what the object's own read gate
+   keeps shut. This is the difference from `mods_versions`, which checks
+   `:read_versions` alone.
+
+`:read_index` is on `READ_ONLY_TOKEN_ACTIONS`, because Hyperion signs in with a
+read-only personal token. A Solr failure answers 502 with
+`error: solr_unavailable`.
+
+### What the document cannot show
+
+A field that is searched but not stored never appears in the response. Its
+absence is not a fault. These are the ones `qf` reaches today; the Solr schema,
+not this table, is the authority:
+
+| Field | Why it is absent |
+|---|---|
+| `descriptive_keywords_tesim` | A match-only `copyField` of the subject, name, genre, publisher and place fields |
+| `title_stem_tesim`, `title_kstem_tesim` | Match-only stemmed copies of `title_tsim` and `title_plain_tsim` |
+| `description_stem_tesim`, `description_kstem_tesim` | Match-only stemmed copies of `description_tsim` |
+| `name_variant_teim` | `*_teim` is not stored; `NameVariantIndexer` fills it |
+

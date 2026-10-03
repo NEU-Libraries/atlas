@@ -2075,6 +2075,18 @@ components:
       required:
       - results
       - pagination
+    IndexDocument:
+      type: object
+      properties:
+        noid:
+          type: string
+        document:
+          type: object
+          additionalProperties: true
+          description: The Solr document exactly as Solr stores it
+      required:
+      - noid
+      - document
     WorkAssociations:
       type: object
       properties:
@@ -4018,6 +4030,40 @@ paths:
       responses:
         '200':
           description: mets returned
+  "/resources/{id}/solr":
+    get:
+      summary: An object's Solr document
+      tags:
+      - Resources
+      description: |
+        The object's Solr document exactly as Solr stores it, for debugging the
+        index. Admins and delegated admins only; a delegated admin must also be
+        able to read the object.
+
+        Fields that are searched but not stored never appear:
+        `descriptive_keywords_tesim`, `title_stem_tesim`,
+        `description_stem_tesim` and `name_variant_teim`, among others. Their
+        absence is not a fault.
+
+        404 for an unknown NOID and for a Set, which Atlas does not index. 404
+        with `error: not_indexed` when the object exists but Solr holds no
+        document for it; `POST /resources/{id}/reindex` is the fix.
+      parameters:
+      - name: id
+        in: path
+        description: NOID
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: the Solr document
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/IndexDocument"
+        '404':
+          description: the object has no Solr document
   "/maintenance":
     get:
       summary: Read the repository-wide read-only window

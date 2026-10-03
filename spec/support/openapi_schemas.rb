@@ -46,6 +46,7 @@ module OpenapiSchemas
       BlobAncestry:       blob_ancestry,
       DescendantWorks:    descendant_works,
       SearchResults:      search_results,
+      IndexDocument:      index_document,
       WorkAssociations:   work_associations,
       MaintenanceMode:    maintenance_mode,
       EmbargoRelease:     embargo_release
@@ -518,6 +519,16 @@ module OpenapiSchemas
       },
       required:   %w[id noid klass title creators year thumbnail in_progress embargoed incomplete]
     }
+  end
+
+  # GET /resources/:id/solr. The document is Solr's own, passed through, so its
+  # fields follow whatever the indexers and the Solr schema produce.
+  def index_document
+    bare({
+           noid:     { type: :string },
+           document: { type: :object, additionalProperties: true,
+                       description: 'The Solr document exactly as Solr stores it' }
+         })
   end
 
   def pagination

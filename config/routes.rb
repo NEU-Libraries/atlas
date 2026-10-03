@@ -119,6 +119,7 @@ Rails.application.routes.draw do
     get '/resources/:id/permissions', to: 'resources#permissions'
     get '/resources/:id/history', to: 'audit_events#index', as: 'resource_history'
     get '/resources/:id/solr', to: 'index_documents#show', as: 'resource_index_document'
+    get '/resources/:id/search_explanation', to: 'search_explanations#show', as: 'resource_search_explanation'
     # Every Work beneath a container, at any depth — the structural counterpart
     # to /compilations/:id/contents (same digest shape and query engine, but the
     # container set is the resource's own subtree, not a Set recipe). Gated

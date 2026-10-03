@@ -22,7 +22,8 @@ RSpec.describe 'Solr documents', type: :request do
         Fields that are searched but not stored never appear:
         `descriptive_keywords_tesim`, `title_stem_tesim`,
         `description_stem_tesim` and `name_variant_teim`, among others. Their
-        absence is not a fault.
+        absence is not a fault. `GET /resources/{id}/search_explanation` shows
+        what they match.
 
         404 for an unknown NOID and for a Set, which Atlas does not index. 404
         with `error: not_indexed` when the object exists but Solr holds no

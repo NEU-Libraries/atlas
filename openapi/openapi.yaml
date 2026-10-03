@@ -2087,6 +2087,152 @@ components:
       required:
       - noid
       - document
+    SearchExplanation:
+      type: object
+      properties:
+        noid:
+          type: string
+        q:
+          type: string
+        matched:
+          type: boolean
+        score:
+          type: number
+        hidden_by:
+          type: array
+          items:
+            type: string
+            enum:
+            - types
+            - tombstoned
+            - featured
+            - personal_root
+            - system_container
+          description: Catalog filters that hide the object whatever it matches
+        parsed_query:
+          type: string
+          description: Solr's parsedquery_toString
+        handler:
+          type: object
+          properties:
+            qf:
+              type: object
+              additionalProperties:
+                type: number
+              description: Field to boost
+            pf:
+              type: object
+              additionalProperties:
+                type: number
+              description: Field to boost
+            mm:
+              type: string
+              nullable: true
+            tie:
+              type: number
+              nullable: true
+            boost:
+              type: string
+              nullable: true
+          required:
+          - qf
+          - pf
+          - mm
+          - tie
+          - boost
+        explanation:
+          type: object
+          additionalProperties: true
+          description: Solr's structured explainOther tree, unchanged
+        fields:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              stored:
+                type: boolean
+              query_tokens:
+                type: object
+                properties:
+                  typed:
+                    type: array
+                    items:
+                      type: string
+                  analysed:
+                    type: array
+                    items:
+                      type: string
+                required:
+                - typed
+                - analysed
+                nullable: true
+              values:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    source:
+                      type: string
+                    text:
+                      type: string
+                    tokens:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          text:
+                            type: string
+                          start:
+                            type: integer
+                          end:
+                            type: integer
+                          position:
+                            type: integer
+                          match:
+                            type: boolean
+                        required:
+                        - text
+                        - start
+                        - end
+                        - position
+                        - match
+                  required:
+                  - source
+                  - text
+                  - tokens
+              truncated:
+                type: boolean
+                description: A source had more values than were analysed
+              reason:
+                type: string
+                nullable: true
+                description: not_in_schema, full_text, not_stored or analysis_failed;
+                  null otherwise
+              highlights:
+                type: array
+                items:
+                  type: string
+                description: Full-text passages, for full_text_tesimv only
+            required:
+            - field
+            - stored
+            - query_tokens
+            - values
+            - truncated
+            - reason
+            - highlights
+      required:
+      - noid
+      - q
+      - matched
+      - score
+      - hidden_by
+      - parsed_query
+      - handler
+      - explanation
+      - fields
     WorkAssociations:
       type: object
       properties:
@@ -4043,7 +4189,8 @@ paths:
         Fields that are searched but not stored never appear:
         `descriptive_keywords_tesim`, `title_stem_tesim`,
         `description_stem_tesim` and `name_variant_teim`, among others. Their
-        absence is not a fault.
+        absence is not a fault. `GET /resources/{id}/search_explanation` shows
+        what they match.
 
         404 for an unknown NOID and for a Set, which Atlas does not index. 404
         with `error: not_indexed` when the object exists but Solr holds no
@@ -5030,6 +5177,56 @@ paths:
                 "$ref": "#/components/schemas/DescendantWorks"
         '404':
           description: unknown id
+  "/resources/{id}/search_explanation":
+    get:
+      summary: How the catalog search scores one object
+      tags:
+      - Resources
+      description: |
+        Solr's own account of how the catalog search scores one Work, Collection
+        or Community for `q`, whether it matches or not, for debugging search.
+        Admins and delegated admins only; a delegated admin must also be able to
+        read the object.
+
+        `explanation` is Solr's structured `explainOther` tree, unchanged.
+        `handler` is the search handler's `qf`, `pf`, `mm`, `tie` and `boost`,
+        read from Solr. `hidden_by` names the always-on catalog filters that
+        hide the object whatever it matches.
+
+        `fields` has one entry per `qf` field. Each stored value that feeds the
+        field is analysed against `q`, and its index tokens carry `match`.
+        Offsets count UTF-16 code units, as Solr reports them. A field with no
+        stored text says why in `reason`: `not_stored`, or `full_text`, whose
+        matching passages are in `highlights`. A failed analysis is
+        `analysis_failed`; the other fields are still returned.
+
+        400 for a blank `q`. 404 for an unknown NOID, a Set or any other type;
+        404 with `error: not_indexed` when Solr holds no document for the
+        object. 502 when Solr does not answer.
+      parameters:
+      - name: id
+        in: path
+        description: NOID
+        required: true
+        schema:
+          type: string
+      - name: q
+        in: query
+        required: true
+        description: The search words
+        schema:
+          type: string
+      responses:
+        '200':
+          description: the object does not match
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/SearchExplanation"
+        '400':
+          description: blank q
+        '404':
+          description: the object has no Solr document
   "/resources/search":
     get:
       summary: Search the catalog

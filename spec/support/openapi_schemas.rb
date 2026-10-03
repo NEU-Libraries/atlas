@@ -47,6 +47,7 @@ module OpenapiSchemas
       DescendantWorks:    descendant_works,
       SearchResults:      search_results,
       IndexDocument:      index_document,
+      SearchExplanation:  search_explanation,
       WorkAssociations:   work_associations,
       MaintenanceMode:    maintenance_mode,
       EmbargoRelease:     embargo_release
@@ -528,6 +529,44 @@ module OpenapiSchemas
            noid:     { type: :string },
            document: { type: :object, additionalProperties: true,
                        description: 'The Solr document exactly as Solr stores it' }
+         })
+  end
+
+  # GET /resources/:id/search_explanation. Atlas groups Solr's pieces without
+  # reshaping them, so `explanation` is Solr's tree, as deep as the query makes it.
+  def search_explanation
+    boost_map = { type: :object, additionalProperties: { type: :number }, description: 'Field to boost' }
+    bare({
+           noid:         { type: :string },
+           q:            { type: :string },
+           matched:      { type: :boolean },
+           score:        { type: :number },
+           hidden_by:    { type: :array, items: { type: :string, enum: SearchQuery::CATALOG_FILTERS.keys },
+                           description: 'Catalog filters that hide the object whatever it matches' },
+           parsed_query: { type: :string, description: "Solr's parsedquery_toString" },
+           handler:      bare({ qf: boost_map, pf: boost_map,
+                                mm: { type: :string, nullable: true }, tie: { type: :number, nullable: true },
+                                boost: { type: :string, nullable: true } }),
+           explanation:  { type: :object, additionalProperties: true,
+                           description: "Solr's structured explainOther tree, unchanged" },
+           fields:       { type: :array, items: search_explanation_field }
+         })
+  end
+
+  def search_explanation_field
+    words = { type: :array, items: { type: :string } }
+    token = bare({ text: { type: :string }, start: { type: :integer }, end: { type: :integer },
+                   position: { type: :integer }, match: { type: :boolean } })
+    bare({
+           field:        { type: :string },
+           stored:       { type: :boolean },
+           query_tokens: bare({ typed: words, analysed: words }).merge(nullable: true),
+           values:       { type: :array, items: bare({ source: { type: :string }, text: { type: :string },
+                                                       tokens: { type: :array, items: token } }) },
+           truncated:    { type: :boolean, description: 'A source had more values than were analysed' },
+           reason:       { type: :string, nullable: true,
+                           description: 'not_in_schema, full_text, not_stored or analysis_failed; null otherwise' },
+           highlights:   words.merge(description: 'Full-text passages, for full_text_tesimv only')
          })
   end
 

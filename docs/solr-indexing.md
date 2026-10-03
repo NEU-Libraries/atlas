@@ -13,7 +13,7 @@ Source files:
 - `app/indexers/thumbnail_indexer.rb` — thumbnail-family Delegate URIs
 - `app/controllers/index_documents_controller.rb` and `app/queries/index_document_query.rb`
   — `GET /resources/:id/solr`
-- `app/controllers/concerns/index_read_gate.rb` — the gate for reading one object's index
+- `app/controllers/concerns/index_read_gate.rb` — the gate both Solr debugging endpoints share
 
 The browse-axis vocabulary these indexers share with the decorator is
 [`mods-browse.md`](mods-browse.md).
@@ -459,4 +459,7 @@ not this table, is the authority:
 | `title_stem_tesim`, `title_kstem_tesim` | Match-only stemmed copies of `title_tsim` and `title_plain_tsim` |
 | `description_stem_tesim`, `description_kstem_tesim` | Match-only stemmed copies of `description_tsim` |
 | `name_variant_teim` | `*_teim` is not stored; `NameVariantIndexer` fills it |
+
+`GET /resources/:id/search_explanation` shows what those fields match. See
+[`search.md`](search.md#explaining-one-object-get-resourcesidsearch_explanation).
 

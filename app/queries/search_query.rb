@@ -14,6 +14,16 @@ class SearchQuery
   FIELDS = %w[alternate_ids_ssim internal_resource_tesim title_tsim creator_ssim pub_date_ssim
               thumbnail_ssi in_progress_bsi embargo_release_date_dtsi incomplete_bsi].freeze
 
+  # The always-on catalog filters, keyed so the search explanation can say
+  # which of them hides an object.
+  CATALOG_FILTERS = {
+    'types'            => '-internal_resource_tesim:(FileSet OR Blob OR Delegate)',
+    'tombstoned'       => '-tombstoned_bsi:true',
+    'featured'         => '-featured_bsi:true',
+    'personal_root'    => '-personal_root_bsi:true',
+    'system_container' => '-system_container_bsi:true'
+  }.freeze
+
   Result = Struct.new(:results, :pagination, keyword_init: true)
 
   class UnknownType < ArgumentError; end
@@ -52,8 +62,7 @@ class SearchQuery
     end
 
     def filters
-      fq = ['-internal_resource_tesim:(FileSet OR Blob OR Delegate)', '-tombstoned_bsi:true',
-            '-featured_bsi:true', '-personal_root_bsi:true', '-system_container_bsi:true']
+      fq = CATALOG_FILTERS.values
       gate = read_gate_fq(@user)
       fq << gate if gate
       fq << unfinished_clause unless curator?

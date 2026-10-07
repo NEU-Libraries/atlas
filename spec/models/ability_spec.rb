@@ -243,6 +243,16 @@ RSpec.describe Ability do
       expect(subject).to be_able_to(:read_versions, Community)
     end
 
+    it 'grants :read_history on the three typed containers only, never the class-wide audit read' do
+      [Work, Collection, Community].each do |klass|
+        expect(subject).to be_able_to(:read_history, klass)
+      end
+      expect(subject).not_to be_able_to(:read_history, Person)
+      expect(subject).not_to be_able_to(:read_history, Compilation)
+      expect(subject).not_to be_able_to(:read_history, AuditEvent)
+      expect(subject).not_to be_able_to(:read, AuditEvent)
+    end
+
     it 'grants :read_index on every indexed type, and not on a Set' do
       [Work, Collection, Community, FileSet, Blob, Delegate, Person].each do |klass|
         expect(subject).to be_able_to(:read_index, klass)
@@ -279,6 +289,7 @@ RSpec.describe Ability do
       expect(subject).not_to be_able_to(:read_versions, Community)
       expect(subject).not_to be_able_to(:read_index,    Work)
       expect(subject).not_to be_able_to(:read_withdrawn, Work.new(edit_groups: [Permissions::STAFF_EDIT_GROUP]))
+      expect(subject).not_to be_able_to(:read_history, Work)
     end
   end
 
@@ -292,6 +303,7 @@ RSpec.describe Ability do
         expect(ability).not_to be_able_to(:read_versions, Blob)
         expect(ability).not_to be_able_to(:read_versions, Work)
         expect(ability).not_to be_able_to(:read_withdrawn, Work)
+        expect(ability).not_to be_able_to(:read_history,   Work)
       end
     end
   end

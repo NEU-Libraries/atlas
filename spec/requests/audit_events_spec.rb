@@ -106,6 +106,88 @@ RSpec.describe 'Audit history endpoint', type: :request do
     end
   end
 
+  # The delegated-admin tier reads a container's history through its own verb,
+  # and only for a resource its read gate opens to them.
+  describe 'GET /resources/:id/history for a delegated admin' do
+    let(:reader_group) { 'northeastern:drs:test-readers' }
+    let!(:delegate) do
+      User.create!(email: 'delegate-history@example.invalid', password: SecureRandom.hex(16),
+                   nuid: '000000062', name: 'Williams, Delegate', role: :privileged,
+                   groups: [Permissions::ADMIN_GROUP, reader_group])
+    end
+    let(:community)  { CommunityCreator.call }
+    let(:collection) { CollectionCreator.call(parent_id: community.noid) }
+
+    def work(read_groups:)
+      w = WorkCreator.call(parent_id: collection.noid, actor_nuid: '000000004')
+      w.read_groups = read_groups
+      Atlas.persister.save(resource: w)
+    end
+
+    def read_only_token(user)
+      payload = Warden::JWTAuth::PayloadUserHelper.payload_for_user(user, :user).merge('aud' => nil)
+      payload['read_only'] = true
+      { 'Authorization' => "Bearer #{Warden::JWTAuth::TokenEncoder.new.call(payload)}" }
+    end
+
+    it 'returns the history of a Work the delegate can read' do
+      shared = work(read_groups: [reader_group])
+
+      get "/resources/#{shared.noid}/history", headers: signed_auth_headers(delegate.nuid)
+
+      expect(response).to have_http_status(:ok)
+      expect(response.parsed_body['events'].pluck('action')).to include('create')
+    end
+
+    it 'returns the history of a Collection and a Community' do
+      [collection, community].each do |container|
+        container.read_groups = [reader_group]
+        Atlas.persister.save(resource: container)
+        get "/resources/#{container.noid}/history", headers: signed_auth_headers(delegate.nuid)
+
+        expect(response).to have_http_status(:ok)
+      end
+    end
+
+    # The rows carry the before/after access lists.
+    it 'refuses a Work the delegate cannot read' do
+      closed = work(read_groups: [])
+
+      get "/resources/#{closed.noid}/history", headers: signed_auth_headers(delegate.nuid)
+
+      expect(response).to have_http_status(:forbidden)
+      expect(response.parsed_body['action']).to eq('read')
+    end
+
+    # Nothing resolves, so there is no read gate to consult; only an admin reaches it.
+    it 'refuses the history of a resource that no longer exists' do
+      get '/resources/missing999/history', headers: signed_auth_headers(delegate.nuid)
+
+      expect(response).to have_http_status(:forbidden)
+      expect(response.parsed_body['action']).to eq('read_history')
+    end
+
+    it 'refuses a :privileged user without the admin group' do
+      User.create!(email: 'privileged-history@example.invalid', password: SecureRandom.hex(16),
+                   nuid: '000000063', name: 'Roe, Sam', role: :privileged, groups: [reader_group])
+      shared = work(read_groups: [reader_group])
+
+      get "/resources/#{shared.noid}/history", headers: signed_auth_headers('000000063')
+
+      expect(response).to have_http_status(:forbidden)
+    end
+
+    it "accepts a delegate's read-only token, and still an admin's" do
+      shared = work(read_groups: [reader_group])
+
+      get "/resources/#{shared.noid}/history", headers: read_only_token(delegate)
+      expect(response).to have_http_status(:ok)
+
+      get "/resources/#{shared.noid}/history", headers: read_only_token(admin)
+      expect(response).to have_http_status(:ok)
+    end
+  end
+
   # Session-scoped emit: impersonation start/end events that hang on
   # no resource. atlas_rb's AtlasRb::AuditEvent.emit drives this endpoint.
   describe 'POST /audit_events' do

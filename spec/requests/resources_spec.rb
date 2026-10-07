@@ -359,8 +359,8 @@ RSpec.describe 'Resources', type: :request do
 
         Admin-gated, like the File version list, because the descriptors expose
         edit attribution (the devolved-admin tier — :privileged role + the
-        repository:admin group — can also reach this; `/history` stays
-        admin-only). A resource with no MODS yields `{ "versions": [] }`.
+        repository:admin group — can also reach this, as it can `/history`).
+        A resource with no MODS yields `{ "versions": [] }`.
       DESC
 
       response '200', 'versions listed (newest first)' do

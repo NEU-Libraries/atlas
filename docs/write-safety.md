@@ -228,6 +228,12 @@ NOID-literal rows.
 A `TODO` in the file tracks persisting the NOID alongside the UUID at write time,
 which would retire that fallback.
 
+**Admins read any history; delegated admins read a Work's, a Collection's or a
+Community's,** through `:read_history` and then `:read` on the resource. The
+argument for that gate is in [`authorization.md`](authorization.md#the-devolved-admin-tier).
+The lookup still does not depend on the resource: `Resource.find` is used only
+to authorize and to resolve the UUID.
+
 ### Session-scoped events
 
 `POST /audit_events` records an event with no resource to hang on: impersonation

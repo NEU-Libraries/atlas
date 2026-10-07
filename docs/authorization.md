@@ -276,10 +276,17 @@ Each grant is a named carve-out beneath the wildcard, not a promotion:
   what prevents a delegate reaching acting-as.
 - **`:read_versions` on `Blob`, `Work`, `Collection` and `Community`.** The
   per-object version lists: File versions for a `Blob`, MODS versions for the
-  three Modsable types. A narrower verb than `:read, AuditEvent`, so the grant
-  cannot be mistaken for opening the audit-history surface. A delegate can already
+  three Modsable types. A narrower verb than `:read_history`, because a version
+  list shows who edited the MODS, not every change. A delegate can already
   edit MODS and fetch any single MODS version on the read gate, so the list adds
   only who made each edit.
+- **`:read_history` on `Work`, `Collection` and `Community`.**
+  `GET /resources/:id/history`, the audit history Cerberus shows on those types'
+  edit pages. A verb of its own rather than `:read, AuditEvent`, which is
+  class-wide: that grant would open every audit read Atlas has or adds later.
+  The endpoint also checks `:read` on the resource, because the rows carry the
+  before/after access lists. A resource that no longer resolves has no class to
+  grant on, so only an admin reads its history.
 - **`:read_index` on every indexed type.** `GET /resources/:id/solr` and
   `GET /resources/:id/search_explanation`, the two Solr debugging endpoints, and
   `GET /resources/:id/children`, which inspects a withdrawn container. A

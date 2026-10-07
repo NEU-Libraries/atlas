@@ -165,6 +165,7 @@ class Ability
       can :associate, Work
       can :create, AuditEvent
       can :read_versions, [Blob, Work, Collection, Community]
+      can :read_history, [Work, Collection, Community]
       can :read_index, [Work, Collection, Community, FileSet, Blob, Delegate, Person]
     end
 

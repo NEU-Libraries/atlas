@@ -156,10 +156,8 @@ front of the real ability check. Both are deliberately outside `Ability`, so no
 grant — present or future — can bypass them.
 
 Both answer the same question, "is this action read-shaped?", from one allowlist:
-
-```ruby
-READ_ONLY_TOKEN_ACTIONS = %i[read read_directory read_versions index_all search preview].freeze
-```
+`ApplicationController::READ_ONLY_TOKEN_ACTIONS`. Each operator read verb, such as
+`:read_index` or `:read_history`, joins it when it is added.
 
 **One allowlist is the point.** A write-shaped action added next year is refused
 by default and need not be enumerated anywhere.

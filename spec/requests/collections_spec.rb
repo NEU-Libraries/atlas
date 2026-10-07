@@ -29,6 +29,8 @@ RSpec.describe 'Collections', type: :request do
         The caller must hold edit rights on that parent — a Grouper edit
         grant, or ownership of it (its `depositor`). Otherwise `403`.
         `parent_id` is required: a blank or unresolvable one is `404`.
+        A tombstoned parent refuses the create with `422 tombstoned_parent`,
+        after the edit-rights check.
 
         Optional `depositor` is the NUID to stamp as the intellectual
         owner — the same anonymous-batch configuration shape that
@@ -86,6 +88,18 @@ RSpec.describe 'Collections', type: :request do
       response '404', 'parent_id missing or unresolvable' do
         let(:body) { { parent_id: '' } }
         run_test!
+      end
+
+      response '422', 'the parent is tombstoned' do
+        let(:body) { { parent_id: community.noid } }
+        before do
+          community.tombstone(by: '000000004')
+          Atlas.persister.save(resource: community)
+        end
+        run_test! do |response|
+          expect(response.parsed_body['code']).to eq('tombstoned_parent')
+          expect(community.children.grep(Collection)).to be_empty
+        end
       end
     end
   end
@@ -227,6 +241,25 @@ RSpec.describe 'Collections', type: :request do
       expect(reloaded.depositor).to      eq('900000001')
       expect(reloaded.proxy_uploader).to eq('000000002')
       expect(reloaded.read_groups.to_a).to eq(['public'])
+    end
+  end
+
+  # The refusal sits behind the edit-rights check, so the 422 cannot tell a
+  # caller without rights that the parent is withdrawn.
+  describe 'POST /collections under a tombstoned parent, without edit rights', type: :request do
+    let!(:outsider) do
+      User.create!(email: 'outsider-tomb@example.invalid', password: SecureRandom.hex(16),
+                   nuid: '009999995', name: 'Outsider, Ola', role: :standard, groups: [])
+    end
+
+    it 'answers 403, not 422' do
+      community.tombstone(by: '000000004')
+      Atlas.persister.save(resource: community)
+
+      post '/collections', params:  { parent_id: community.noid }.to_json,
+                           headers: signed_auth_headers(outsider.nuid).merge('Content-Type' => 'application/json')
+
+      expect(response).to have_http_status(:forbidden)
     end
   end
 end

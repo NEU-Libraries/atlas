@@ -257,6 +257,15 @@ Collection. A top-level Community has no parent, so its restore is never
 refused. The reparenter refuses the matching move into a tombstoned parent with
 the same code.
 
+Creating a Work, Collection or Community under a tombstoned parent answers the
+same `422 tombstoned_parent`. The check is in `ParentScopedCreate`, after the
+edit-rights check, so a caller without rights gets 403 and learns nothing about
+the parent. Together these rules keep one invariant: everything beneath a
+tombstoned container is itself tombstoned.
+
+The rule does not reach a file. `POST /file_sets` and `POST /files` still accept
+a tombstoned Work.
+
 ### A FileSet can be tombstoned, and nothing else below a Work can
 
 `tombstone` and `restore` answer for a FileSet as well as the three typed

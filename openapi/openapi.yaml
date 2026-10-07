@@ -2994,6 +2994,8 @@ paths:
         The caller must hold edit rights on that parent — a Grouper edit
         grant, or ownership of it (its `depositor`). Otherwise `403`.
         `parent_id` is required: a blank or unresolvable one is `404`.
+        A tombstoned parent refuses the create with `422 tombstoned_parent`,
+        after the edit-rights check.
 
         Optional `depositor` is the NUID to stamp as the intellectual
         owner — the same anonymous-batch configuration shape that
@@ -3016,6 +3018,8 @@ paths:
           description: caller holds no edit rights on the parent
         '404':
           description: parent_id missing or unresolvable
+        '422':
+          description: the parent is tombstoned
       requestBody:
         content:
           application/json:
@@ -3157,7 +3161,9 @@ paths:
         communities have no parent, and are the one create Atlas allows
         without a container. When `parent_id` IS given the caller must hold
         edit rights on that Community (Grouper edit grant, or ownership of
-        it), otherwise `403`; a given-but-unresolvable one is `404`.
+        it), otherwise `403`; a given-but-unresolvable one is `404`. A
+        tombstoned parent refuses the create with `422 tombstoned_parent`,
+        after the edit-rights check.
 
         Optional `depositor` is the NUID to stamp as the intellectual
         owner (mirrors the same surface on Collection/Work creates).
@@ -3178,6 +3184,8 @@ paths:
           description: caller holds no edit rights on the parent Community
         '404':
           description: parent_id given but unresolvable
+        '422':
+          description: the parent Community is tombstoned
       requestBody:
         content:
           application/json:
@@ -5691,6 +5699,8 @@ paths:
         grant, or ownership of it (its `depositor`, which is what makes a
         deposit into one's own workspace work). Otherwise `403`.
         `collection_id` is required: a blank or unresolvable one is `404`.
+        A tombstoned Collection refuses the create with `422
+        tombstoned_parent`, after the edit-rights check.
 
         Idempotent on the optional `Idempotency-Key` header: a repeat
         request from the same caller with the same key returns the
@@ -5726,6 +5736,8 @@ paths:
           description: caller holds no edit rights on the parent Collection
         '404':
           description: collection_id missing or unresolvable
+        '422':
+          description: the parent Collection is tombstoned
       requestBody:
         content:
           application/json:

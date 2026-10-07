@@ -7,8 +7,19 @@
 # check, `parent_id` flows straight from the request into the Creator and any
 # authenticated human can write a child into a container they cannot edit — or
 # even read — inheriting that container's ACL.
+#
+# A tombstoned container refuses the create, as it refuses a restore or a
+# re-parent into it: a new child would be discoverable inside a withdrawn
+# container. See docs/resource-graph.md.
 module ParentScopedCreate
   extend ActiveSupport::Concern
+
+  included do
+    rescue_from Exceptions::TombstonedParent do |exception|
+      render json:   { error: exception.message, code: Exceptions::TombstonedParent::CODE },
+             status: :unprocessable_content
+    end
+  end
 
   private
 
@@ -28,6 +39,10 @@ module ParentScopedCreate
 
       parent = Resource.find(parent_id)
       authorize! :create_child, parent
+      # After the authorize, so a caller without rights learns nothing of the
+      # parent's state.
+      raise Exceptions::TombstonedParent if parent&.tombstoned
+
       parent
     end
 end

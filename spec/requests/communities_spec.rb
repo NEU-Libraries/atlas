@@ -26,7 +26,9 @@ RSpec.describe 'Communities', type: :request do
         communities have no parent, and are the one create Atlas allows
         without a container. When `parent_id` IS given the caller must hold
         edit rights on that Community (Grouper edit grant, or ownership of
-        it), otherwise `403`; a given-but-unresolvable one is `404`.
+        it), otherwise `403`; a given-but-unresolvable one is `404`. A
+        tombstoned parent refuses the create with `422 tombstoned_parent`,
+        after the edit-rights check.
 
         Optional `depositor` is the NUID to stamp as the intellectual
         owner (mirrors the same surface on Collection/Work creates).
@@ -70,6 +72,19 @@ RSpec.describe 'Communities', type: :request do
       response '404', 'parent_id given but unresolvable' do
         let(:body) { { parent_id: 'nope404' } }
         run_test!
+      end
+
+      response '422', 'the parent Community is tombstoned' do
+        let(:parent) { CommunityCreator.call }
+        let(:body)   { { parent_id: parent.noid } }
+        before do
+          parent.tombstone(by: '000000004')
+          Atlas.persister.save(resource: parent)
+        end
+        run_test! do |response|
+          expect(response.parsed_body['code']).to eq('tombstoned_parent')
+          expect(parent.children.grep(Community)).to be_empty
+        end
       end
     end
   end

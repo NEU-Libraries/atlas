@@ -140,6 +140,8 @@ RSpec.describe 'Works', type: :request do
         grant, or ownership of it (its `depositor`, which is what makes a
         deposit into one's own workspace work). Otherwise `403`.
         `collection_id` is required: a blank or unresolvable one is `404`.
+        A tombstoned Collection refuses the create with `422
+        tombstoned_parent`, after the edit-rights check.
 
         Idempotent on the optional `Idempotency-Key` header: a repeat
         request from the same caller with the same key returns the
@@ -214,6 +216,19 @@ RSpec.describe 'Works', type: :request do
         let(:body)              { { collection_id: '' } }
         let(:'Idempotency-Key') { nil }
         run_test!
+      end
+
+      response '422', 'the parent Collection is tombstoned' do
+        let(:body)              { { collection_id: collection.noid } }
+        let(:'Idempotency-Key') { nil }
+        before do
+          collection.tombstone(by: '000000004')
+          Atlas.persister.save(resource: collection)
+        end
+        run_test! do |response|
+          expect(response.parsed_body['code']).to eq('tombstoned_parent')
+          expect(collection.children.grep(Work)).to be_empty
+        end
       end
     end
   end

@@ -12,9 +12,9 @@ RSpec.describe TombstoneIndexer do
       )
 
       expect(described_class.new(resource: resource).to_solr).to eq(
-        tombstoned_bsi:    'true',
-        tombstoned_at_dti: DateTime.parse('2026-05-08T12:00:00Z'),
-        tombstoned_by_ssi: '000000002'
+        tombstoned_bsi:     'true',
+        tombstoned_at_dtsi: DateTime.parse('2026-05-08T12:00:00Z'),
+        tombstoned_by_ssi:  '000000002'
       )
     end
 
@@ -24,7 +24,7 @@ RSpec.describe TombstoneIndexer do
       result = described_class.new(resource: resource).to_solr
 
       expect(result[:tombstoned_bsi]).to eq('false')
-      expect(result[:tombstoned_at_dti]).to be_nil
+      expect(result[:tombstoned_at_dtsi]).to be_nil
       expect(result[:tombstoned_by_ssi]).to be_nil
     end
   end

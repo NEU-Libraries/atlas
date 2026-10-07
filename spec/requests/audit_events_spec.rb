@@ -106,23 +106,19 @@ RSpec.describe 'Audit history endpoint', type: :request do
     end
   end
 
-  # The delegated-admin tier reads a container's history through its own verb,
-  # and only for a resource its read gate opens to them.
+  # The delegated-admin tier reads a container's history through its own verb.
+  # A real delegate is in the staff group as well, so the read check refuses
+  # only what that group does not reach.
   describe 'GET /resources/:id/history for a delegated admin' do
-    let(:reader_group) { 'northeastern:drs:test-readers' }
     let!(:delegate) do
       User.create!(email: 'delegate-history@example.invalid', password: SecureRandom.hex(16),
                    nuid: '000000062', name: 'Williams, Delegate', role: :privileged,
-                   groups: [Permissions::ADMIN_GROUP, reader_group])
+                   groups: [Permissions::STAFF_EDIT_GROUP, Permissions::ADMIN_GROUP])
     end
-    let(:community)  { CommunityCreator.call }
+    let(:root)       { CommunityCreator.call }
+    let(:community)  { CommunityCreator.call(parent_id: root.noid) }
     let(:collection) { CollectionCreator.call(parent_id: community.noid) }
-
-    def work(read_groups:)
-      w = WorkCreator.call(parent_id: collection.noid, actor_nuid: '000000004')
-      w.read_groups = read_groups
-      Atlas.persister.save(resource: w)
-    end
+    let(:work)       { WorkCreator.call(parent_id: collection.noid, actor_nuid: '000000004') }
 
     def read_only_token(user)
       payload = Warden::JWTAuth::PayloadUserHelper.payload_for_user(user, :user).merge('aud' => nil)
@@ -130,30 +126,24 @@ RSpec.describe 'Audit history endpoint', type: :request do
       { 'Authorization' => "Bearer #{Warden::JWTAuth::TokenEncoder.new.call(payload)}" }
     end
 
-    it 'returns the history of a Work the delegate can read' do
-      shared = work(read_groups: [reader_group])
-
-      get "/resources/#{shared.noid}/history", headers: signed_auth_headers(delegate.nuid)
-
+    it 'returns the history of a Work, a Collection and a child Community' do
+      get "/resources/#{work.noid}/history", headers: signed_auth_headers(delegate.nuid)
       expect(response).to have_http_status(:ok)
       expect(response.parsed_body['events'].pluck('action')).to include('create')
-    end
 
-    it 'returns the history of a Collection and a Community' do
       [collection, community].each do |container|
-        container.read_groups = [reader_group]
-        Atlas.persister.save(resource: container)
         get "/resources/#{container.noid}/history", headers: signed_auth_headers(delegate.nuid)
-
         expect(response).to have_http_status(:ok)
       end
     end
 
-    # The rows carry the before/after access lists.
-    it 'refuses a Work the delegate cannot read' do
-      closed = work(read_groups: [])
+    # A top-level Community carries no staff group, and the rows carry the
+    # before/after access lists.
+    it 'refuses a top-level Community with no read group' do
+      root.read_groups = []
+      Atlas.persister.save(resource: root)
 
-      get "/resources/#{closed.noid}/history", headers: signed_auth_headers(delegate.nuid)
+      get "/resources/#{root.noid}/history", headers: signed_auth_headers(delegate.nuid)
 
       expect(response).to have_http_status(:forbidden)
       expect(response.parsed_body['action']).to eq('read')
@@ -167,23 +157,22 @@ RSpec.describe 'Audit history endpoint', type: :request do
       expect(response.parsed_body['action']).to eq('read_history')
     end
 
-    it 'refuses a :privileged user without the admin group' do
+    it 'refuses a :privileged user in the staff group but not the admin group' do
       User.create!(email: 'privileged-history@example.invalid', password: SecureRandom.hex(16),
-                   nuid: '000000063', name: 'Roe, Sam', role: :privileged, groups: [reader_group])
-      shared = work(read_groups: [reader_group])
+                   nuid: '000000063', name: 'Roe, Sam', role: :privileged,
+                   groups: [Permissions::STAFF_EDIT_GROUP])
 
-      get "/resources/#{shared.noid}/history", headers: signed_auth_headers('000000063')
+      get "/resources/#{work.noid}/history", headers: signed_auth_headers('000000063')
 
       expect(response).to have_http_status(:forbidden)
+      expect(response.parsed_body['action']).to eq('read_history')
     end
 
     it "accepts a delegate's read-only token, and still an admin's" do
-      shared = work(read_groups: [reader_group])
-
-      get "/resources/#{shared.noid}/history", headers: read_only_token(delegate)
+      get "/resources/#{work.noid}/history", headers: read_only_token(delegate)
       expect(response).to have_http_status(:ok)
 
-      get "/resources/#{shared.noid}/history", headers: read_only_token(admin)
+      get "/resources/#{work.noid}/history", headers: read_only_token(admin)
       expect(response).to have_http_status(:ok)
     end
   end

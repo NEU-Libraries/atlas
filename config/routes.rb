@@ -120,6 +120,9 @@ Rails.application.routes.draw do
     get '/resources/:id/history', to: 'audit_events#index', as: 'resource_history'
     get '/resources/:id/solr', to: 'index_documents#show', as: 'resource_index_document'
     get '/resources/:id/search_explanation', to: 'search_explanations#show', as: 'resource_search_explanation'
+    # A container's children, withdrawn ones included, past the 410 the typed
+    # /children routes answer. The operator tier that may read /solr.
+    get '/resources/:id/children', to: 'resource_children#show', as: 'resource_children'
     # Every Work beneath a container, at any depth — the structural counterpart
     # to /compilations/:id/contents (same digest shape and query engine, but the
     # container set is the resource's own subtree, not a Set recipe). Gated

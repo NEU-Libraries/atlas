@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-# The gate the two Solr debugging endpoints share, and the 502 they answer when
-# Solr does not. See docs/solr-indexing.md.
+# The gate the operator inspection endpoints share, and the 502 the two Solr
+# ones answer when Solr does not. See docs/solr-indexing.md.
 module IndexReadGate
   extend ActiveSupport::Concern
 

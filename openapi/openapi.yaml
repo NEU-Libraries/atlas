@@ -4493,6 +4493,41 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Person"
+  "/resources/{id}/children":
+    get:
+      summary: A container's children, withdrawn ones included
+      tags:
+      - Resources
+      description: |
+        Every Community, Collection and Work directly beneath a Community or
+        Collection, live or tombstoned, for inspecting the graph. Unlike
+        `/collections/{id}/children` and `/communities/{id}/children`, it
+        answers for a tombstoned container instead of 410. Each row has the
+        `POST /resources/find_many` digest shape, `tombstoned` included.
+
+        Admins and delegated admins only, the gate of
+        `GET /resources/{id}/solr`. A delegated admin must also be able to read
+        the container, and a child they cannot read is left out. Not
+        response-cached.
+
+        404 for an unknown NOID and for anything other than a Community or a
+        Collection.
+      parameters:
+      - name: id
+        in: path
+        description: NOID of the Community or Collection
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: a live container lists live and tombstoned children alike
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ResourceDigests"
+        '404':
+          description: a Work, which is not a container
   "/resources/{id}":
     parameters:
     - name: id

@@ -2,8 +2,8 @@
 
 require 'rails_helper'
 
-# Who may read an object's Solr document or search explanation; the two share
-# one gate. default_auth: false because the admin default passes every check
+# Who may read an object's Solr document, its search explanation or a
+# container's children past the 410; the three share one gate. default_auth: false because the admin default passes every check
 # and would prove nothing about the gate.
 RSpec.describe 'The Solr debugging gate', type: :request, default_auth: false do
   let(:reader_group) { 'northeastern:drs:test-readers' }
@@ -20,6 +20,10 @@ RSpec.describe 'The Solr debugging gate', type: :request, default_auth: false do
   # Readable by staff alone, which the delegate here is not in.
   let!(:closed_work) { work(read_groups: []) }
 
+  # The same pair as containers, for the endpoint that answers only for one.
+  let!(:shared_collection) { container(read_groups: [reader_group]) }
+  let!(:closed_collection) { container(read_groups: []) }
+
   after { Atlas.persister.wipe! }
 
   def make_user(nuid, role, groups)
@@ -33,31 +37,41 @@ RSpec.describe 'The Solr debugging gate', type: :request, default_auth: false do
     Atlas.persister.save(resource: w)
   end
 
+  def container(read_groups:)
+    c = CollectionCreator.call(parent_id: community.noid)
+    c.read_groups = read_groups
+    Atlas.persister.save(resource: c)
+  end
+
   {
-    'the Solr document'      => ->(noid) { "/resources/#{noid}/solr" },
-    'the search explanation' => ->(noid) { "/resources/#{noid}/search_explanation?q=anything" }
-  }.each do |endpoint, path_for|
+    'the Solr document'      => [->(noid) { "/resources/#{noid}/solr" }, :work],
+    'the search explanation' => [->(noid) { "/resources/#{noid}/search_explanation?q=anything" }, :work],
+    'the children'           => [->(noid) { "/resources/#{noid}/children" }, :collection]
+  }.each do |endpoint, (path_for, subject)|
     describe endpoint do
       define_method(:read) do |noid, headers|
         get path_for.call(noid), headers: headers
         response
       end
 
+      define_method(:shared) { subject == :work ? shared_work : shared_collection }
+      define_method(:closed) { subject == :work ? closed_work : closed_collection }
+
       it 'lets an admin read it for any object' do
-        expect(read(closed_work.noid, signed_auth_headers(admin.nuid))).to have_http_status(:ok)
+        expect(read(closed.noid, signed_auth_headers(admin.nuid))).to have_http_status(:ok)
       end
 
       it 'lets a delegated admin read it for an object they can read' do
-        expect(read(shared_work.noid, signed_auth_headers(delegate.nuid))).to have_http_status(:ok)
+        expect(read(shared.noid, signed_auth_headers(delegate.nuid))).to have_http_status(:ok)
       end
 
       it 'refuses a delegated admin an object they cannot read' do
-        expect(read(closed_work.noid, signed_auth_headers(delegate.nuid))).to have_http_status(:forbidden)
+        expect(read(closed.noid, signed_auth_headers(delegate.nuid))).to have_http_status(:forbidden)
         expect(response.parsed_body['action']).to eq('read')
       end
 
       it 'refuses a reader who is not an admin' do
-        expect(read(shared_work.noid, signed_auth_headers(reader.nuid))).to have_http_status(:forbidden)
+        expect(read(shared.noid, signed_auth_headers(reader.nuid))).to have_http_status(:forbidden)
         expect(response.parsed_body['action']).to eq('read_index')
       end
 
@@ -68,8 +82,22 @@ RSpec.describe 'The Solr debugging gate', type: :request, default_auth: false do
         payload['read_only'] = true
         token = Warden::JWTAuth::TokenEncoder.new.call(payload)
 
-        expect(read(shared_work.noid, 'Authorization' => "Bearer #{token}")).to have_http_status(:ok)
+        expect(read(shared.noid, 'Authorization' => "Bearer #{token}")).to have_http_status(:ok)
       end
     end
+  end
+
+  # A container a delegate may read can still hold a child they may not.
+  it 'leaves out a child the delegated admin cannot read' do
+    readable = WorkCreator.call(parent_id: shared_collection.noid)
+    readable.read_groups = [reader_group]
+    Atlas.persister.save(resource: readable)
+    hidden = WorkCreator.call(parent_id: shared_collection.noid)
+    hidden.read_groups = []
+    Atlas.persister.save(resource: hidden)
+
+    get "/resources/#{shared_collection.noid}/children", headers: signed_auth_headers(delegate.nuid)
+
+    expect(response.parsed_body.pluck('id')).to eq([readable.noid])
   end
 end

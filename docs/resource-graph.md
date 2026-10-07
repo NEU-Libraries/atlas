@@ -322,6 +322,24 @@ Postgres.**
 
 It resolves NOIDs only; raw Valkyrie ids are not a supported input.
 
+### `children` answers for a withdrawn container
+
+`GET /collections/:id/children` and `/communities/:id/children` answer 410 for
+a tombstoned container. That is the right answer for a consumer, and it leaves
+an operator unable to walk a withdrawn subtree. **`GET /resources/:id/children`
+is the operator's read,** in `ResourceChildrenController`. It lists every child
+of a Community or Collection, live or withdrawn, whatever the container's own
+state.
+
+- **It is a separate route, not a role check on the typed one.** The typed route
+  then answers the same for every caller, an admin browsing Cerberus included.
+- **The gate is the `/solr` gate,** `:read_index` then `:read`, through
+  `IndexReadGate`. Inspection clients sign in with a read-only token, and
+  `:read_index` is already on its allowlist. Each child also passes the read gate
+  per row, as the typed route's children do.
+- **Rows have the `find_many` digest shape,** so each one carries `klass` and
+  `tombstoned` without a second read.
+
 ### `descendant_works`
 
 Every Work beneath a container at any depth: flattened, permission-gated,

@@ -11,6 +11,8 @@ Source files:
 - `app/models/concerns/metadata_records/darwin_core.rb` — the record on the Work
 - `app/models/metadata/darwin_core.rb` — the JSON access copy
 - `app/lib/darwin_core_document.rb` — the shape rules and the projection
+- `app/lib/darwin_core_terms.rb` — the TDWG term labels and classes
+- `app/lib/darwin_core_decoration.rb` — the HTML display block
 - `app/controllers/darwin_core_controller.rb` — the endpoints
 - `app/services/darwin_core_version_history.rb` — the version history
 
@@ -127,6 +129,29 @@ stays in the preserved XML and is left out of the JSON.
 
 The XML endpoint serves the stored bytes unchanged, not a reformatted copy,
 because it is the standalone download.
+
+## The HTML display
+
+`GET /works/{id}/dwc.html` is the counterpart of `/works/{id}/mods.html`, and for
+the same reason: every consumer of the API gets the same display from one call,
+rather than each one building its own labels. It reads the JSON access copy
+only, so no XML is parsed on the read path.
+
+The labels, the classes and the order come from the TDWG standard, not from a
+hand-written list. `DarwinCoreTerms` is generated from two TDWG files: the
+recommended rows of `vocabulary/term_versions.csv` give each term's `label` and
+`organized_in` class, and `dist/simple_dwc_vertical.csv` gives the order. Both
+are in the `tdwg/dwc` repository on GitHub. When TDWG revises the standard,
+regenerate the table from those two files rather than editing rows by hand.
+
+| Choice | Reason |
+|---|---|
+| One `<section>` per TDWG class, with a heading | A specimen record runs to dozens of terms, and the classes are how the standard itself organizes them |
+| Classes in `DarwinCoreTerms::GROUPS` order | The term file does not group its rows cleanly, so the class order is stated once |
+| Terms in the standard's order within a class | The `jsonb` access copy does not keep the document's order, and the standard's order is the same for every record |
+| A term outside the standard renders under "Other terms" | A record must never hold a value the display hides. The label is made from the term name |
+| A value listed with ` \| ` renders one `<dd>` each | It is the standard's recommended separator for a list in one term |
+| Values pass through `linkify` | The same escaping and URL linking as the MODS block |
 
 ## Not built
 

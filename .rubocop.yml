@@ -12,6 +12,8 @@ AllCops:
     - 'app/lib/mets_builder.rb'
     # Vendored MARC relator table: 264 code/label pairs, data not logic.
     - 'app/lib/marc_relators.rb'
+    # Generated TDWG term table: 206 term/label/class rows, data not logic.
+    - 'app/lib/darwin_core_terms.rb'
 Lint/MissingSuper:
   Exclude:
     - 'app/services/**/*'

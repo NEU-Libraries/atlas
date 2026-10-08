@@ -246,10 +246,10 @@ test state doesn't leak between runs.
 - **Pagination** for index actions: `include LazyPagination` and
   `paginate_model(Work)` returns `[pagination, items]`. Pagy is configured
   in `config/initializers/pagy.rb`.
-- **rubocop** has Atlas-specific exclusions in `.rubocop.yml`. Three files are
+- **rubocop** has Atlas-specific exclusions in `.rubocop.yml`. Four files are
   excluded from *every* cop under `AllCops` — `app/lib/mods_builder.rb`,
-  `app/lib/mets_builder.rb` and `app/lib/marc_relators.rb`, all data rather
-  than logic — and `app/services/**/*` is excluded from `Lint/MissingSuper`
+  `app/lib/mets_builder.rb`, `app/lib/marc_relators.rb` and
+  `app/lib/darwin_core_terms.rb`, all data rather than logic — and `app/services/**/*` is excluded from `Lint/MissingSuper`
   and `Metrics/ParameterLists`. Don't fight these; the patterns are
   intentional. The baseline is clean, so a new offence is yours.
 - **`Rails/DynamicFindBy` whitelist** includes `find_by_alternate_identifier`

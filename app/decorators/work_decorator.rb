@@ -6,6 +6,7 @@
 module WorkDecorator
   include DecoratorHelper
   include MODSDecoration
+  include DarwinCoreDecoration
   include ThumbnailProjection
 
   # The ONE place a row is added: the views render #mods_rows rather than

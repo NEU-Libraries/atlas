@@ -35,6 +35,7 @@ class ResponseCache
     works.mods.xml
     works.mets
     works.dwc.json
+    works.dwc.html
     works.dwc.xml
     works.assets
     works.file_sets

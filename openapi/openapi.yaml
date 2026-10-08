@@ -3937,7 +3937,11 @@ paths:
         The Work's Darwin Core record. JSON by default: each term of the single
         dwr:SimpleDarwinRecord, keyed by its term name. Append `.xml`
         (/works/{id}/dwc.xml) for the stored Simple Darwin Core document,
-        byte for byte, as a standalone download.
+        byte for byte, as a standalone download. Append `.html` for the display
+        block, the counterpart of `/works/{id}/mods.html`: one `<section>` per
+        TDWG class in the standard's order, each a `<dl>` labelled with the
+        standard's term labels. A term outside the standard renders under
+        "Other terms", and a value listed with ` | ` renders one `<dd>` each.
 
         Gated like `/works/{id}/mods`: whoever may read the Work may read its
         record. 404 when the Work holds no record, including one that has been
@@ -3951,6 +3955,9 @@ paths:
               schema:
                 "$ref": "#/components/schemas/WorkDarwinCore"
             application/xml:
+              schema:
+                "$ref": "#/components/schemas/WorkDarwinCore"
+            text/html:
               schema:
                 "$ref": "#/components/schemas/WorkDarwinCore"
         '404':

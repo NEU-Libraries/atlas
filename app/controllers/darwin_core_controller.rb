@@ -17,9 +17,10 @@ class DarwinCoreController < ApplicationController
     return head(:not_found) unless work&.darwin_core?
 
     cached_render(format_scope('works.dwc'), work) do
-      @work = work
+      @work = work.decorate
       respond_to do |format|
         format.json { render :show }
+        format.html { render :show }
         format.xml  { render xml: work.darwin_core_xml }
       end
     end

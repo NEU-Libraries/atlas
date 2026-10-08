@@ -88,6 +88,17 @@ RSpec.describe 'Search', type: :request do
     end
   end
 
+  # The handler's qf lists dwc_scientific_name_tesim, so a specimen is found
+  # by its taxon even when no MODS field names it.
+  it 'finds a Work by the scientific name in its Darwin Core record' do
+    specimen = finished_work('Specimen 14523')
+    Work.find(specimen.id).darwin_core_xml = Rails.root.join('spec/fixtures/files/dwc.xml').read
+    finished_work('Unrelated title')
+
+    get '/resources/search', params: { q: 'Perognathus' }
+    expect(response.parsed_body['results'].pluck('noid')).to eq([specimen.noid])
+  end
+
   it 'pages with a stable order and clamps per_page to 100' do
     works = Array.new(3) { |i| finished_work("Albatross #{i}") }
 

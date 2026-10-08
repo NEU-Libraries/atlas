@@ -152,6 +152,7 @@ regenerate the table from those two files rather than editing rows by hand.
 | A term outside the standard renders under "Other terms" | A record must never hold a value the display hides. The label is made from the term name |
 | A value listed with ` \| ` renders one `<dd>` each | It is the standard's recommended separator for a list in one term |
 | Values pass through `linkify` | The same escaping and URL linking as the MODS block |
+| Each `<dt>` carries `data-term` with the term name | A consumer can override a label for its own display by the term, which is stable, rather than by TDWG's label text, which is not |
 
 ## Not built
 

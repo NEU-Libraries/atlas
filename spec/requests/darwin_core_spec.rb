@@ -43,7 +43,8 @@ RSpec.describe 'Darwin Core records', type: :request do
         byte for byte, as a standalone download. Append `.html` for the display
         block, the counterpart of `/works/{id}/mods.html`: one `<section>` per
         TDWG class in the standard's order, each a `<dl>` labelled with the
-        standard's term labels. A term outside the standard renders under
+        standard's term labels. Each `<dt>` names its term in `data-term`, so a
+        consumer can override a label without matching its text. A term outside the standard renders under
         "Other terms", and a value listed with ` | ` renders one `<dd>` each.
 
         Gated like `/works/{id}/mods`: whoever may read the Work may read its
@@ -258,6 +259,7 @@ RSpec.describe 'Darwin Core records', type: :request do
       taxon = html.at_css('section[data-group="taxon"]')
       expect(taxon.css('dt').map(&:text)).to eq(['Scientific Name'])
       expect(html.css('dt').map(&:text)).to include('Catalog Number', 'Basis Of Record', 'Date Modified')
+      expect(html.at_css('dt[data-term="catalogNumber"]').text).to eq('Catalog Number')
     end
 
     it 'renders one dd per value of a | list' do

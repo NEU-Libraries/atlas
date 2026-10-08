@@ -3940,7 +3940,8 @@ paths:
         byte for byte, as a standalone download. Append `.html` for the display
         block, the counterpart of `/works/{id}/mods.html`: one `<section>` per
         TDWG class in the standard's order, each a `<dl>` labelled with the
-        standard's term labels. A term outside the standard renders under
+        standard's term labels. Each `<dt>` names its term in `data-term`, so a
+        consumer can override a label without matching its text. A term outside the standard renders under
         "Other terms", and a value listed with ` | ` renders one `<dd>` each.
 
         Gated like `/works/{id}/mods`: whoever may read the Work may read its

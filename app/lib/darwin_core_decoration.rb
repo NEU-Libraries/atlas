@@ -34,8 +34,16 @@ module DarwinCoreDecoration
 
       ordered.each_with_object(Hash.new { |h, k| h[k] = [] }) do |term, rows|
         group = TERMS.dig(term, :group) || :other
-        rows[group] << html_field(darwin_core_label(term), darwin_core_values(terms[term]))
+        rows[group] << darwin_core_row(term, darwin_core_values(terms[term]))
       end
+    end
+
+    # `data-term` is the stable hook a consumer overrides a label by: the
+    # label text is TDWG's and can change with the standard.
+    def darwin_core_row(term, values)
+      return '' if values.empty?
+
+      values.reduce(tag.dt(darwin_core_label(term), data: { term: term })) { |row, value| row + tag.dd(value) }
     end
 
     def darwin_core_label(term)

@@ -41,6 +41,12 @@ RSpec.describe 'OCFL preservation reconstitution', type: :integration do
     end
   end
 
+  def head_logical_paths(noid)
+    object_root = Dir.glob(storage_roots.map { |root| root.join('*', '*', noid).to_s }).sole
+    inventory   = JSON.parse(Pathname.new(object_root).join('inventory.json').read)
+    inventory.fetch('versions').fetch(inventory.fetch('head')).fetch('state').values.flatten
+  end
+
   def read_sidecar(object_root)
     inventory_path = Pathname.new(object_root).join('inventory.json')
     return {} unless inventory_path.exist?
@@ -111,6 +117,28 @@ RSpec.describe 'OCFL preservation reconstitution', type: :integration do
     mods_blobs   = blob_entries.select { |s| s['properties.json'][:use] == Role.descriptive_metadata.name }
 
     expect(mods_blobs.size).to be >= 1, 'expected at least one MODS Blob recoverable via use marker'
+  end
+
+  # docs/metadata-records.md: the record is found on disk by its FileSet's
+  # classification and its Blob's use, and a withdrawal rides the envelope, so
+  # a rebuild skips a withdrawn record just as the API does.
+  it 'recovers a Darwin Core record, and its withdrawal, from disk alone' do
+    community  = CommunityCreator.call
+    collection = CollectionCreator.call(parent_id: community.noid)
+    work       = WorkCreator.call(parent_id: collection.noid)
+    work.darwin_core_xml = Rails.root.join('spec/fixtures/files/dwc.xml').read
+    Work.find(work.id).withdraw_darwin_core!(by: '000000004')
+
+    recovered = reconstitute_from_disk
+    file_set  = recovered.values.find do |s|
+      s.dig('relationships.json', :classification) == Classification.darwin_core.name
+    end
+    expect(file_set.dig('relationships.json', :a_member_of)).to eq([work.noid])
+    expect(file_set.dig('relationships.json', :tombstone, :by)).to eq('000000004')
+
+    blob_noid = file_set.dig('relationships.json', :member_ids).sole
+    expect(recovered.dig(blob_noid, 'properties.json', :use)).to eq(Role.darwin_core.name)
+    expect(head_logical_paths(blob_noid)).to include('dwc.xml')
   end
 
   it 'distinguishes descriptive-metadata FileSets from generic FileSets via classification' do

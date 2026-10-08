@@ -35,12 +35,16 @@ RSpec.describe 'Darwin Core records', type: :request do
 
     get "Retrieve a work's Darwin Core record" do
       tags 'Works'
-      produces 'application/json', 'application/xml'
+      produces 'application/json', 'application/xml', 'text/html'
       description <<~DESC
         The Work's Darwin Core record. JSON by default: each term of the single
         dwr:SimpleDarwinRecord, keyed by its term name. Append `.xml`
         (/works/{id}/dwc.xml) for the stored Simple Darwin Core document,
-        byte for byte, as a standalone download.
+        byte for byte, as a standalone download. Append `.html` for the display
+        block, the counterpart of `/works/{id}/mods.html`: one `<section>` per
+        TDWG class in the standard's order, each a `<dl>` labelled with the
+        standard's term labels. A term outside the standard renders under
+        "Other terms", and a value listed with ` | ` renders one `<dd>` each.
 
         Gated like `/works/{id}/mods`: whoever may read the Work may read its
         record. 404 when the Work holds no record, including one that has been
@@ -222,6 +226,59 @@ RSpec.describe 'Darwin Core records', type: :request do
     it 'advertises the record on the Work JSON' do
       get "/works/#{work.noid}"
       expect(response.parsed_body.dig('work', 'metadata_formats')).to eq(['dwc'])
+    end
+  end
+
+  describe 'the HTML display' do
+    def display_for(fixture)
+      put_dwc(work.noid, fixture: fixture)
+      get "/works/#{work.noid}/dwc.html"
+      expect(response).to have_http_status(:ok)
+      Nokogiri::HTML.fragment(response.body)
+    end
+
+    def scratch_record(body)
+      path = Rails.root.join('tmp', "dwc-display-#{SecureRandom.hex(4)}.xml")
+      File.write(path, <<~XML)
+        <dwr:SimpleDarwinRecordSet xmlns:dwr="http://rs.tdwg.org/dwc/xsd/simpledarwincore/"
+            xmlns:dwc="http://rs.tdwg.org/dwc/terms/">
+          <dwr:SimpleDarwinRecord>#{body}</dwr:SimpleDarwinRecord>
+        </dwr:SimpleDarwinRecordSet>
+      XML
+      path
+    end
+
+    after { Rails.root.glob('tmp/dwc-display-*.xml').each { |f| FileUtils.rm_f(f) } }
+
+    it 'groups the terms by TDWG class, in the standard order, under its labels' do
+      html = display_for(dwc_path)
+
+      headings = html.css('section.dwc-group h3').map(&:text)
+      expect(headings).to eq(['Record-level', 'Occurrence', 'Material Entity', 'Event', 'Location', 'Taxon'])
+      taxon = html.at_css('section[data-group="taxon"]')
+      expect(taxon.css('dt').map(&:text)).to eq(['Scientific Name'])
+      expect(html.css('dt').map(&:text)).to include('Catalog Number', 'Basis Of Record', 'Date Modified')
+    end
+
+    it 'renders one dd per value of a | list' do
+      html = display_for(scratch_record('<dwc:recordedBy>Jane Doe | John Roe</dwc:recordedBy>'))
+      expect(html.css('dd').map { |dd| dd.text.strip }).to eq(['Jane Doe', 'John Roe'])
+    end
+
+    it 'shows a term outside the standard under Other terms' do
+      html = display_for(scratch_record('<dwc:catalogNumber>S1</dwc:catalogNumber><dwc:legacyNote>kept</dwc:legacyNote>'))
+      other = html.at_css('section[data-group="other"]')
+      expect(other.at_css('h3').text).to eq('Other terms')
+      expect(other.at_css('dt').text).to eq('Legacy Note')
+    end
+
+    it 'escapes the values and links a URL' do
+      html = display_for(scratch_record(<<~BODY))
+        <dwc:occurrenceRemarks>&lt;script&gt;alert(1)&lt;/script&gt;</dwc:occurrenceRemarks>
+        <dwc:occurrenceID>https://example.org/occ/1</dwc:occurrenceID>
+      BODY
+      expect(html.css('script')).to be_empty
+      expect(html.at_css('a')['href']).to eq('https://example.org/occ/1')
     end
   end
 

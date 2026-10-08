@@ -12,6 +12,7 @@ Source files:
 - `app/indexers/person_indexer.rb` — a Person as a first-class result
 - `app/indexers/thumbnail_indexer.rb` — thumbnail-family Delegate URIs
 - `app/indexers/tombstone_indexer.rb` — the withdrawal flag, date and actor
+- `app/indexers/darwin_core_indexer.rb` — four terms of a Work's Darwin Core record
 - `app/controllers/index_documents_controller.rb` and `app/queries/index_document_query.rb`
   — `GET /resources/:id/solr`
 - `app/controllers/concerns/index_read_gate.rb` — the gate both Solr debugging endpoints share
@@ -444,6 +445,36 @@ a container, make two reads, as `DescendantWorksQuery` does:
    Works. The values are `id-<uuid>`.
 
 Records withdrawn before the field was stored need a reindex to gain it.
+
+## `DarwinCoreIndexer`
+
+Projects four terms of a Work's Darwin Core record from its JSON access copy.
+The record itself is described in [`metadata-records.md`](metadata-records.md).
+
+| Field | From | Use |
+|---|---|---|
+| `dwc_scientific_name_tesim` | `scientificName` | Keyword search. It is in the handler's `qf` |
+| `dwc_scientific_name_ssim` | `scientificName` | Facet |
+| `dwc_country_ssim` | `country` | Facet |
+| `dwc_event_date_dtsi` | `eventDate` | Date filter and sort |
+| `dwc_coordinates_llsi` | `decimalLatitude`, `decimalLongitude` | Map and distance queries |
+
+Every suffix is an existing dynamic field, so the indexer needed no schema
+change. Only the `qf` entry is in the `blacklight-solr` image.
+
+**A record write re-projects the Work.** Writing or withdrawing a record saves
+no Work, so `MetadataRecords::DarwinCore` saves the Work through the index
+adapter itself. Without that, the fields would wait for the next unrelated save.
+
+**`eventDate` is indexed by its start.** Darwin Core allows a year, a month, a
+day, a timestamp or a range of any of these. A partial date takes the first day
+of its period, and a range takes its start, because `*_dtsi` holds one instant.
+Querying true ranges would need a `DateRangeField`, which the schema does not
+define.
+
+**A value that does not parse is left out.** An `eventDate` such as "spring
+1911", or a coordinate outside the globe, drops that one field and keeps the
+rest. A point needs both halves.
 
 ## Reading a document back: `GET /resources/:id/solr`
 

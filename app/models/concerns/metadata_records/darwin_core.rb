@@ -47,7 +47,7 @@ module MetadataRecords
       record = Metadata::DarwinCore.find_or_create_by(valkyrie_id: noid)
       record.update!(json_attributes: terms)
       @darwin_core = record
-      ResponseCache.evict(noid)
+      reindex_darwin_core
     ensure
       FileUtils.rm_f(path) if path
     end
@@ -71,7 +71,7 @@ module MetadataRecords
       end
       darwin_core.destroy!
       @darwin_core = nil
-      ResponseCache.evict(noid)
+      reindex_darwin_core
     end
 
     # Chained through super so each format adds its own token.
@@ -81,6 +81,14 @@ module MetadataRecords
     end
 
     private
+
+      # A record write saves no Work, so nothing else re-projects its Solr doc.
+      # Solr only, as FileSetCreator does: the index adapter never bumps the
+      # optimistic-lock token, so this cannot 409 a concurrent edit of the Work.
+      def reindex_darwin_core
+        ResponseCache.evict(noid)
+        Atlas.index_adapter.persister.save(resource: self)
+      end
 
       def darwin_core_file_set
         children.find { |c| c.is_a?(FileSet) && c.type == Classification.darwin_core.name }

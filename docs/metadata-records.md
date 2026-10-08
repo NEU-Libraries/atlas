@@ -15,6 +15,7 @@ Source files:
 - `app/lib/darwin_core_decoration.rb` — the HTML display block
 - `app/controllers/darwin_core_controller.rb` — the endpoints
 - `app/services/darwin_core_version_history.rb` — the version history
+- `app/indexers/darwin_core_indexer.rb` — the Solr projection
 
 The endpoints are documented in `openapi/openapi.yaml` under
 `/works/{id}/dwc` and `/resources/{id}/dwc`.
@@ -154,9 +155,12 @@ regenerate the table from those two files rather than editing rows by hand.
 | Values pass through `linkify` | The same escaping and URL linking as the MODS block |
 | Each `<dt>` carries `data-term` with the term name | A consumer can override a label for its own display by the term, which is stable, rather than by TDWG's label text, which is not |
 
+## Search
+
+`DarwinCoreIndexer` projects the scientific name, the country, the event date
+and the coordinates onto the Work's Solr doc, and the scientific name is in the
+keyword search. See [`solr-indexing.md`](solr-indexing.md#darwincoreindexer).
+
 ## Not built
 
-- **Solr projection.** No indexer reads the record. Projecting `scientificName`,
-  `eventDate`, `country` and the coordinates would also need fields in the Solr
-  image. Display does not need it.
 - **A `dwc` OAI-PMH prefix.**

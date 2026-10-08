@@ -4,6 +4,7 @@
 # derived attributes reach the preservation envelope.
 class Work < Resource
   include Metsable
+  include MetadataRecords::DarwinCore
   include TierVisibility
 
   # The SUBORDINATE Work stores the edge; the other end is read back with

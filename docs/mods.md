@@ -8,7 +8,9 @@ Source files:
 - `app/models/concerns/modsable.rb` — keeps the two copies in step
 - `app/models/metadata/mods.rb` — the JSON access copy
 - `app/lib/mods_*.rb` — the conversion layer
-- `app/services/mods_version_history.rb` — the per-version XML history
+- `app/services/metadata_version_history.rb` — the per-version XML history,
+  shared with the additional records in [`metadata-records.md`](metadata-records.md)
+- `app/services/mods_version_history.rb` — the MODS Blob and its edit events
 
 The display layer is [`mods-display.md`](mods-display.md). The browse-axis
 vocabulary shared with the indexers is [`mods-browse.md`](mods-browse.md).
@@ -127,11 +129,17 @@ by well under a second. The margin absorbs clock granularity and skew.
 The seed version a Work is born with has no edit event, so it resolves to a null
 actor.
 
-Every `change_type: 'metadata'` event is a MODS-touching edit. Descriptive fields
-are written only through the full-document `mods_xml=` upload; there are no flat
-per-field setters on the metadata PATCH.
+Every `change_type: 'metadata'` event is a MODS-touching edit, except the events
+of an additional record such as Darwin Core. Those share the change type and name
+themselves in `payload.source`, so `MODSVersionHistory#edit_events` excludes each
+source in `MetadataRecords::SOURCES`. Descriptive fields are written only through
+the full-document `mods_xml=` upload; there are no flat per-field setters on the
+metadata PATCH.
 
-`mods_events` matches on `resource.id` rather than the NOID, because the writer
+The shared logic lives in `MetadataVersionHistory`. A subclass names two things:
+the Blob that holds the record, and the edit events that wrote it.
+
+`metadata_events` matches on `resource.id` rather than the NOID, because the writer
 stamps `resource_id` with the Valkyrie UUID and the live resource is in hand here.
 
 `fetch_xml` locates a version through `find_versions` rather than reconstructing

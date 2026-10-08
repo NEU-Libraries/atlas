@@ -154,6 +154,11 @@ Rails.application.routes.draw do
     # PUT for MODS because the caller assembles the whole document; PATCH for
     # the ACL because it merges per key. The verbs are the contract.
     put    '/resources/:id/mods',        to: 'resources#put_mods'
+    put    '/resources/:id/dwc',         to: 'darwin_core#update'
+    delete '/resources/:id/dwc',         to: 'darwin_core#destroy'
+    get    '/resources/:id/dwc/versions', to: 'darwin_core#versions', as: 'resource_dwc_versions'
+    get    '/resources/:id/dwc/versions/:version_id', to: 'darwin_core#version',
+           as: 'resource_dwc_version', defaults: { format: 'xml' }, constraints: { version_id: /v\d+/ }
     patch  '/resources/:id/permissions', to: 'resources#update_permissions'
     patch  '/resources/:id/thumbnails',  to: 'resources#update_thumbnails'
     patch  '/resources/:id/parent',      to: 'resources#update_parent'
@@ -196,6 +201,10 @@ Rails.application.routes.draw do
     # Work-level METS (physical structMap = page order); 404 until the
     # Work has been completed.
     get '/works/:id/mets', to: 'works#mets', as: 'work_mets'
+    # The Work's Darwin Core record, if it holds one. JSON by default, .xml for
+    # the stored document. The write, withdrawal and history sit under
+    # /resources/:id/dwc beside their MODS counterparts.
+    get '/works/:id/dwc', to: 'darwin_core#show', as: 'work_dwc'
 
     # Linked membership (DAG overlay): a Work in additional Collections.
     get    '/works/:id/linked_members', to: 'works#linked_members', as: 'work_linked_members'

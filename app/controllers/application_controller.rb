@@ -110,6 +110,14 @@ class ApplicationController < ActionController::API
     }, status: :unprocessable_content
   end
 
+  rescue_from Exceptions::DarwinCoreError do |exception|
+    render json: {
+      error:       exception.code,
+      resource_id: params[:id],
+      message:     exception.message
+    }, status: :unprocessable_content
+  end
+
   rescue_from Exceptions::DerivativePermissionsError do |exception|
     render json: {
       error:       exception.code,

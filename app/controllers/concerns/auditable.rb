@@ -32,10 +32,14 @@ module Auditable
   # stores `origin` verbatim and never branches on it, so a new surface needs
   # no Atlas change. The key is omitted when the caller sends nothing.
   def mods_audit_payload
-    origin = params[:origin].to_s.strip
-    return { source: 'mods' } if origin.empty?
+    metadata_audit_payload('mods')
+  end
 
-    { source: 'mods', origin: origin.truncate(ORIGIN_MAX_LENGTH) }
+  def metadata_audit_payload(source)
+    origin = params[:origin].to_s.strip
+    return { source: source } if origin.empty?
+
+    { source: source, origin: origin.truncate(ORIGIN_MAX_LENGTH) }
   end
 
   # Descriptive fields are NOT writable through the ACL path: the only MODS

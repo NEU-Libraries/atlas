@@ -110,7 +110,7 @@ class Blob < Resource
   end
 
   def metadata?
-    use == Role.descriptive_metadata.name || use == Role.structural_metadata.name
+    [Role.descriptive_metadata.name, Role.structural_metadata.name, Role.darwin_core.name].include?(use)
   end
 
   # Blobs are graph leaves with no a_member_of / member_ids of their own —

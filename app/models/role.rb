@@ -28,6 +28,7 @@ class Role < Enumerations::Base
   # Atlas extensions for metadata-bearing files
   value :descriptive_metadata,  name: 'Descriptive Metadata'
   value :structural_metadata,   name: 'Structural Metadata'
+  value :darwin_core,           name: 'Darwin Core'
 
   # Roles that should NOT surface in a Work's downloadable-assets list:
   # thumbnail_image / thumbnail_image_2x / preview_image are UI chrome;

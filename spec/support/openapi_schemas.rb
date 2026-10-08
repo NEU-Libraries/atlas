@@ -41,6 +41,7 @@ module OpenapiSchemas
       ResourceDigests:    resource_digests,
       ModsVersions:       mods_versions,
       WorkMods:           work_mods,
+      WorkDarwinCore:     work_darwin_core,
       BlobVersions:       blob_versions,
       BlobVersionsBatch:  blob_versions_batch,
       BlobAncestry:       blob_ancestry,
@@ -102,6 +103,12 @@ module OpenapiSchemas
                                              '[read groups]. Image ladder small/medium/large/service/' \
                                              'original plus independent media audio/video/pdf. Empty ' \
                                              'when unset (tiers inherit the Work visibility).'
+                     },
+                     metadata_formats:       {
+                       type:        :array,
+                       items:       { type: :string, enum: MetadataRecords::SOURCES },
+                       description: 'The additional metadata records the Work holds, e.g. "dwc" for Darwin ' \
+                                    'Core. Empty when it holds none. MODS and METS are never listed.'
                      }
                    ))
   end
@@ -820,6 +827,21 @@ module OpenapiSchemas
         }
       }
     }
+  end
+
+  # GET /works/{id}/dwc as JSON. The term list is open, so the record is a map
+  # of term name to value rather than a fixed property set.
+  def work_darwin_core
+    wrapped(:work, {
+              id:  { type: :string, description: 'NOID of the work' },
+              dwc: {
+                type:                 :object,
+                additionalProperties: { type: :string },
+                description:          'Each dwc:, dc: and dcterms: term of the single dwr:SimpleDarwinRecord, ' \
+                                      'keyed by its term name (catalogNumber, scientificName, ...). Blank ' \
+                                      'terms and terms in other namespaces are left out.'
+              }
+            })
   end
 
   def mods_document

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_01_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_08_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "uuid-ossp"
@@ -100,6 +100,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_01_120000) do
     t.datetime "since"
     t.string "source"
     t.datetime "updated_at", null: false
+  end
+
+  create_table "metadata_darwin_core", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.jsonb "json_attributes"
+    t.datetime "updated_at", null: false
+    t.string "valkyrie_id"
+    t.index ["valkyrie_id"], name: "index_metadata_darwin_core_on_valkyrie_id"
   end
 
   create_table "metadata_mets", force: :cascade do |t|

@@ -19,17 +19,18 @@ class Classification < Enumerations::Base
   value :musical_notation,      name: 'Musical Notation'
   value :descriptive_metadata,  name: 'Descriptive Metadata' # fs only
   value :structural_metadata,   name: 'Structural Metadata' # fs only — hosts a Work-level METS Blob
+  value :darwin_core,           name: 'Darwin Core' # fs only — hosts a Work's Darwin Core Blob
   value :person,                name: 'Faculty and Staff' # model only
   value :community,             name: 'Community' # model only
   value :collection,            name: 'Collection' # model only
   value :work,                  name: 'Work' # model only
   value :generic,               name: 'File' # blob/fs fallback
 
-  # Metadata-container FileSets: descriptive (MODS) and structural (METS).
-  # Excluded from asset/page listings, never seed their own FileSet-level
+  # Metadata-container FileSets: descriptive (MODS), structural (METS) and
+  # each additional record (Darwin Core). Excluded from asset/page listings, never seed their own FileSet-level
   # METS, and 404 on /file_sets/:id/mets.
   def self.metadata?(name)
-    [descriptive_metadata.name, structural_metadata.name].include?(name)
+    [descriptive_metadata.name, structural_metadata.name, darwin_core.name].include?(name)
   end
 
   # A FileSet of this classification gets a preservation envelope written

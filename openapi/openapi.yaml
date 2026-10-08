@@ -237,6 +237,15 @@ components:
                 [read groups]. Image ladder small/medium/large/service/original plus
                 independent media audio/video/pdf. Empty when unset (tiers inherit
                 the Work visibility).'
+            metadata_formats:
+              type: array
+              items:
+                type: string
+                enum:
+                - dwc
+              description: The additional metadata records the Work holds, e.g. "dwc"
+                for Darwin Core. Empty when it holds none. MODS and METS are never
+                listed.
           required:
           - id
           - valkyrie_id
@@ -258,6 +267,7 @@ components:
           - incomplete_reason
           - handle
           - derivative_permissions
+          - metadata_formats
       required:
       - work
     Collection:
@@ -1899,6 +1909,27 @@ components:
                 restriction_on_access_href:
                   type: string
                   nullable: true
+    WorkDarwinCore:
+      type: object
+      properties:
+        work:
+          type: object
+          properties:
+            id:
+              type: string
+              description: NOID of the work
+            dwc:
+              type: object
+              additionalProperties:
+                type: string
+              description: 'Each dwc:, dc: and dcterms: term of the single dwr:SimpleDarwinRecord,
+                keyed by its term name (catalogNumber, scientificName, ...). Blank
+                terms and terms in other namespaces are left out.'
+          required:
+          - id
+          - dwc
+      required:
+      - work
     BlobVersions:
       type: object
       properties:
@@ -3890,6 +3921,165 @@ paths:
           description: guest cannot resolve a private set
         '404':
           description: unknown noid
+  "/works/{id}/dwc":
+    parameters:
+    - name: id
+      in: path
+      description: NOID of the Work
+      required: true
+      schema:
+        type: string
+    get:
+      summary: Retrieve a work's Darwin Core record
+      tags:
+      - Works
+      description: |
+        The Work's Darwin Core record. JSON by default: each term of the single
+        dwr:SimpleDarwinRecord, keyed by its term name. Append `.xml`
+        (/works/{id}/dwc.xml) for the stored Simple Darwin Core document,
+        byte for byte, as a standalone download.
+
+        Gated like `/works/{id}/mods`: whoever may read the Work may read its
+        record. 404 when the Work holds no record, including one that has been
+        withdrawn, and for any NOID that is not a Work. The Work JSON's
+        `metadata_formats` says whether to call this.
+      responses:
+        '200':
+          description: darwin core returned
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/WorkDarwinCore"
+            application/xml:
+              schema:
+                "$ref": "#/components/schemas/WorkDarwinCore"
+        '404':
+          description: the work holds no record, or the id is not a work
+  "/resources/{id}/dwc":
+    parameters:
+    - name: id
+      in: path
+      description: NOID of the Work
+      required: true
+      schema:
+        type: string
+    put:
+      summary: Replace a work's Darwin Core record
+      tags:
+      - Resources
+      description: |
+        Replaces the Work's Darwin Core record with the supplied `binary`, a
+        Simple Darwin Core XML document. PUT because the caller sends the whole
+        document. The first PUT creates the record; a PUT onto a withdrawn
+        record restores it. Each PUT appends an OCFL version.
+
+        Atlas checks the shape only, and answers 422 with an `error` code when
+        a rule fails: `malformed_xml` (not well-formed), `invalid_root` (the
+        root is not dwr:SimpleDarwinRecordSet), `record_count` (not exactly one
+        dwr:SimpleDarwinRecord) or `duplicate_term` (a term appears twice).
+        Schema validation against tdwg_dwc_simple.xsd is the caller's. A
+        request with no `binary` is a bare 422.
+
+        Works only: any other NOID answers 404. Gated by `:update` on the Work.
+        Writes an audit event with change type `metadata` and source `dwc`.
+      parameters: []
+      requestBody:
+        required: false
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                binary:
+                  type: string
+                  format: binary
+                  description: Simple Darwin Core XML for the work
+                origin:
+                  type: string
+                  description: Free-text tag naming the editing surface that produced
+                    this MODS upload (Cerberus sends `metadata_form`, `advanced_form`
+                    or `xml_editor`). Recorded verbatim on the audit event beside
+                    `source`, truncated at 64 characters. Omit it and the event carries
+                    no origin, which is what every event recorded before this field
+                    looks like.
+      responses:
+        '200':
+          description: darwin core replaced
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/WorkDarwinCore"
+        '404':
+          description: unknown id, or not a work
+        '422':
+          description: the document breaks a shape rule
+    delete:
+      summary: Withdraw a work's Darwin Core record
+      tags:
+      - Resources
+      description: |
+        Withdraws the record: `GET /works/{id}/dwc` answers 404 and the Work
+        JSON drops `dwc` from `metadata_formats`. Nothing is purged. The
+        preserved document and its version history stay, and the next PUT
+        restores the record. 404 when the Work holds no record, and for any
+        NOID that is not a Work. Gated by `:update` on the Work.
+      responses:
+        '204':
+          description: record withdrawn
+        '404':
+          description: nothing to withdraw
+  "/resources/{id}/dwc/versions":
+    parameters:
+    - name: id
+      in: path
+      description: NOID of the Work
+      required: true
+      schema:
+        type: string
+    get:
+      summary: List a work's Darwin Core version history
+      tags:
+      - Resources
+      description: |
+        Newest-first list of the retained Darwin Core versions, in the same
+        shape as `/resources/{id}/mods/versions` and under the same admin gate,
+        because the descriptors carry edit attribution. Attribution comes from
+        the `dwc` audit events only. A Work with no record, or a NOID that is
+        not a Work, yields `{ "versions": [] }`.
+      responses:
+        '200':
+          description: versions listed (newest first)
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ModsVersions"
+  "/resources/{id}/dwc/versions/{version_id}":
+    parameters:
+    - name: id
+      in: path
+      description: NOID of the Work
+      required: true
+      schema:
+        type: string
+    - name: version_id
+      in: path
+      description: OCFL version label, e.g. v3
+      required: true
+      schema:
+        type: string
+    get:
+      summary: Fetch Darwin Core XML as of a specific version
+      tags:
+      - Resources
+      description: |
+        The stored dwc.xml as of the given OCFL version. XML only, because the
+        JSON access copy is overwritten in place. Gated by `:read` on the Work.
+        Unknown version, or no record ever written, answers 404.
+      responses:
+        '200':
+          description: historical darwin core returned
+        '404':
+          description: unknown version
   "/delegates/{id}":
     parameters:
     - name: id

@@ -29,6 +29,7 @@ because a developer needs it before any of the other pages make sense.
 | [`resource-graph.md`](resource-graph.md) | The tree and its DAG overlay, the traversal endpoints, the on-disk envelope |
 | [`search.md`](search.md) | The search endpoint, the search explanation, and the read gate every Solr list shares |
 | [`mods.md`](mods.md) | The dual representation, the derived attribute set, version history |
+| [`metadata-records.md`](metadata-records.md) | The additional records a Work can hold beside MODS and METS, starting with Darwin Core |
 | [`mods-browse.md`](mods-browse.md) | The browse-axis vocabulary the indexers and the decorator share |
 | [`mods-display.md`](mods-display.md) | The `DISPLAY` table, the coverage decisions, each renderer |
 | [`solr-indexing.md`](solr-indexing.md) | What the five indexers project, and what they deliberately do not |

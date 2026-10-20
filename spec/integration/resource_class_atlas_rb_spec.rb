@@ -92,4 +92,25 @@ RSpec.describe 'Generic resource resolution via atlas_rb', :atlas_rb_server do
       expect(AtlasRb::Resource.find('does-not-exist', nuid: admin_nuid)).to be_nil
     end
   end
+
+  # Atlas builds klass on every payload but Resource.find's, so only a live
+  # server shows that the gem can resolve what Atlas sends.
+  describe 'resource_class on an ancestors node' do
+    it 'resolves each ancestor of a Work, root first' do
+      found = AtlasRb::Work.find(work.noid, nuid: admin_nuid)
+
+      expect(found['ancestors'].map(&:resource_class)).to eq([AtlasRb::Community, AtlasRb::Collection])
+    end
+  end
+
+  # The gem states the MODS-editable types by hand, because Atlas does not put
+  # them on the wire.
+  describe 'mods_editable?' do
+    it 'agrees with Atlas on which types take a MODS write' do
+      editable = AtlasRb::Resource::TYPES.values.uniq.select(&:mods_editable?)
+
+      expect(editable.map { |k| k.name.split('::').last })
+        .to match_array(ResourcesController::TYPED_IVARS.keys.map(&:name))
+    end
+  end
 end

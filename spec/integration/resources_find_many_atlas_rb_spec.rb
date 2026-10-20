@@ -31,6 +31,7 @@ RSpec.describe 'Batch resource resolution via atlas_rb', :atlas_rb_server do
     expect(by_noid.keys).to contain_exactly(community.noid, collection.noid)
 
     expect(by_noid[community.noid]['klass']).to eq('Community')
+    expect(by_noid[community.noid].resource_class).to eq(AtlasRb::Community)
     expect(by_noid[community.noid]['title']).to eq('Root Community')
     expect(by_noid[community.noid]['tombstoned']).to be false
     expect(by_noid[collection.noid]['klass']).to eq('Collection')

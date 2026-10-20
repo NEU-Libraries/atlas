@@ -45,6 +45,7 @@ RSpec.describe 'Descendant works via atlas_rb', :atlas_rb_server do
     expect(result['works'].pluck('noid')).not_to include(stray_work.noid, linked_work.noid)
     expect(result.dig('pagination', 'total')).to eq(3)
     expect(result['works'].first['klass']).to eq('Work')
+    expect(result['works'].first.resource_class).to eq(AtlasRb::Work)
   end
 
   it 'unions linked members when include_linked: true' do

@@ -37,10 +37,10 @@ RSpec.describe 'Catalog search via atlas_rb', :atlas_rb_server do
     expect(result.pagination.total).to eq(3)
   end
 
-  it 'lets class_for load a hit as its full resource' do
+  it 'lets resource_class load a hit as its full resource' do
     hit = AtlasRb::Resource.search('quokka', nuid: admin_nuid).results.first
 
-    expect(AtlasRb::Resource.class_for(hit.klass).find(hit.noid, nuid: admin_nuid)).to be_present
+    expect(hit.resource_class.find(hit.noid, nuid: admin_nuid)).to be_present
   end
 
   it 'narrows to one type' do

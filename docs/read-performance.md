@@ -13,7 +13,8 @@ Source files:
 - `app/queries/find_many_by_alternate_identifiers.rb` — batch NOID resolution
 - `app/queries/page_assets_query.rb` — two containment levels, two queries
 - `app/queries/concerns/solr_refs.rb` — the Solr membership vocabulary
-- `app/lib/request_latency.rb` and `config/initializers/request_latency.rb` — the latency histogram
+- `lib/request_timing.rb` — the Rack middleware that times each request
+- `app/lib/request_latency.rb` — the latency histogram
 
 ## The response cache cannot become an authorization bypass
 
@@ -175,15 +176,39 @@ schema is in `openapi/openapi.yaml`.
 
 ### What is measured
 
-Each `process_action.action_controller` event: from when Rails dispatches the
-action until it returns, rescued errors included. **Time a request waits for a
-Puma thread is not in it**, nor the network. Measuring the queue would need a
-request-start header from the client, and two hosts' clocks would skew it.
+Each request, from when it enters Atlas's Rack stack until the app returns its
+response. `RequestTiming` is the first middleware, inserted at position 0 after
+`Rack::Cors`, so the figure covers the whole stack. It is the same span as the
+`x-runtime` header, plus the few middlewares above `Rack::Runtime`.
+
+**Timing the controller action alone missed most of the wait.** When a client
+sends several reads at once, one Puma process takes them in turn, and each one
+spends that waiting inside Atlas but outside its action. Measured on the
+development stack, which also runs the code reloader on every request, four
+concurrent Work-page reads spent about 100 ms each outside their actions. The
+same reads arriving alone spent about 3 ms. An action-only figure reported a
+p95 of 76 ms where `x-runtime` reported 204 ms.
+
+What the figure still leaves out:
+
+- **Time waiting for a Puma thread,** before Rack sees the request. Measuring
+  that would need a request-start header from the client, and two hosts' clocks
+  would skew it.
+- **The network.**
+- **Sending a streamed body.** The clock stops when the app returns, as
+  `x-runtime` does, so a multi-gigabyte download counts its setup, not its
+  transfer.
+
+A raised exception counts as a 5xx. A request that matched no route is counted
+under the action name `unrouted`.
 
 `GET /up`, `GET /health` and `GET /metrics/latency` are left out. They are the
 monitor's traffic, and a poller would otherwise fill the histogram with the
-cheapest requests Atlas serves. Every `Rails::` controller is left out by
+cheapest requests Atlas serves. Every `rails/` controller is left out by
 namespace, which also covers development's welcome page at `/`.
+
+`RequestTiming` lives in `lib/` and is required by its initializer, because the
+middleware stack is built once at boot and must not hold a reloadable constant.
 
 ### Where the figures live
 

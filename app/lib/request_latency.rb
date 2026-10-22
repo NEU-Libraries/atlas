@@ -10,9 +10,11 @@ module RequestLatency
   BACKOFF = 30.seconds
   SLOWEST_ACTIONS = 10
 
-  # The monitor's traffic, not the app's. Rails's own controllers (/up, and
-  # development's welcome page) are left out by namespace.
-  EXCLUDED_CONTROLLERS = %w[HealthController MetricsController].freeze
+  # The monitor's traffic, not the app's, by controller path. Rails's own
+  # controllers (/up, and development's welcome page) are left out by namespace.
+  EXCLUDED_CONTROLLERS = %w[health metrics].freeze
+  # A request that matched no route still cost Atlas its time.
+  UNROUTED = 'unrouted'
 
   Summary = Data.define(:calls, :server_errors, :mean_ms, :p50_ms, :p95_ms, :p99_ms, :slowest_actions)
 
@@ -29,12 +31,16 @@ module RequestLatency
                            read_timeout: 0.2, write_timeout: 0.2, reconnect_attempts: 0)
     end
 
-    def record_event(event)
-      payload = event.payload
+    # `route` is the router's path parameters, empty or nil when no route
+    # matched.
+    def record_request(duration_ms, route:, status:)
       return unless enabled
-      return if EXCLUDED_CONTROLLERS.include?(payload[:controller]) || payload[:controller].to_s.start_with?('Rails::')
 
-      record(event.duration, action: action_name(payload), server_error: server_error?(payload))
+      controller = route&.dig(:controller).presence&.to_s
+      return if excluded?(controller)
+
+      action = controller ? "#{controller}##{route[:action]}" : UNROUTED
+      record(duration_ms, action: action, server_error: status.to_i >= 500)
     end
 
     def record(duration_ms, action:, server_error: false, now: Time.current)
@@ -97,17 +103,10 @@ module RequestLatency
         end
       end
 
-      # `works#mods`, `users/tokens#nuid`. Low cardinality, unlike a path,
-      # which carries a NOID.
-      def action_name(payload)
-        "#{payload[:controller].to_s.delete_suffix('Controller').underscore}##{payload[:action]}"
-      end
+      def excluded?(controller)
+        return false if controller.nil?
 
-      # An exception that no rescue_from handled leaves no status in the
-      # payload; it reaches the client as a 500.
-      def server_error?(payload)
-        status = payload[:status] || (payload[:exception] ? 500 : 200)
-        status.to_i >= 500
+        EXCLUDED_CONTROLLERS.include?(controller) || controller.start_with?('rails/')
       end
 
       def minute_suffix(time) = time.utc.strftime('%Y%m%d%H%M')

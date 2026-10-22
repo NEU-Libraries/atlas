@@ -57,36 +57,36 @@ RSpec.describe RequestLatency do
                                            { action: 'works#show', calls: 5, p95_ms: 10 }])
   end
 
-  describe 'record_event' do
-    def event(controller:, action: 'show', status: 200, exception: nil)
-      instance_double(ActiveSupport::Notifications::Event, duration: 12.5,
-                                                           payload:  { controller: controller, action: action,
-                                                                      status: status, exception: exception })
+  describe 'record_request' do
+    def record(route, status: 200)
+      described_class.record_request(12.5, route: route, status: status)
     end
 
     before { described_class.enabled = true }
 
     it 'names the action by controller path, never by URL' do
-      described_class.record_event(event(controller: 'Users::TokensController', action: 'nuid'))
+      record({ controller: 'users/tokens', action: 'nuid' })
       expect(described_class.summary.slowest_actions.first[:action]).to eq('users/tokens#nuid')
     end
 
-    it 'counts an unhandled exception as a 5xx' do
-      described_class.record_event(event(controller: 'WorksController', status: nil,
-                                         exception: %w[RuntimeError boom]))
+    it 'counts a 5xx as a server error' do
+      record({ controller: 'works', action: 'show' }, status: 503)
       expect(described_class.summary.server_errors).to eq(1)
     end
 
+    it 'counts a request that matched no route, under its own name' do
+      record(nil, status: 404)
+      expect(described_class.summary.slowest_actions.first[:action]).to eq('unrouted')
+    end
+
     it "skips the monitor's own routes" do
-      %w[HealthController MetricsController Rails::HealthController Rails::WelcomeController].each do |controller|
-        described_class.record_event(event(controller: controller))
-      end
+      %w[health metrics rails/health rails/welcome].each { |controller| record({ controller: controller, action: 'show' }) }
       expect(described_class.summary.calls).to eq(0)
     end
 
     it 'records nothing while disabled' do
       described_class.enabled = false
-      described_class.record_event(event(controller: 'WorksController'))
+      record({ controller: 'works', action: 'show' })
       expect(described_class.summary.calls).to eq(0)
     end
   end

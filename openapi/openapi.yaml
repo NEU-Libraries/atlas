@@ -4649,10 +4649,11 @@ paths:
           type: integer
       description: |
         How long Atlas took to serve its own requests over a recent window,
-        measured from when Rails dispatches the action until it returns. It
+        measured from when a request enters Atlas's Rack stack until the app
+        returns its response — the same span as the `x-runtime` header. It
         does not include time a request spent queued before Puma handed it to
-        Rails, nor the network. A client that also times its calls can subtract
-        to see how much of its wait was its own.
+        Rack, nor the network, nor sending a streamed body. A client that also
+        times its calls can subtract to see how much of its wait was its own.
 
         Restricted to admins and the system principal.
 

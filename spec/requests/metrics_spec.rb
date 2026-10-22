@@ -19,10 +19,11 @@ RSpec.describe 'Metrics', type: :request do
                 description: 'Window in minutes, 1 to 120. Default 60.'
       description <<~D
         How long Atlas took to serve its own requests over a recent window,
-        measured from when Rails dispatches the action until it returns. It
+        measured from when a request enters Atlas's Rack stack until the app
+        returns its response — the same span as the `x-runtime` header. It
         does not include time a request spent queued before Puma handed it to
-        Rails, nor the network. A client that also times its calls can subtract
-        to see how much of its wait was its own.
+        Rack, nor the network, nor sending a streamed body. A client that also
+        times its calls can subtract to see how much of its wait was its own.
 
         Restricted to admins and the system principal.
 
@@ -105,6 +106,15 @@ RSpec.describe 'Metrics access and recording', type: :request do
 
     expect(response.parsed_body['calls']).to eq(1)
     expect(response.parsed_body['slowest_actions'].pluck('action')).to eq(['maintenance#show'])
+  end
+
+  it 'counts a request that matched no route' do
+    RequestLatency.enabled = true
+
+    expect { get '/no/such/route' }.to raise_error(ActionController::RoutingError)
+    get '/metrics/latency'
+
+    expect(response.parsed_body['slowest_actions'].pluck('action')).to eq(['unrouted'])
   end
 
   it 'clamps the window to the retention' do

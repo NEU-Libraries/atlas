@@ -37,15 +37,21 @@ info:
     `read_only_mode` on the maintenance window, `stale_resource` on an
     optimistic-lock conflict, `fixity_mismatch` on a rejected upload.
 
-    Two shapes are not documented per operation, because they apply to
-    all of them. **Any endpoint can answer `5xx`**, and a proxy in front
-    of Atlas can answer `502` / `504` with a body that is not JSON at
-    all — see the `ServerError` response below. And **any write can
+    Three shapes are not documented per operation, because they apply
+    to all of them. **Any endpoint can answer `5xx`**, and a proxy in
+    front of Atlas can answer `502` / `504` with a body that is not JSON
+    at all — see the `ServerError` response below. **Any write can
     answer `503` with `error: "read_only_mode"` and a `Retry-After`
     header** while the repository-wide read-only window is open. A
     client must consult the status before it reads the body; the
     `Retry-After` on that `503` is measured in minutes, so it is a
     "come back later", not a "try again now".
+
+    And **any endpoint can answer `503` with `error:
+    "backend_unavailable"`** when Atlas cannot reach a dependency. Its
+    `dependency` key names which one — `database`, `index` or
+    `storage` — and `Retry-After` is a short fixed wait. `GET /health`
+    reports every dependency at once.
 servers:
 - url: "{scheme}://{host}"
   variables:
@@ -66,6 +72,7 @@ tags:
 - name: Compilations
 - name: User
 - name: Maintenance
+- name: Health
 components:
   securitySchemes:
     BearerAuth:
@@ -2316,6 +2323,50 @@ components:
       - since
       - message
       - retry_after
+    Health:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - ok
+          - degraded
+          - unavailable
+          description: "`unavailable` when the database is down, `degraded` when anything
+            else is"
+        database:
+          type: string
+          enum:
+          - ok
+          - unavailable
+          description: Postgres answers a query
+        index:
+          type: string
+          enum:
+          - ok
+          - unavailable
+          description: The Solr core answers a ping
+        storage:
+          type: string
+          enum:
+          - ok
+          - unavailable
+          description: Every OCFL storage root is a writable directory, and the first
+            carries the OCFL marker once anything is deposited
+        cache:
+          type: string
+          enum:
+          - ok
+          - unavailable
+          - disabled
+          description: Redis answers a ping; `disabled` when no Redis cache is configured.
+            Never makes the status 503, because reads fall back to rendering
+      required:
+      - status
+      - database
+      - index
+      - storage
+      - cache
     EmbargoRelease:
       type: object
       properties:
@@ -4382,6 +4433,39 @@ paths:
       responses:
         '200':
           description: mets returned
+  "/health":
+    get:
+      summary: Report whether Atlas can reach its dependencies
+      tags:
+      - Health
+      operationId: health_show
+      description: |
+        Readiness. Probes Postgres, Solr, the OCFL storage roots and the Redis
+        cache, and names each one `ok` or `unavailable`. Unauthenticated, so the
+        body carries no host names, versions or error text; the per-dependency
+        detail goes to Atlas's log.
+
+        Answers `503` when the database, the index or the storage is
+        unavailable, and `200` otherwise. A cache outage alone leaves it `200`
+        with `status: "degraded"`, because reads fall back to rendering. The
+        result is memoized for five seconds per process, so polling it costs
+        nothing.
+
+        `GET /up` is the separate liveness route: it answers `200` once the app
+        has booted and touches no dependency.
+      responses:
+        '200':
+          description: every required dependency answers
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Health"
+        '503':
+          description: a required dependency is unavailable
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Health"
   "/resources/{id}/solr":
     get:
       summary: An object's Solr document

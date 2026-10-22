@@ -2,6 +2,10 @@
 
 Rails.application.routes.draw do
   mount Rswag::Api::Engine => '/api-docs'
+
+  # Liveness for the orchestrator: the app booted, and nothing else is
+  # touched. GET /health below is readiness, which probes every dependency.
+  get 'up' => 'rails/health#show', as: :rails_health_check
   get '/docs', to: 'docs#show'
 
   # OAI-PMH provider — a separate protocol with its own XSD, so it sits
@@ -242,6 +246,10 @@ Rails.application.routes.draw do
     # since an open window must stay closable.
     get '/maintenance', to: 'maintenance#show',   as: 'maintenance'
     put '/maintenance', to: 'maintenance#update', as: 'update_maintenance'
+
+    # Readiness: probes the database, Solr, storage and cache. Unauthenticated,
+    # and 503 when Atlas cannot serve its contract.
+    get '/health', to: 'health#show', as: 'health'
 
     # NUID — mint a personal-access JWT (POST) / revoke all of a user's tokens
     # by rotating its jti (DELETE). Both system-gated; nuid carried in the body.

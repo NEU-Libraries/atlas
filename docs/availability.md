@@ -1,12 +1,13 @@
-# Availability: the maintenance window and reset
+# Availability: the maintenance window, health, and reset
 
-The repository-wide read-only window, and the destructive bootstrap endpoint that
-sits beside it.
+The repository-wide read-only window, the health and liveness routes, and the
+destructive bootstrap endpoint that sits beside them.
 
 Source files:
 
 - `app/models/maintenance_mode.rb` — the flag
 - `app/controllers/maintenance_controller.rb` — the endpoints
+- `app/lib/system_health.rb` and `app/controllers/health_controller.rb` — `GET /health`
 
 The floors that enforce the window live in `ApplicationController#authorize!` —
 see [`authentication.md`](authentication.md). The 503 shape is
@@ -80,6 +81,81 @@ not who asked. **"Who put the repository into maintenance mode, and when" is
 exactly the sort of fact the ledger should hold.** It mirrors
 `Users::TokensController#audit_token_event`, which has the same
 system-gated-but-human-driven shape.
+
+## Health and liveness
+
+Two routes, because an orchestrator and a monitor ask different questions.
+
+| Route | Question | Touches | Called by |
+|---|---|---|---|
+| `GET /up` | Has the app booted? | Nothing | The compose and Swarm healthchecks |
+| `GET /health` | Can Atlas serve its contract? | Postgres, Solr, storage, Redis | Cerberus's `/health`, and Nagios through it |
+
+**Liveness must not probe a dependency.** An orchestrator restarts a container
+that fails its healthcheck. If `/up` probed Solr, a Solr outage would restart
+every Atlas replica, which fixes nothing and drops the requests that could still
+be served.
+
+`/up` is Rails's own `Rails::HealthController`. It inherits
+`ActionController::Base`, so neither `require_auth` nor `check_authorization`
+applies to it.
+
+### `GET /health`
+
+It answers each dependency as `ok` or `unavailable`, and the cache can also be
+`disabled`. The response schema is in `openapi/openapi.yaml`.
+
+| `status` | When | HTTP |
+|---|---|---|
+| `ok` | Everything answers | 200 |
+| `degraded` | Only the cache is down | 200 |
+| `degraded` | The index or the storage is down | 503 |
+| `unavailable` | The database is down, so no request can even authenticate | 503 |
+
+**It is unauthenticated, and has to be.** Resolving even the guest principal
+reads the database, so a probe behind `require_auth` could never report the
+database down. It skips `require_auth` and overrides `public_endpoint?`, the
+hook that excuses it from `check_authorization`. Because anyone can call it,
+the body names no host, version or error text. The detail of each failed check
+goes to the log at `error` level, prefixed `health:`.
+
+**The result is memoized for five seconds per process.** A poller cannot turn
+it into load on the services it probes. The memo is in process memory, not in
+`Rails.cache`, because the cache is one of the things being probed. Its lock
+also makes concurrent callers share one probe.
+
+### What each check proves
+
+| Check | Passes when | Bounded by |
+|---|---|---|
+| `database` | `SELECT 1` answers | The pool's checkout timeout |
+| `index` | The core's `admin/ping` answers `OK` | Its own connection: 1s to connect, 2s to read |
+| `storage` | See below | No network call |
+| `cache` | Redis answers `PING` | The store's 1s connect and 0.2s read timeouts |
+
+The index check builds its own Solr connection because the persister's carries
+no timeouts. A hung Solr would otherwise hold the probe past a poller's deadline.
+
+### The storage check, and what it cannot see
+
+Every storage root must be a writable directory. **The first root must also carry
+the OCFL marker `0=ocfl_1.1` once anything is deposited.** The first root takes
+the repository's first object, and the adapter writes the marker before it.
+
+That second rule is what catches a volume that did not mount. The `Dockerfile`
+creates every root's path, so an unmounted volume leaves an empty directory that
+exists and is writable. Without the marker rule, the check would pass while
+writes landed in the container layer and vanished on restart.
+
+**A later root is checked for the directory alone.** It can legitimately be
+empty and unmarked, so the probe cannot tell "new" from "not mounted". A read
+that names it still answers `503 backend_unavailable`, through the
+`StorageUnavailable` guard in the adapter (see
+[`error-contract.md`](error-contract.md)).
+
+If the database is down, the probe cannot ask whether anything is deposited. It
+then treats the repository as empty rather than failing storage on the
+database's behalf.
 
 ## `GET /reset`
 

@@ -40,7 +40,7 @@ because a developer needs it before any of the other pages make sense.
 | [`people.md`](people.md) | A Person as curatorial identity, and the personal root |
 | [`write-safety.md`](write-safety.md) | Idempotent creates, optimistic-lock retry, provenance emission |
 | [`read-performance.md`](read-performance.md) | The response cache and the batched membership queries |
-| [`availability.md`](availability.md) | The maintenance window and the reset endpoint |
+| [`availability.md`](availability.md) | The maintenance window, the health and liveness routes, and the reset endpoint |
 
 ## What belongs elsewhere
 

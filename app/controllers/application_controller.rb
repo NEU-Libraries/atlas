@@ -188,8 +188,9 @@ class ApplicationController < ActionController::API
       false
     end
 
-    # None today. DocsController inherits ActionController::Base and is exempt
-    # by class; this stays as the escape hatch for a future health check.
+    # Overridden only by GET /health, which calls no authorize! because it
+    # names no resource. DocsController inherits ActionController::Base and is
+    # exempt by class.
     def public_endpoint?
       false
     end

@@ -55,15 +55,21 @@ RSpec.configure do |config|
           `read_only_mode` on the maintenance window, `stale_resource` on an
           optimistic-lock conflict, `fixity_mismatch` on a rejected upload.
 
-          Two shapes are not documented per operation, because they apply to
-          all of them. **Any endpoint can answer `5xx`**, and a proxy in front
-          of Atlas can answer `502` / `504` with a body that is not JSON at
-          all — see the `ServerError` response below. And **any write can
+          Three shapes are not documented per operation, because they apply
+          to all of them. **Any endpoint can answer `5xx`**, and a proxy in
+          front of Atlas can answer `502` / `504` with a body that is not JSON
+          at all — see the `ServerError` response below. **Any write can
           answer `503` with `error: "read_only_mode"` and a `Retry-After`
           header** while the repository-wide read-only window is open. A
           client must consult the status before it reads the body; the
           `Retry-After` on that `503` is measured in minutes, so it is a
           "come back later", not a "try again now".
+
+          And **any endpoint can answer `503` with `error:
+          "backend_unavailable"`** when Atlas cannot reach a dependency. Its
+          `dependency` key names which one — `database`, `index` or
+          `storage` — and `Retry-After` is a short fixed wait. `GET /health`
+          reports every dependency at once.
         DESC
       },
       servers:    [
@@ -84,7 +90,8 @@ RSpec.configure do |config|
         { name: 'Resources' },
         { name: 'Compilations' },
         { name: 'User' },
-        { name: 'Maintenance' }
+        { name: 'Maintenance' },
+        { name: 'Health' }
       ],
       components: {
         securitySchemes: {

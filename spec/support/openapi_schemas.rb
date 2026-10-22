@@ -51,6 +51,7 @@ module OpenapiSchemas
       SearchExplanation:  search_explanation,
       WorkAssociations:   work_associations,
       MaintenanceMode:    maintenance_mode,
+      Health:             health,
       EmbargoRelease:     embargo_release
     }.merge(compilation_schemas).merge(person_schemas)
   end
@@ -82,6 +83,23 @@ module OpenapiSchemas
            since:       { type: :string, format: :'date-time', nullable: true, description: 'When the window opened; null when closed' },
            message:     { type: :string, nullable: true, description: 'Operator note for the client-side banner' },
            retry_after: { type: :integer, description: 'Seconds a refused caller should wait; mirrored into the 503 Retry-After header' }
+         })
+  end
+
+  # GET /health. Values only, never hosts or error text: the endpoint is
+  # unauthenticated.
+  def health
+    dependency = { type: :string, enum: %w[ok unavailable] }
+    bare({
+           status:   { type: :string, enum: %w[ok degraded unavailable],
+                       description: '`unavailable` when the database is down, `degraded` when anything else is' },
+           database: dependency.merge(description: 'Postgres answers a query'),
+           index:    dependency.merge(description: 'The Solr core answers a ping'),
+           storage:  dependency.merge(description: 'Every OCFL storage root is a writable directory, and the first ' \
+                                                   'carries the OCFL marker once anything is deposited'),
+           cache:    { type: :string, enum: %w[ok unavailable disabled],
+                       description: 'Redis answers a ping; `disabled` when no Redis cache is configured. ' \
+                                    'Never makes the status 503, because reads fall back to rendering' }
          })
   end
 

@@ -172,6 +172,23 @@ RSpec.describe Valkyrie::Storage::OCFL do
       expect(pool.digest_for(id: foreign)).to be_nil
     end
 
+    # The other root's volume failed to mount: its path is an empty directory.
+    it 'reports storage unavailable, not FileNotFound, when the id names an unprovisioned root' do
+      stored = pool(%w[r002 r001]).upload(file: file, original_filename: 'foo.jpg', resource: noid_resource)
+      FileUtils.rm_rf(Dir.glob("#{other_tmpdir}/*"))
+
+      expect { pool.find_by(id: stored.id) }.to raise_error(described_class::StorageUnavailable, /r002/)
+      expect { pool.find_versions(id: stored.id) }.to raise_error(described_class::StorageUnavailable)
+      expect { pool.digest_for(id: stored.id) }.to raise_error(described_class::StorageUnavailable)
+    end
+
+    it 'still answers FileNotFound for a missing object in a provisioned root' do
+      pool.upload(file: file, original_filename: 'foo.jpg', resource: noid_resource)
+
+      expect { pool.find_by(id: 'ocfl://pooltag/@r001/zzzz9999z/foo.jpg') }
+        .to raise_error(Valkyrie::StorageAdapter::FileNotFound)
+    end
+
     it 'reads version metadata from each id own root, not from one of them' do
       in_a = pool(%w[r001 r002], clock: Time.utc(2026, 1, 1))
              .upload(file: file, original_filename: 'foo.jpg', resource: noid_resource)

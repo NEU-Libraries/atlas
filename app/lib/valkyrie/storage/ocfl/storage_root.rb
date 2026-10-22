@@ -47,6 +47,12 @@ module Valkyrie
                                    ))
         end
 
+        # True once bootstrap! has run, which precedes the first object. A root
+        # lacking the marker is either brand new or not the volume it should be.
+        def provisioned?
+          base_path.join(NAMASTE).exist?
+        end
+
         def object_root_for(key)
           base_path.join(*tuples_for(key), key)
         end

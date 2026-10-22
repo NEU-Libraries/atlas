@@ -48,6 +48,12 @@ module Valkyrie
       class AmbiguousObject < StandardError
       end
 
+      # An id names a root that holds no OCFL storage root. Every root with an
+      # object in it carries the marker, so this is lost or unmounted storage,
+      # and answering FileNotFound would report the content as never deposited.
+      class StorageUnavailable < StandardError
+      end
+
       attr_reader :storage_roots, :pool_name, :file_mover, :clock, :user_agent, :digest_algorithm,
                   :footprint_recorder
 
@@ -417,7 +423,10 @@ module Valkyrie
         # The on-disk object a parsed id points at. parse_id already refused a
         # root this adapter does not hold, so the fetch cannot miss.
         def object_root_for(parsed)
-          storage_roots.fetch(parsed[:root]).object_root_for(parsed[:key])
+          root = storage_roots.fetch(parsed[:root])
+          raise StorageUnavailable, "storage root #{parsed[:root]} is not provisioned" unless root.provisioned?
+
+          root.object_root_for(parsed[:key])
         end
 
         def build_roots(single, many, root_name, tuple_sizes)

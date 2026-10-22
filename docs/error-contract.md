@@ -7,6 +7,7 @@ detail.
 Source files:
 
 - `app/controllers/application_controller.rb` — the `rescue_from` handlers
+- `app/controllers/concerns/backend_unavailable.rb` — the dependency-outage handlers
 - `app/lib/exceptions/*.rb` — the exception classes and their codes
 
 Response *bodies* for successful reads are not documented here. They live in the
@@ -23,13 +24,14 @@ Most handlers render the same three-key body:
 `error` carries a machine-readable code and `message` carries the detail a person
 reads. **A client branches on `error` and never parses `message`.**
 
-Two codes are exact-match strings that `atlas_rb` depends on. Do not change
-either without a contract bump:
+Three codes are exact-match strings that `atlas_rb` depends on. Do not change
+any of them without a contract bump:
 
 | Code | Status | `atlas_rb` raises |
 |---|---|---|
 | `stale_resource` | 409 | `AtlasRb::StaleResourceError` |
 | `read_only_mode` | 503 | `AtlasRb::ReadOnlyModeError` |
+| `backend_unavailable` | 503 | `AtlasRb::BackendUnavailableError` |
 
 ## The handlers
 
@@ -48,6 +50,9 @@ either without a contract bump:
 | `Exceptions::DerivativePermissionsError` | 422 | The exception's code | Unknown tier, a tier more visible than its Work, or visibility not narrowing with resolution |
 | `Exceptions::PermissionsError` | 422 | The exception's code | An ACL write breaking a rights invariant — today, a read audience wider than the structural parent's |
 | `Exceptions::ReadOnlyMode` | 503 | `read_only_mode` | A write reached Atlas during a maintenance window |
+| `ActiveRecord::ConnectionNotEstablished`, `ActiveRecord::ConnectionFailed` | 503 | `backend_unavailable`, `dependency: "database"` | Postgres refused, dropped or timed out a connection |
+| `RSolr::Error::ConnectionRefused`, `RSolr::Error::Http` with a 5xx or a timeout | 503 | `backend_unavailable`, `dependency: "index"` | Solr is down, overloaded or loading its core |
+| `Valkyrie::Storage::OCFL::StorageUnavailable`, and the filesystem faults listed below | 503 | `backend_unavailable`, `dependency: "storage"` | An id names a storage root with no OCFL marker, or the filesystem failed |
 
 Every 422 above rejects before anything persists, so a failed request leaves
 nothing behind.
@@ -65,6 +70,53 @@ A 403 says the caller lacks rights. During a migration window that is a lie: the
 caller's rights are fine and the repository is closed. The handler also sets
 `Retry-After` from `MaintenanceMode.retry_after`, which a 403 has no business
 carrying. See [`availability.md`](availability.md).
+
+## Why a dependency outage is a 503 and not a 500
+
+A 500 is as likely to be a bug as an outage, so a client cannot show a
+"temporarily unavailable" page for one without lying about half of them. The
+`backend_unavailable` body names which dependency failed:
+
+```json
+{ "error": "backend_unavailable", "dependency": "storage", "message": "…" }
+```
+
+**The body names the dependency and nothing more.** The handler can fire before
+`require_auth` has resolved a principal, because resolving even the guest reads
+the database. So host names and the exception text go to the log at `error`
+level, never to the wire. `Retry-After` is a fixed 30 seconds, because an outage
+has no scheduled end the way a maintenance window does.
+
+The handlers live in a concern so `ApplicationController` keeps the auth logic.
+Controllers that include `IndexReadGate` declare their own Solr handler, which
+Rails consults first, so the operator inspection endpoints keep their `502
+solr_unavailable` (see [`solr-indexing.md`](solr-indexing.md)).
+
+### What counts as an outage
+
+| Dependency | Counts | Does not count |
+|---|---|---|
+| `database` | `ConnectionNotEstablished` and its subclasses, which include a pool checkout timeout; `ConnectionFailed`, a connection lost mid-query | A query error, a validation failure |
+| `index` | A refused connection, a timeout, a 5xx from Solr | A 4xx from Solr. Atlas built that query, so it stays a 500 |
+| `storage` | `StorageUnavailable`; `EIO`, `EROFS`, `ENOSPC`, `EDQUOT`, `ESTALE`, `ENOTCONN`, `EHOSTDOWN` | `ENOENT` and `EACCES`, each as likely to be a wrong path in Atlas's code |
+
+`ENOTCONN` and `ESTALE` are the faults a network mount raises when it drops,
+which is how SMB or NFS storage fails in practice.
+
+### The cache is not on the list
+
+Redis errors never reach a controller. The cache store's `error_handler`
+(`config/cache_store.rb`) treats a failed read as a miss and renders, so a Redis
+outage makes reads slower and nothing else. `GET /health` still reports it.
+
+### `StorageUnavailable` and the missing volume
+
+**Every root that holds an object carries the OCFL marker file `0=ocfl_1.1`**,
+because the adapter writes it before the first object. So when a read names a
+root without the marker, that root is lost or did not mount. The adapter raises
+`StorageUnavailable` rather than `FileNotFound`, which would answer 404 and
+report the content as never deposited. A missing object inside a root that has
+the marker is still a `FileNotFound`.
 
 ## The 404 asymmetry
 

@@ -7,6 +7,7 @@
 class ApplicationController < ActionController::API
   include ActionController::MimeResponds
   include CanCan::ControllerAdditions
+  include BackendUnavailable
 
   respond_to :json
 

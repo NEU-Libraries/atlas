@@ -251,6 +251,9 @@ Rails.application.routes.draw do
     # and 503 when Atlas cannot serve its contract.
     get '/health', to: 'health#show', as: 'health'
 
+    # Atlas's own request latency for a recent window. Admin or :system.
+    get '/metrics/latency', to: 'metrics#latency', as: 'metrics_latency'
+
     # NUID — mint a personal-access JWT (POST) / revoke all of a user's tokens
     # by rotating its jti (DELETE). Both system-gated; nuid carried in the body.
     post   '/nuid', to: 'users/tokens#nuid',   as: 'nuid'

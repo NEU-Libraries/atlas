@@ -50,8 +50,9 @@ info:
     And **any endpoint can answer `503` with `error:
     "backend_unavailable"`** when Atlas cannot reach a dependency. Its
     `dependency` key names which one — `database`, `index` or
-    `storage` — and `Retry-After` is a short fixed wait. `GET /health`
-    reports every dependency at once.
+    `storage`, or `cache` on `GET /metrics/latency` — and `Retry-After`
+    is a short fixed wait. `GET /health` reports every dependency at
+    once.
 servers:
 - url: "{scheme}://{host}"
   variables:
@@ -73,6 +74,7 @@ tags:
 - name: User
 - name: Maintenance
 - name: Health
+- name: Metrics
 components:
   securitySchemes:
     BearerAuth:
@@ -2367,6 +2369,60 @@ components:
       - index
       - storage
       - cache
+    Latency:
+      type: object
+      properties:
+        window_minutes:
+          type: integer
+          description: The minutes the figures cover, up to 120
+        calls:
+          type: integer
+          description: Requests Atlas served in the window
+        server_errors:
+          type: integer
+          description: Of those, the ones answered 5xx
+        mean_ms:
+          type: integer
+          nullable: true
+          description: Mean duration; null when there were no calls
+        p50_ms:
+          type: integer
+          nullable: true
+          description: Approximate median, interpolated from the histogram
+        p95_ms:
+          type: integer
+          nullable: true
+          description: Approximate 95th percentile
+        p99_ms:
+          type: integer
+          nullable: true
+          description: Approximate 99th percentile
+        slowest_actions:
+          type: array
+          description: Up to ten controller actions, slowest p95 first
+          items:
+            type: object
+            properties:
+              action:
+                type: string
+                description: "`controller#action`"
+              calls:
+                type: integer
+              p95_ms:
+                type: integer
+            required:
+            - action
+            - calls
+            - p95_ms
+      required:
+      - window_minutes
+      - calls
+      - server_errors
+      - mean_ms
+      - p50_ms
+      - p95_ms
+      - p99_ms
+      - slowest_actions
     EmbargoRelease:
       type: object
       properties:
@@ -4578,6 +4634,44 @@ paths:
       responses:
         '204':
           description: state reset
+  "/metrics/latency":
+    get:
+      summary: Report Atlas's own request latency
+      tags:
+      - Metrics
+      operationId: metrics_latency
+      parameters:
+      - name: minutes
+        in: query
+        required: false
+        description: Window in minutes, 1 to 120. Default 60.
+        schema:
+          type: integer
+      description: |
+        How long Atlas took to serve its own requests over a recent window,
+        measured from when Rails dispatches the action until it returns. It
+        does not include time a request spent queued before Puma handed it to
+        Rails, nor the network. A client that also times its calls can subtract
+        to see how much of its wait was its own.
+
+        Restricted to admins and the system principal.
+
+        The percentiles are interpolated from a histogram with edges at 5, 10,
+        25, 50, 100, 250, 500, 1000, 2500, 5000 and 10000 ms, so they are
+        approximate. GET /up, GET /health and this endpoint are not counted.
+
+        Answers `503` with `error: "backend_unavailable"` and
+        `dependency: "cache"` when Redis, which holds the figures, does not
+        answer.
+      responses:
+        '200':
+          description: latency for the window
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Latency"
+        '503':
+          description: Redis, which holds the figures, does not answer
   "/people":
     get:
       summary: List or batch-resolve people

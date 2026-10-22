@@ -52,9 +52,17 @@ class Ability
     apply_group_abilities(user)
     apply_compilation_abilities(user)
     apply_admin_delegate_abilities(user)
+    apply_operator_abilities if user.system?
   end
 
   private
+
+    # The operator surface for :system: the maintenance window and the latency
+    # figures. Admins reach both through `manage :all`.
+    def apply_operator_abilities
+      can :maintain,     :maintenance
+      can :read_metrics, :latency
+    end
 
     def apply_role_abilities(user)
       case user.role.to_sym
@@ -65,7 +73,6 @@ class Ability
         # base rule so it comes LAST and wins; moving it earlier re-gates the
         # backend and breaks showcase publishing and the reindexes.
         can :read, Resource
-        can :maintain,       :maintenance
         can :read,           User
         can :read_directory, User
         can :create,         Community

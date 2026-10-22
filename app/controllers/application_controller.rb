@@ -19,7 +19,7 @@ class ApplicationController < ActionController::API
   # and repository-wide floors in #authorize! below. An allowlist on purpose: a
   # write-shaped action added later is refused without being enumerated here.
   READ_ONLY_TOKEN_ACTIONS = %i[read read_directory read_versions read_history read_index index_all search
-                               preview].freeze
+                               preview read_metrics].freeze
 
   before_action :require_auth
   # One re-index per touched Work or container per action, not one per OCFL

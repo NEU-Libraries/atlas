@@ -52,6 +52,7 @@ module OpenapiSchemas
       WorkAssociations:   work_associations,
       MaintenanceMode:    maintenance_mode,
       Health:             health,
+      Latency:            latency,
       EmbargoRelease:     embargo_release
     }.merge(compilation_schemas).merge(person_schemas)
   end
@@ -100,6 +101,25 @@ module OpenapiSchemas
            cache:    { type: :string, enum: %w[ok unavailable disabled],
                        description: 'Redis answers a ping; `disabled` when no Redis cache is configured. ' \
                                     'Never makes the status 503, because reads fall back to rendering' }
+         })
+  end
+
+  # GET /metrics/latency. Percentiles are interpolated from histogram buckets,
+  # so they are approximate.
+  def latency
+    ms = { type: :integer, nullable: true }
+    bare({
+           window_minutes:  { type: :integer, description: 'The minutes the figures cover, up to 120' },
+           calls:           { type: :integer, description: 'Requests Atlas served in the window' },
+           server_errors:   { type: :integer, description: 'Of those, the ones answered 5xx' },
+           mean_ms:         ms.merge(description: 'Mean duration; null when there were no calls'),
+           p50_ms:          ms.merge(description: 'Approximate median, interpolated from the histogram'),
+           p95_ms:          ms.merge(description: 'Approximate 95th percentile'),
+           p99_ms:          ms.merge(description: 'Approximate 99th percentile'),
+           slowest_actions: { type: :array, description: 'Up to ten controller actions, slowest p95 first',
+                              items: bare({ action: { type: :string, description: '`controller#action`' },
+                                            calls:  { type: :integer },
+                                            p95_ms: { type: :integer } }) }
          })
   end
 

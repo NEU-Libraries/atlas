@@ -109,6 +109,10 @@ Redis errors never reach a controller. The cache store's `error_handler`
 (`config/cache_store.rb`) treats a failed read as a miss and renders, so a Redis
 outage makes reads slower and nothing else. `GET /health` still reports it.
 
+The one exception is `GET /metrics/latency`, whose figures live in Redis. Its
+controller answers `backend_unavailable` with `dependency: "cache"` itself (see
+[`read-performance.md`](read-performance.md)).
+
 ### `StorageUnavailable` and the missing volume
 
 **Every root that holds an object carries the OCFL marker file `0=ocfl_1.1`**,

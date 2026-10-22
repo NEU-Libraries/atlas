@@ -2,7 +2,8 @@
 
 The design tradeoff Atlas makes is that writes may be slow so long as reads are
 fast. This page covers the two mechanisms that keep the read side fast: batched
-membership queries, and a response cache.
+membership queries, and a response cache. It also covers how Atlas measures its
+own request latency.
 
 Source files:
 
@@ -12,6 +13,7 @@ Source files:
 - `app/queries/find_many_by_alternate_identifiers.rb` — batch NOID resolution
 - `app/queries/page_assets_query.rb` — two containment levels, two queries
 - `app/queries/concerns/solr_refs.rb` — the Solr membership vocabulary
+- `app/lib/request_latency.rb` and `config/initializers/request_latency.rb` — the latency histogram
 
 ## The response cache cannot become an authorization bypass
 
@@ -163,3 +165,63 @@ appear here**, so that bound covers the fan-out.
 A cached read measures the cache, not the query. When timing a change to any of
 the queries above, clear the response cache first, or you are measuring
 `ResponseCache.read` and nothing else.
+
+## Atlas's own latency: `GET /metrics/latency`
+
+A client that times its Atlas calls measures its own waiting too. Under load,
+that hides whether Atlas is slow or the client is busy, so Atlas reports the
+figure only it can see. The endpoint is admin- or `:system`-gated; the response
+schema is in `openapi/openapi.yaml`.
+
+### What is measured
+
+Each `process_action.action_controller` event: from when Rails dispatches the
+action until it returns, rescued errors included. **Time a request waits for a
+Puma thread is not in it**, nor the network. Measuring the queue would need a
+request-start header from the client, and two hosts' clocks would skew it.
+
+`GET /up`, `GET /health` and `GET /metrics/latency` are left out. They are the
+monitor's traffic, and a poller would otherwise fill the histogram with the
+cheapest requests Atlas serves. Every `Rails::` controller is left out by
+namespace, which also covers development's welcome page at `/`.
+
+### Where the figures live
+
+A per-minute histogram in Redis, so every Puma worker and every replica adds to
+the same figures. Each minute has two hashes, which expire after two hours:
+
+| Key | Fields |
+|---|---|
+| `atlas:latency:<env>:requests:<YYYYMMDDHHMM>` | A count per bucket, `sum_ms`, `server_errors` |
+| `atlas:latency:<env>:actions:<YYYYMMDDHHMM>` | A count per `controller#action` and bucket |
+
+The bucket edges are 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000 and
+10000 ms, then `inf`. **They are Cerberus's edges, on purpose**, so the two rows
+on its health card compare like for like. **The percentiles are interpolated
+inside a bucket, so they are approximate.** A rank in the open top bucket
+reports 10000 ms.
+
+Actions are keyed by `controller#action`, never by path. A path carries a NOID,
+so a per-path key would grow without bound.
+
+### Why it talks to Redis directly
+
+`RequestLatency` opens its own client at `REDIS_URL` rather than using
+`Rails.cache`. Development's cache store is a null store unless `rails
+dev:cache` is on, so `Rails.cache` would record nothing there.
+
+**A write failure pauses writes for 30 seconds.** The write runs in the request
+thread, so without the pause a Redis outage would add the 1-second connect
+timeout to every request Atlas serves. A healthy write is one pipelined round
+trip.
+
+A read failure is different: `GET /metrics/latency` answers `503
+backend_unavailable` with `dependency: "cache"`. Reporting zeros would claim
+Atlas served nothing.
+
+### In the specs
+
+Recording is off in the test environment, where `RequestLatency.enabled` starts
+false. A spec that wants it turns it on. Otherwise every request spec would write
+to Redis, and parallel workers would count each other's traffic. The key's
+environment segment carries the worker number for the same reason.

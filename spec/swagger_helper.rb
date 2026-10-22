@@ -68,8 +68,9 @@ RSpec.configure do |config|
           And **any endpoint can answer `503` with `error:
           "backend_unavailable"`** when Atlas cannot reach a dependency. Its
           `dependency` key names which one — `database`, `index` or
-          `storage` — and `Retry-After` is a short fixed wait. `GET /health`
-          reports every dependency at once.
+          `storage`, or `cache` on `GET /metrics/latency` — and `Retry-After`
+          is a short fixed wait. `GET /health` reports every dependency at
+          once.
         DESC
       },
       servers:    [
@@ -91,7 +92,8 @@ RSpec.configure do |config|
         { name: 'Compilations' },
         { name: 'User' },
         { name: 'Maintenance' },
-        { name: 'Health' }
+        { name: 'Health' },
+        { name: 'Metrics' }
       ],
       components: {
         securitySchemes: {

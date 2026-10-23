@@ -1,0 +1,8 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Offline OCFL and preservation-envelope health checks. Needs Ruby and nothing
+# else: no bundle, no Rails, no database. Run --help for usage.
+require_relative '../lib/ocfl_health'
+
+exit OcflHealth::CLI.run(ARGV)

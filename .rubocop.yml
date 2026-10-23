@@ -27,6 +27,11 @@ Metrics/ClassLength:
     # OCFL 1.1 write-path coordination naturally long; broken into private
     # helpers but the class itself stays a single coherent boundary.
     - 'app/lib/valkyrie/storage/ocfl.rb'
+    # The offline validator and Work walk: one private method per OCFL 1.1 rule
+    # or per graph check, so length tracks the spec's checklist. Splitting would
+    # scatter one checklist across classes that only make sense together.
+    - 'lib/ocfl_health/object_validator.rb'
+    - 'lib/ocfl_health/work_assessment.rb'
     # The single auth gate every request passes through: rescue_from handlers
     # plus four credential paths (cerberus_token, system_token, devise-jwt,
     # Cerberus signed assertion). Cohesive by design — already decomposed into

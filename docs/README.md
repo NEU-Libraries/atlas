@@ -95,14 +95,18 @@ comment lines sit over twenty lines of code, and they explain which MODS element
 the template emits and why the order matters. Forcing that file under the target
 would make it worse at the thing the target exists to improve.
 
-A local agent hook (`.claude/hooks/comment-density-lint.sh`) reports the number
-after every edit under `app/`, and names the relevant page when the file already
-has one. It is advisory: it runs after the write, so it cannot block anything.
+`bin/comment-density` measures this, and holds the target and the exempt list:
 
-The hook is developer-local. `.gitignore` excludes `/.claude`, so the hook does
-not arrive with a clone and each developer installs their own. To measure a file
-without it, count non-blank lines that start with `#` against the rest, treating
-`# frozen_string_literal:` and `# rubocop:` as code.
+```bash
+bin/comment-density                 # every Ruby file under app/
+bin/comment-density --staged        # Ruby files under app/ staged for commit
+bin/comment-density <files>         # named files
+```
+
+It counts non-blank lines that start with `#` against the rest, and treats
+`# frozen_string_literal:`, `# rubocop:` and `# encoding:` as code. It prints
+each file over the target, with the comment lines the target allows, and always
+exits 0. An editor or agent can run it on each file after a write.
 
 ## Adding a page
 

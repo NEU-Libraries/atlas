@@ -1,4 +1,4 @@
-# Atlas
+# Atlas <picture><img src="docs/images/atlas-logo.svg" alt="" width="40" height="40" align="top"></picture>
 
 JSON API for **Atlas** — Northeastern University Library's institutional
 digital repository.

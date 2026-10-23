@@ -12,9 +12,10 @@ reason a design rejected the obvious alternative.
 Each page names the source files it covers. Those files carry a one-line pointer
 back, so you can find either from the other.
 
-One page is not per-component. [`testing.md`](testing.md) covers the environment
-and the workflow — the spec wrappers, the per-worker stores, the Solr cores, and
-the guards. It lives here because it versions with the scripts it describes, and
+Two pages are not per-component. [`conventions.md`](conventions.md) holds the
+rules every change has to satisfy: code, response shapes, lint and comments.
+[`testing.md`](testing.md) covers the environment and the workflow — the spec
+wrappers, the per-worker stores, the Solr cores, and the guards. It lives here because it versions with the scripts it describes, and
 because a developer needs it before any of the other pages make sense.
 
 ## The pages
@@ -22,6 +23,7 @@ because a developer needs it before any of the other pages make sense.
 | Page | Covers |
 |---|---|
 | [`preservation.md`](preservation.md) | The preservation-first principle: what is source, what is derived, and the test between them |
+| [`conventions.md`](conventions.md) | The rules every change has to satisfy: code, response shapes, lint, comments |
 | [`testing.md`](testing.md) | The spec wrappers, the per-worker stores, the Solr cores, the guards |
 | [`authentication.md`](authentication.md) | The credential paths, the resolution matrix, acting-as, the write floors |
 | [`authorization.md`](authorization.md) | The `Ability` tiers, the ACL envelope, the write guard, per-asset visibility |

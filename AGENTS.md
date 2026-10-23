@@ -2,6 +2,15 @@
 
 Guidance for coding agents working in this repository.
 
+This file holds the rules that govern how an agent works here. Two pages
+written for developers hold the rest, and you must read both before your first
+change:
+
+- [`docs/conventions.md`](docs/conventions.md) — the rules every change has to
+  satisfy: code, response shapes, lint and comments.
+- [`docs/testing.md`](docs/testing.md) — the mechanics: the spec wrappers, the
+  per-worker stores, the Solr cores and the guards.
+
 ## Read this before editing this file
 
 **This file is tooling, not documentation.** It is tracked so the team shares
@@ -232,83 +241,15 @@ Three concentric layers in `spec/`:
 A `before(:suite)` hook wipes the metadata adapter so a stale Solr/Postgres
 test state doesn't leak between runs.
 
-## Conventions worth knowing
+## Conventions
 
-- **NOIDs everywhere.** `resource.noid` is the public ID; treat
-  `alternate_ids.first` as an implementation detail. `Resource.find` accepts
-  either NOID or Valkyrie ID — prefer passing NOIDs.
-- **Use `Atlas.persister` / `Atlas.query`** instead of `Valkyrie.config.metadata_adapter…`
-  in app code.
-- **Decorators** (`app/decorators/*_decorator.rb`) wrap resources with
-  view-layer logic (lineage, MODS field accessors). Controllers call
-  `.decorate` before assigning to `@resource`; jbuilder partials assume the
-  decorated interface.
-- **Pagination** for index actions: `include LazyPagination` and
-  `paginate_model(Work)` returns `[pagination, items]`. Pagy is configured
-  in `config/initializers/pagy.rb`.
-- **rubocop** has Atlas-specific exclusions in `.rubocop.yml`. Four files are
-  excluded from *every* cop under `AllCops` — `app/lib/mods_builder.rb`,
-  `app/lib/mets_builder.rb`, `app/lib/marc_relators.rb` and
-  `app/lib/darwin_core_terms.rb`, all data rather than logic — and `app/services/**/*` is excluded from `Lint/MissingSuper`
-  and `Metrics/ParameterLists`. Don't fight these; the patterns are
-  intentional. The baseline is clean, so a new offence is yours.
-- **`Rails/DynamicFindBy` whitelist** includes `find_by_alternate_identifier`
-  (Valkyrie method, not AR).
-- **Comment style.** See [Comments and `docs/`](#comments-and-docs) below. In
-  short: a comment explains the *why* of the code beneath it, most of the *why*
-  lives on a `docs/` page, and a file targets under 35% comment lines.
-
-## Comments and `docs/`
-
-### Comments explain the *why* of the code below them
-
-A comment earns its place only if it explains why the code immediately below it
-exists, and it must still make sense to a reader two years out with **no access
-to git history or planning docs**. Keep them to ≤2–3 sentences.
-
-Do **not** write temporal or working-artifact comments:
-
-- **No** dates or app-version stamps (`(Fixed YYYY-MM-DD)`, `0.6.x`).
-- **No** workstream shorthand: `piece N`, `Q<n>`, `Gap C`, `gap_reports/`
-  pointers, or named initiatives.
-- **No** before/after narration — "used to", "no longer", "previously", "was X,
-  now Y". Describe the *current* design and its reason; the old design lives in
-  git.
-
-Do keep genuine non-obvious rationale, wire-contract constraints, and real
-gotchas — but **de-date them**: keep the lesson, drop the incident. A genuinely
-deferred fix is a one-line `TODO:`, not a paragraph. This is a *why*-comment
-standard, not a no-comments rule.
-
-### Most of the *why* lives in `docs/`, not in the file
-
-Read **[`docs/README.md`](docs/README.md)** before adding a file header. Atlas
-keeps knowledge in four places — code, specs, the generated OpenAPI spec, and
-`docs/*.md` — and the last holds the per-component explanation that would
-otherwise accumulate as long headers: the MODS field registries, the four
-credential paths, the OCFL write-path argument, Solr field derivations, and why a
-design rejected the obvious alternative.
-
-Never restate a response shape on a page. `openapi/openapi.yaml` is generated
-from the request specs, so it cannot drift; a page links to the endpoint and
-explains what the schema cannot express.
-
-What that leaves in the source file is the **trap**. Ask: would someone editing
-*this line* break something without this comment? A wire-contract gotcha, an
-ordering constraint, a rule that looks redundant but is not, and every
-`rubocop:disable` justification stay inline. Everything else goes on a page, and
-the file keeps a one-line pointer to it.
-
-Target comments under ~35% of a file's non-blank lines, and know that it is a
-target rather than a gate — if a comment would cost someone a bug, keep it and go
-over. Files under 25 lines of code are exempt, having no denominator to earn a
-budget with. A local agent hook reports the number after every edit under
-`app/`, and names the relevant page when the file already has one. The hook is
-developer-local: `.gitignore` excludes `/.claude`, so it does not arrive with a
-clone.
-
-Prefer a spec to a page whenever the claim is testable. A spec fails when someone
-breaks it; prose does not.
+The code, response-shape, lint and comment rules are in
+[`docs/conventions.md`](docs/conventions.md). The comment standard is the one
+most often missed: a comment explains *why* the code below it exists, carries no
+dates, version stamps, planning shorthand or before/after narration, and keeps
+only the trap inline — the rest goes on a `docs/` page. A local agent hook
+reports comment density after every edit under `app/`, and names the relevant
+page when the file already has one.
 
 ## Testing
 

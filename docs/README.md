@@ -93,7 +93,7 @@ comment lines sit over twenty lines of code, and they explain which MODS element
 the template emits and why the order matters. Forcing that file under the target
 would make it worse at the thing the target exists to improve.
 
-A `PostToolUse` hook (`.claude/hooks/comment-density-lint.sh`) reports the number
+A local agent hook (`.claude/hooks/comment-density-lint.sh`) reports the number
 after every edit under `app/`, and names the relevant page when the file already
 has one. It is advisory: it runs after the write, so it cannot block anything.
 

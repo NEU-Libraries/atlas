@@ -1,6 +1,6 @@
-# CLAUDE.md
+# AGENTS.md
 
-Guidance for Claude Code (claude.ai/code) when working in this repository.
+Guidance for coding agents working in this repository.
 
 ## Read this before editing this file
 
@@ -19,9 +19,9 @@ with no AI tooling loses nothing by ignoring this file. If you find yourself
 about to explain a design decision here, that explanation belongs on a `docs/`
 page — write it there and link to it.
 
-`.claude/` stays gitignored. Hooks are per-developer tooling and each developer
-installs their own; `docs/README.md` says how to measure comment density without
-the hook.
+Agent configuration directories (`.claude/` and the like) stay gitignored. Hooks
+are per-developer tooling and each developer installs their own;
+`docs/README.md` says how to measure comment density without the hook.
 
 ## What this is
 
@@ -302,7 +302,7 @@ the file keeps a one-line pointer to it.
 Target comments under ~35% of a file's non-blank lines, and know that it is a
 target rather than a gate — if a comment would cost someone a bug, keep it and go
 over. Files under 25 lines of code are exempt, having no denominator to earn a
-budget with. A `PostToolUse` hook reports the number after every edit under
+budget with. A local agent hook reports the number after every edit under
 `app/`, and names the relevant page when the file already has one. The hook is
 developer-local: `.gitignore` excludes `/.claude`, so it does not arrive with a
 clone.
@@ -312,14 +312,14 @@ breaks it; prose does not.
 
 ## Testing
 
-Claude can, and should, restart the Rails development server by executing
+The agent can, and should, restart the Rails development server by executing
 `docker exec atlas-web-1 bundle exec bin/rails restart` when necessary to
 verify changes. This presupposes the developer has the server running,
 which was already a pre-existing expectation.
 
 The mechanics live in [`docs/testing.md`](docs/testing.md) — the two spec
 wrappers, the per-worker stores, the Solr cores, and the two guards. What
-follows is what Claude owes the developer on top of them.
+follows is what the agent owes the developer on top of them.
 
 **Plan the verification before starting the work,** and say what you chose when
 you report. Naming the specs you judged sufficient is part of the report, so the

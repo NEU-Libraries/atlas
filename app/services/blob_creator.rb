@@ -65,7 +65,7 @@ class BlobCreator < ApplicationService
     end
 
     def upload_and_save(blob)
-      file = create_file(@path, blob)
+      file = create_file(@path, blob, logical_name)
       blob.file_identifiers += [file.version_id]
       blob.record_revision_filename(file.version_id, @original_filename)
       blob.digest = recorded_digest(file.version_id)
@@ -74,5 +74,11 @@ class BlobCreator < ApplicationService
       blob = Atlas.persister.save(resource: blob)
       blob.write_preservation_envelope!
       blob
+    end
+
+    # The OCFL logical path, so the object on disk names the deposited file
+    # rather than the upload's temporary one. Matches BlobRevisionAppender.
+    def logical_name
+      File.basename(@original_filename.to_s).presence || File.basename(@path)
     end
 end

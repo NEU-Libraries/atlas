@@ -80,8 +80,9 @@ an error.
 
 This is the subtle one. Each identifier carries **both** its version and its
 logical path, and both matter: **a revision's logical path is its own filename,
-so it need not be the current one.** Blobs replaced before the name was used
-also carry the uploaded temp file's name as a logical path.
+so it need not be the current one.** A revision written before the name was
+used — a first deposit or a replace — carries the uploaded temp file's name as
+its logical path instead.
 
 Asking the inventory only for the versions holding the *current* path therefore
 answers nothing for the superseded revisions — **which is how a fixity column

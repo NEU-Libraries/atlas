@@ -37,10 +37,12 @@ class HandleMinter < ApplicationService
     # ORDER MATTERS: the resource save comes first, so a document that refuses
     # the write still leaves a minted Work behind. The reverse order could
     # register a handle externally and keep no record of it here, which nothing
-    # in the repository could re-derive.
+    # in the repository could re-derive. The envelope follows the save: it is
+    # the handle's only record on disk, so a rebuild without it loses the
+    # binding every outside citation rests on.
     def mint(work)
       work.handle = @client.mint(work.noid, url: target_url(work))
-      Atlas.persister.save(resource: work)
+      Atlas.persister.save(resource: work).tap(&:write_preservation_envelope!)
     rescue HandleClient::Error => e
       Rails.logger.warn("HandleMinter: #{work.noid} not minted — #{e.message}")
       work

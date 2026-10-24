@@ -33,9 +33,10 @@ a slot it generated the value for, as it does for METS.
 |---|---|---|
 | The external handle server | **Best-effort.** Logged and swallowed. | `/complete` is load-bearing in DRS: re-finalization is routine and a bulk deposit leans on it, so a handle server that is down, slow or misconfigured must not fail a finalize. The Work stays unminted for a later `/complete` to pick up. |
 | The MODS `hdl` identifier | **Raises.** | It is local, so it earns no such licence. It fails like the METS rebuild beside it in `/complete`. |
+| The Work's preservation envelope | **Raises.** | Local, like the MODS write. It is the handle's only record on disk, so a rebuild from disk without it loses the binding every outside citation rests on. |
 
-**Save order is load-bearing.** `mint` saves the resource first and writes MODS
-second, so a document that refuses the write still leaves a minted Work behind.
+**Save order is load-bearing.** `mint` saves the resource first, then rewrites
+its envelope, and writes MODS last, so a document that refuses the write still leaves a minted Work behind.
 The reverse order could register a handle on the external service and keep no
 record of it here, **which nothing in the repository could re-derive.**
 

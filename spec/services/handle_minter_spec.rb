@@ -73,12 +73,21 @@ RSpec.describe HandleMinter do
     expect(Work.find(work.id).handle).to be_nil
   end
 
-  it 'carries the handle into the OCFL preservation envelope' do
+  it 'writes the handle into the OCFL preservation envelope on disk' do
     mint
 
-    payload = Work.find(work.id).graph_payload
-    expect(payload[:handle]).to eq("DRSDEV/#{work.noid}")
-    expect(payload[:schema_version]).to eq(7)
+    envelope = on_disk_envelope(work)
+    expect(envelope['handle']).to eq("DRSDEV/#{work.noid}")
+    expect(envelope['schema_version']).to eq(Preservable::ENVELOPE_SCHEMA_VERSION)
+  end
+
+  it 'leaves the envelope alone when the handle server fails' do
+    failing = instance_double(HandleClient, configured?: true)
+    allow(failing).to receive(:mint).and_raise(HandleClient::Error, 'connection refused')
+
+    described_class.call(work: work, client: failing, public_base: public_base)
+
+    expect(on_disk_envelope(work)).to be_nil
   end
 
   # The resource attribute reaches the API and the Work page. MODS is what gets

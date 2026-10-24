@@ -102,9 +102,12 @@ class Reparenter < ApplicationService
       @descendants ||= @node.descendant_collections
     end
 
+    # The envelope's a_member_of is the only on-disk record of where the node
+    # sits, so a move that skipped it would rebuild under the old parent.
     def assign_parent!
       @node.a_member_of = @destination&.id # scalar; nil clears it (top-level Community)
       @node = Atlas.persister.save(resource: @node)
+      @node.write_preservation_envelope!
     end
 
     def emit_audit_event!(old_parent_noid, subtree_size)

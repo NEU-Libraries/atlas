@@ -27,6 +27,18 @@ RSpec.describe Reparenter do
       expect(moved.a_member_of.to_s).to eq(collection_b.id.to_s)
     end
 
+    it 'records the new parent in the on-disk envelope, so a rebuild files it there' do
+      described_class.call(node: deep_work, destination: collection_b)
+
+      expect(on_disk_envelope(deep_work)['a_member_of']).to eq([collection_b.noid])
+    end
+
+    it 'leaves the envelope alone when validation refuses the move' do
+      expect { described_class.call(node: collection_a, destination: collection_a) }
+        .to raise_error(Exceptions::ReparentError)
+      expect(on_disk_envelope(collection_a)).to be_nil
+    end
+
     it 'recomputes ancestor_ids_ssim for the moved node and its descendant collections' do
       described_class.call(node: collection_a, destination: collection_b)
 

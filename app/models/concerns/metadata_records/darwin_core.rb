@@ -87,7 +87,7 @@ module MetadataRecords
       # optimistic-lock token, so this cannot 409 a concurrent edit of the Work.
       def reindex_darwin_core
         ResponseCache.evict(noid)
-        Atlas.index_adapter.persister.save(resource: self)
+        Atlas.reindex(self)
       end
 
       def darwin_core_file_set

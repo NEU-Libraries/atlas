@@ -88,7 +88,7 @@ class StorageFootprintRecorder
         fresh = Atlas.query.find_by(id: owner.id)
         return if fresh.is_a?(Work) && fresh.in_progress
 
-        Atlas.index_adapter.persister.save(resource: fresh)
+        Atlas.reindex(fresh)
       rescue Valkyrie::Persistence::ObjectNotFoundError
         nil
       end

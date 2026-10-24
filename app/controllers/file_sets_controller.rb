@@ -120,6 +120,6 @@ class FileSetsController < ApplicationController
       parent = WorkMETSRebuilder.call(work: parent)
       # Page set shrank — re-project the Work's "Content" classification facet
       # (see FileSetCreator#reproject_classification). Solr-only, no lock bump.
-      Atlas.index_adapter.persister.save(resource: parent)
+      Atlas.reindex(parent)
     end
 end

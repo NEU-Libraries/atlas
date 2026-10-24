@@ -261,7 +261,7 @@ class ResourcesController < ApplicationController
     resource = Resource.find(params.expect(:id))
     return head(:not_found) if resource.nil?
 
-    Atlas.index_adapter.persister.save(resource: resource)
+    Atlas.reindex(resource)
     head :no_content
   end
 

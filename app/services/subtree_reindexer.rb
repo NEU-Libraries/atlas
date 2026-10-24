@@ -2,7 +2,7 @@
 
 # Re-projects a set of resources' Solr docs so their denormalized
 # ancestor_ids_ssim reflects a structural move. Solr-only (via
-# Atlas.index_adapter) — never rewrites Postgres or bumps optimistic-lock
+# Atlas.reindex) — never rewrites Postgres or bumps optimistic-lock
 # tokens, since Postgres a_member_of is already correct and is the source of
 # truth this recomputes from.
 #
@@ -25,7 +25,7 @@ class SubtreeReindexer < ApplicationService
 
   def call
     @resources.each_slice(BATCH_SIZE) do |batch|
-      batch.each { |resource| Atlas.index_adapter.persister.save(resource: resource) }
+      batch.each { |resource| Atlas.reindex(resource) }
     end
     @resources.size
   end

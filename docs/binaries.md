@@ -328,7 +328,7 @@ the ledger, which stops at the next Work or container. It follows
 
 An envelope is written *after* the save that indexes a resource, and a Work is
 not otherwise re-indexed when its files change. So the recorder re-indexes the
-owner of every object it records, through `Atlas.index_adapter`, which writes
+owner of every object it records, through `Atlas.reindex`, which writes
 Solr only.
 
 **It batches.** One ingest writes six or more versions under one Work, and the

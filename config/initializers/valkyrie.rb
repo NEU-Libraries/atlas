@@ -195,5 +195,12 @@ Rails.application.config.to_prepare do
     def self.index_adapter
       Valkyrie::MetadataAdapter.find(Rails.env.test? ? :test_solr : :index_solr)
     end
+
+    # Re-projects a Postgres resource into Solr. external_resource: Postgres is
+    # the source of truth, and without it the Solr persister refuses a
+    # persisted resource whose document is missing -- the one a reindex is for.
+    def self.reindex(resource)
+      index_adapter.persister.save(resource: resource, external_resource: true)
+    end
   end
 end

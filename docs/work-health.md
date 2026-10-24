@@ -8,6 +8,7 @@ Source files:
 - `bin/ocfl-health` and `lib/ocfl_health/` — the offline check, read from disk alone
 - `app/services/work_health_check.rb` — the Atlas check, read from Postgres, Solr and disk
 - `lib/tasks/health.rake` — `atlas:health:work`
+- `app/controllers/works_controller.rb` (`#health_check`) — the same check over HTTP
 - `spec/exploration/work_health_probe.rb` — the destructive probe the rubric comes from
 
 ## The three grades
@@ -67,6 +68,48 @@ altered bytes go unnoticed, because a download serves them without a check.
 
 Admins pass every ACL gate, so a broken ACL is invisible to an admin. The check
 reads the ACL directly for that reason.
+
+### Over HTTP
+
+[`GET /works/{id}/health_check`](../openapi/openapi.yaml) runs the same check
+for Cerberus's Work edit screen. Three things differ from the rake task:
+
+- **It never re-hashes the bytes,** so `fixity_checked` is always `false`. A
+  re-hash of a large file would hold a Puma worker for minutes, so fixity stays
+  with `FIXITY=1` and `bin/ocfl-health`. A green over HTTP means "nothing is
+  missing", not "the bytes are verified".
+- **Only the admin and devolved-admin tiers may call it** (`:read_health`; see
+  [`authorization.md`](authorization.md)). Edit rights on the Work do not reach
+  it, because the findings describe damage that only those tiers can repair.
+- **It is not response-cached,** because a repair changes the answer at once.
+
+### The codes
+
+A client shows a code it does not know rather than failing on it: the
+vocabulary grows with the checks. These are the Work-level codes:
+
+| Code | Severity | Repair |
+|---|---|---|
+| `work_missing` | fatal | None in place; the NOID resolves to no Work |
+| `mods_xml_missing` | fatal | A MODS PUT writes the XML again from a known-good source |
+| `binary_missing` | fatal | Restore the bytes from backup, or re-deposit the file |
+| `fixity_mismatch` | fatal | The same; only with `FIXITY=1` or offline |
+| `mods_access_copy_missing` | repairable | `atlas:mods:reproject` rebuilds it from the XML |
+| `untitled` | repairable | Edit the MODS |
+| `descriptive_file_set_missing` | repairable | A MODS PUT recreates it |
+| `orphaned`, `parent_missing`, `wrong_parent_type` | repairable | Re-parent the Work |
+| `live_under_withdrawn` | repairable | Withdraw the Work, or restore its parent |
+| `staff_edit_missing`, `no_depositor` | repairable | Patch the ACL; the create `AuditEvent` names the depositor |
+| `no_content`, `empty_file_set`, `dangling_member`, `blob_unlinked` | repairable | Relink the bytes; the offline check shows whether disk still holds them |
+| `blob_metadata_missing` | repairable | Set the Blob's MIME type and filename |
+| `not_indexed` | repairable | `POST /resources/{id}/reindex` |
+| `envelope_missing`, `envelope_stale` | repairable | Rewrite the envelope (`atlas:preservation:backfill_envelopes`) |
+| `flagged_incomplete` | repairable | Rerun the Cerberus job that set it |
+| `in_progress`, `withdrawn`, `private`, `no_handle` | advisory | None; a state, not damage |
+
+Every other code comes from validating an OCFL object, one per rule in
+`lib/ocfl_health/object_validator.rb` and `envelope.rb`, and its message names
+the file at fault.
 
 ## The rubric
 

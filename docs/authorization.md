@@ -268,6 +268,10 @@ Each grant is a named carve-out beneath the wildcard, not a promotion:
   that names a tombstoned FileSet so it can be restored. It goes to the tiers
   that can act on what it lists; edit rights on the Work do not reach it, because
   they do not reach `:restore` either.
+- **`:read_health` on `Work`.** `GET /works/:id/health_check`, the
+  green/yellow/red grade ([`work-health.md`](work-health.md)). Same reasoning:
+  the findings describe damage that only these tiers can repair, so edit rights
+  on the Work do not reach it.
 - **`:associate` on `Work`.** See the alias table above.
 - **`:create` on `AuditEvent`.** Unblocks Cerberus's impersonation session-start
   write; view-as and acting-as both call it before establishing a session.

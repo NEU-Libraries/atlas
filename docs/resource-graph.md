@@ -134,6 +134,19 @@ derive again.
 discovery convenience a Set recipe can express again, not an assertion that
 exists nowhere else.
 
+### A write to an envelope field rewrites the envelope
+
+A persister save changes Postgres and Solr only. **Any write that changes a
+value the envelope carries must call `write_preservation_envelope!` after it,**
+or disk keeps the old value and a rebuild restores it. The minter does this
+for `handle`, the reparenter for `a_member_of`, the association services for
+`associations`, and tombstone and restore for `tombstone`. `GET
+/works/{id}/health_check` reports a Work whose envelope has drifted as
+`envelope_stale`, naming the keys that differ ([`work-health.md`](work-health.md)).
+
+A Derivative FileSet is the exception: it holds regenerable Delegates, so
+`FileSetCreator` writes it no envelope at all (`Classification.preserved?`).
+
 ## Page order is a total order
 
 `Work#page_file_sets` sorts by position ascending, unordered (nil) last, with a

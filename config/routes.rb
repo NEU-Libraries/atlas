@@ -231,6 +231,9 @@ Rails.application.routes.draw do
     # so Restore has an id to act on after the withdrawing page is gone.
     get '/works/:id/withdrawn_assets', to: 'works#withdrawn_assets', as: 'work_withdrawn_assets'
 
+    # The green/yellow/red health grade (docs/work-health.md). Operator tier only.
+    get '/works/:id/health_check', to: 'works#health_check', as: 'work_health_check'
+
     # Ordered page listing (multipage Works): one entry per page-bearing
     # FileSet, position ASC, with each page's downloadable assets nested.
     # Unpaginated by design — manifest assembly needs the whole sequence

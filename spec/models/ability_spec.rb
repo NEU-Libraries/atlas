@@ -266,6 +266,10 @@ RSpec.describe Ability do
       expect(subject).to be_able_to(:restore,        FileSet.new)
     end
 
+    it 'grants :read_health on Work, unconditionally' do
+      expect(subject).to be_able_to(:read_health, stranger_work)
+    end
+
     it 'grants none of the other admin-only structural mutations' do
       expect(subject).not_to be_able_to(:link_member, Work.new)
       expect(subject).not_to be_able_to(:link_member, stranger_collection)
@@ -289,6 +293,7 @@ RSpec.describe Ability do
       expect(subject).not_to be_able_to(:read_versions, Community)
       expect(subject).not_to be_able_to(:read_index,    Work)
       expect(subject).not_to be_able_to(:read_withdrawn, Work.new(edit_groups: [Permissions::STAFF_EDIT_GROUP]))
+      expect(subject).not_to be_able_to(:read_health, Work.new(edit_groups: [Permissions::STAFF_EDIT_GROUP]))
       expect(subject).not_to be_able_to(:read_history, Work)
     end
   end
@@ -303,6 +308,7 @@ RSpec.describe Ability do
         expect(ability).not_to be_able_to(:read_versions, Blob)
         expect(ability).not_to be_able_to(:read_versions, Work)
         expect(ability).not_to be_able_to(:read_withdrawn, Work)
+        expect(ability).not_to be_able_to(:read_health,    Work)
         expect(ability).not_to be_able_to(:read_history,   Work)
       end
     end

@@ -132,6 +132,18 @@ class WorksController < ApplicationController
     render_assets(withdrawn: true)
   end
 
+  # Never re-hashes the bytes: on a large file that would hold a worker for
+  # minutes. Fixity is the rake task's and bin/ocfl-health's job; see
+  # docs/work-health.md. Not response-cached, because a repair changes it.
+  def health_check
+    work = Work.find(params.expect(:id))
+    authorize! :read_health, work || Work
+    return head(:not_found) if work.nil?
+
+    @report = WorkHealthCheck.call(noid: work.noid, fixity: false)
+    render :health_check
+  end
+
   def update_image_derivatives
     with_stale_object_retry do
       @work = Work.find(params.expect(:id))

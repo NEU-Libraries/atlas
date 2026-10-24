@@ -601,6 +601,89 @@ RSpec.describe 'Works', type: :request do
     end
   end
 
+  path '/works/{id}/health_check' do
+    parameter name: :id, in: :path, type: :string, description: 'NOID of the Work'
+
+    get "Grade a work's health green, yellow or red" do
+      tags 'Works'
+      produces 'application/json'
+      description <<~DESC
+        Whether the Work is viable, needs repair, or has lost bytes. `green` is
+        viable; `yellow` is broken or degraded with nothing lost, so it can be
+        repaired in place; `red` has bytes missing or corrupt, so it needs a
+        restore or a re-deposit. Each finding names its `severity` (`advisory`,
+        `repairable`, `fatal`), a machine-readable `code`, and the NOID of the
+        object it is about. The codes are an open vocabulary: show an unknown
+        one rather than failing on it.
+
+        The check reads Postgres, Solr and the Work's OCFL objects on disk. It
+        never re-hashes the bytes, so `fixity_checked` is always false; fixity
+        is the job of `atlas:health:work FIXITY=1` and `bin/ocfl-health`.
+
+        Admin and devolved-admin tiers only. Anyone else gets 403, including a
+        user with edit rights on the Work. Not response-cached.
+      DESC
+
+      response '200', 'health graded' do
+        let(:id) { WorkCreator.call(parent_id: collection.noid).noid }
+        schema '$ref' => '#/components/schemas/WorkHealthCheck'
+        run_test! do |response|
+          body = JSON.parse(response.body)
+          expect(body).to include('noid' => id, 'fixity_checked' => false)
+          # A Work with no content file and no depositor is repairable.
+          expect(body['grade']).to eq('yellow')
+          expect(body['findings'].pluck('code')).to include('no_content', 'no_depositor')
+        end
+      end
+
+      response '404', 'work not found' do
+        let(:id) { 'doesnotexist' }
+        run_test!
+      end
+    end
+  end
+
+  # Plain (non-rswag) coverage of who may read the grade.
+  describe 'GET /works/:id/health_check tiers', type: :request do
+    let(:work) do
+      WorkCreator.call(parent_id: collection.noid, depositor: '000000057',
+                       mods_xml: Rails.root.join('spec/fixtures/files/work-mods.xml').read)
+    end
+    let!(:delegate) do
+      User.create!(email: 'delegate-health@example.invalid', password: SecureRandom.hex(16),
+                   nuid: '000000056', name: 'Health, Delegate', role: :privileged,
+                   groups: [Permissions::ADMIN_GROUP])
+    end
+    let!(:standard) do
+      User.create!(email: 'standard-health@example.invalid', password: SecureRandom.hex(16),
+                   nuid: '000000057', name: 'Health, Depositor', role: :standard, groups: [])
+    end
+
+    before do
+      BlobCreator.call(work_id: work.noid, original_filename: 'a.bin',
+                       path: Rails.root.join('spec/fixtures/files/example.bin').to_s)
+    end
+
+    it 'grades a whole Work green for the devolved-admin tier' do
+      get "/works/#{work.noid}/health_check", headers: signed_auth_headers(delegate.nuid)
+
+      expect(response).to have_http_status(:ok)
+      expect(response.parsed_body['grade']).to eq('green')
+    end
+
+    it 'refuses the depositor with 403, though they can edit the Work' do
+      get "/works/#{work.noid}/health_check", headers: signed_auth_headers(standard.nuid)
+
+      expect(response).to have_http_status(:forbidden)
+    end
+
+    it 'refuses a guest with 403' do
+      get "/works/#{work.noid}/health_check", headers: { 'Authorization' => '' }
+
+      expect(response).to have_http_status(:forbidden)
+    end
+  end
+
   path '/works/{id}/file_sets' do
     parameter name: :id, in: :path, type: :string, description: 'NOID of the Work'
 

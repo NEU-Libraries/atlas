@@ -30,6 +30,7 @@ module OpenapiSchemas
       WorkAssets:         work_assets,
       WorkFileSets:       work_file_sets,
       WithdrawnAssets:    work_withdrawn_assets,
+      WorkHealthCheck:    work_health_check,
       Pagination:         pagination,
       User:               user,
       ProvisionedUser:    provisioned_user,
@@ -339,6 +340,36 @@ module OpenapiSchemas
         oneOf: asset_item[:oneOf].map do |branch|
           branch.merge(properties: branch[:properties].merge(stamp))
         end
+      }
+    }
+  end
+
+  # GET /works/:id/health_check. Mirrors app/views/works/health_check.json.jbuilder.
+  # `code` is an open vocabulary: a client shows an unknown one rather than
+  # failing on it. docs/work-health.md lists the codes.
+  def work_health_check
+    {
+      type:       :object,
+      required:   %w[noid grade fixity_checked findings],
+      properties: {
+        noid:           { type: :string },
+        grade:          { type: :string, enum: %w[green yellow red],
+                          description: 'green viable; yellow repairable, nothing lost; red bytes lost' },
+        fixity_checked: { type: :boolean, description: 'Always false: this endpoint never re-hashes the bytes' },
+        findings:       { type: :array, items: health_finding }
+      }
+    }
+  end
+
+  def health_finding
+    {
+      type:       :object,
+      required:   %w[severity code subject message],
+      properties: {
+        severity: { type: :string, enum: %w[advisory repairable fatal] },
+        code:     { type: :string, description: 'Machine-readable finding, such as mods_xml_missing' },
+        subject:  { type: :string, description: 'NOID of the object the finding is about' },
+        message:  { type: :string }
       }
     }
   end

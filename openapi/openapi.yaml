@@ -1266,6 +1266,50 @@ components:
           required:
           - noid
           description: Delegate asset — external pointer (e.g. IIIF URL)
+    WorkHealthCheck:
+      type: object
+      required:
+      - noid
+      - grade
+      - fixity_checked
+      - findings
+      properties:
+        noid:
+          type: string
+        grade:
+          type: string
+          enum:
+          - green
+          - yellow
+          - red
+          description: green viable; yellow repairable, nothing lost; red bytes lost
+        fixity_checked:
+          type: boolean
+          description: 'Always false: this endpoint never re-hashes the bytes'
+        findings:
+          type: array
+          items:
+            type: object
+            required:
+            - severity
+            - code
+            - subject
+            - message
+            properties:
+              severity:
+                type: string
+                enum:
+                - advisory
+                - repairable
+                - fatal
+              code:
+                type: string
+                description: Machine-readable finding, such as mods_xml_missing
+              subject:
+                type: string
+                description: NOID of the object the finding is about
+              message:
+                type: string
     Pagination:
       type: object
       description: pagy pagination block
@@ -6292,6 +6336,42 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/WithdrawnAssets"
+        '404':
+          description: work not found
+  "/works/{id}/health_check":
+    parameters:
+    - name: id
+      in: path
+      description: NOID of the Work
+      required: true
+      schema:
+        type: string
+    get:
+      summary: Grade a work's health green, yellow or red
+      tags:
+      - Works
+      description: |
+        Whether the Work is viable, needs repair, or has lost bytes. `green` is
+        viable; `yellow` is broken or degraded with nothing lost, so it can be
+        repaired in place; `red` has bytes missing or corrupt, so it needs a
+        restore or a re-deposit. Each finding names its `severity` (`advisory`,
+        `repairable`, `fatal`), a machine-readable `code`, and the NOID of the
+        object it is about. The codes are an open vocabulary: show an unknown
+        one rather than failing on it.
+
+        The check reads Postgres, Solr and the Work's OCFL objects on disk. It
+        never re-hashes the bytes, so `fixity_checked` is always false; fixity
+        is the job of `atlas:health:work FIXITY=1` and `bin/ocfl-health`.
+
+        Admin and devolved-admin tiers only. Anyone else gets 403, including a
+        user with edit rights on the Work. Not response-cached.
+      responses:
+        '200':
+          description: health graded
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/WorkHealthCheck"
         '404':
           description: work not found
   "/works/{id}/file_sets":

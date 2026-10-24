@@ -79,16 +79,16 @@ come from that matrix.
 | Part | Without it | Grade |
 |---|---|---|
 | The Work row in Postgres | Nothing answers | Red |
-| MODS XML on disk | Every read still answers from the JSON access copy, so the loss is silent. A reindex fails | Red |
+| MODS XML on disk | Every JSON read still answers from the access copy, so the loss is silent. `/mods.xml` answers 404, and OAI drops the record's MODS | Red |
 | Content bytes on disk, intact | Download answers 404, or serves altered bytes | Red |
 | A MODS title | Search cannot find it by title; Cerberus shows a blank heading | Yellow |
 | The JSON access copy | `/mods` answers 404 and the Work shows no title. `atlas:mods:reproject` rebuilds it from the XML | Yellow |
-| The descriptive FileSet | Reads still answer, but a MODS write answers 500, so the API cannot repair it | Yellow |
+| The descriptive FileSet | Reads still answer. A MODS PUT recreates it before it writes | Yellow |
 | A parent Collection | Absent from every listing; the ancestor trail is empty | Yellow |
 | The staff edit group, and a depositor | Staff or the owner can no longer edit; only admins can | Yellow |
 | A content FileSet with a linked Blob | `/assets` is empty, so there is nothing to view or download | Yellow |
-| A Blob's MIME type and filename | Download answers 500 | Yellow |
-| The Solr document | Search and OAI miss the Work, and `reindex` cannot recreate it | Yellow |
+| A Blob's MIME type and filename | Download falls back to the type read from the bytes and the stored file's name | Yellow |
+| The Solr document | Search and OAI miss the Work until `POST /resources/:id/reindex` recreates it | Yellow |
 | The on-disk envelope, current with Postgres | Nothing a consumer sees. A rebuild from disk would lose or misplace the Work | Yellow |
 
 ### What a Work can lack and stay green

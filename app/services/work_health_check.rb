@@ -53,7 +53,7 @@ class WorkHealthCheck < ApplicationService
       elsif @work.decorate.plain_title.blank?
         add(:repairable, :untitled, 'the MODS has no title; nothing can find or name this Work')
       end
-      return add(:repairable, :descriptive_file_set_missing, 'the API cannot write MODS') if descriptive_file_set.nil?
+      return add(:repairable, :descriptive_file_set_missing, 'a MODS PUT recreates it') if descriptive_file_set.nil?
 
       check_bytes(@work.mods_blob, missing: :mods_xml_missing, label: 'MODS XML')
     end
@@ -95,7 +95,7 @@ class WorkHealthCheck < ApplicationService
 
     def check_blob(blob)
       if blob.mime_type.blank? || blob.original_filename.blank?
-        add(:repairable, :blob_metadata_missing, 'no MIME type or filename; download answers 500', blob.noid)
+        add(:repairable, :blob_metadata_missing, 'no MIME type or filename; download guesses both', blob.noid)
       end
       check_bytes(blob, missing: :binary_missing, label: 'binary')
     end
@@ -119,7 +119,7 @@ class WorkHealthCheck < ApplicationService
     def check_index
       Atlas.index_adapter.query_service.find_by(id: @work.id)
     rescue Valkyrie::Persistence::ObjectNotFoundError
-      add(:repairable, :not_indexed, 'no Solr document; search and OAI miss it')
+      add(:repairable, :not_indexed, 'no Solr document; search and OAI miss it until a reindex')
     end
 
     # The objects Postgres names, validated in place. The pool-wide index the
@@ -149,8 +149,8 @@ class WorkHealthCheck < ApplicationService
           resource.noid)
     end
 
-    # graph_payload resolves NOIDs through find_many_by_ids, which answers in
-    # database order, so the same membership can serialize in either order.
+    # Member order carries no meaning -- page order is `position` -- so an
+    # envelope listing the same members in another order is still current.
     def same?(disk, live)
       return disk.sort == live.sort if disk.is_a?(Array) && live.is_a?(Array)
 

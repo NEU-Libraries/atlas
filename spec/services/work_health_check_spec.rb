@@ -30,6 +30,17 @@ RSpec.describe WorkHealthCheck do
     expect(report[:grade]).to eq(:green)
   end
 
+  # A finalized Work in production has both, and each once graded it yellow.
+  it 'grades a Work with derivatives and a minted handle green' do
+    DelegateCreator.call(resource_id: work.id, use: Role.thumbnail_image.name, uri: 'https://iiif.example/thumb.jpg')
+    client = instance_double(HandleClient, configured?: true, mint: "DRSDEV/#{work.noid}")
+    HandleMinter.call(work: work, client: client, public_base: 'https://repository.example.edu')
+
+    expect(reload(work).handle).to eq("DRSDEV/#{work.noid}")
+    expect(report[:findings]).to be_empty.or(all(include(severity: :advisory)))
+    expect(report[:grade]).to eq(:green)
+  end
+
   it 'answers red for a NOID Postgres does not hold' do
     expect(described_class.call(noid: 'zzzzzzzzz')).to include(grade: :red)
   end

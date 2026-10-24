@@ -126,7 +126,7 @@ class WorkHealthCheck < ApplicationService
     # offline tool builds reads every object, which a per-Work check cannot pay.
     def check_disk
       pool = OcflHealth::Pool.new(Valkyrie.config.storage_adapter.storage_roots.values.map(&:base_path))
-      [@work, *file_sets, *file_sets.flat_map { |fs| fs.files.compact }].each do |resource|
+      preserved_resources.each do |resource|
         path = pool.object_path(resource.noid)
         next add(:repairable, :envelope_missing, 'no OCFL object; rewrite the envelope', resource.noid) if path.nil?
 
@@ -134,6 +134,13 @@ class WorkHealthCheck < ApplicationService
         @findings.concat(validator.findings)
         check_envelope_current(resource, validator)
       end
+    end
+
+    # FileSetCreator writes an envelope only where Classification.preserved?
+    # holds, so a Derivative FileSet and its Delegates owe no OCFL object.
+    def preserved_resources
+      kept = file_sets.select { |fs| Classification.preserved?(fs.type) }
+      [@work, *kept, *kept.flat_map { |fs| fs.files.compact }]
     end
 
     def check_envelope_current(resource, validator)

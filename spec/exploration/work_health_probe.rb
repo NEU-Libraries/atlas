@@ -55,13 +55,24 @@ RSpec.describe 'Work health probe', type: :request do
     BlobCreator.call(path: source.to_s, work_id: work.noid, original_filename: 'example.png')
   end
 
+  # A production Work is finalized with derivatives and a handle, and a
+  # baseline without them hides any finding those writes cause. The test
+  # stack's handle client is unconfigured, so the mint uses a stub.
+  def finalize(work)
+    DelegateCreator.call(resource_id: work.id, use: Role.thumbnail_image.name, uri: 'https://iiif.example/thumb.jpg')
+    post "/works/#{work.noid}/complete"
+    raise "complete answered #{response.status}" unless response.successful?
+
+    client = instance_double(HandleClient, configured?: true, mint: "DRSDEV/#{work.noid}")
+    HandleMinter.call(work: work, client: client, public_base: 'https://repository.example.edu')
+  end
+
   def build_fixture
     token = "zq#{SecureRandom.alphanumeric(8).downcase}"
     community, collection = public_collection
     work = WorkCreator.call(parent_id: collection.noid, mods_xml: mods_with(token), depositor: DEPOSITOR)
     blob = attach_png(work, token)
-    post "/works/#{work.noid}/complete"
-    raise "complete answered #{response.status}" unless response.successful?
+    finalize(work)
 
     file_sets = reload(work).children.grep(FileSet)
     mods_fs = file_sets.find { |fs| fs.type == Classification.descriptive_metadata.name }

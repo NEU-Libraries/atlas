@@ -62,8 +62,9 @@ bin/rails atlas:health:work NOIDS=abc123def FIXITY=1
 ```
 
 It reads the Work as consumers see it, then validates on disk only the objects
-Postgres names. It never builds the pool-wide index, which a per-Work check
-cannot afford. It is read-only. `FIXITY=1` re-hashes the bytes; without it,
+Postgres names that owe an envelope: a Derivative FileSet and its Delegates owe
+none, because `Classification.preserved?` exempts them. It never builds the
+pool-wide index, which a per-Work check cannot afford. It is read-only. `FIXITY=1` re-hashes the bytes; without it,
 altered bytes go unnoticed, because a download serves them without a check.
 
 Admins pass every ACL gate, so a broken ACL is invisible to an admin. The check

@@ -51,17 +51,22 @@ module Preservable
     end
 
     def parent_noids
-      ids = Array(respond_to?(:a_member_of) ? a_member_of : []).compact
-      return [] if ids.empty?
-
-      Atlas.query.find_many_by_ids(ids: ids).map(&:noid)
+      noids_in_order(Array(respond_to?(:a_member_of) ? a_member_of : []))
     end
 
     def member_noids
-      ids = Array(respond_to?(:member_ids) ? member_ids : []).compact
+      noids_in_order(Array(respond_to?(:member_ids) ? member_ids : []))
+    end
+
+    # find_many_by_ids answers in database order, so the envelope would list the
+    # same members in whatever order Postgres returned them, and an unchanged
+    # payload would cut a new OCFL version. An id that resolves to nothing drops.
+    def noids_in_order(ids)
+      ids = ids.compact
       return [] if ids.empty?
 
-      Atlas.query.find_many_by_ids(ids: ids).map(&:noid)
+      found = Atlas.query.find_many_by_ids(ids: ids).index_by { |resource| resource.id.to_s }
+      ids.filter_map { |id| found[id.to_s]&.noid }
     end
 
     # Only the OUTBOUND edges, because only they are stored here. The other
@@ -75,7 +80,7 @@ module Preservable
         ids = Array(self[predicate]).compact
         next if ids.empty?
 
-        result[predicate.to_s] = Atlas.query.find_many_by_ids(ids: ids).map(&:noid)
+        result[predicate.to_s] = noids_in_order(ids)
       end
     end
 end

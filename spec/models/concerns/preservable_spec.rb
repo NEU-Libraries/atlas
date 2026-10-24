@@ -159,6 +159,25 @@ RSpec.describe Preservable do
     end
   end
 
+  describe 'member order' do
+    # Postgres's own order depends on the plan, so ask it, then store the
+    # reverse: that is the order a payload built from its answer would get wrong.
+    it 'lists member_ids in the stored order, not the order Postgres answers in' do
+      blobs = Array.new(2) { Atlas.persister.save(resource: Blob.new) }
+      stored = Atlas.query.find_many_by_ids(ids: blobs.map(&:id)).to_a.reverse
+      file_set = FileSet.new(member_ids: stored.map(&:id))
+
+      expect(file_set.graph_payload[:member_ids]).to eq(stored.map(&:noid))
+    end
+
+    it 'drops a member id that resolves to nothing' do
+      blob = Atlas.persister.save(resource: Blob.new)
+      file_set = FileSet.new(member_ids: [Valkyrie::ID.new(SecureRandom.uuid), blob.id])
+
+      expect(file_set.graph_payload[:member_ids]).to eq([blob.noid])
+    end
+  end
+
   describe '#graph_filename' do
     it 'returns relationships.json for graph nodes' do
       expect(community.graph_filename).to eq('relationships.json')

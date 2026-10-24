@@ -210,7 +210,7 @@ class BlobsController < ApplicationController
       response.set_header('Accept-Ranges', 'bytes')
 
       range = parse_byte_range(request.get_header('HTTP_RANGE'), total)
-      return stream_file(file, filename: blob.original_filename, type: blob.mime_type) if range.nil?
+      return stream_file(file, filename: served_name(blob, path), type: served_type(blob, path)) if range.nil?
 
       if range == :unsatisfiable
         response.set_header('Content-Range', "bytes */#{total}")
@@ -230,12 +230,22 @@ class BlobsController < ApplicationController
       response.set_header('Content-Range', "bytes #{first}-#{last}/#{total}")
       response.set_header('Content-Length', (last - first + 1).to_s)
       response.set_header('Last-Modified', ::File.mtime(path).httpdate)
-      response.content_type = blob.mime_type
+      response.content_type = served_type(blob, path)
       response.set_header('Content-Disposition',
                           ActionDispatch::Http::ContentDisposition.format(
-                            disposition: 'attachment', filename: blob.original_filename
+                            disposition: 'attachment', filename: served_name(blob, path)
                           ))
       self.response_body = FileSlice.new(path, first, last - first + 1)
+    end
+
+    # send_file refuses a nil type, so a Blob saved without its MIME type or
+    # filename falls back to what the stored bytes say rather than answering 500.
+    def served_type(blob, path)
+      blob.mime_type.presence || mime_type(path.to_s, name: blob.original_filename)
+    end
+
+    def served_name(blob, path)
+      blob.original_filename.presence || ::File.basename(path)
     end
 
     # nil for an absent or non-single-`bytes=` range, which RFC 7233 lets us

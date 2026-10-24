@@ -40,6 +40,7 @@ any of them without a contract bump:
 | `CanCan::AccessDenied` | 403 | The message, plus `action` and `subject` | An ability denial |
 | `ActiveRecord::RecordInvalid` | 422 | `invalid_record` | An AR-tier validation failure |
 | `ActiveRecord::RecordNotFound` | 404 | *(bare 404, no body)* | An AR-tier `find_by!` miss |
+| `Valkyrie::StorageAdapter::FileNotFound` | 404 | *(bare 404, no body)* | A stored file is missing from a root that has its marker; also when a view raised it, such as a MODS XML read |
 | `Valkyrie::Persistence::StaleObjectError` | 409 | `stale_resource` | An optimistic-lock conflict |
 | `Exceptions::ReparentError` | 422 | The exception's code | Bad parent type, a cycle, a tombstoned node or parent, a missing or unresolvable parent |
 | `Exceptions::LinkedMemberError` | 422 | The exception's code | Target missing, not a Collection, tombstoned; the Work tombstoned; already a structural member |

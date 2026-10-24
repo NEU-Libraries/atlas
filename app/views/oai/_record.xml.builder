@@ -2,7 +2,8 @@
 
 # <metadata> is omitted, never emitted empty, in two cases: a deleted record
 # (the protocol says a deleted record carries a header and nothing else), and
-# a Work whose Solr document predates the OAIIndexer backfill. An empty
+# a Work whose Solr document carries no MODS -- it predates the OAIIndexer
+# backfill, or its XML is gone from storage. An empty
 # <metadata/> would fail the XSD, which requires exactly one child.
 xml.tag!('record') do
   xml << render('oai/header', record: record)

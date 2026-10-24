@@ -29,6 +29,16 @@ RSpec.describe OAIIndexer do
       expect(described_class.new(resource: FileSet.new).to_solr).to eq({})
       expect(described_class.new(resource: Blob.new).to_solr).to eq({})
     end
+
+    # Every save runs this indexer, so a raise here would refuse every write to
+    # the Work, the MODS PUT that repairs it included.
+    it 'omits the MODS, rather than refusing the save, when the XML is gone from storage' do
+      root = Valkyrie.config.storage_adapter.storage_roots.values.first
+      FileUtils.rm_rf(root.object_root_for(work.mods_blob.noid))
+
+      expect(described_class.new(resource: work).to_solr).not_to have_key(:mods_xml_ss)
+      expect { Atlas.persister.save(resource: Work.find(work.noid)) }.not_to raise_error
+    end
   end
 
   describe 'end-to-end through the composite indexer' do

@@ -53,6 +53,13 @@ class ApplicationController < ActionController::API
     head :not_found
   end
 
+  # An object missing from a root that has its marker; docs/error-contract.md.
+  # Rescuable also matches an exception's cause, which is what catches the
+  # ActionView::Template::Error a MODS XML view wraps this in.
+  rescue_from Valkyrie::StorageAdapter::FileNotFound do
+    head :not_found
+  end
+
   # `stale_resource` is an exact-match wire contract: atlas_rb keys on it to
   # raise AtlasRb::StaleResourceError. Do not change it without a contract bump.
   rescue_from Valkyrie::Persistence::StaleObjectError do |exception|

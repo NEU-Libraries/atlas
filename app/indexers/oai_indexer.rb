@@ -17,8 +17,7 @@
 # time, so every reindex would rewrite it and force harvesters to re-fetch the
 # whole repository. `updated_at` comes off the Postgres row: a real edit moves
 # it (Atlas.persister writes both stores), and a Solr-only reindex
-# (Atlas.index_adapter, which POST /resources/:id/reindex uses) leaves it
-# alone.
+# (Atlas.reindex, which POST /resources/:id/reindex uses) leaves it alone.
 #
 # Work-only: an OAI record is a Work, and gating here keeps the extra read off
 # every container save.
@@ -41,9 +40,17 @@ class OAIIndexer
   private
 
     # Modsable#mods_xml re-reads the OCFL blob on every call, so hold it.
+    #
+    # Every save runs this indexer, so letting a lost XML file raise would
+    # refuse every write to the Work -- including the MODS PUT that repairs it.
     def mods_xml
       return @mods_xml if defined?(@mods_xml)
 
-      @mods_xml = resource.mods_xml
+      @mods_xml = begin
+        resource.mods_xml
+      rescue Valkyrie::StorageAdapter::FileNotFound
+        Rails.logger.error("OAI indexer: MODS XML for #{resource.noid} is not in storage")
+        nil
+      end
     end
 end

@@ -114,6 +114,11 @@ class ResourcesController < ApplicationController
     return head(:not_found) unless resource && TYPED_IVARS.key?(resource.class)
     return head(:unprocessable_content) if params[:binary].blank?
 
+    # Every typed creator makes this FileSet, so its absence is damage, and
+    # this PUT is the API's only way to write MODS -- the repair has to land here.
+    unless resource.mods_writable?
+      FileSetCreator.call(work_id: resource.id, classification: Classification.descriptive_metadata)
+    end
     resource.mods_xml = File.read(uploaded_path(params[:binary]))
     saved = Atlas.persister.save(resource: resource)
     audit!(resource: saved, action: 'update', change_type: 'metadata', payload: mods_audit_payload)

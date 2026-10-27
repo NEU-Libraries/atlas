@@ -107,14 +107,21 @@ mutate any resource, or tombstone, restore or destroy anything.
 
 It holds `:provision` and `:mint_token` on `User` for the SSO path,
 `:read_directory`, `:maintain` on `:maintenance`, `:reindex` on `Resource`,
-`:release` on `:embargo`, and `:record` on `:fixity_check`. Reindex is a
-side-effect-free Solr re-projection: no Postgres write, no lifecycle transition,
-no audit row. Release writes audit rows only, never a resource — see
-[`write-safety.md`](write-safety.md). Recording a fixity check writes an object
-log and a cache row, never a resource — see [`fixity.md`](fixity.md).
+and `:release` on `:embargo`. Reindex is a side-effect-free Solr re-projection:
+no Postgres write, no lifecycle transition, no audit row. Release writes audit
+rows only, never a resource — see [`write-safety.md`](write-safety.md).
 
 `:system` also holds `%i[create update]` on `Person`, because name authority and
 affiliations are curatorial rather than self-service.
+
+### `:fixity_checker`
+
+The rolling fixity checker, a third non-human fixture. Its ability is not
+`Ability` at all: `ApplicationController#current_ability` gives it
+`FixityCheckerAbility`, which holds `:read_due` and `:record` on
+`:fixity_check` and nothing else, and `Ability` returns empty for it. A rule
+added to `Ability` later therefore cannot reach the checker. See
+[`fixity.md`](fixity.md).
 
 **`:system` is the one principal that reads past the per-resource gate.** The
 work it does on a depositor's behalf — showcase publishing, provisioning,

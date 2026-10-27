@@ -15,21 +15,27 @@ class User < ApplicationRecord
   # Ordered by privilege gradient. anonymous and system are non-human bookends
   # (single-row each, seeded fixtures). The middle five are human roles, with
   # :loader / :privileged / :admin granted manually rather than derived from
-  # IdP group membership.
+  # IdP group membership. fixity_checker is a third non-human fixture, appended
+  # rather than slotted in because the stored value is the integer; it is the
+  # rolling fixity checker and can do nothing else (docs/fixity.md).
   enum :role, {
-    anonymous:  0,
-    guest:      1,
-    standard:   2,
-    loader:     3,
-    privileged: 4,
-    admin:      5,
-    system:     6
+    anonymous:      0,
+    guest:          1,
+    standard:       2,
+    loader:         3,
+    privileged:     4,
+    admin:          5,
+    system:         6,
+    fixity_checker: 7
   }
 
   # The user directory (GET /users, /users/by_nuid/:nuid) never exposes the
-  # non-human bookends or the guest tier — guests are excluded from
+  # non-human fixtures or the guest tier — guests are excluded from
   # person-facing features (e.g. the Cerberus inbox) at the source.
-  DIRECTORY_EXCLUDED_ROLES = %i[anonymous guest system].freeze
+  DIRECTORY_EXCLUDED_ROLES = %i[anonymous guest system fixity_checker].freeze
+
+  # The rolling fixity checker's fixture NUID, beside :anonymous's 000000099.
+  FIXITY_CHECKER_NUID = '000000098'
 
   scope :directory, -> { where.not(role: DIRECTORY_EXCLUDED_ROLES) }
 

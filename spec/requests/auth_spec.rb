@@ -34,6 +34,10 @@ RSpec.describe 'Auth matrix', type: :request, default_auth: false do
     User.create!(email: 'priv@example.invalid', password: SecureRandom.hex(16),
                  nuid: '000000002', name: 'Doe, Jane', role: :privileged)
   end
+  let!(:checker) do
+    User.create!(email: 'fixity@example.invalid', password: SecureRandom.hex(16),
+                 nuid: User::FIXITY_CHECKER_NUID, name: 'User, Fixity Checker', role: :fixity_checker)
+  end
 
   let(:community)  { CommunityCreator.call }
   let(:collection) { CollectionCreator.call(parent_id: community.noid) }
@@ -108,6 +112,11 @@ RSpec.describe 'Auth matrix', type: :request, default_auth: false do
 
     it 'rejects a JWT encoding the :system bookend (401)' do
       get '/communities', headers: bearer(mint(system_user))
+      expect(response).to have_http_status(:unauthorized)
+    end
+
+    it 'rejects a JWT encoding the :fixity_checker fixture (401)' do
+      get '/communities', headers: bearer(mint(checker))
       expect(response).to have_http_status(:unauthorized)
     end
 
@@ -268,6 +277,11 @@ RSpec.describe 'Auth matrix', type: :request, default_auth: false do
 
     it 'rejects an assertion naming the :system fixture (401)' do
       get '/communities', headers: bearer(assertion(sub: system_user.nuid))
+      expect(response).to have_http_status(:unauthorized)
+    end
+
+    it 'rejects an assertion naming the :fixity_checker fixture (401)' do
+      get '/communities', headers: bearer(assertion(sub: checker.nuid))
       expect(response).to have_http_status(:unauthorized)
     end
 
@@ -696,6 +710,51 @@ RSpec.describe 'Auth matrix', type: :request, default_auth: false do
         post "/resources/#{work.noid}/restore", headers: json_headers(admin.nuid)
         expect(response).to have_http_status(:ok)
       end
+    end
+  end
+
+  # Paired with its fixture the way system_token is with :system, so a leaked
+  # checker secret reaches the fixity endpoints and nothing else.
+  describe 'fixity_token path' do
+    let(:fixity_token) { 'test-fixity-token' }
+
+    before { allow(Rails.application.credentials).to receive(:fixity_token).and_return(fixity_token) }
+
+    it 'resolves the :fixity_checker fixture and reads the due list' do
+      get '/fixity_checks/due', headers: auth_headers(token: fixity_token, nuid: checker.nuid)
+      expect(response).to have_http_status(:ok)
+    end
+
+    it 'returns 400 without a User header, or for an unknown NUID' do
+      get '/fixity_checks/due', headers: auth_headers(token: fixity_token)
+      expect(response).to have_http_status(:bad_request)
+      get '/fixity_checks/due', headers: auth_headers(token: fixity_token, nuid: '999999999')
+      expect(response).to have_http_status(:bad_request)
+    end
+
+    it 'refuses to pair with any other principal (401)' do
+      [system_user, privileged].each do |other|
+        get '/fixity_checks/due', headers: auth_headers(token: fixity_token, nuid: other.nuid)
+        expect(response).to have_http_status(:unauthorized)
+      end
+    end
+
+    it 'reaches nothing outside the fixity endpoints (403)' do
+      get '/user', headers: auth_headers(token: fixity_token, nuid: checker.nuid)
+      expect(response).to have_http_status(:forbidden)
+      get "/communities/#{community.noid}", headers: auth_headers(token: fixity_token, nuid: checker.nuid)
+      expect(response).to have_http_status(:forbidden)
+    end
+
+    it 'is inert while the credential is unset' do
+      allow(Rails.application.credentials).to receive(:fixity_token).and_return(nil)
+      get '/fixity_checks/due', headers: auth_headers(token: fixity_token, nuid: checker.nuid)
+      expect(response).to have_http_status(:unauthorized)
+    end
+
+    it 'does not let the system token reach the checker fixture (401)' do
+      get '/fixity_checks/due', headers: auth_headers(token: system_token, nuid: checker.nuid)
+      expect(response).to have_http_status(:unauthorized)
     end
   end
 end

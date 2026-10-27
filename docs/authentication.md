@@ -11,16 +11,17 @@ are skipped, and human authentication is delegated to Cerberus SSO. The devise
 modules stay on `User` so the `:user` warden mapping the JWT decoder needs is
 preserved, and for any future non-SSO service account.
 
-## Three bearer credentials, plus the blank case
+## Four bearer credentials, plus the blank case
 
 `require_auth` runs before every action and resolves `@current_user` from the
 `Authorization: Bearer` header. It dispatches in a fixed order: blank, then
-system token, then Cerberus assertion, then devise-jwt.
+system token, then fixity token, then Cerberus assertion, then devise-jwt.
 
 | Credential | Identity comes from | Who holds it |
 |---|---|---|
 | Blank token | The `:guest` fixture | Anonymous callers; reads generally fall through here |
 | `system_token` | The `User: NUID` header, which must name `:system` | Cerberus, backend to backend |
+| `fixity_token` | The `User: NUID` header, which must name `:fixity_checker` | The rolling fixity checker |
 | Cerberus signed assertion | The proven `sub` claim | Cerberus, relaying a person after SSO |
 | devise-jwt | The token's `sub` | A librarian's script, calling the API directly |
 
@@ -40,6 +41,22 @@ The pairing is a rule, not a convenience: the header must resolve to the
 **The pairing closes the leaked-token footgun.** A stolen system token cannot
 impersonate a real person, because the only principal it can resolve is
 `:system`.
+
+### `fixity_token`
+
+The rolling fixity checker's own shared secret, in `credentials.fixity_token`,
+paired with a `User: NUID` header by the same rule as `system_token`: the header
+must name the `:fixity_checker` fixture, and any other NUID is a 401. The path
+is inert while the credential is unset, and the comparison is constant-time.
+
+It exists so the checker need not hold `system_token`. That secret can provision
+users and mint a JWT for anyone, so a checker holding it would turn a leak of
+the checker into a leak of every identity. A leaked `fixity_token` reaches the
+two fixity endpoints and nothing else, because the fixture's ability is
+`FixityCheckerAbility` (see [`fixity.md`](fixity.md)).
+
+The JWT and assertion paths refuse the fixture, as they refuse `:system`: it is
+a backend identity, never a person.
 
 ### The Cerberus signed assertion — the relay
 
@@ -135,12 +152,16 @@ Everything else with a present `On-Behalf-Of` is a 403.
 | `system_token`, unknown NUID | 400 |
 | `system_token`, non-`:system` NUID | 401 (pairing rule) |
 | `system_token`, `:system` NUID | `:system` |
+| `fixity_token`, `User` header missing or unknown NUID | 400 |
+| `fixity_token`, any NUID but `:fixity_checker` | 401 (pairing rule) |
+| `fixity_token`, `:fixity_checker` NUID | `:fixity_checker`, fixity endpoints only |
+| `fixity_token` while `credentials.fixity_token` is unset | 401 |
 | Valid JWT for a real person | That user; header ignored |
-| JWT naming `:system` or `:anonymous` | 401 (bookend guard) |
+| JWT naming `:system`, `:anonymous` or `:fixity_checker` | 401 (bookend guard) |
 | Expired, revoked or malformed JWT | 401 |
 | Assertion with a real-person `sub` | That user, from `sub` |
 | Assertion with a bad signature, `kid`, `aud` or `exp` | 401 |
-| Assertion naming `:system` or `:anonymous` | 401 |
+| Assertion naming `:system`, `:anonymous` or `:fixity_checker` | 401 |
 | Assertion with an unknown `sub` | 400 |
 | Assertion with an unknown `acct` for a known `sub` | 400 |
 | Assertion plus signed `obo`, admin `sub` | Operator, acting as the target |

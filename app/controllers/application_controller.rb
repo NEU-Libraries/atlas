@@ -174,7 +174,8 @@ class ApplicationController < ActionController::API
     # CanCan looks up `current_user`; Atlas's shape sets @current_user in
     # require_auth, so the helper sources from it.
     def current_ability
-      @current_ability ||= Ability.new(@current_user, on_behalf_of: @on_behalf_of)
+      @current_ability ||= (@current_user&.fixity_checker? ? FixityCheckerAbility : Ability)
+                           .new(@current_user, on_behalf_of: @on_behalf_of)
     end
 
     # Any endpoint returning a LIST must apply the read gate per row, or it
@@ -243,6 +244,8 @@ class ApplicationController < ActionController::API
         guest_sign_in
       elsif valid_system_token?
         resolve_system_user
+      elsif valid_fixity_token?
+        resolve_fixity_checker
       elsif cerberus_assertion?
         resolve_cerberus_assertion
       elsif resolve_jwt_user
@@ -293,7 +296,7 @@ class ApplicationController < ActionController::API
     # already verified signature, revocation and expiry via this same decoder.
     def resolve_jwt_user
       user = request.env['warden']&.authenticate(:jwt, scope: :user)
-      return if user.nil? || user.system? || user.anonymous?
+      return if user.nil? || user.system? || user.anonymous? || user.fixity_checker?
 
       @current_user = user
       payload = Warden::JWTAuth::TokenDecoder.new.call(@token)
@@ -333,8 +336,8 @@ class ApplicationController < ActionController::API
         return render_error(:bad_request,
                             acct ? "unknown account #{acct} for #{nuid}" : "unknown principal #{nuid}")
       end
-      return render_error(:unauthorized, ':anonymous cannot authenticate') if user.anonymous?
-      return render_error(:unauthorized, 'cerberus assertion must not name the :system fixture') if user.system?
+      refusal = fixture_refusal(user)
+      return render_error(:unauthorized, refusal) if refusal
 
       @auth_source  = :assertion
       @on_behalf_of = payload['obo'].presence
@@ -379,6 +382,34 @@ class ApplicationController < ActionController::API
     def valid_system_token?
       configured = Rails.application.credentials.system_token
       configured.present? && @token == configured
+    end
+
+    # The checker's own secret, paired with its fixture the way system_token is
+    # with :system, so a leaked checker secret reaches nothing but the fixity
+    # endpoints. Inert while the credential is unset. See docs/authentication.md.
+    def valid_fixity_token?
+      configured = Rails.application.credentials.fixity_token
+      configured.present? && ActiveSupport::SecurityUtils.secure_compare(@token, configured)
+    end
+
+    def resolve_fixity_checker
+      return render_error(:bad_request, 'User: NUID header required') if @nuid.blank?
+
+      user = User.find_by(nuid: @nuid)
+      return render_error(:bad_request, "unknown principal #{@nuid}") if user.nil?
+      unless user.fixity_checker?
+        return render_error(:unauthorized, 'fixity token must only be paired with the :fixity_checker fixture')
+      end
+
+      @current_user = user
+    end
+
+    # A relay names a person, never a backend fixture.
+    def fixture_refusal(user)
+      return ':anonymous cannot authenticate' if user.anonymous?
+      return nil unless user.system? || user.fixity_checker?
+
+      "cerberus assertion must not name the :#{user.role} fixture"
     end
 
     def guest_sign_in

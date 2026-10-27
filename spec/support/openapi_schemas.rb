@@ -32,6 +32,7 @@ module OpenapiSchemas
       WithdrawnAssets:    work_withdrawn_assets,
       WorkHealthCheck:    work_health_check,
       FixityCheck:        fixity_check,
+      FixityDue:          fixity_due,
       Pagination:         pagination,
       User:               user,
       ProvisionedUser:    provisioned_user,
@@ -390,6 +391,19 @@ module OpenapiSchemas
               recorded_by: { type: :string, nullable: true, description: 'NUID of the principal that posted it' },
               latest:      { type: :boolean, description: "Whether this is now the object's latest check" }
             })
+  end
+
+  # GET /fixity_checks/due. Mirrors app/views/fixity_checks/due.json.jbuilder.
+  def fixity_due
+    bare({
+           due: { type: :array, items: bare({
+                                              key:             { type: :string, description: 'The object key (the NOID)' },
+                                              object:          { type: :string, description: 'urn:neu-drs:<noid>' },
+                                              bytes:           { type: :integer, description: 'Bytes on disk, from the storage ledger' },
+                                              last_checked_at: { type: :string, format: 'date-time', nullable: true,
+                                                                 description: 'The latest recorded check, or null' }
+                                            }) }
+         })
   end
 
   def fixity_finding

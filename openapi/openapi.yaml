@@ -1470,6 +1470,35 @@ components:
           - latest
       required:
       - fixity_check
+    FixityDue:
+      type: object
+      properties:
+        due:
+          type: array
+          items:
+            type: object
+            properties:
+              key:
+                type: string
+                description: The object key (the NOID)
+              object:
+                type: string
+                description: urn:neu-drs:<noid>
+              bytes:
+                type: integer
+                description: Bytes on disk, from the storage ledger
+              last_checked_at:
+                type: string
+                format: date-time
+                nullable: true
+                description: The latest recorded check, or null
+            required:
+            - key
+            - object
+            - bytes
+            - last_checked_at
+      required:
+      - due
     Pagination:
       type: object
       description: pagy pagination block
@@ -4695,8 +4724,8 @@ paths:
           description: mets returned
   "/fixity_checks":
     post:
-      summary: Record one fixity check result for an OCFL object (system and admin
-        only)
+      summary: Record one fixity check result for an OCFL object (fixity checker and
+        admin only)
       tags:
       - Resources
       description: |
@@ -4716,9 +4745,10 @@ paths:
         and answers 200 instead of 201, so a retry is safe. A `fail` must
         carry at least one finding.
 
-        The `:system` principal and admins only. Anyone else gets 403. An
-        object no resource holds is a 404; an unknown version, or a resource
-        with no OCFL object, is a 422 that writes nothing.
+        The `:fixity_checker` principal (its own `fixity_token`) and admins
+        only. Anyone else gets 403. An object no resource holds is a 404; an
+        unknown version, or a resource with no OCFL object, is a 422 that
+        writes nothing.
       security:
       - BearerAuth: []
       parameters:
@@ -4730,7 +4760,7 @@ paths:
       - name: User
         in: header
         required: false
-        description: System principal, e.g. "NUID 000000000"
+        description: The checker fixture, "NUID 000000098"
         schema:
           type: string
       responses:
@@ -4752,7 +4782,7 @@ paths:
         '404':
           description: no resource holds the object
         '403':
-          description: not the system principal or an admin
+          description: not the fixity checker or an admin
       requestBody:
         content:
           application/json:
@@ -4820,6 +4850,65 @@ paths:
                   type: string
                   maxLength: 64
                   description: The tool that ran the check
+  "/fixity_checks/due":
+    get:
+      summary: List the OCFL objects most in need of a fixity check (fixity checker
+        and admin only)
+      tags:
+      - Resources
+      description: |
+        The objects to check next: never checked first, then oldest check
+        first. Read off the storage ledger, so it lists every object the
+        storage adapter has written, checked or not. `bytes` is the object's
+        size on disk, for planning; the sweep holds its budget by counting what
+        it actually hashes.
+
+        `checked_before` limits the list to objects not checked since that
+        time. A sweep passes its own start, so each object it records drops
+        out and the next page needs no cursor. It defaults to now.
+
+        Refused during a maintenance window, so a sweep stops before it hashes
+        anything it could not record.
+      security:
+      - BearerAuth: []
+      parameters:
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          type: string
+      - name: User
+        in: header
+        required: false
+        description: The checker fixture, "NUID 000000098"
+        schema:
+          type: string
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 1000
+          default: 100
+      - name: checked_before
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+        description: List only objects not checked since this time
+      responses:
+        '200':
+          description: objects due, never checked first
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/FixityDue"
+        '400':
+          description: checked_before is not a timestamp
+        '403':
+          description: not the fixity checker or an admin
   "/health":
     get:
       summary: Report whether Atlas can reach its dependencies

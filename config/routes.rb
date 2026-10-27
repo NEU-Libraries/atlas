@@ -193,6 +193,7 @@ Rails.application.routes.draw do
     # :system-gated. An external checker posts one result per OCFL object it
     # re-hashed; Atlas hashes nothing. See docs/fixity.md.
     post '/fixity_checks', to: 'fixity_checks#create', as: 'fixity_checks'
+    get  '/fixity_checks/due', to: 'fixity_checks#due', as: 'fixity_checks_due'
 
     # Session-scoped audit emit (no resource to hang on): impersonation
     # start/end. Admin-gated. See AtlasRb::AuditEvent.emit.

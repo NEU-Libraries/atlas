@@ -4,15 +4,18 @@ require 'rails_helper'
 
 RSpec.describe User do
   describe 'role enum' do
-    it 'orders by privilege gradient' do
+    # fixity_checker is appended, not slotted in: the stored value is the
+    # integer, so renumbering would change every existing user's role.
+    it 'orders by privilege gradient, with fixity_checker appended' do
       expect(described_class.roles).to eq(
-        'anonymous'  => 0,
-        'guest'      => 1,
-        'standard'   => 2,
-        'loader'     => 3,
-        'privileged' => 4,
-        'admin'      => 5,
-        'system'     => 6
+        'anonymous'      => 0,
+        'guest'          => 1,
+        'standard'       => 2,
+        'loader'         => 3,
+        'privileged'     => 4,
+        'admin'          => 5,
+        'system'         => 6,
+        'fixity_checker' => 7
       )
     end
 

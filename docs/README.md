@@ -36,7 +36,7 @@ because a developer needs it before any of the other pages make sense.
 | [`mods-display.md`](mods-display.md) | The `DISPLAY` table, the coverage decisions, each renderer |
 | [`solr-indexing.md`](solr-indexing.md) | What the five indexers project, and what they deliberately do not |
 | [`binaries.md`](binaries.md) | Blob versioning, rollback, fixity, byte-serving, storage-root sealing |
-| [`fixity.md`](fixity.md) | Recording fixity check results: the object log, the latest-check cache, the Work summary |
+| [`fixity.md`](fixity.md) | Fixity checks: the object log, the latest-check cache, the Work summary, the rolling checker service |
 | [`work-health.md`](work-health.md) | The green/yellow/red grade, the offline OCFL check, the Atlas check, the probe behind the rubric |
 | [`handles.md`](handles.md) | Minting the persistent identifier and recording it in MODS |
 | [`oai.md`](oai.md) | The harvest endpoint, its paging, and the `oai_dc` crosswalk |

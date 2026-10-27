@@ -14,6 +14,7 @@ namespace :reset do
     # non-human bookends — single-row each by design
     User.create(password: Devise.friendly_token[0, 20], name: 'User, System', nuid: '000000000', email: 'admin@northeastern.edu', role: :system)
     User.create(password: Devise.friendly_token[0, 20], name: 'User, Anonymous', nuid: '000000099', email: 'anonymous@northeastern.edu', role: :anonymous)
+    Rake::Task['atlas:fixity:checker_user'].invoke
 
     # human roles — dev fixtures exercising each tier of the gradient
     User.create(password: Devise.friendly_token[0, 20], name: 'User, Guest', nuid: '000000001', email: 'guest@northeastern.edu', role: :guest)

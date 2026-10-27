@@ -1,0 +1,9 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# One night's rolling fixity check: re-hash the objects Atlas says are due and
+# report each result to it. Ruby and the standard library only, no bundle and
+# no Rails. Run --help for usage; docs/fixity.md has the rest.
+require_relative '../lib/ocfl_health/fixity_sweep'
+
+exit OcflHealth::FixitySweep::CLI.run(ARGV)

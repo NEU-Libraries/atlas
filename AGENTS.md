@@ -161,7 +161,7 @@ side effects fire correctly — e.g. `WorkCreator` automatically creates the
 descriptive-metadata FileSet, applies the parent's permissions, and seeds
 the MODS template.
 
-### Authentication: four credentials through `require_auth`
+### Authentication: five credentials through `require_auth`
 
 `ApplicationController#require_auth` (`app/controllers/application_controller.rb`)
 runs before every action and resolves `@current_user` from the bearer token.
@@ -190,6 +190,11 @@ signs; see `~/docs/cerberus_token_retirement_primer.html`.)
    admin-only; target attributed downstream) — never a forgeable `On-Behalf-Of`
    header, which is overwritten/ignored on this path. Empty keyset leaves the
    path inert.
+5. **`fixity_token` + `User: NUID 000000098` → the `:fixity_checker` fixture.**
+   The rolling fixity checker's own secret, paired like `system_token`. Its
+   ability is `FixityCheckerAbility` (due list + record, nothing else), and
+   `Ability` grants it nothing. Inert while the credential is unset. See
+   `docs/fixity.md` and `docs/authentication.md`.
 
 Anything else is **401**. Auth itself can return **400** (missing/unknown NUID
 under `system_token`, or an unknown assertion `sub`), **401** (unrecognized

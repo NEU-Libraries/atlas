@@ -102,8 +102,8 @@ RSpec.describe Ability do
     # Operational Solr re-projection is a :system-tier action.
     it { is_expected.to     be_able_to(:reindex,    Resource) }
     it { is_expected.to     be_able_to(:release,    :embargo) }
-    # The fixity checker runs as :system.
-    it { is_expected.to     be_able_to(:record,     :fixity_check) }
+    # The checker has its own principal; :system records no checks.
+    it { is_expected.not_to be_able_to(:record,     :fixity_check) }
     # Person curation (create/edit authority + manage affiliations) is :system + admin.
     it { is_expected.to     be_able_to(:create,     Person) }
     it { is_expected.to     be_able_to(:update,     Person.new) }
@@ -614,6 +614,27 @@ RSpec.describe Ability do
       expect(admin).to be_able_to(:read,    stranger_set)
       expect(admin).to be_able_to(:update,  stranger_set)
       expect(admin).to be_able_to(:destroy, stranger_set)
+    end
+  end
+
+  # The checker's grants live in FixityCheckerAbility; this class gives it
+  # nothing, so no rule added here can reach it.
+  describe 'the :fixity_checker principal' do
+    let(:user) { build_user(role: :fixity_checker, nuid: User::FIXITY_CHECKER_NUID) }
+    subject { described_class.new(user) }
+
+    it { is_expected.not_to be_able_to(:read_due, :fixity_check) }
+    it { is_expected.not_to be_able_to(:read,     public_resource) }
+    it { is_expected.not_to be_able_to(:read,     :catalog) }
+
+    describe FixityCheckerAbility do
+      subject { described_class.new(user) }
+
+      it { is_expected.to     be_able_to(:read_due, :fixity_check) }
+      it { is_expected.to     be_able_to(:record,   :fixity_check) }
+      it { is_expected.not_to be_able_to(:read,     public_resource) }
+      it { is_expected.not_to be_able_to(:read,     :maintenance) }
+      it { is_expected.not_to be_able_to(:reindex,  Resource) }
     end
   end
 

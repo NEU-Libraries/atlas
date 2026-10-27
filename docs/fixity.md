@@ -17,14 +17,18 @@ Source files:
 - `app/queries/preserved_object_keys_query.rb` — the objects a Work's rollup
   covers
 - `app/services/fixity_result_rebuilder.rb`, `lib/tasks/fixity.rake` — the rebuild
+- `app/queries/fixity_due_query.rb` — what to check next
+- `bin/ocfl-fixity-sweep`, `lib/ocfl_health/fixity_sweep*` — the checker
+- `bin/fixity-entrypoint.sh` — the service that runs it each night
+- `app/models/fixity_checker_ability.rb` — the checker's whole ability
 
 ## Atlas records checks; it does not run them
 
 [`POST /fixity_checks`](../openapi/openapi.yaml) takes one result per OCFL
 object from a checker that already did the hashing. Re-hashing a large file
 would hold a Puma worker for minutes, so the request hashes nothing. Only the
-`:system` principal and admins may post. The devolved-admin tier reads the
-results on the health check but cannot write one, because a result is a
+`:fixity_checker` principal and admins may post. The devolved-admin tier reads
+the results on the health check but cannot write one, because a result is a
 checker's output, not a person's judgement.
 
 An object is named by its inventory id, `urn:neu-drs:<noid>`, because that is
@@ -135,3 +139,108 @@ failed adds a fatal `fixity_failed` finding naming that object, because a
 failed check means altered bytes, the same loss a `FIXITY=1` mismatch reports.
 Only the latest check counts, so after a restore, a passing re-check clears the
 finding. See [`work-health.md`](work-health.md).
+
+## The rolling checker
+
+Nothing in Atlas runs on a schedule, and a request must not hash. So the
+checker is a separate service: a container built from the Atlas image that
+runs `bin/fixity-entrypoint.sh` instead of Puma, reads the storage read-only,
+and talks to Atlas over HTTP like any other client.
+
+### What it does each night
+
+The entrypoint wakes every `FIXITY_INTERVAL` seconds. While the UTC hour is
+inside the window it runs `bin/ocfl-fixity-sweep`, which:
+
+1. asks [`GET /fixity_checks/due`](../openapi/openapi.yaml) for the objects
+   most in need of a check, passing its own start as `checked_before`;
+2. re-hashes each one with `OcflHealth::ObjectValidator`, the validator
+   `bin/ocfl-health` uses;
+3. posts the result to `POST /fixity_checks`;
+4. stops when the list is empty, at the window's end, or at the byte budget.
+
+A result is a **fail** when the validator finds anything fatal: bytes missing,
+altered or unreadable. A repairable finding, a broken rule with nothing lost,
+rides along on a pass. Because each run asks for checks older than its own
+start, an object it records drops out of the list, and a restart or a missed
+night only leaves more due for the next run.
+
+### Why the due list comes from the storage ledger
+
+`fixity_results` has a row only for an object that has been checked, so it
+cannot list the ones that never have been. `storage_footprints` has a row for
+every object the adapter has written, so the due list is the ledger
+left-joined to the results. An object written before the ledger existed is
+missing from it until `rake atlas:storage:rebuild_footprints` runs.
+
+### Rules the service must keep
+
+- **Run exactly one replica.** Two checkers race over the same objects.
+- **Mount the storage read-only.** The sweep never writes; the log line is
+  appended by Atlas when it receives the post. The entrypoint warns at start if
+  a root is writable.
+- **Never exit.** Compose and Swarm restart a stopped service, so the loop
+  never returns, and a failed sweep is logged and retried on the next wake.
+- **Priority is set by the entrypoint** (`ionice -c3 nice -n19`), because a
+  host-level setting never reaches a process `dockerd` starts.
+- **The window is UTC** and may cross midnight, such as 22 to 4.
+- **A maintenance window stops the sweep before it hashes.** The due read is
+  refused then, like every non-read action, and the sweep exits on any 401,
+  403 or 503.
+
+### The checker's identity
+
+The sweep authenticates as the `:fixity_checker` fixture (NUID `000000098`)
+with its own shared secret, `credentials.fixity_token`, paired with that fixture
+the way `system_token` is paired with `:system`. See
+[`authentication.md`](authentication.md). Its whole ability is
+`FixityCheckerAbility`: read the due list, record a result. `Ability` gives the
+fixture nothing, so no rule added there can reach it.
+
+To enable it in an environment:
+
+1. Add `fixity_token` to that environment's credentials. The path is inert
+   until it is set.
+2. Create the fixture: `bin/rails atlas:fixity:checker_user`. It is idempotent,
+   and `reset:data` runs it.
+3. Give the service the same secret as `FIXITY_TOKEN`, or as a file named by
+   `FIXITY_TOKEN_FILE` for a Docker secret.
+
+### Configuration
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `ATLAS_URL` | none, required | Atlas's base URL |
+| `FIXITY_TOKEN` or `FIXITY_TOKEN_FILE` | none, required | The checker's secret |
+| `FIXITY_NUID` | `000000098` | The fixture it pairs with |
+| `FIXITY_WINDOW_START`, `FIXITY_WINDOW_END` | `1`, `7` | The UTC hours to sweep in |
+| `FIXITY_INTERVAL` | `900` | Seconds between wakes |
+| `FIXITY_BUDGET` | none | Stop after hashing this much, such as `500GB` |
+| `OCFL_EXTRA_ROOTS` | none | The same value Atlas has, so every root is checked |
+
+With no budget, the window's end is the only bound. Set one where reads cost
+money, such as on cloud storage.
+
+### The service definition
+
+```yaml
+fixity:
+  image: nakatomi/atlas_web:${ATLAS:-latest}
+  entrypoint: ["/home/atlas/web/bin/fixity-entrypoint.sh"]
+  environment:
+    ATLAS_URL: http://atlas:3000/
+    FIXITY_TOKEN_FILE: /run/secrets/fixity_token
+  secrets: [fixity_token]
+  volumes:
+    - storage:/home/atlas/storage:ro
+  restart: unless-stopped
+  cpus: 1
+  mem_limit: 256m
+```
+
+Declare `fixity_token` under the file's top-level `secrets:` key. Run it on the
+same image tag as the Atlas service it reports to, because the
+sweep calls endpoints that tag serves. Under Swarm, `restart` becomes
+`deploy.restart_policy`, the limits move under `deploy.resources`, and
+`deploy.replicas: 1` keeps it to one.
+

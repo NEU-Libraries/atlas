@@ -32,7 +32,9 @@ class Ability
 
     # Hard floor: :anonymous never authenticates, and a nil user carries no
     # ability either. require_auth 401s before reaching here in production.
-    return if user.nil? || user.anonymous?
+    # The fixity checker gets FixityCheckerAbility instead, so here it gets
+    # nothing.
+    return if user.nil? || user.anonymous? || user.fixity_checker?
 
     # Block-form on purpose, and every caller must pass an instance — see the
     # class header. spec/models/ability_spec.rb fails if this rule ever loses
@@ -57,12 +59,11 @@ class Ability
 
   private
 
-    # The operator surface for :system: the maintenance window, the latency
-    # figures and fixity results. Admins reach all three through `manage :all`.
+    # The operator surface for :system: the maintenance window and the latency
+    # figures. Admins reach both through `manage :all`.
     def apply_operator_abilities
       can :maintain,     :maintenance
       can :read_metrics, :latency
-      can :record,       :fixity_check
     end
 
     def apply_role_abilities(user)

@@ -37,6 +37,10 @@ module Valkyrie
       POOL_EXTENSION = 'neu-drs-storage-pool'
       SEAL_FILENAME = 'sealed.json'
       POOL_CONFIG_FILENAME = 'config.json'
+      # OCFL 1.1 section 3.8: a record of actions taken on the object, outside
+      # its versioned content, so writing one cuts no version.
+      LOGS_DIRECTORY = 'logs'
+      LOG_NAME = /\A[A-Za-z0-9][A-Za-z0-9._-]*\z/
 
       # Every root is sealed, so a new object has nowhere to go. An operator
       # opens another root; the adapter must not pick a sealed one.
@@ -341,6 +345,48 @@ module Valkyrie
         markers.map { |path| ::File.basename(::File.dirname(path)) }
       end
 
+      # The version names an object's head inventory lists, or nil when no root
+      # holds the object.
+      def object_versions(key:)
+        root_name = existing_root_name(key.to_s)
+        return nil if root_name.nil?
+
+        object_inventory(root_name, key.to_s)&.versions&.keys
+      end
+
+      # Appends one line to a log in the object's logs/ directory. Answers
+      # :appended, :duplicate when the line repeats the last one (a retried
+      # request), or nil when no root holds the object.
+      #
+      # The lock is what keeps two concurrent appends from interleaving, and the
+      # duplicate check runs under it so a retry racing its original records once.
+      def append_log(key:, name:, line:)
+        root_name = existing_root_name(key.to_s)
+        return nil if root_name.nil?
+
+        path  = log_path(root_name, key.to_s, name)
+        entry = "#{line}\n"
+        new_dir  = !path.dirname.exist?
+        new_file = !path.exist?
+        FileUtils.mkdir_p(path.dirname)
+        appended = write_log_entry(path, entry)
+        fsync_dir(path.dirname.dirname) if new_dir
+        fsync_dir(path.dirname) if new_file
+        return :duplicate unless appended
+
+        record_footprint { |recorder| recorder.add!(key: key.to_s, bytes: entry.bytesize) }
+        :appended
+      end
+
+      # Every line of one object log, oldest first; empty when there is none.
+      def read_log(key:, name:)
+        root_name = existing_root_name(key.to_s)
+        return [] if root_name.nil?
+
+        path = log_path(root_name, key.to_s, name)
+        path.exist? ? path.readlines(chomp: true) : []
+      end
+
       private
 
         # An object never spans roots, so a write goes where the object already is
@@ -401,6 +447,24 @@ module Valkyrie
 
         def seal_marker_path(root_name)
           pool_extension_dir(root_name).join(SEAL_FILENAME)
+        end
+
+        # A name with a separator would let a caller write outside logs/.
+        def log_path(root_name, key, name)
+          raise ArgumentError, "not a log name: #{name.inspect}" unless LOG_NAME.match?(name.to_s)
+
+          storage_roots.fetch(root_name).object_root_for(key).join(LOGS_DIRECTORY, name.to_s)
+        end
+
+        def write_log_entry(path, entry)
+          ::File.open(path, ::File::RDWR | ::File::APPEND | ::File::CREAT) do |file|
+            file.flock(::File::LOCK_EX)
+            next false if file.each_line.to_a.last == entry
+
+            file.write(entry)
+            file.fsync
+            true
+          end
         end
 
         def resolve_key(resource)

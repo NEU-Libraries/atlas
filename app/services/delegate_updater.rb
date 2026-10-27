@@ -1,22 +1,24 @@
 # frozen_string_literal: true
 
 # Upserts a Delegate identified by (resource_id, use). Updates the
-# existing Delegate's `uri` if one already exists for that role under
+# existing Delegate's `uri`, and any `attributes` given (such as the
+# preview's width), if one already exists for that role under
 # the resource's `:derivative` FileSet; otherwise delegates to
 # DelegateCreator to mint a new one (creating the derivative FileSet
 # on first use).
 class DelegateUpdater < ApplicationService
-  def initialize(resource_id:, use:, uri:)
+  def initialize(resource_id:, use:, uri:, attributes: {})
     @resource_id = resource_id
     @use         = use
     @uri         = uri
+    @attributes  = attributes
   end
 
   def call
     existing = find_existing
     return update(existing) if existing
 
-    DelegateCreator.call(resource_id: @resource_id, use: @use, uri: @uri)
+    DelegateCreator.call(resource_id: @resource_id, use: @use, uri: @uri, **@attributes)
   end
 
   private
@@ -42,6 +44,7 @@ class DelegateUpdater < ApplicationService
 
     def update(delegate)
       delegate.uri = @uri
+      @attributes.each { |name, value| delegate.public_send(:"#{name}=", value) }
       saved = Atlas.persister.save(resource: delegate)
       # See DelegateCreator#reindex_parent! — the parent's Solr doc needs
       # an explicit re-save to pick up the new uri via ThumbnailIndexer.

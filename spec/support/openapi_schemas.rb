@@ -802,6 +802,7 @@ module OpenapiSchemas
       thumbnail:        { type: :string, nullable: true, description: 'IIIF URL of the :thumbnail_image Delegate (~85px), or null' },
       thumbnail_2x:     { type: :string, nullable: true, description: 'IIIF URL of the :thumbnail_image_2x Delegate (~170px retina), or null' },
       preview:          { type: :string, nullable: true, description: 'IIIF URL of the :preview_image Delegate (~500px hero), or null' },
+      **preview_facts_props,
       title:            { type: :string, nullable: true },
       description:      { type: :string, nullable: true },
       permanent_url:    { type: :string, nullable: true },
@@ -810,6 +811,16 @@ module OpenapiSchemas
       tombstoned_by:    { type: :string, nullable: true, description: 'NUID of the user who tombstoned the resource' },
       tombstone_reason: tombstone_reason_prop
     }.merge(provenance_props)
+  end
+
+  # What the preview Delegate says about its image, beside its URI.
+  def preview_facts_props
+    {
+      preview_width:       { type: :integer, nullable: true, description: 'Pixel width of the image `preview` serves, or null' },
+      preview_height:      { type: :integer, nullable: true, description: 'Pixel height of the image `preview` serves, or null' },
+      preview_placeholder: { type: :string, nullable: true, format: :byte,
+                             description: 'Base64 of a ~16px-wide JPEG of the preview image, for a blurred stand-in, or null' }
+    }
   end
 
   # Resource-level provenance fields surfaced by Work / Collection /

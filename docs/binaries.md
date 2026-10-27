@@ -164,6 +164,29 @@ classification follow the new name and type, because consumers branch on them.
 Re-deriving it would relabel a replaced Small Image or Medium Image as an
 Original Image. `use` never changes.
 
+## The preview image carries its size and placeholder
+
+The `Preview Image` Delegate can hold the pixel `width` and `height` of the
+image its URI serves, and a `placeholder`: base64 of a JPEG about 16 px wide. A
+client uses them to reserve the image's frame and to paint a blurred stand-in
+before the image arrives. The Work, Collection and Community reads return them
+as `preview_width`, `preview_height` and `preview_placeholder`, beside
+`preview`.
+
+- **They are written only with the preview URI**, on
+  `PATCH /resources/{id}/thumbnails`. Sent without `preview`, they are a
+  `422 preview_required`.
+- **A preview written without them clears them.** A regenerated derivative can
+  keep its IIIF URI and change its size, so comparing URIs cannot tell a stale
+  size from a current one.
+- **The placeholder must decode to JPEG bytes, at most 2048 characters.** The
+  limit keeps the field from holding a real image; a 16 px JPEG is about 900.
+- **They are as visible as `preview`, because they ride the same read.** The
+  placeholder is a copy of the image, so never return it where `preview` is
+  withheld.
+- **They stay out of the envelope.** A Delegate is a regenerable derivative,
+  and so is everything it holds. See [`preservation.md`](preservation.md).
+
 ## A caption carries its language
 
 A Blob holds a `language` (BCP 47, such as `en` or `es-MX`) and a `track_label`,

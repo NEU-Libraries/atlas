@@ -8,13 +8,17 @@
 # (regenerable derivatives). Permissions are inherited from the parent
 # resource at creation time, mirroring BlobCreator.
 class DelegateCreator < ApplicationService
-  def initialize(resource_id:, use:, uri:, mime_type: nil, label: nil, original_filename: nil)
+  def initialize(resource_id:, use:, uri:, mime_type: nil, label: nil, original_filename: nil,
+                 width: nil, height: nil, placeholder: nil)
     @resource_id       = resource_id
     @use               = use
     @uri               = uri
     @mime_type         = mime_type
     @label             = label
     @original_filename = original_filename
+    @width             = width
+    @height            = height
+    @placeholder       = placeholder
   end
 
   def call
@@ -48,7 +52,10 @@ class DelegateCreator < ApplicationService
         uri:               @uri,
         mime_type:         @mime_type,
         label:             @label,
-        original_filename: @original_filename
+        original_filename: @original_filename,
+        width:             @width,
+        height:            @height,
+        placeholder:       @placeholder
       )
       delegate.permissions = parent.permissions
       Atlas.persister.save(resource: delegate)

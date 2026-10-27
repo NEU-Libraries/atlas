@@ -6,7 +6,11 @@ json.work do
   json.ancestors @work.ancestors
   json.thumbnail @work.thumbnail_uri
   json.thumbnail_2x @work.thumbnail_uri_for(Role.thumbnail_image_2x.name)
-  json.preview @work.thumbnail_uri_for(Role.preview_image.name)
+  preview = @work.delegate_for(Role.preview_image.name)
+  json.preview preview&.uri
+  json.preview_width preview&.width
+  json.preview_height preview&.height
+  json.preview_placeholder preview&.placeholder
   # Per-asset derivative read policy (sparse tier => [read groups]; see
   # TierVisibility). Keys span the image ladder (small/medium/large/service/
   # original) plus independent media (audio/video/pdf). Echoed for Cerberus's

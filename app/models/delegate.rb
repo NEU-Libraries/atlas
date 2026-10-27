@@ -19,4 +19,10 @@ class Delegate < Resource
   attribute :use, Valkyrie::Types::String
   attribute :label, Valkyrie::Types::String
   attribute :uri, Valkyrie::Types::String
+  # The pixel size of the image `uri` serves, and a tiny base64 JPEG of it, so
+  # a client can reserve the image's frame and paint a blurred stand-in before
+  # the image arrives. Only the preview tier sets them; see docs/binaries.md.
+  attribute :width, Valkyrie::Types::Integer.optional
+  attribute :height, Valkyrie::Types::Integer.optional
+  attribute :placeholder, Valkyrie::Types::String
 end

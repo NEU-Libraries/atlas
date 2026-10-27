@@ -172,6 +172,20 @@ components:
               nullable: true
               description: IIIF URL of the :preview_image Delegate (~500px hero),
                 or null
+            preview_width:
+              type: integer
+              nullable: true
+              description: Pixel width of the image `preview` serves, or null
+            preview_height:
+              type: integer
+              nullable: true
+              description: Pixel height of the image `preview` serves, or null
+            preview_placeholder:
+              type: string
+              nullable: true
+              format: byte
+              description: Base64 of a ~16px-wide JPEG of the preview image, for a
+                blurred stand-in, or null
             title:
               type: string
               nullable: true
@@ -262,6 +276,9 @@ components:
           - thumbnail
           - thumbnail_2x
           - preview
+          - preview_width
+          - preview_height
+          - preview_placeholder
           - title
           - description
           - permanent_url
@@ -336,6 +353,20 @@ components:
               nullable: true
               description: IIIF URL of the :preview_image Delegate (~500px hero),
                 or null
+            preview_width:
+              type: integer
+              nullable: true
+              description: Pixel width of the image `preview` serves, or null
+            preview_height:
+              type: integer
+              nullable: true
+              description: Pixel height of the image `preview` serves, or null
+            preview_placeholder:
+              type: string
+              nullable: true
+              format: byte
+              description: Base64 of a ~16px-wide JPEG of the preview image, for a
+                blurred stand-in, or null
             title:
               type: string
               nullable: true
@@ -393,6 +424,9 @@ components:
           - thumbnail
           - thumbnail_2x
           - preview
+          - preview_width
+          - preview_height
+          - preview_placeholder
           - title
           - description
           - permanent_url
@@ -463,6 +497,20 @@ components:
               nullable: true
               description: IIIF URL of the :preview_image Delegate (~500px hero),
                 or null
+            preview_width:
+              type: integer
+              nullable: true
+              description: Pixel width of the image `preview` serves, or null
+            preview_height:
+              type: integer
+              nullable: true
+              description: Pixel height of the image `preview` serves, or null
+            preview_placeholder:
+              type: string
+              nullable: true
+              format: byte
+              description: Base64 of a ~16px-wide JPEG of the preview image, for a
+                blurred stand-in, or null
             title:
               type: string
               nullable: true
@@ -518,6 +566,9 @@ components:
           - thumbnail
           - thumbnail_2x
           - preview
+          - preview_width
+          - preview_height
+          - preview_placeholder
           - title
           - description
           - permanent_url
@@ -5253,6 +5304,12 @@ paths:
         URI is dispatched to its matching Role; a key you omit is left
         untouched.
 
+        `preview_width`, `preview_height` and `preview_placeholder` describe
+        the image `preview` serves, and are written only with it. A `preview`
+        sent without them clears the stored ones, so a regenerated image never
+        keeps the old image's size. Width and height travel together. The
+        placeholder is base64 of a JPEG, at most 2048 characters.
+
         Purpose-specific: machine-set IIIF URLs, a fixed three-key shape, no
         user content. Type-agnostic, and the response is the resource in its
         own typed shape.
@@ -5262,11 +5319,14 @@ paths:
       parameters: []
       responses:
         '200':
-          description: delegate uris attached
+          description: preview attached with its size and placeholder
           content:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Work"
+        '422':
+          description: preview size or placeholder malformed, or sent without the
+            preview
         '404':
           description: unknown id
       requestBody:
@@ -5284,6 +5344,19 @@ paths:
                 preview:
                   type: string
                   description: IIIF URI for the ~500px-wide preview
+                preview_width:
+                  type: integer
+                  minimum: 1
+                  description: Pixel width of the image `preview` serves
+                preview_height:
+                  type: integer
+                  minimum: 1
+                  description: Pixel height of the image `preview` serves
+                preview_placeholder:
+                  type: string
+                  format: byte
+                  maxLength: 2048
+                  description: Base64 of a ~16px-wide JPEG of the preview image
   "/resources/{id}/parent":
     parameters:
     - name: id

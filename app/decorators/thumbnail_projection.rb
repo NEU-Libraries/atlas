@@ -9,7 +9,8 @@
 # (smallest tier) for backward compatibility with clients that only
 # want one URL. New flat fields (thumbnail_2x, preview) on the
 # Work/Collection/Community jbuilder partials call
-# `#thumbnail_uri_for(role)` to pick a specific tier. Members are
+# `#thumbnail_uri_for(role)` to pick a specific tier, and `#delegate_for(role)`
+# when they need more of the Delegate than its URI. Members are
 # memoized so a single render touches the persister once even when
 # all three projections are emitted.
 module ThumbnailProjection
@@ -18,7 +19,11 @@ module ThumbnailProjection
   end
 
   def thumbnail_uri_for(use)
-    derivative_members.find { |m| m.is_a?(Delegate) && m.use == use }&.uri
+    delegate_for(use)&.uri
+  end
+
+  def delegate_for(use)
+    derivative_members.find { |m| m.is_a?(Delegate) && m.use == use }
   end
 
   # Seed the projection from a batched read (ThumbnailPreloader), so rendering

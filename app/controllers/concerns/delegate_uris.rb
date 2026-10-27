@@ -5,7 +5,8 @@
 # thumbnail_2x / preview), `/image_derivatives` (small / medium / large)
 # and the per-FileSet `/iiif_service` (uri). Each action picks one of
 # the named helpers below; non-blank entries in `params` are upserted
-# via DelegateUpdater.
+# via DelegateUpdater. The preview's size and placeholder ride its URI in
+# the same write (PreviewImageFacts).
 #
 # Each Delegate-write surface has its own route and its own atlas_rb binding,
 # rather than overloading the generic `metadata[…]` PATCH bag.
@@ -35,7 +36,9 @@ module DelegateUris
   private
 
     def apply_thumbnail_uris(resource_id:, source: params)
-      apply_delegate_uris(resource_id: resource_id, mapping: THUMBNAIL_ROLES, source: source)
+      attributes = { 'preview' => PreviewImageFacts.from(source) }
+      apply_delegate_uris(resource_id: resource_id, mapping: THUMBNAIL_ROLES, source: source,
+                          attributes: attributes)
     end
 
     def apply_image_derivative_uris(resource_id:, source: params)
@@ -46,14 +49,15 @@ module DelegateUris
       apply_delegate_uris(resource_id: resource_id, mapping: IIIF_SERVICE_ROLES, source: source)
     end
 
-    def apply_delegate_uris(resource_id:, mapping:, source:)
+    def apply_delegate_uris(resource_id:, mapping:, source:, attributes: {})
       mapping.each do |key, role|
         next if source[key].blank?
 
         DelegateUpdater.call(
           resource_id: resource_id,
           use:         role.name,
-          uri:         source[key]
+          uri:         source[key],
+          attributes:  attributes.fetch(key, {})
         )
       end
     end

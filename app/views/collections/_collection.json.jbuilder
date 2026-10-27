@@ -6,7 +6,11 @@ json.collection do
   json.ancestors @collection.ancestors
   json.thumbnail @collection.thumbnail_uri
   json.thumbnail_2x @collection.thumbnail_uri_for(Role.thumbnail_image_2x.name)
-  json.preview @collection.thumbnail_uri_for(Role.preview_image.name)
+  preview = @collection.delegate_for(Role.preview_image.name)
+  json.preview preview&.uri
+  json.preview_width preview&.width
+  json.preview_height preview&.height
+  json.preview_placeholder preview&.placeholder
   json.title @collection.plain_title
   json.description @collection.plain_description
   json.permanent_url @collection.mods&.permanent_url

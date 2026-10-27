@@ -419,6 +419,12 @@ RSpec.describe 'Resources', type: :request do
         URI is dispatched to its matching Role; a key you omit is left
         untouched.
 
+        `preview_width`, `preview_height` and `preview_placeholder` describe
+        the image `preview` serves, and are written only with it. A `preview`
+        sent without them clears the stored ones, so a regenerated image never
+        keeps the old image's size. Width and height travel together. The
+        placeholder is base64 of a JPEG, at most 2048 characters.
+
         Purpose-specific: machine-set IIIF URLs, a fixed three-key shape, no
         user content. Type-agnostic, and the response is the resource in its
         own typed shape.
@@ -429,9 +435,13 @@ RSpec.describe 'Resources', type: :request do
       parameter name: :body, in: :body, schema: {
         type:       :object,
         properties: {
-          thumbnail:    { type: :string, description: 'IIIF URI for the ~85px square thumbnail' },
-          thumbnail_2x: { type: :string, description: 'IIIF URI for the ~170px square 2x thumbnail' },
-          preview:      { type: :string, description: 'IIIF URI for the ~500px-wide preview' }
+          thumbnail:           { type: :string, description: 'IIIF URI for the ~85px square thumbnail' },
+          thumbnail_2x:        { type: :string, description: 'IIIF URI for the ~170px square 2x thumbnail' },
+          preview:             { type: :string, description: 'IIIF URI for the ~500px-wide preview' },
+          preview_width:       { type: :integer, minimum: 1, description: 'Pixel width of the image `preview` serves' },
+          preview_height:      { type: :integer, minimum: 1, description: 'Pixel height of the image `preview` serves' },
+          preview_placeholder: { type: :string, format: :byte, maxLength: 2048,
+                                 description: 'Base64 of a ~16px-wide JPEG of the preview image' }
         }
       }
 
@@ -440,6 +450,30 @@ RSpec.describe 'Resources', type: :request do
         let(:body) { { thumbnail: 'https://iiif.example/iiif/3/abc.jp2/full/!85,85/0/default.jpg' } }
         schema '$ref' => '#/components/schemas/Work'
         run_test!
+      end
+
+      response '200', 'preview attached with its size and placeholder' do
+        let(:id)          { work.noid }
+        let(:placeholder) { Base64.strict_encode64("\xFF\xD8\xFF\xE0tiny".b) }
+        let(:body) do
+          { preview: 'https://iiif.example/iiif/3/abc.jp2/full/500,/0/default.jpg',
+            preview_width: 500, preview_height: 375, preview_placeholder: placeholder }
+        end
+        schema '$ref' => '#/components/schemas/Work'
+        run_test! do |response|
+          found = JSON.parse(response.body)['work']
+          expect(found.slice('preview_width', 'preview_height', 'preview_placeholder'))
+            .to eq('preview_width' => 500, 'preview_height' => 375, 'preview_placeholder' => placeholder)
+        end
+      end
+
+      response '422', 'preview size or placeholder malformed, or sent without the preview' do
+        let(:id)   { work.noid }
+        let(:body) { { preview: 'https://iiif.example/500.jpg', preview_width: 0, preview_height: 375 } }
+        run_test! do |response|
+          expect(JSON.parse(response.body)['error']).to eq('invalid_preview_dimension')
+          expect(work.decorate.delegate_for(Role.preview_image.name)).to be_nil
+        end
       end
 
       response '404', 'unknown id' do

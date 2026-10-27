@@ -14,13 +14,17 @@ module OcflHealth
     ID_NAMESPACE = 'urn:neu-drs'
     ALLOWED_ENTRIES = [NAMASTE, INVENTORY, 'extensions', 'logs'].freeze
 
-    attr_reader :root, :key, :findings, :inventory
+    # files_hashed and bytes_hashed count what a fixity run actually re-read, so
+    # a sweep can report the one and hold a byte budget with the other.
+    attr_reader :root, :key, :findings, :inventory, :files_hashed, :bytes_hashed
 
     def initialize(root, key: nil, fixity: true)
       @root = Pathname.new(root)
       @key = key || @root.basename.to_s
       @fixity = fixity
       @findings = []
+      @files_hashed = 0
+      @bytes_hashed = 0
     end
 
     def call
@@ -209,6 +213,8 @@ module OcflHealth
         return unless @fixity
 
         actual = DIGESTS.fetch(inventory['digestAlgorithm']).file(physical.to_s).hexdigest
+        @files_hashed += 1
+        @bytes_hashed += physical.size
         return if actual == digest.downcase
 
         fatal(:fixity_mismatch, "#{content_path} no longer matches its recorded digest")

@@ -13,6 +13,10 @@ namespace :atlas do
         report[:findings].each do |f|
           puts format('    %<severity>-10s %<code>-30s %<subject>-9s %<message>s', **f)
         end
+        if (fixity = report[:fixity])
+          puts "    fixity: #{fixity[:result] || 'never checked'}, oldest #{fixity[:last_checked_at] || '-'}, " \
+               "#{fixity[:never_checked]}/#{fixity[:objects]} objects never checked"
+        end
         report[:grade]
       end
       exit(OcflHealth::CLI::EXIT.fetch(%i[red yellow green].find { |g| grades.include?(g) }))

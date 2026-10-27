@@ -78,7 +78,8 @@ for Cerberus's Work edit screen. Three things differ from the rake task:
 - **It never re-hashes the bytes,** so `fixity_checked` is always `false`. A
   re-hash of a large file would hold a Puma worker for minutes, so fixity stays
   with `FIXITY=1` and `bin/ocfl-health`. A green over HTTP means "nothing is
-  missing", not "the bytes are verified".
+  missing", not "the bytes are verified". The `fixity` summary reports the
+  checks a checker *recorded*; see [`fixity.md`](fixity.md).
 - **Only the admin and devolved-admin tiers may call it** (`:read_health`; see
   [`authorization.md`](authorization.md)). Edit rights on the Work do not reach
   it, because the findings describe damage that only those tiers can repair.

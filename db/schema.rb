@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_08_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_27_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "uuid-ossp"
@@ -79,6 +79,15 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_08_120000) do
     t.index ["depositor"], name: "index_compilations_on_depositor"
     t.index ["noid"], name: "index_compilations_on_noid", unique: true
     t.index ["published"], name: "index_compilations_on_published"
+  end
+
+  create_table "fixity_results", primary_key: "object_key", id: :string, force: :cascade do |t|
+    t.datetime "checked_at", null: false
+    t.string "checker", null: false
+    t.datetime "created_at", null: false
+    t.string "result", null: false
+    t.datetime "updated_at", null: false
+    t.string "version", null: false
   end
 
   create_table "idempotency_keys", force: :cascade do |t|

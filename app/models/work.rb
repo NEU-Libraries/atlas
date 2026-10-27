@@ -54,6 +54,14 @@ class Work < Resource
       .sort_by { |fs| [fs.position.nil? ? 1 : 0, fs.position || 0, fs.created_at] }
   end
 
+  # The Work and everything under it that owns an OCFL object. FileSetCreator
+  # writes an envelope only where Classification.preserved? holds, so a
+  # Derivative FileSet and its Delegates owe none.
+  def preserved_resources
+    kept = children.grep(FileSet).select { |fs| Classification.preserved?(fs.type) }
+    [self, *kept, *kept.flat_map { |fs| fs.files.compact }]
+  end
+
   # Overrides Metsable's flat member_ids storage: a Work has no member_ids,
   # so its METS Blob hangs off a sibling :structural_metadata FileSet.
   def mets_blob

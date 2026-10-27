@@ -41,6 +41,18 @@ RSpec.describe 'Work health check via atlas_rb', :atlas_rb_server do
     expect(AtlasRb::Work.health_check(work.noid, nuid: nuid).grade).to eq('green')
   end
 
+  # atlas_rb returns the whole body as a Mash, so the summary reaches Cerberus
+  # with no client change.
+  it 'carries the recorded fixity summary through the client' do
+    FixityResult.advance!(key: work.noid, checked_at: Time.utc(2026, 10, 20, 2, 41, 55), result: 'pass',
+                          version: 'v1', checker: 'spec')
+
+    fixity = AtlasRb::Work.health_check(work.noid, nuid: nuid).fixity
+    expect(fixity.result).to eq('pass')
+    expect(fixity.last_checked_at).to be_nil
+    expect(fixity.never_checked).to eq(fixity.objects - 1)
+  end
+
   it 'returns nil for a Work that does not exist' do
     expect(AtlasRb::Work.health_check('doesnotexist', nuid: nuid)).to be_nil
   end

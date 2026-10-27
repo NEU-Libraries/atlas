@@ -110,4 +110,33 @@ RSpec.describe WorkHealthCheck do
       expect(codes).to include(:mods_xml_missing)
     end
   end
+
+  describe 'the fixity summary' do
+    def objects = reload(work).preserved_resources.map(&:noid)
+
+    def checked(key, at, result)
+      FixityResult.advance!(key: key, checked_at: at, result: result, version: 'v1', checker: 'spec')
+    end
+
+    it 'reports every object as never checked before any check is recorded' do
+      expect(report[:fixity]).to eq(last_checked_at: nil, result: nil, objects: objects.size,
+                                    never_checked: objects.size)
+    end
+
+    # A Work is only as verified as its least recently checked part.
+    it 'reports the oldest latest check and the worst outcome' do
+      keys = objects
+      keys.each_with_index { |key, i| checked(key, Time.utc(2026, 10, 1 + i), 'pass') }
+      checked(keys.last, Time.utc(2026, 10, 20), 'fail')
+
+      expect(report[:fixity]).to eq(last_checked_at: '2026-10-01T00:00:00Z', result: 'fail',
+                                    objects: keys.size, never_checked: 0)
+    end
+
+    it 'leaves last_checked_at null while any object is unchecked' do
+      checked(work.noid, Time.utc(2026, 10, 1), 'pass')
+
+      expect(report[:fixity]).to include(last_checked_at: nil, result: 'pass', never_checked: objects.size - 1)
+    end
+  end
 end

@@ -31,6 +31,7 @@ module OpenapiSchemas
       WorkFileSets:       work_file_sets,
       WithdrawnAssets:    work_withdrawn_assets,
       WorkHealthCheck:    work_health_check,
+      FixityCheck:        fixity_check,
       Pagination:         pagination,
       User:               user,
       ProvisionedUser:    provisioned_user,
@@ -350,14 +351,52 @@ module OpenapiSchemas
   def work_health_check
     {
       type:       :object,
-      required:   %w[noid grade fixity_checked findings],
+      required:   %w[noid grade fixity_checked fixity findings],
       properties: {
         noid:           { type: :string },
         grade:          { type: :string, enum: %w[green yellow red],
                           description: 'green viable; yellow repairable, nothing lost; red bytes lost' },
         fixity_checked: { type: :boolean, description: 'Always false: this endpoint never re-hashes the bytes' },
+        fixity:         work_fixity_summary,
         findings:       { type: :array, items: health_finding }
       }
+    }
+  end
+
+  # The recorded checks over the objects a Work reaches, never a re-hash.
+  def work_fixity_summary
+    bare({
+           last_checked_at: { type: :string, format: 'date-time', nullable: true,
+                              description: 'The oldest latest check among the objects; null while any is unchecked' },
+           result:          { type: :string, enum: FixityResult::RESULTS, nullable: true,
+                              description: 'The worst recorded outcome among the objects, or null when none is recorded' },
+           objects:         { type: :integer, description: 'The OCFL objects the Work reaches' },
+           never_checked:   { type: :integer, description: 'Objects with no recorded check' }
+         })
+  end
+
+  # POST /fixity_checks. Mirrors app/views/fixity_checks/create.json.jbuilder.
+  def fixity_check
+    wrapped(:fixity_check, {
+              resource_id: { type: :string, description: 'NOID of the resource that owns the object' },
+              object:      { type: :string, description: 'The OCFL inventory id, urn:neu-drs:<noid>' },
+              checked_at:  { type: :string, format: 'date-time', description: 'When the check ran, to the second' },
+              version:     { type: :string, description: 'The object version checked, e.g. v3' },
+              algorithm:   { type: :string, enum: FixityCheck::ALGORITHMS },
+              files:       { type: :integer, description: 'Files re-hashed' },
+              result:      { type: :string, enum: FixityResult::RESULTS },
+              findings:    { type: :array, items: fixity_finding },
+              checker:     { type: :string, description: 'The tool that ran the check' },
+              recorded_by: { type: :string, nullable: true, description: 'NUID of the principal that posted it' },
+              latest:      { type: :boolean, description: "Whether this is now the object's latest check" }
+            })
+  end
+
+  def fixity_finding
+    {
+      type:       :object,
+      required:   %w[code],
+      properties: FixityCheck::FINDING_KEYS.to_h { |key| [key.to_sym, { type: :string }] }
     }
   end
 

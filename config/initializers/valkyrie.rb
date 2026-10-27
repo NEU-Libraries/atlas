@@ -70,7 +70,8 @@ Rails.application.config.to_prepare do
           SystemContainerIndexer,
           EmbargoIndexer,
           OAIIndexer,
-          StorageIndexer
+          StorageIndexer,
+          FixityIndexer
         )
       ),
       :index_solr
@@ -99,7 +100,8 @@ Rails.application.config.to_prepare do
           SystemContainerIndexer,
           EmbargoIndexer,
           OAIIndexer,
-          StorageIndexer
+          StorageIndexer,
+          FixityIndexer
         )
       ),
       :test_solr

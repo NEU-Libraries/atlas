@@ -102,6 +102,8 @@ RSpec.describe Ability do
     # Operational Solr re-projection is a :system-tier action.
     it { is_expected.to     be_able_to(:reindex,    Resource) }
     it { is_expected.to     be_able_to(:release,    :embargo) }
+    # The fixity checker runs as :system.
+    it { is_expected.to     be_able_to(:record,     :fixity_check) }
     # Person curation (create/edit authority + manage affiliations) is :system + admin.
     it { is_expected.to     be_able_to(:create,     Person) }
     it { is_expected.to     be_able_to(:update,     Person.new) }
@@ -187,6 +189,7 @@ RSpec.describe Ability do
       # Reindex is operational (:system / admin only), not a user action.
       it { is_expected.not_to be_able_to(:reindex,    Resource) }
       it { is_expected.not_to be_able_to(:release,    :embargo) }
+      it { is_expected.not_to be_able_to(:record,     :fixity_check) }
       # Person curation is :system + admin — a standard human cannot.
       it { is_expected.not_to be_able_to(:create,     Person) }
       it { is_expected.not_to be_able_to(:update,     Person.new) }
@@ -268,6 +271,12 @@ RSpec.describe Ability do
 
     it 'grants :read_health on Work, unconditionally' do
       expect(subject).to be_able_to(:read_health, stranger_work)
+    end
+
+    # The tier reads the fixity summary on the health check but records none:
+    # a result is a checker's output, not a person's.
+    it 'does not grant :record on fixity checks' do
+      expect(subject).not_to be_able_to(:record, :fixity_check)
     end
 
     it 'grants none of the other admin-only structural mutations' do
@@ -623,6 +632,7 @@ RSpec.describe Ability do
     it { is_expected.to be_able_to(:reset,      :maintenance) }
     it { is_expected.to be_able_to(:provision,  User) }
     it { is_expected.to be_able_to(:mint_token, User) }
+    it { is_expected.to be_able_to(:record,     :fixity_check) }
 
     it 'bypasses group ACL for resources the admin is not in edit_users/groups of' do
       stranger_work = Work.new(edit_users: ['000000999'], edit_groups: ['somebody:else'])

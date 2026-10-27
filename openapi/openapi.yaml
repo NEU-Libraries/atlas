@@ -1323,6 +1323,7 @@ components:
       - noid
       - grade
       - fixity_checked
+      - fixity
       - findings
       properties:
         noid:
@@ -1337,6 +1338,34 @@ components:
         fixity_checked:
           type: boolean
           description: 'Always false: this endpoint never re-hashes the bytes'
+        fixity:
+          type: object
+          properties:
+            last_checked_at:
+              type: string
+              format: date-time
+              nullable: true
+              description: The oldest latest check among the objects; null while any
+                is unchecked
+            result:
+              type: string
+              enum:
+              - pass
+              - fail
+              nullable: true
+              description: The worst recorded outcome among the objects, or null when
+                none is recorded
+            objects:
+              type: integer
+              description: The OCFL objects the Work reaches
+            never_checked:
+              type: integer
+              description: Objects with no recorded check
+          required:
+          - last_checked_at
+          - result
+          - objects
+          - never_checked
         findings:
           type: array
           items:
@@ -1361,6 +1390,86 @@ components:
                 description: NOID of the object the finding is about
               message:
                 type: string
+    FixityCheck:
+      type: object
+      properties:
+        fixity_check:
+          type: object
+          properties:
+            resource_id:
+              type: string
+              description: NOID of the resource that owns the object
+            object:
+              type: string
+              description: The OCFL inventory id, urn:neu-drs:<noid>
+            checked_at:
+              type: string
+              format: date-time
+              description: When the check ran, to the second
+            version:
+              type: string
+              description: The object version checked, e.g. v3
+            algorithm:
+              type: string
+              enum:
+              - sha512
+              - sha256
+              - sha1
+              - md5
+              - blake2b-512
+              - blake2b-160
+              - blake2b-256
+              - blake2b-384
+              - sha512/256
+            files:
+              type: integer
+              description: Files re-hashed
+            result:
+              type: string
+              enum:
+              - pass
+              - fail
+            findings:
+              type: array
+              items:
+                type: object
+                required:
+                - code
+                properties:
+                  code:
+                    type: string
+                  severity:
+                    type: string
+                  subject:
+                    type: string
+                  message:
+                    type: string
+                  path:
+                    type: string
+            checker:
+              type: string
+              description: The tool that ran the check
+            recorded_by:
+              type: string
+              nullable: true
+              description: NUID of the principal that posted it
+            latest:
+              type: boolean
+              description: Whether this is now the object's latest check
+          required:
+          - resource_id
+          - object
+          - checked_at
+          - version
+          - algorithm
+          - files
+          - result
+          - findings
+          - checker
+          - recorded_by
+          - latest
+      required:
+      - fixity_check
     Pagination:
       type: object
       description: pagy pagination block
@@ -4584,6 +4693,133 @@ paths:
       responses:
         '200':
           description: mets returned
+  "/fixity_checks":
+    post:
+      summary: Record one fixity check result for an OCFL object (system and admin
+        only)
+      tags:
+      - Resources
+      description: |
+        Records that a checker re-hashed one OCFL object: when, which version,
+        with which algorithm, over how many files, the outcome and its
+        findings. Atlas hashes nothing here; the checker did that work.
+
+        The result is appended as one JSON line to the object's
+        `logs/fixity.jsonl`, outside its versioned content, so recording a
+        check never creates a version. That log is the record. The newest
+        check per object is also kept as a derived row, projected onto the
+        owning resource's Solr doc as `fixity_checked_at_dtsi` and
+        `fixity_result_ssi`, and summarized by `GET /works/{id}/health_check`.
+
+        A check older than the object's latest is logged but does not replace
+        it, and `latest` is false. Posting the same check again adds no line
+        and answers 200 instead of 201, so a retry is safe. A `fail` must
+        carry at least one finding.
+
+        The `:system` principal and admins only. Anyone else gets 403. An
+        object no resource holds is a 404; an unknown version, or a resource
+        with no OCFL object, is a 422 that writes nothing.
+      security:
+      - BearerAuth: []
+      parameters:
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          type: string
+      - name: User
+        in: header
+        required: false
+        description: System principal, e.g. "NUID 000000000"
+        schema:
+          type: string
+      responses:
+        '201':
+          description: check recorded
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/FixityCheck"
+        '200':
+          description: the same check posted again; nothing added
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/FixityCheck"
+        '422':
+          description: malformed, or names a version the object does not have; nothing
+            written
+        '404':
+          description: no resource holds the object
+        '403':
+          description: not the system principal or an admin
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - object
+              - checked_at
+              - version
+              - algorithm
+              - files
+              - result
+              - checker
+              properties:
+                object:
+                  type: string
+                  description: The OCFL inventory id, urn:neu-drs:<noid>
+                checked_at:
+                  type: string
+                  format: date-time
+                  description: When the check ran. Kept to the second.
+                version:
+                  type: string
+                  description: The object version checked, e.g. v3
+                algorithm:
+                  type: string
+                  enum:
+                  - sha512
+                  - sha256
+                  - sha1
+                  - md5
+                  - blake2b-512
+                  - blake2b-160
+                  - blake2b-256
+                  - blake2b-384
+                  - sha512/256
+                files:
+                  type: integer
+                  minimum: 0
+                  description: Files re-hashed
+                result:
+                  type: string
+                  enum:
+                  - pass
+                  - fail
+                findings:
+                  type: array
+                  maxItems: 1000
+                  items:
+                    type: object
+                    required:
+                    - code
+                    properties:
+                      code:
+                        type: string
+                      severity:
+                        type: string
+                      subject:
+                        type: string
+                      message:
+                        type: string
+                      path:
+                        type: string
+                checker:
+                  type: string
+                  maxLength: 64
+                  description: The tool that ran the check
   "/health":
     get:
       summary: Report whether Atlas can reach its dependencies
@@ -6435,6 +6671,13 @@ paths:
         The check reads Postgres, Solr and the Work's OCFL objects on disk. It
         never re-hashes the bytes, so `fixity_checked` is always false; fixity
         is the job of `atlas:health:work FIXITY=1` and `bin/ocfl-health`.
+
+        `fixity` summarizes the checks a checker recorded through
+        `POST /fixity_checks` over the objects the Work reaches. A Work is only
+        as verified as its least recently checked object, so `last_checked_at`
+        is the oldest of their latest checks, and null while any object has
+        never been checked. `result` is the worst outcome recorded, or null
+        when none has been.
 
         Admin and devolved-admin tiers only. Anyone else gets 403, including a
         user with edit rights on the Work. Not response-cached.

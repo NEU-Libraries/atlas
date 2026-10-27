@@ -57,18 +57,18 @@ class Ability
 
   private
 
-    # The operator surface for :system: the maintenance window and the latency
-    # figures. Admins reach both through `manage :all`.
+    # The operator surface for :system: the maintenance window, the latency
+    # figures and fixity results. Admins reach all three through `manage :all`.
     def apply_operator_abilities
       can :maintain,     :maintenance
       can :read_metrics, :latency
+      can :record,       :fixity_check
     end
 
     def apply_role_abilities(user)
       case user.role.to_sym
       when :system
-        can :provision,  User
-        can :mint_token, User
+        can %i[provision mint_token], User
         # Reads past the per-resource gate. Declared here rather than in the
         # base rule so it comes LAST and wins; moving it earlier re-gates the
         # backend and breaks showcase publishing and the reindexes.

@@ -50,6 +50,7 @@ any of them without a contract bump:
 | `Exceptions::DarwinCoreError` | 422 | The exception's code | A Darwin Core upload is not well-formed (`malformed_xml`), has the wrong root (`invalid_root`), holds other than one record (`record_count`) or repeats a term (`duplicate_term`) |
 | `Exceptions::DerivativePermissionsError` | 422 | The exception's code | Unknown tier, a tier more visible than its Work, or visibility not narrowing with resolution |
 | `Exceptions::PreviewImageError` | 422 | The exception's code | The preview's size or placeholder is malformed (`invalid_preview_dimension`, `invalid_preview_placeholder`), half a size (`preview_dimensions_incomplete`), or sent without the preview URI (`preview_required`) |
+| `Exceptions::FixityCheckError` | 422 | The exception's code | A field of a fixity check is malformed (`invalid_<field>`), or it names a resource with no OCFL object (`object_missing`) or a version the object lacks (`unknown_version`) |
 | `Exceptions::PermissionsError` | 422 | The exception's code | An ACL write breaking a rights invariant — today, a read audience wider than the structural parent's |
 | `Exceptions::ReadOnlyMode` | 503 | `read_only_mode` | A write reached Atlas during a maintenance window |
 | `ActiveRecord::ConnectionNotEstablished`, `ActiveRecord::ConnectionFailed` | 503 | `backend_unavailable`, `dependency: "database"` | Postgres refused, dropped or timed out a connection |

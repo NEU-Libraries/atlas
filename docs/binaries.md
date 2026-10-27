@@ -314,7 +314,8 @@ cost. So an owner's figure counts every file of every OCFL object it owns:
 - originals, derivatives and captions, **every revision of each**;
 - withdrawn files, because a tombstone keeps the bytes;
 - MODS and METS versions and every envelope version;
-- each version's inventory and sidecar, the head pair and the object marker.
+- each version's inventory and sidecar, the head pair and the object marker;
+- the object's `logs/`, such as its fixity check log ([`fixity.md`](fixity.md)).
 
 A rolled-back revision is counted once, because OCFL stores its bytes once.
 Bytes outside OCFL are not Atlas's to count, so nothing here covers Cerberus's

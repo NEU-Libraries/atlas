@@ -620,6 +620,13 @@ RSpec.describe 'Works', type: :request do
         never re-hashes the bytes, so `fixity_checked` is always false; fixity
         is the job of `atlas:health:work FIXITY=1` and `bin/ocfl-health`.
 
+        `fixity` summarizes the checks a checker recorded through
+        `POST /fixity_checks` over the objects the Work reaches. A Work is only
+        as verified as its least recently checked object, so `last_checked_at`
+        is the oldest of their latest checks, and null while any object has
+        never been checked. `result` is the worst outcome recorded, or null
+        when none has been.
+
         Admin and devolved-admin tiers only. Anyone else gets 403, including a
         user with edit rights on the Work. Not response-cached.
       DESC
@@ -630,6 +637,8 @@ RSpec.describe 'Works', type: :request do
         run_test! do |response|
           body = JSON.parse(response.body)
           expect(body).to include('noid' => id, 'fixity_checked' => false)
+          expect(body['fixity']).to include('last_checked_at' => nil, 'result' => nil,
+                                            'never_checked' => body['fixity']['objects'])
           # A Work with no content file and no depositor is repairable.
           expect(body['grade']).to eq('yellow')
           expect(body['findings'].pluck('code')).to include('no_content', 'no_depositor')

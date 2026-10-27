@@ -190,6 +190,10 @@ Rails.application.routes.draw do
     # stored audit row, dated to the release moment. Safe to repeat.
     post '/embargoes/release', to: 'embargoes#release', as: 'release_embargoes'
 
+    # :system-gated. An external checker posts one result per OCFL object it
+    # re-hashed; Atlas hashes nothing. See docs/fixity.md.
+    post '/fixity_checks', to: 'fixity_checks#create', as: 'fixity_checks'
+
     # Session-scoped audit emit (no resource to hang on): impersonation
     # start/end. Admin-gated. See AtlasRb::AuditEvent.emit.
     post '/audit_events', to: 'audit_events#create', as: 'audit_events'

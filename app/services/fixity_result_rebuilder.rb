@@ -57,8 +57,10 @@ class FixityResultRebuilder < ApplicationService
         row.version == line[:version] && row.checker == line[:checker]
     end
 
+    # The owner's reindex carries the Work rollup; see FixityCheckRecorder.
     def reindex(key)
       resource = Resource.find(key)
-      Atlas.reindex(resource) if resource
+      Atlas.reindex(resource) if resource && StorageFootprintQuery::OWNER_TYPES.exclude?(resource.class.name)
+      StorageFootprintRecorder.note(key)
     end
 end

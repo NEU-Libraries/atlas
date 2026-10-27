@@ -14,6 +14,8 @@ Source files:
 - `app/lib/valkyrie/storage/ocfl.rb` — `append_log`, `read_log`, `object_versions`
 - `app/models/fixity_result.rb`, `app/indexers/fixity_indexer.rb` — the latest
   check per object, and its Solr projection
+- `app/queries/preserved_object_keys_query.rb` — the objects a Work's rollup
+  covers
 - `app/services/fixity_result_rebuilder.rb`, `lib/tasks/fixity.rake` — the rebuild
 
 ## Atlas records checks; it does not run them
@@ -72,19 +74,47 @@ Atlas then re-indexes the owning resource in Solr only, which leaves
 
 ## Querying across the repository
 
-The resource that owns each object carries `fixity_checked_at_dtsi` and
-`fixity_result_ssi` on its Solr doc. Both are absent for an object never
-checked, so:
+**These fields are preservation detail for the staff who look after the
+repository, not for public discovery.** They exist so an admin report can find
+what failed or is overdue. Do not show them in a public catalog, as a facet or
+otherwise.
 
-| Question | Filter |
+Each object's own latest check sits on the Solr doc of the resource that owns
+it, a Work, a FileSet or a Blob, as `fixity_checked_at_dtsi` and
+`fixity_result_ssi`.
+
+**A Work's doc also carries a rollup over every object it owns**, the same
+summary the health check returns. The catalog hides FileSet and Blob docs, and
+Solr cannot take a minimum across them per Work, so the rollup is what lets a
+repository-wide query over Works find them:
+
+| Field | Value |
 |---|---|
-| Last check failed | `fixity_result_ssi:fail` |
-| Not verified in 12 months | `fixity_checked_at_dtsi:[* TO NOW-12MONTHS]` |
-| Never verified | `-fixity_checked_at_dtsi:[* TO *]` |
+| `work_fixity_checked_at_dtsi` | The oldest latest check; absent while any object is unchecked |
+| `work_fixity_result_ssi` | The worst recorded outcome; absent when none is recorded |
+| `work_fixity_objects_isi` | The objects the Work owns |
+| `work_fixity_never_checked_isi` | Those with no recorded check |
 
-The fields sit on the doc of the resource that owns the object: a Work, a
-FileSet or a Blob. A Work's doc carries only its own object's check. To find
-the Works behind failing files, follow each Blob to its Work.
+| Question, over Works | Filter |
+|---|---|
+| Some object's last check failed | `work_fixity_result_ssi:fail` |
+| Not fully verified in 12 months | `work_fixity_checked_at_dtsi:[* TO NOW-12MONTHS] OR work_fixity_never_checked_isi:[1 TO *]` |
+| Never verified at all | `-work_fixity_result_ssi:[* TO *]` |
+
+The rollup covers the Work, its FileSets other than the Derivative one, and
+their Blobs: the set `Work#preserved_resources` names, read in one statement
+because the Work's index runs it.
+
+### When the rollup refreshes
+
+It is recomputed whenever the Work is indexed. Recording a check, and a
+rebuild, re-index the owning Work through the footprint recorder's batched
+owner reindex, so a request touching several of its objects indexes it once.
+A deposit, a replaced file and a purge already re-index the owner the same way,
+so a new file shows as unchecked at once.
+
+An in-progress Work is the exception, as it is for the footprint: its doc waits
+for `POST /works/{id}/complete`, which indexes it.
 
 ## The Work summary
 

@@ -26,14 +26,21 @@ class FixityCheckRecorder < ApplicationService
     appended = @adapter.append_log(key: @check.key, name: LOG_NAME, line: @check.to_log_line) == :appended
     FixityResult.advance!(key: @check.key, checked_at: @check.checked_at, result: @check.result,
                           version: @check.version, checker: @check.checker)
-    # Solr only: a save through the persister would move updated_at, which is
-    # the OAI datestamp, and every sweep would make harvesters re-fetch every
-    # Work.
-    Atlas.reindex(resource)
+    reindex(resource)
     { resource: resource, appended: appended, latest: latest? }
   end
 
   private
+
+    # Solr only: a save through the persister would move updated_at, which is
+    # the OAI datestamp, and every sweep would make harvesters re-fetch every
+    # Work. The owning Work's rollup rides the footprint recorder's batched
+    # owner reindex, so a request touching several of its objects reindexes it
+    # once.
+    def reindex(resource)
+      Atlas.reindex(resource) unless StorageFootprintQuery::OWNER_TYPES.include?(resource.class.name)
+      StorageFootprintRecorder.note(@check.key)
+    end
 
     def check_version!
       versions = @adapter.object_versions(key: @check.key)

@@ -133,6 +133,17 @@ RSpec.describe WorkHealthCheck do
                                     objects: keys.size, never_checked: 0)
     end
 
+    it 'grades red on an object whose latest check failed, and green again once a re-check passes' do
+      blob_key = reload(work).preserved_resources.last.noid
+      checked(blob_key, Time.utc(2026, 10, 1), 'fail')
+
+      expect(report[:grade]).to eq(:red)
+      expect(report[:findings]).to include(include(severity: :fatal, code: :fixity_failed, subject: blob_key))
+
+      checked(blob_key, Time.utc(2026, 10, 2), 'pass')
+      expect(codes).not_to include(:fixity_failed)
+    end
+
     it 'leaves last_checked_at null while any object is unchecked' do
       checked(work.noid, Time.utc(2026, 10, 1), 'pass')
 

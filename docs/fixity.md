@@ -98,5 +98,10 @@ is only as verified as its least recently checked object, so:
 - `never_checked` counts the objects with no check.
 
 `fixity_checked` stays `false`: it says that the request itself re-hashed
-nothing, which is still true. A recorded `fail` does not change the grade.
-See [`work-health.md`](work-health.md).
+nothing, which is still true.
+
+**A recorded `fail` grades the Work red.** Each object whose latest check
+failed adds a fatal `fixity_failed` finding naming that object, because a
+failed check means altered bytes, the same loss a `FIXITY=1` mismatch reports.
+Only the latest check counts, so after a restore, a passing re-check clears the
+finding. See [`work-health.md`](work-health.md).

@@ -96,6 +96,7 @@ vocabulary grows with the checks. These are the Work-level codes:
 | `mods_xml_missing` | fatal | A MODS PUT writes the XML again from a known-good source |
 | `binary_missing` | fatal | Restore the bytes from backup, or re-deposit the file |
 | `fixity_mismatch` | fatal | The same; only with `FIXITY=1` or offline |
+| `fixity_failed` | fatal | The same. The object's latest recorded check failed; a passing re-check clears it ([`fixity.md`](fixity.md)) |
 | `mods_access_copy_missing` | repairable | `atlas:mods:reproject` rebuilds it from the XML |
 | `untitled` | repairable | Edit the MODS |
 | `descriptive_file_set_missing` | repairable | A MODS PUT recreates it |
@@ -125,7 +126,7 @@ come from that matrix.
 |---|---|---|
 | The Work row in Postgres | Nothing answers | Red |
 | MODS XML on disk | Every JSON read still answers from the access copy, so the loss is silent. `/mods.xml` answers 404, and OAI drops the record's MODS | Red |
-| Content bytes on disk, intact | Download answers 404, or serves altered bytes | Red |
+| Content bytes on disk, intact | Download answers 404, or serves altered bytes. A recorded check that failed says the same | Red |
 | A MODS title | Search cannot find it by title; Cerberus shows a blank heading | Yellow |
 | The JSON access copy | `/mods` answers 404 and the Work shows no title. `atlas:mods:reproject` rebuilds it from the XML | Yellow |
 | The descriptive FileSet | Reads still answer. A MODS PUT recreates it before it writes | Yellow |

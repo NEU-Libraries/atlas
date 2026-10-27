@@ -125,9 +125,15 @@ class WorkHealthCheck < ApplicationService
 
     # The objects Postgres names, validated in place. The pool-wide index the
     # offline tool builds reads every object, which a per-Work check cannot pay.
+    #
+    # A recorded failed check is altered bytes, the loss a FIXITY=1 mismatch
+    # finds. Only an object's latest check counts, so a passing re-check clears it.
     def check_disk
       pool = OcflHealth::Pool.new(Valkyrie.config.storage_adapter.storage_roots.values.map(&:base_path))
+      failed = FixityResult.failed_keys(@work.preserved_resources.map(&:noid))
       @work.preserved_resources.each do |resource|
+        version = failed[resource.noid]
+        add(:fatal, :fixity_failed, "the latest recorded check, of #{version}, failed", resource.noid) if version
         path = pool.object_path(resource.noid)
         next add(:repairable, :envelope_missing, 'no OCFL object; rewrite the envelope', resource.noid) if path.nil?
 

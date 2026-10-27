@@ -39,6 +39,11 @@ class FixityResult < ApplicationRecord
       never_checked:   never }
   end
 
+  # The objects whose latest recorded check failed, as key => version checked.
+  def self.failed_keys(keys)
+    where(object_key: keys, result: 'fail').pluck(:object_key, :version).to_h
+  end
+
   # Replaces the row outright, for a rebuild read from the logs.
   def self.set!(key:, checked_at:, result:, version:, checker:)
     now = Time.current

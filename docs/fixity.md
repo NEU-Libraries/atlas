@@ -202,7 +202,7 @@ To enable it in an environment:
 1. Add `fixity_token` to that environment's credentials. The path is inert
    until it is set.
 2. Create the fixture: `bin/rails atlas:fixity:checker_user`. It is idempotent,
-   and `reset:data` runs it.
+   and every reset seeds it.
 3. Give the service the same secret as `FIXITY_TOKEN`, or as a file named by
    `FIXITY_TOKEN_FILE` for a Docker secret.
 

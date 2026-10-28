@@ -10,6 +10,8 @@ module OcflHealth
     class CLI
       USAGE_ERROR = 64
       UNITS = { '' => 1, 'B' => 1, 'KB' => 10**3, 'MB' => 10**6, 'GB' => 10**9, 'TB' => 10**12 }.freeze
+      SECONDS = { '' => 1, 's' => 1, 'h' => 3600, 'd' => 86_400 }.freeze
+      DEFAULT_CYCLE = '90d'
 
       def self.run(argv, env: ENV, out: $stdout, clock: -> { Time.now.utc })
         new(env, out, clock).run(argv)
@@ -20,6 +22,7 @@ module OcflHealth
         @out   = out
         @clock = clock
         @roots = []
+        @cycle = self.class.seconds(DEFAULT_CYCLE)
       end
 
       def run(argv)
@@ -28,7 +31,7 @@ module OcflHealth
         return usage(problem) if problem
 
         summary = FixitySweep.new(pool: Pool.new(roots), client: client, clock: @clock, out: @out,
-                                  limits: { deadline: @deadline, budget: @budget }).call
+                                  limits: { deadline: @deadline, budget: @budget, cycle: @cycle }).call
         summary.stopped_by == :refused ? 1 : 0
       rescue OptionParser::ParseError, ArgumentError => e
         usage(e.message)
@@ -53,16 +56,29 @@ module OcflHealth
         (match[1].to_f * UNITS.fetch(match[2].to_s.upcase)).to_i
       end
 
+      # Days, hours or seconds, such as 90d. No minutes or months, because a
+      # bare "m" could mean either.
+      def self.seconds(value)
+        match = value.to_s.strip.match(/\A(\d+)\s*([dhs]?)\z/i)
+        raise ArgumentError, "not a duration: #{value}" unless match
+
+        match[1].to_i * SECONDS.fetch(match[2].downcase)
+      end
+
       private
 
         def options
           OptionParser.new do |o|
-            o.banner = 'Usage: bin/ocfl-fixity-sweep --until HH:MM --report-to URL [--root PATH]... [--budget 2TB]'
+            o.banner = 'Usage: bin/ocfl-fixity-sweep --until HH:MM --report-to URL [--root PATH]... [--budget 2TB] ' \
+                       '[--cycle 90d]'
             o.on('--root PATH', 'A storage root; repeat for each. Default: OCFL_ROOTS') { |path| @roots << path }
             o.on('--until TIME', 'Stop at this UTC time of day (HH:MM) or ISO 8601 time') do |value|
               @deadline = self.class.deadline(value, @clock.call)
             end
             o.on('--budget SIZE', 'Stop after hashing this much, e.g. 500GB') { |value| @budget = self.class.bytes(value) }
+            o.on('--cycle DURATION', "Re-check an object this long after its last check. Default: #{DEFAULT_CYCLE}") do |value|
+              @cycle = self.class.seconds(value)
+            end
             o.on('--report-to URL', 'Atlas base URL') { |url| @report_to = url }
           end
         end

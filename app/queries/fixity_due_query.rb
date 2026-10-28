@@ -18,8 +18,8 @@ class FixityDueQuery
 
   Row = Struct.new(:key, :bytes, :last_checked_at, keyword_init: true)
 
-  # `before` is the sweep's own start, so an object it has just checked drops
-  # out and the next page needs no cursor.
+  # `before` is the sweep's cutoff, a re-check cycle before its start, so an
+  # object it has just checked drops out and the next page needs no cursor.
   def self.call(limit:, before:)
     sql = ActiveRecord::Base.sanitize_sql([SQL, { before: before, limit: limit.clamp(1, MAX_LIMIT) }])
     ActiveRecord::Base.connection.select_rows(sql).map do |key, bytes, checked_at|

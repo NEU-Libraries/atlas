@@ -13,25 +13,29 @@ module OcflHealth
 
     Summary = Struct.new(:checked, :failed, :skipped, :bytes, :stopped_by, keyword_init: true)
 
-    # `limits` holds :deadline, a Time, and an optional :budget in bytes.
+    # `limits` holds :deadline, a Time; an optional :budget in bytes; and an
+    # optional :cycle, the seconds an object rests after a check before it is
+    # due again.
     def initialize(pool:, client:, limits:, clock: -> { Time.now.utc }, out: $stdout)
       @pool     = pool
       @client   = client
       @deadline = limits.fetch(:deadline)
       @budget   = limits[:budget]
+      @cycle    = limits[:cycle] || 0
       @clock    = clock
       @out      = out
       @summary  = Summary.new(checked: 0, failed: 0, skipped: 0, bytes: 0)
     end
 
-    # Objects posted during the run drop out of the due list, because the list
-    # is asked for checks older than the run's start. An object that could not
-    # be posted stays at the front, so it is remembered and passed over.
+    # The cutoff is a cycle before the run's start, so an object posted during
+    # the run drops out of the due list and the next page needs no cursor. An
+    # object that could not be posted stays at the front, so it is remembered
+    # and passed over.
     def call
-      started = @clock.call
-      passed  = Set.new
+      cutoff = @clock.call - @cycle
+      passed = Set.new
       loop do
-        page = @client.due(before: started, limit: PAGE + passed.size).reject { |entry| passed.include?(entry['key']) }
+        page = @client.due(before: cutoff, limit: PAGE + passed.size).reject { |entry| passed.include?(entry['key']) }
         return finish(:list) if page.empty?
 
         page.each do |entry|

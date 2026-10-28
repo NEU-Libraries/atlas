@@ -5,17 +5,19 @@ require Rails.root.join('lib/ocfl_health/fixity_sweep').to_s
 
 # Stands in for Atlas: hands out the keys not yet recorded, records each post.
 class FixitySweepFakeClient
-  attr_reader :posted, :due_calls
+  attr_reader :posted, :due_calls, :cutoffs
 
   def initialize(keys, status: 201)
     @keys = keys
     @status = status
     @posted = []
     @due_calls = 0
+    @cutoffs = []
   end
 
   def due(before:, limit:)
     @due_calls += 1
+    @cutoffs << before
     recorded = @posted.map { |body| body[:object].split(':').last }
     (@keys - recorded).first(limit).map { |key| { 'key' => key } }
   end
@@ -42,15 +44,16 @@ RSpec.describe OcflHealth::FixitySweep do
 
   after { Atlas.persister.wipe! }
 
-  def sweep(client: self.client, deadline: now + 3600, budget: nil, clock: -> { now })
-    described_class.new(pool: pool, client: client, limits: { deadline: deadline, budget: budget }, clock: clock, out: out).call
+  def sweep(client: self.client, deadline: now + 3600, budget: nil, cycle: nil, clock: -> { now })
+    described_class.new(pool: pool, client: client, limits: { deadline: deadline, budget: budget, cycle: cycle },
+                        clock: clock, out: out).call
   end
 
   it 'checks every due object and posts a pass for each' do
     summary = sweep
 
     expect(summary).to have_attributes(checked: 2, failed: 0, skipped: 0, stopped_by: :list)
-    expect(client.posted.map { |b| b[:object] }).to eq(["urn:neu-drs:#{work.noid}", "urn:neu-drs:#{blob.noid}"])
+    expect(client.posted.pluck(:object)).to eq(["urn:neu-drs:#{work.noid}", "urn:neu-drs:#{blob.noid}"])
     head = JSON.parse(pool.object_path(blob.noid).join('inventory.json').read)['head']
     expect(client.posted.last).to include(result: 'pass', version: head, algorithm: 'sha512',
                                           checked_at: '2026-10-27T02:00:00Z', checker: described_class::CHECKER)
@@ -84,6 +87,20 @@ RSpec.describe OcflHealth::FixitySweep do
     expect(client.posted).to be_empty
   end
 
+  # A cutoff at the run's own start would make every object due again on the
+  # next run, however recently it was checked.
+  it 'asks only for objects last checked a full cycle before the run started' do
+    sweep(cycle: 90 * 86_400)
+
+    expect(client.cutoffs).to all(eq(now - (90 * 86_400)))
+  end
+
+  it 'asks for checks older than its own start when no cycle is given' do
+    sweep
+
+    expect(client.cutoffs).to all(eq(now))
+  end
+
   it 'stops once the byte budget is spent' do
     summary = sweep(budget: 1)
 
@@ -112,9 +129,9 @@ RSpec.describe OcflHealth::FixitySweep do
   end
 
   it 'never writes to storage' do
-    before = Dir.glob(TestStorage.root.join('**', '*').to_s).to_h { |path| [path, File.mtime(path)] }
+    before = Dir.glob(TestStorage.root.join('**', '*').to_s).index_with { |path| File.mtime(path) }
     sweep
-    after = Dir.glob(TestStorage.root.join('**', '*').to_s).to_h { |path| [path, File.mtime(path)] }
+    after = Dir.glob(TestStorage.root.join('**', '*').to_s).index_with { |path| File.mtime(path) }
 
     expect(after).to eq(before)
   end
@@ -132,6 +149,23 @@ RSpec.describe OcflHealth::FixitySweep do
       expect(described_class.bytes('500 GB')).to eq(500 * (10**9))
       expect(described_class.bytes('1024')).to eq(1024)
       expect { described_class.bytes('lots') }.to raise_error(ArgumentError)
+    end
+
+    it 'reads a cycle in days, hours or seconds' do
+      expect(described_class.seconds('90d')).to eq(90 * 86_400)
+      expect(described_class.seconds('36h')).to eq(36 * 3600)
+      expect(described_class.seconds('0')).to eq(0)
+      expect { described_class.seconds('3m') }.to raise_error(ArgumentError)
+    end
+
+    it 'passes a 90-day cycle when none is given' do
+      allow(OcflHealth::FixitySweep).to receive(:new).and_wrap_original do |original, **args|
+        expect(args[:limits][:cycle]).to eq(90 * 86_400)
+        original.call(**args, client: FixitySweepFakeClient.new([]))
+      end
+      env = { 'OCFL_ROOTS' => TestStorage.root.to_s, 'FIXITY_TOKEN' => 'x' }
+
+      expect(described_class.run(%w[--until 07:00 --report-to http://x], env: env, out: out)).to eq(0)
     end
 
     it 'refuses to start without a deadline, a URL or a token' do

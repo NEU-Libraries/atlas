@@ -33,13 +33,6 @@ RSpec.describe 'MODS version history endpoints', type: :request do
   end
   let(:guest_headers) { signed_auth_headers(guest.nuid) }
 
-  # The NOID minter (Noid::Rails::Minter::Db) reads a counter row that the
-  # per-example transaction rolls back, so every example re-mints the same
-  # NOID sequence. OCFL storage is only wiped before(:suite), so
-  # without a per-example sweep a reused NOID's object accumulates versions
-  # across examples and the per-example counts drift. Wipe up front to mirror
-  # the suite-start cleanup at example scope.
-  before { FileUtils.rm_rf(TestStorage.root) }
   after { Atlas.persister.wipe! }
 
   # A second MODS fixture with content distinct from work-mods.xml, so two

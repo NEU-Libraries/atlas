@@ -34,10 +34,6 @@ RSpec.describe 'Binary version history endpoints', type: :request do
   end
   let(:guest_headers) { signed_auth_headers(guest.nuid) }
 
-  # OCFL storage is only wiped before(:suite); the NOID minter
-  # re-mints the same sequence each rolled-back example, so without a per-
-  # example sweep a reused NOID's object accumulates versions across examples.
-  before { FileUtils.rm_rf(TestStorage.root) }
   after { Atlas.persister.wipe! }
 
   # Drive the real HTTP write path so the OCFL version AND the correlated

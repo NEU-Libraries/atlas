@@ -149,11 +149,12 @@ and talks to Atlas over HTTP like any other client.
 
 ### What it does each night
 
-The entrypoint wakes every `FIXITY_INTERVAL` seconds. While the UTC hour is
-inside the window it runs `bin/ocfl-fixity-sweep`, which:
+The entrypoint wakes every `FIXITY_INTERVAL` seconds. On the first wake inside
+the window it runs `bin/ocfl-fixity-sweep`, which:
 
 1. asks [`GET /fixity_checks/due`](../openapi/openapi.yaml) for the objects
-   most in need of a check, passing its own start as `checked_before`;
+   most in need of a check, passing a `checked_before` one re-check cycle
+   before its own start;
 2. re-hashes each one with `OcflHealth::ObjectValidator`, the validator
    `bin/ocfl-health` uses;
 3. posts the result to `POST /fixity_checks`;
@@ -161,9 +162,34 @@ inside the window it runs `bin/ocfl-fixity-sweep`, which:
 
 A result is a **fail** when the validator finds anything fatal: bytes missing,
 altered or unreadable. A repairable finding, a broken rule with nothing lost,
-rides along on a pass. Because each run asks for checks older than its own
-start, an object it records drops out of the list, and a restart or a missed
-night only leaves more due for the next run.
+rides along on a pass. An object the run records is checked after the cutoff,
+so it drops out of the list and the next page needs no cursor.
+
+**One sweep a window.** A sweep that ends by the list, the deadline or the
+budget exits 0, and the entrypoint skips the rest of that window. A sweep that
+Atlas refuses or cannot be reached exits 1, and the next wake retries. The
+entrypoint keeps the date the window opened in `$TMPDIR/fixity-window`; a
+window that crosses midnight belongs to the day it opened. The file is
+container-local, so a restart sweeps again at once. That costs at most one
+extra sweep, and the cycle keeps it from re-hashing what was just checked.
+
+### How often each object is checked
+
+Each object is re-hashed once per `FIXITY_CYCLE`, 90 days by default, as long
+as the nights have room for it. Never-checked objects come first, then the
+oldest checks. A night that cannot finish the due list leaves the rest at the
+front for the next night, so a missed night or a short window delays checks
+without losing any.
+
+A night reads at most the smaller of `FIXITY_BUDGET` and what the checker can
+hash before the window ends. In steady state it reads about the repository's
+size divided by the cycle in days: 10 TB on a 90-day cycle is about 110 GB a
+night. Keep the cycle well under 12 months, because Cerberus's admin report counts a
+Work unchecked for 12 months as overdue, as the filter above does.
+
+A cutoff at the sweep's own start, with no cycle, would make every object due
+again on every run. `--cycle 0` does exactly that, which suits a one-off full
+sweep run by hand and nothing else.
 
 ### Why the due list comes from the storage ledger
 
@@ -181,6 +207,7 @@ missing from it until `rake atlas:storage:rebuild_footprints` runs.
   a root is writable.
 - **Never exit.** Compose and Swarm restart a stopped service, so the loop
   never returns, and a failed sweep is logged and retried on the next wake.
+  A sweep that exits 0 is not retried; the entrypoint waits for the next window.
 - **Priority is set by the entrypoint** (`ionice -c3 nice -n19`), because a
   host-level setting never reaches a process `dockerd` starts.
 - **The window is UTC** and may cross midnight, such as 22 to 4.
@@ -215,11 +242,12 @@ To enable it in an environment:
 | `FIXITY_NUID` | `000000098` | The fixture it pairs with |
 | `FIXITY_WINDOW_START`, `FIXITY_WINDOW_END` | `1`, `7` | The UTC hours to sweep in |
 | `FIXITY_INTERVAL` | `900` | Seconds between wakes |
-| `FIXITY_BUDGET` | none | Stop after hashing this much, such as `500GB` |
+| `FIXITY_BUDGET` | none | Stop a night's sweep after hashing this much, such as `500GB` |
+| `FIXITY_CYCLE` | `90d` | Re-check an object this long after its last check; days (`d`), hours (`h`) or seconds |
 | `OCFL_EXTRA_ROOTS` | none | The same value Atlas has, so every root is checked |
 
-With no budget, the window's end is the only bound. Set one where reads cost
-money, such as on cloud storage.
+With no budget, the cycle and the window's end bound a night's reads. Set a
+budget as well where reads cost money, such as on cloud storage.
 
 ### The service definition
 

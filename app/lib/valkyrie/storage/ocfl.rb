@@ -345,6 +345,14 @@ module Valkyrie
         markers.map { |path| ::File.basename(::File.dirname(path)) }
       end
 
+      # Whether any root holds an object for this key. An object in two roots
+      # still exists, so that answers true rather than raising.
+      def object_exists?(key:)
+        !existing_root_name(key.to_s).nil?
+      rescue AmbiguousObject
+        true
+      end
+
       # The version names an object's head inventory lists, or nil when no root
       # holds the object.
       def object_versions(key:)

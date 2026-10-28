@@ -52,6 +52,11 @@ RSpec.describe Valkyrie::Storage::OCFL, 'object logs' do
       .to raise_error(ArgumentError)
   end
 
+  it 'answers whether any root holds an object' do
+    expect(adapter.object_exists?(key: work.noid)).to be(true)
+    expect(adapter.object_exists?(key: 'nosuchkey')).to be(false)
+  end
+
   it 'lists the versions the head inventory names' do
     expect(adapter.object_versions(key: work.noid)).to include('v1')
   end

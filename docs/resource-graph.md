@@ -147,6 +147,33 @@ for `handle`, the reparenter for `a_member_of`, the association services for
 A Derivative FileSet is the exception: it holds regenerable Delegates, so
 `FileSetCreator` writes it no envelope at all (`Classification.preserved?`).
 
+## A minted NOID never lands on an existing object
+
+Every resource's OCFL object is keyed by its NOID, and the adapter writes a
+version into whatever object already holds that key. So a NOID handed out twice
+appends a new resource's versions to someone else's object: one object then
+holds two unrelated histories, and nothing on disk says where one ends.
+
+The minter keeps its position in Postgres (`minter_states`). That makes it the
+one piece of Postgres a rebuild cannot recover from disk, and anything that
+winds the table back, such as a database wipe or a restore from an older
+backup, makes it reissue NOIDs it has already used.
+
+**So the minter passes over any NOID whose OCFL object already exists.**
+`config/initializers/noid_rails.rb` sets noid-rails' `identifier_in_use` hook to
+`NoidInUse`, which asks the adapter's `object_exists?`, one existence check per
+storage root, and the minter draws again. Both minting call sites,
+`Resource`'s default `alternate_ids` and `Compilation`, go through it; a
+Compilation owns no object, but sharing the check keeps the namespace unique.
+
+- **Each NOID passed over is logged as a warning.** One is a coincidence worth
+  a look; a run of them means the minter state was rewound.
+- **There is no cap.** The hook sees one candidate at a time and cannot tell
+  where a mint begins, and the loop ends as soon as a candidate has no
+  directory on disk.
+- **A reset still purges storage** (see [`availability.md`](availability.md)).
+  The guard is for the cases no reset covers.
+
 ## Page order is a total order
 
 `Work#page_file_sets` sorts by position ascending, unordered (nil) last, with a

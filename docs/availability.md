@@ -7,6 +7,7 @@ Source files:
 
 - `app/models/maintenance_mode.rb` — the flag
 - `app/controllers/maintenance_controller.rb` — the endpoints
+- `app/services/repository_reset.rb` and `lib/tasks/reset.rake` — the reset
 - `app/lib/system_health.rb` and `app/controllers/health_controller.rb` — `GET /health`
 
 The floors that enforce the window live in `ApplicationController#authorize!` —
@@ -157,11 +158,21 @@ If the database is down, the probe cannot ask whether anything is deposited. It
 then treats the repository as empty rather than failing storage on the
 database's behalf.
 
-## `GET /reset`
+## `GET /reset` and `rake reset:clean`
 
 The test and dev bootstrap escape hatch, and the most destructive write Atlas
 has. It wipes every table, empties Solr, purges the OCFL storage roots, clears
 the response cache, and re-seeds the fixture users.
+
+**Both doors run one service, `RepositoryReset`.** The route calls it from a
+request; the rake task calls it in-process, so a reset needs no running Puma.
+`rake reset:data` runs `reset:clean` and then adds a sample Community,
+Collection and Work.
+
+**A reset must never be written a second way.** A wipe that clears Postgres
+and Solr but skips the storage rewinds the minter and leaves every object in
+place, so the reseed's reminted NOIDs stack onto other resources' objects. One
+service is what keeps every door doing all five steps.
 
 ### It runs unauthenticated, on purpose
 
@@ -177,9 +188,10 @@ tripping on an action that never calls `authorize!`.
 
 ### It still refuses during maintenance
 
-Because it skips `authorize!` entirely, the maintenance floor never sees it. So
-it gets an explicit `before_action :refuse_during_maintenance` rather than an
-exemption. The env guard is a separate concern.
+Because the route skips `authorize!` entirely, the maintenance floor never sees
+it, and a rake task never meets the floor at all. So `RepositoryReset#call`
+checks the window itself, before anything is deleted, for every caller. The env
+guard is a separate concern.
 
 ### Why the storage purge is not optional
 
@@ -244,8 +256,11 @@ disabled, so it is order-independent across the tables' foreign keys.
 
 ## The fixture users
 
-`seed_fixture_users!` creates one user per tier the specs and dev need. One is
-worth calling out: `User, Standard` (NUID `000000005`) is the plain Northeastern
+`seed_fixture_users!` creates one user per tier the specs and dev need, plus the
+non-human fixtures: `:system`, `:anonymous` and the `:fixity_checker` the
+rolling checker authenticates as ([`fixity.md`](fixity.md)). Without the last,
+every sweep after a reset would answer 400 until someone recreated it. One
+human fixture is worth calling out: `User, Standard` (NUID `000000005`) is the plain Northeastern
 depositor tier — no Grouper groups, and not an owner of the seed tree. **It
 isolates the standard-versus-staff boundary**, for controls that appear only to a
 non-editor and non-owner of a Work.

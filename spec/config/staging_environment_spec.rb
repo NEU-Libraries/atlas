@@ -37,7 +37,7 @@ RSpec.describe 'the staging environment' do
   # user that verification depends on. Production is never resettable, so this
   # is what would be lost by running staging as production instead.
   it 'is resettable' do
-    expect(MaintenanceController::RESETTABLE_ENVS).to include('staging')
+    expect(RepositoryReset::RESETTABLE_ENVS).to include('staging')
   end
 
   # The code-loading settings are the entire point. With reloading on, Rails'

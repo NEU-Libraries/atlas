@@ -16,7 +16,7 @@ require_relative '../cache_store'
 # exists; see ~/docs/staging-ttfb-parity.md.
 #
 # Running staging as production instead would fix the latency and break the
-# reset: MaintenanceController::RESETTABLE_ENVS admits staging but never
+# reset: RepositoryReset::RESETTABLE_ENVS admits staging but never
 # production, and staging depends on that reset to rebuild its stock fixtures.
 # A real staging environment is what keeps both.
 Rails.application.configure do

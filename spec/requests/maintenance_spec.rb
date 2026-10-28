@@ -72,7 +72,10 @@ RSpec.describe 'Maintenance', type: :request do
       tags 'Maintenance'
       operationId 'maintenance_reset'
       description <<~D
-        Wipes the database and Solr index. Refuses to run in production.
+        Wipes the database, the Solr index, the OCFL storage roots and the
+        response cache, then seeds the fixture users. Refuses to run in
+        production, and during a maintenance window. `rake reset:clean` runs
+        the same wipe without this route.
 
         **Internal endpoint — do not call from clients.** Used by test
         harnesses and developer-environment seeders.

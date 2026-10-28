@@ -2,9 +2,9 @@
 
 require 'rails_helper'
 
-# Safety coverage for MaintenanceController#reset's on-disk storage purge.
-# The rswag doc spec (spec/requests/maintenance_spec.rb) covers the 204
-# contract.
+# Safety coverage for RepositoryReset, which GET /reset and `rake reset:clean`
+# both run. The rswag doc spec (spec/requests/maintenance_spec.rb) covers the
+# route's 204 contract.
 #
 # Why the purge matters: the DB wipe resets the NOID minter, so the next seed
 # re-mints the same NOID sequence; without purging storage those reminted ids
@@ -17,8 +17,8 @@ require 'rails_helper'
 # throwaway root, the DB wipe is exercised on its own inside the example's
 # fixture transaction (so it rolls back), and the action-level env guard is
 # asserted via the HTTP path where it raises before touching anything.
-RSpec.describe MaintenanceController do
-  subject(:controller) { described_class.new }
+RSpec.describe RepositoryReset do
+  subject(:reset) { described_class.new }
 
   describe '#purge_storage! (the rm_rf)' do
     # Point the storage adapter at a throwaway root so the destructive purge
@@ -38,7 +38,7 @@ RSpec.describe MaintenanceController do
       object.mkpath
       object.join('descMetadata.xml').write('<mods/>')
 
-      controller.send(:purge_storage!)
+      reset.send(:purge_storage!)
 
       expect(@root.children).to be_empty
       expect(@root).to be_directory
@@ -48,7 +48,7 @@ RSpec.describe MaintenanceController do
       @root.join('precious').write('keep me')
       allow(Rails).to receive(:env).and_return(ActiveSupport::StringInquirer.new('production'))
 
-      expect { controller.send(:purge_storage!) }.to raise_error(/resettable env/)
+      expect { reset.send(:purge_storage!) }.to raise_error(/resettable env/)
       expect(@root.children).not_to be_empty
     end
 
@@ -63,7 +63,7 @@ RSpec.describe MaintenanceController do
       allow(Valkyrie.config).to receive(:storage_adapter).and_return(fake_adapter)
       expect(absent).not_to exist
 
-      expect { controller.send(:purge_storage!) }.not_to raise_error
+      expect { reset.send(:purge_storage!) }.not_to raise_error
 
       expect(absent).to be_directory
       expect(absent.children).to be_empty
@@ -77,13 +77,13 @@ RSpec.describe MaintenanceController do
       User.create!(email: 'wipe-me@example.invalid', password: SecureRandom.hex(16),
                    nuid: '000009001', name: 'User, Doomed', role: :guest)
 
-      expect { controller.send(:delete_all_rows!) }.to change(User, :count).to(0)
+      expect { reset.send(:delete_all_rows!) }.to change(User, :count).to(0)
     end
 
     # Regression: reset must not depend on database_cleaner, which is absent
     # from the staging bundle. The replacement has to keep its two guarantees.
     it "keeps Rails' bookkeeping tables so the app stays migrated" do
-      controller.send(:delete_all_rows!)
+      reset.send(:delete_all_rows!)
 
       described_class::RETAINED_TABLES.each do |table|
         count = ActiveRecord::Base.connection.select_value("SELECT COUNT(*) FROM #{table}")
@@ -96,7 +96,7 @@ RSpec.describe MaintenanceController do
                    nuid: '000009004', name: 'User, Spared', role: :guest)
       allow(Rails).to receive(:env).and_return(ActiveSupport::StringInquirer.new('production'))
 
-      expect { controller.send(:delete_all_rows!) }.to raise_error(/resettable env/)
+      expect { reset.send(:delete_all_rows!) }.to raise_error(/resettable env/)
       expect(User.count).to be_positive
     end
 
@@ -105,30 +105,30 @@ RSpec.describe MaintenanceController do
                           nuid: '000009002', name: 'User, Parent', role: :guest)
       IdempotencyKey.create!(user: user, key: 'k-1', resource_type: 'Work', resource_noid: 'neu:abc123')
 
-      expect { controller.send(:delete_all_rows!) }.not_to raise_error
+      expect { reset.send(:delete_all_rows!) }.not_to raise_error
       expect(IdempotencyKey.count).to eq(0)
     end
   end
 
   describe '#guard_storage_root! (refuses a dangerous target)' do
     it 'rejects a dangerously shallow root (e.g. a single-segment path)' do
-      expect { controller.send(:guard_storage_root!, Pathname.new('/tmp')) }
+      expect { reset.send(:guard_storage_root!, Pathname.new('/tmp')) }
         .to raise_error(/unsafe storage root/)
     end
 
     it 'rejects a missing / non-directory root' do
-      expect { controller.send(:guard_storage_root!, Pathname.new('/no/such/dir/anywhere')) }
+      expect { reset.send(:guard_storage_root!, Pathname.new('/no/such/dir/anywhere')) }
         .to raise_error(/missing or not a directory/)
     end
   end
 
   # The destructive steps are stubbed so the action runs without wiping the
   # suite's own rows, Solr core or storage; only the cache clear is real.
-  describe '#reset (the response cache)', :response_cache do
+  describe '#call (the response cache)', :response_cache do
     before do
-      allow(controller).to receive(:delete_all_rows!)
-      allow(controller).to receive(:purge_storage!)
-      allow(controller).to receive(:seed_fixture_users!)
+      allow(reset).to receive(:delete_all_rows!)
+      allow(reset).to receive(:purge_storage!)
+      allow(reset).to receive(:seed_fixture_users!)
       allow(RSolr).to receive(:connect).and_return(instance_double(RSolr::Client, delete_by_query: nil, commit: nil))
     end
 
@@ -136,9 +136,78 @@ RSpec.describe MaintenanceController do
       ResponseCache.write(scope: 'resources.permissions', noid: 'reused', status: 200, body: '{}',
                           content_type: 'application/json')
 
-      controller.reset
+      reset.call
 
       expect(ResponseCache.read(scope: 'resources.permissions', noid: 'reused')).to be_nil
+    end
+  end
+
+  # The destructive steps are stubbed; the order and the guards are what is
+  # under test.
+  describe '#call' do
+    let(:solr) { instance_double(RSolr::Client, delete_by_query: nil, commit: nil) }
+
+    before do
+      %i[delete_all_rows! purge_storage! seed_fixture_users!].each { |step| allow(reset).to receive(step) }
+      allow(RSolr).to receive(:connect).and_return(solr)
+    end
+
+    it 'wipes the rows, the index and the storage before it re-seeds' do
+      reset.call
+
+      expect(reset).to have_received(:delete_all_rows!).ordered
+      expect(solr).to have_received(:delete_by_query).with('*:*').ordered
+      expect(reset).to have_received(:purge_storage!).ordered
+      expect(reset).to have_received(:seed_fixture_users!).ordered
+    end
+
+    it 'wipes the core the persister writes to, not a fixed URL' do
+      reset.call
+      expect(RSolr).to have_received(:connect).with(url: SolrCore.url)
+    end
+
+    # The route used to hold this check; the rake task must meet it too.
+    it 'refuses during a maintenance window, before touching anything' do
+      allow(MaintenanceMode).to receive(:read_only?).and_return(true)
+
+      expect { reset.call }.to raise_error(Exceptions::ReadOnlyMode)
+      expect(reset).not_to have_received(:delete_all_rows!)
+    end
+
+    it 'refuses outside a resettable env, before touching anything' do
+      allow(Rails).to receive(:env).and_return(ActiveSupport::StringInquirer.new('production'))
+
+      expect { reset.call }.to raise_error(/must not be production/)
+      expect(reset).not_to have_received(:delete_all_rows!)
+    end
+  end
+
+  # The real wipe, as the suite's GET /reset example already runs it: the table
+  # deletes roll back with the example, and the storage purge reaches only this
+  # worker's own root.
+  describe '#call against the real stores' do
+    after { Atlas.persister.wipe! }
+
+    it 'leaves no OCFL object behind for a reminted NOID to land on' do
+      work = WorkCreator.call(parent_id: CollectionCreator.call(parent_id: CommunityCreator.call.noid).noid)
+      object = Valkyrie.config.storage_adapter.storage_roots.values.first.object_root_for(work.noid)
+      expect(object).to exist
+
+      described_class.call
+
+      expect(object).not_to exist
+      expect(Valkyrie.config.storage_adapter.object_versions(key: work.noid)).to be_nil
+    end
+  end
+
+  # Inside the example's fixture transaction, so the seeded rows roll back.
+  describe '#seed_fixture_users!' do
+    it 'seeds the fixity checker, so a sweep still authenticates after a reset' do
+      reset.send(:delete_all_rows!)
+      reset.send(:seed_fixture_users!)
+
+      expect(User.find_by(nuid: User::FIXITY_CHECKER_NUID)&.role).to eq('fixity_checker')
+      expect(User.where(role: %i[system anonymous fixity_checker]).count).to eq(3)
     end
   end
 end

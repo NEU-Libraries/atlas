@@ -1,12 +1,10 @@
 # frozen_string_literal: true
 
 module MODSDecoration
+  # Composed from the in-memory access-copy parts -- no XML re-parse on the read
+  # path. Same algorithm Document#plain_title runs.
   def plain_title
-    return '' if mods&.main_title.nil?
-
-    # Compose from the in-memory access-copy parts via the shared gem helper --
-    # no XML re-parse on the read path. Same algorithm Document#plain_title runs.
-    NEU::MODS.compose_title(mods.main_title.attributes.symbolize_keys)
+    Metadata::MODS.compose_plain_title(mods&.main_title&.attributes)
   end
 
   def plain_description

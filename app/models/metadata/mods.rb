@@ -64,5 +64,20 @@ module Metadata
     NEU::MODS::FIELDS.each do |field, cardinality|
       attr_json field, TYPES.fetch(field, :string), array: cardinality == :many
     end
+
+    # The one composition of a plain title from main_title's parts, shared by
+    # MODSDecoration#plain_title and plain_titles_for so the two cannot drift.
+    def self.compose_plain_title(parts)
+      parts.nil? ? '' : NEU::MODS.compose_title(parts.symbolize_keys)
+    end
+
+    # NOID => plain title in one query that reads main_title alone, so a
+    # breadcrumb trail does not deserialize each ancestor's whole record.
+    # A NOID with no row is absent; callers default it to ''.
+    def self.plain_titles_for(noids)
+      where(valkyrie_id: noids)
+        .pluck(:valkyrie_id, Arel.sql("json_attributes -> 'main_title'"))
+        .to_h { |noid, parts| [noid, compose_plain_title(parts)] }
+    end
   end
 end

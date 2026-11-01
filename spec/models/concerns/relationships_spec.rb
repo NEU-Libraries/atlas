@@ -83,6 +83,36 @@ RSpec.describe Relationships do
 
       expect { collection.ancestors }.to raise_error(Exceptions::AncestorError)
     end
+
+    it 'reads every ancestor title in one MODS query, however deep the chain' do
+      nested = CollectionCreator.call(parent_id: CollectionCreator.call(parent_id: collection.noid).noid)
+      deep   = WorkCreator.call(parent_id: nested.noid)
+      mods_reads = ->(resource) { count_queries { resource.ancestors }.grep(/metadata_mods/).size }
+
+      expect(mods_reads.call(deep)).to eq(mods_reads.call(work))
+    end
+
+    it 'composes each title exactly as the ancestor\'s own plain_title does' do
+      doc  = NEU::MODS::Document.parse(collection.mods_xml)
+      info = doc.primary_title_info
+      { 'nonSort' => 'The', 'subTitle' => 'a subtitle', 'partNumber' => 'Part 2' }.each do |name, text|
+        node = Nokogiri::XML::Node.new(name, info.document)
+        node.namespace = info.namespace
+        node.content = text
+        info.add_child(node)
+      end
+      collection.mods_xml = doc.to_xml
+
+      title = work.ancestors.last[:title]
+      expect(title).to eq(Collection.find(collection.noid).decorate.plain_title)
+      expect(title).to include('The', 'a subtitle', 'Part 2')
+    end
+
+    it 'gives an ancestor with no MODS row an empty title' do
+      Metadata::MODS.where(valkyrie_id: collection.noid).delete_all
+
+      expect(work.ancestors.last[:title]).to eq('')
+    end
   end
 
   describe '#descendant_collections' do

@@ -66,6 +66,11 @@ against Cerberus's public keyset in `credentials.cerberus_signing_keys`, keyed
 nothing to rotate as a secret. An empty keyset — the default until Cerberus is
 provisioned — leaves the whole path inert.
 
+`CerberusSigningKeys` parses the keyset and keeps the parsed keys while the
+credential's value is unchanged, because parsing a PEM costs more than the
+signature check it feeds. It compares the value on every request, so a
+rotated keyset takes effect on the next request without a restart.
+
 Verification is strict:
 
 - **ES256 is pinned.** Never HS256, which would open the

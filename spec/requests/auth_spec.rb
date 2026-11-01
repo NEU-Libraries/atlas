@@ -252,6 +252,20 @@ RSpec.describe 'Auth matrix', type: :request, default_auth: false do
       expect(response).to have_http_status(:unauthorized)
     end
 
+    it 'honours a rotated keyset on the next request' do
+      get '/user', headers: bearer(assertion)
+      expect(response).to have_http_status(:ok)
+
+      rotated = OpenSSL::PKey::EC.generate('prime256v1')
+      allow(Rails.application.credentials).to receive(:cerberus_signing_keys)
+        .and_return({ 'rotated' => rotated.public_to_pem })
+
+      get '/user', headers: bearer(assertion(key: rotated, header_kid: 'rotated'))
+      expect(response).to have_http_status(:ok)
+      get '/user', headers: bearer(assertion)
+      expect(response).to have_http_status(:unauthorized)
+    end
+
     it 'rejects a signature from a different key (401)' do
       other = OpenSSL::PKey::EC.generate('prime256v1')
       get '/communities', headers: bearer(assertion(key: other))

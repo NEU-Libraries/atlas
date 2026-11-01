@@ -348,7 +348,7 @@ class ApplicationController < ActionController::API
     # algorithm-confusion attack -- and never `none`. iss/aud/exp are all
     # enforced; the 30s leeway absorbs clock skew.
     def verify_cerberus_assertion
-      keys = cerberus_signing_keys
+      keys = CerberusSigningKeys.current
       return nil if keys.empty?
 
       header = JWT.decode(@token, nil, false).last
@@ -363,20 +363,6 @@ class ApplicationController < ActionController::API
       payload
     rescue JWT::DecodeError, OpenSSL::PKey::PKeyError
       nil
-    end
-
-    # Public keys only, so nothing here is a secret to rotate. An empty keyset
-    # -- the default until Cerberus is provisioned -- leaves the assertion path
-    # inert.
-    def cerberus_signing_keys
-      raw = Rails.application.credentials.cerberus_signing_keys
-      return {} if raw.blank?
-
-      raw.to_h.each_with_object({}) do |(kid, pem), acc|
-        acc[kid.to_s] = OpenSSL::PKey.read(pem)
-      end
-    rescue OpenSSL::PKey::PKeyError
-      {}
     end
 
     def valid_system_token?

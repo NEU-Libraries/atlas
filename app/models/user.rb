@@ -73,21 +73,19 @@ class User < ApplicationRecord
   end
 
   # Every account sharing a NUID (a person's staff/student logins), oldest
-  # first — the stable order the resolve fallback and the accounts listing use.
+  # first — the stable order the accounts listing uses.
   def self.accounts_for(nuid)
     where(nuid: nuid).order(:created_at, :id)
   end
 
-  # Resolve one account for a NUID. A NUID can hold several accounts (email is
-  # the account key); this picks which one is acting. An explicit email selects
-  # it exactly ((nuid, email) must both match). Otherwise the person's preferred
-  # account wins, falling back to the oldest — so a single-account NUID resolves
-  # exactly as a bare find_by(nuid:) always did. Nil when the NUID has no
-  # account (or the named email isn't one of its accounts).
+  # Picks the acting account for a NUID. An explicit email (the account key)
+  # selects exactly; otherwise the preferred account wins, then the oldest, in
+  # one ordered query because this runs on every signed request. The partial
+  # unique index keeps at most one preferred row. Nil when nothing matches.
   def self.resolve_account(nuid:, email: nil)
     return find_by(nuid: nuid, email: email) if email.present?
 
-    accounts_for(nuid).find_by(preferred: true) || accounts_for(nuid).first
+    where(nuid: nuid).order(preferred: :desc, created_at: :asc, id: :asc).first
   end
 
   # Make this the preferred (default) account for its NUID, demoting the others.

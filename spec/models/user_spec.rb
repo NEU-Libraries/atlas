@@ -128,6 +128,12 @@ RSpec.describe User do
       it 'falls back to the oldest account when none is preferred' do
         expect(described_class.resolve_account(nuid: nuid)).to eq(staff)
       end
+
+      it 'answers in one query whether or not an account is preferred' do
+        expect(count_queries { described_class.resolve_account(nuid: nuid) }.size).to eq(1)
+        student.make_preferred!
+        expect(count_queries { described_class.resolve_account(nuid: nuid) }.size).to eq(1)
+      end
     end
 
     describe '#make_preferred!' do

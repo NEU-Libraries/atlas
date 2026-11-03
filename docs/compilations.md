@@ -102,6 +102,23 @@ gets an empty relation**, rather than everything.
 order the `OR` is assembled. Postgres array overlap (`&&`) is the membership
 test.
 
+## The listing is ordered by title
+
+`GET /compilations` returns Sets ordered by title, A to Z, ignoring case, in all
+three modes. Both the owner scope and `granted_to` use the `title_ordered`
+scope, so the order is set **before** `pagy` paginates and still holds when `q`
+filters the titles. Sorting each page in the client would leave the order across
+pages wrong.
+
+The order is `LOWER(title)`, then `id`:
+
+- **`LOWER`** makes the order case-insensitive whatever the database collation
+  is. A `C` collation would otherwise sort every capital before every lower-case
+  letter.
+- **`id`** breaks ties. Titles are not unique, and without a tie-breaker two
+  Sets with the same title can swap places between requests, so a page can
+  repeat or skip a Set.
+
 ## Membership mutations: six thin actions, one shape
 
 ```

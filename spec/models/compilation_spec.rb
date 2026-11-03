@@ -111,9 +111,18 @@ RSpec.describe Compilation do
       expect(described_class.granted_to(nuid: nil, groups: [], include_read: true)).to be_empty
     end
 
-    it 'orders newest-first' do
-      scope = described_class.granted_to(nuid: '000000002', groups: [group], include_read: true)
-      expect(scope.to_a).to eq(scope.order(created_at: :desc).to_a)
+    it 'orders by title, ignoring case' do
+      by_edit_user.update!(title: 'Zoology')
+      by_edit_group.update!(title: 'apple')
+      by_read_group.update!(title: 'Mango')
+      titles = described_class.granted_to(nuid: '000000002', groups: [group], include_read: true).map(&:title)
+      expect(titles).to eq(%w[apple Mango Zoology])
+    end
+
+    it 'breaks a title tie by id' do
+      by_edit_group.update!(title: 'edit_user')
+      ids = described_class.granted_to(nuid: '000000002', groups: [group], include_read: false).map(&:id)
+      expect(ids).to eq([by_edit_user.id, by_edit_group.id].sort)
     end
   end
 

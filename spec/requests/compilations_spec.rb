@@ -48,7 +48,8 @@ RSpec.describe 'Compilations', type: :request, default_auth: false do
       tags 'Compilations'
       produces 'application/json'
       description <<~D
-        Paginated, newest-first listing of Compilations. Three modes:
+        Paginated listing of Compilations, ordered by title A to Z, ignoring
+        case. Three modes:
 
         - default (no `scope`): the caller's own Sets. `?owner=<nuid>` lists
           another user's Sets — admin-only. There is no public browse endpoint.
@@ -60,8 +61,8 @@ RSpec.describe 'Compilations', type: :request, default_auth: false do
         Grant-scoped modes are keyed on the acting principal — `owner` is
         ignored — and group membership is resolved server-side. Pass
         `?q=<term>` to narrow by case-insensitive title substring in any mode;
-        the filter applies before pagination, so the pagination block
-        describes the filtered result.
+        the filter and the order apply before pagination, so the pagination
+        block describes the filtered, ordered result.
       D
       security [{ BearerAuth: [], NuidHeader: [] }]
       parameter name: :Authorization, in: :header, type: :string, required: false
@@ -112,6 +113,22 @@ RSpec.describe 'Compilations', type: :request, default_auth: false do
           titles = payload['compilations'].pluck('title')
           expect(titles).to contain_exactly('Course readings', 'Discourse and power')
           expect(payload.dig('pagination', 'count')).to eq(2)
+        end
+      end
+
+      response '200', 'title-ordered listing, ignoring case', document: false do
+        schema '$ref' => '#/components/schemas/CompilationsIndex'
+        let(:Authorization) { auth_header }
+        let(:User)  { "NUID #{curator.nuid}" }
+        let(:owner) { nil }
+        let(:scope) { nil }
+        let(:q)     { nil }
+        before do
+          %w[delta Charlie bravo Alpha].each { |title| create_compilation(curator, title: title) }
+        end
+        run_test! do |response|
+          titles = JSON.parse(response.body)['compilations'].pluck('title')
+          expect(titles).to eq(%w[Alpha bravo Charlie delta])
         end
       end
 
@@ -228,6 +245,25 @@ RSpec.describe 'Compilations', type: :request, default_auth: false do
         let(:body) { { description: 'no title supplied' } }
         run_test!
       end
+    end
+  end
+
+  # The order has to hold across pages, not just within one, which is why
+  # Atlas orders before pagy rather than Cerberus sorting each page.
+  describe 'GET /compilations pagination' do
+    let(:User) { "NUID #{curator.nuid}" }
+
+    # Eleven Sets, one past the page size of ten, created in reverse title
+    # order with alternating case.
+    let(:titles) { %w[Alpha bravo Charlie delta Echo foxtrot Golf hotel India juliet Kilo] }
+
+    it 'keeps the title order from one page to the next' do
+      titles.reverse_each { |title| create_compilation(curator, title: title) }
+      pages = [1, 2].map do |page|
+        get '/compilations', params: { page: page }, headers: { 'Authorization' => auth_header }
+        response.parsed_body['compilations'].pluck('title')
+      end
+      expect(pages).to eq([titles.first(10), ['Kilo']])
     end
   end
 

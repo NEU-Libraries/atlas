@@ -27,6 +27,11 @@ class Compilation < ApplicationRecord
   # Ordered by noid so ListSets and a setSpec list agree across pages.
   scope :published, -> { where(published: true).order(:noid).limit(PUBLISHED_LIMIT) }
 
+  # LOWER because a C collation would sort every capital before every
+  # lower-case letter. Titles are not unique, so id breaks ties; without it two
+  # same-titled Sets can swap between requests and a page repeats or skips one.
+  scope :title_ordered, -> { order(Arel.sql('LOWER(title)'), :id) }
+
   # Sets where the principal is a GRANTEE but not the owner. The axes mirror
   # Ability#group_acl_grants? and #compilation_readable?, in SQL rather than
   # Ruby; group membership is resolved server-side, so no group list crosses
@@ -40,7 +45,7 @@ class Compilation < ApplicationRecord
 
     scope = where("(#{grants.map(&:first).join(' OR ')})", *grants.map(&:last))
     scope = scope.where.not(depositor: nuid) if nuid.present?
-    scope.order(created_at: :desc)
+    scope.title_ordered
   end
 
   # One [clause, bind] pair per applicable axis. Overlap (&&) is the test.

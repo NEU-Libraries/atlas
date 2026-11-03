@@ -3640,7 +3640,8 @@ paths:
       tags:
       - Compilations
       description: |
-        Paginated, newest-first listing of Compilations. Three modes:
+        Paginated listing of Compilations, ordered by title A to Z, ignoring
+        case. Three modes:
 
         - default (no `scope`): the caller's own Sets. `?owner=<nuid>` lists
           another user's Sets — admin-only. There is no public browse endpoint.
@@ -3652,8 +3653,8 @@ paths:
         Grant-scoped modes are keyed on the acting principal — `owner` is
         ignored — and group membership is resolved server-side. Pass
         `?q=<term>` to narrow by case-insensitive title substring in any mode;
-        the filter applies before pagination, so the pagination block
-        describes the filtered result.
+        the filter and the order apply before pagination, so the pagination
+        block describes the filtered, ordered result.
       security:
       - BearerAuth: []
         NuidHeader: []

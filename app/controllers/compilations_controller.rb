@@ -14,7 +14,7 @@ class CompilationsController < ApplicationController
   # backward compatible.
   GRANT_SCOPES = %w[editable shared].freeze
 
-  # GET /compilations — newest-first listing. Three modes:
+  # GET /compilations — listing ordered by title, ignoring case. Three modes:
   #   - default (no `?scope=`): the caller's own Sets. `?owner=<nuid>` lists
   #     another user's (admin-only); there is no public browse endpoint.
   #   - `?scope=editable`: Sets the caller may edit but does not own
@@ -144,7 +144,7 @@ class CompilationsController < ApplicationController
         raise CanCan::AccessDenied.new('cross-owner listing is admin-only', :read, Compilation)
       end
 
-      Compilation.where(depositor: owner).order(created_at: :desc)
+      Compilation.where(depositor: owner).title_ordered
     end
 
     # Grant-scoped listing keyed on the acting principal (never a `?owner=`);

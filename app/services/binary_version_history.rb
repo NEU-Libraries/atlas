@@ -30,6 +30,12 @@ class BinaryVersionHistory
     blobs.to_h { |blob| [blob.noid, descriptors(blob: blob, file_events: events.fetch(blob.noid, []))] }
   end
 
+  # Ordinal and date only, for a reader the Work's read gate admits. The empty
+  # ledger skips the attribution read that these two fields never use.
+  def self.revision_dates(blob:)
+    descriptors(blob: blob, file_events: []).map { |descriptor| descriptor.slice(:revision, :created) }
+  end
+
   # file_events nil means look the ledger up; a batch caller preloads it.
   def initialize(blob, file_events: nil)
     @blob = blob

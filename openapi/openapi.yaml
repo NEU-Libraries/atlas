@@ -1317,6 +1317,33 @@ components:
           required:
           - noid
           description: Delegate asset — external pointer (e.g. IIIF URL)
+    WorkFileRevisions:
+      type: array
+      items:
+        type: object
+        properties:
+          blob_id:
+            type: string
+            description: NOID of the Blob
+          revisions:
+            type: array
+            items:
+              type: object
+              properties:
+                revision:
+                  type: integer
+                  description: Contiguous 1-based content-revision ordinal; revision
+                    1 is the seed
+                created:
+                  type: string
+                  format: date-time
+                  description: OCFL version creation timestamp (ISO-8601)
+              required:
+              - revision
+              - created
+        required:
+        - blob_id
+        - revisions
     WorkHealthCheck:
       type: object
       required:
@@ -6738,6 +6765,38 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/WithdrawnAssets"
+        '404':
+          description: work not found
+  "/works/{id}/file_revisions":
+    parameters:
+    - name: id
+      in: path
+      description: NOID of the Work
+      required: true
+      schema:
+        type: string
+    get:
+      summary: List the revision dates of a work's replaced files
+      tags:
+      - Works
+      description: |
+        One entry per Blob on the Work that has been replaced at least once,
+        each listing its content revisions newest first. A revision carries
+        only its `revision` ordinal and its `created` date. The Blobs are the
+        ones `/works/{id}/assets` lists, so withdrawn files stay out.
+
+        Gated by `:read` on the Work, so anyone who can read the Work can read
+        this. The attributed history, with actor, digest, size and filename,
+        is `GET /files/{id}/versions` and stays admin-gated.
+
+        A Work whose files were never replaced answers `[]`.
+      responses:
+        '200':
+          description: no file was ever replaced
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/WorkFileRevisions"
         '404':
           description: work not found
   "/works/{id}/health_check":

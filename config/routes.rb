@@ -232,6 +232,10 @@ Rails.application.routes.draw do
     # Downloads
     get '/works/:id/assets', to: 'works#assets', as: 'work_assets'
 
+    # Revision ordinal and date for each replaced file /assets lists, under the
+    # Work's read gate. The attributed history is /files/:id/versions.
+    get '/works/:id/file_revisions', to: 'works#file_revisions', as: 'work_file_revisions'
+
     # The tombstoned FileSets' assets, which /assets drops. Operator tier only,
     # so Restore has an id to act on after the withdrawing page is gone.
     get '/works/:id/withdrawn_assets', to: 'works#withdrawn_assets', as: 'work_withdrawn_assets'

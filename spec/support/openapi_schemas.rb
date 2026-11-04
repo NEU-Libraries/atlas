@@ -30,6 +30,7 @@ module OpenapiSchemas
       WorkAssets:         work_assets,
       WorkFileSets:       work_file_sets,
       WithdrawnAssets:    work_withdrawn_assets,
+      WorkFileRevisions:  work_file_revisions,
       WorkHealthCheck:    work_health_check,
       FixityCheck:        fixity_check,
       FixityDue:          fixity_due,
@@ -1111,6 +1112,34 @@ module OpenapiSchemas
         }
       },
       required:   %w[blob_id versions]
+    }
+  end
+
+  # GET /works/:id/file_revisions — the general-audience sibling of
+  # BlobVersions: one entry per replaced Blob on the Work, each revision
+  # reduced to its ordinal and date. Strict validation keeps the attribution
+  # fields from creeping in under the Work's read gate.
+  def work_file_revisions
+    {
+      type:  :array,
+      items: {
+        type:       :object,
+        properties: {
+          blob_id:   { type: :string, description: 'NOID of the Blob' },
+          revisions: {
+            type:  :array,
+            items: {
+              type:       :object,
+              properties: {
+                revision: { type: :integer, description: 'Contiguous 1-based content-revision ordinal; revision 1 is the seed' },
+                created:  { type: :string, format: 'date-time', description: 'OCFL version creation timestamp (ISO-8601)' }
+              },
+              required:   %w[revision created]
+            }
+          }
+        },
+        required:   %w[blob_id revisions]
+      }
     }
   end
 

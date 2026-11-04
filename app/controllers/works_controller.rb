@@ -120,6 +120,21 @@ class WorksController < ApplicationController
     end
   end
 
+  # Revision dates without attribution, under the Work's own read gate; the
+  # attributed history stays behind :read_versions. Uncached: a replace saves
+  # the Blob, not the Work, so nothing would evict a body keyed on the Work.
+  def file_revisions
+    @work = Work.find(params.expect(:id))
+    authorize! :read, @work || Work
+    return head(:not_found) if @work.nil?
+
+    @revisions = downloadable_assets.filter_map do |asset, _file_set|
+      next unless asset.is_a?(Blob) && asset.file_identifiers.size > 1
+
+      [asset, BinaryVersionHistory.revision_dates(blob: asset)]
+    end
+  end
+
   # The only read that names a withdrawn FileSet, so Restore stays reachable
   # after the page that tombstoned it is gone. A separate route rather than a
   # flag on #assets keeps withdrawn files off the public download listing and
@@ -263,16 +278,20 @@ class WorksController < ApplicationController
     # from one batched read for every FileSet at once: a many-page Work would
     # otherwise cost a query per page.
     def render_assets(withdrawn: false)
+      @assets = downloadable_assets(withdrawn: withdrawn)
+      render(withdrawn ? :withdrawn_assets : :assets)
+    end
+
+    def downloadable_assets(withdrawn: false)
       file_sets = @work.children.reject { |fs| Classification.metadata?(fs.type) }
                        .select { |fs| fs.tombstoned.present? == withdrawn }
       members   = Atlas.query.custom_queries.find_many_ordered_members(resources: file_sets)
 
-      @assets = file_sets.flat_map do |fs|
+      file_sets.flat_map do |fs|
         members.fetch(fs.id.to_s, [])
                .select { |m| Role.downloadable?(m.use) }
                .map    { |m| [m, fs] }
       end
-      render(withdrawn ? :withdrawn_assets : :assets)
     end
 
     def render_file_sets

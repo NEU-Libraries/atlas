@@ -601,6 +601,112 @@ RSpec.describe 'Works', type: :request do
     end
   end
 
+  path '/works/{id}/file_revisions' do
+    parameter name: :id, in: :path, type: :string, description: 'NOID of the Work'
+
+    get "List the revision dates of a work's replaced files" do
+      tags 'Works'
+      produces 'application/json'
+      description <<~DESC
+        One entry per Blob on the Work that has been replaced at least once,
+        each listing its content revisions newest first. A revision carries
+        only its `revision` ordinal and its `created` date. The Blobs are the
+        ones `/works/{id}/assets` lists, so withdrawn files stay out.
+
+        Gated by `:read` on the Work, so anyone who can read the Work can read
+        this. The attributed history, with actor, digest, size and filename,
+        is `GET /files/{id}/versions` and stays admin-gated.
+
+        A Work whose files were never replaced answers `[]`.
+      DESC
+
+      response '200', 'replaced files listed' do
+        let(:work) { WorkCreator.call(parent_id: collection.noid) }
+        let(:id)   { work.noid }
+        let(:blob) do
+          BlobCreator.call(work_id: work.noid, original_filename: 'a.bin',
+                           path:    Rails.root.join('spec/fixtures/files/example.bin').to_s)
+        end
+        before do
+          BlobRevisionAppender.call(blob:        blob,
+                                    source_path: Rails.root.join('spec/fixtures/files/example.png').to_s,
+                                    name:        'a.png')
+          BlobCreator.call(work_id: work.noid, original_filename: 'never-replaced.bin',
+                           path:    Rails.root.join('spec/fixtures/files/example.bin').to_s)
+        end
+        schema '$ref' => '#/components/schemas/WorkFileRevisions'
+        run_test! do |response|
+          entries = response.parsed_body
+          expect(entries.pluck('blob_id')).to eq([blob.noid])
+          expect(entries.first['revisions'].pluck('revision')).to eq([2, 1])
+        end
+      end
+
+      response '200', 'no file was ever replaced' do
+        let(:work) { WorkCreator.call(parent_id: collection.noid) }
+        let(:id)   { work.noid }
+        before do
+          BlobCreator.call(work_id: work.noid, original_filename: 'a.bin',
+                           path:    Rails.root.join('spec/fixtures/files/example.bin').to_s)
+        end
+        schema '$ref' => '#/components/schemas/WorkFileRevisions'
+        run_test! do |response|
+          expect(response.parsed_body).to eq([])
+        end
+      end
+
+      response '404', 'work not found' do
+        let(:id) { 'nonexistent' }
+        run_test!
+      end
+    end
+  end
+
+  # Plain (non-rswag) coverage of who may read the revision dates, and of the
+  # files the listing leaves out.
+  describe 'GET /works/:id/file_revisions gate and scope', type: :request, default_auth: false do
+    let(:community)  { public_community! }
+    let(:fixture)    { Rails.root.join('spec/fixtures/files/example.bin').to_s }
+    let(:replacement) { Rails.root.join('spec/fixtures/files/example.png').to_s }
+
+    def work_with_replaced_file(visibility)
+      work = WorkCreator.call(parent_id: collection.noid)
+      work.public_send(visibility)
+      work = Atlas.persister.save(resource: work)
+      blob = BlobCreator.call(work_id: work.noid, original_filename: 'a.bin', path: fixture)
+      BlobRevisionAppender.call(blob: blob, source_path: replacement, name: 'a.png')
+      [work, blob]
+    end
+
+    it 'serves a guest the dates of a public Work, and nothing that attributes them' do
+      work, blob = work_with_replaced_file(:publicize)
+
+      get "/works/#{work.noid}/file_revisions"
+      expect(response).to have_http_status(:ok)
+      entry = response.parsed_body.sole
+      expect(entry['blob_id']).to eq(blob.noid)
+      expect(entry['revisions']).to all(match('revision' => Integer, 'created' => String))
+      expect(entry['revisions'].map(&:keys)).to all(contain_exactly('revision', 'created'))
+    end
+
+    it 'refuses a guest a private Work with 403' do
+      work, = work_with_replaced_file(:privatize)
+
+      get "/works/#{work.noid}/file_revisions"
+      expect(response).to have_http_status(:forbidden)
+    end
+
+    it 'leaves out a replaced file whose FileSet is withdrawn' do
+      work, blob = work_with_replaced_file(:publicize)
+      file_set = blob.parent
+      file_set.tombstone(by: DefaultAuthHeaders::ADMIN_NUID)
+      Atlas.persister.save(resource: file_set)
+
+      get "/works/#{work.noid}/file_revisions"
+      expect(response.parsed_body).to eq([])
+    end
+  end
+
   path '/works/{id}/health_check' do
     parameter name: :id, in: :path, type: :string, description: 'NOID of the Work'
 

@@ -235,6 +235,25 @@ nothing is dropped for authorization in the batch case.
 
 An id resolving to a resource that is not a Blob is dropped too.
 
+## Revision dates are readable under the Work's read gate
+
+`GET /works/:id/file_revisions` lists, for each replaced Blob on a Work, each
+content revision's ordinal and date. It answers to `:read` on the Work, so a
+public Work's replacement history reaches public traffic.
+
+What keeps it safe at that gate is what it leaves out. The actor NUIDs, the
+digest, the size, the filename and the raw OCFL label all stay behind
+`:read_versions`. `BinaryVersionHistory.revision_dates` passes an empty ledger,
+so the read never touches the audit trail.
+
+- **Only a Blob with more than one entry in `file_identifiers` appears.** That
+  count needs no OCFL read, so a Work whose files were never replaced costs no
+  inventory reads. This read sits on the work page's critical path.
+- **The Blobs are those that `/works/:id/assets` lists.** Withdrawn FileSets
+  and metadata FileSets stay out, and a Delegate has no revisions.
+- **It is not response-cached.** A replace saves the Blob and not the Work, so
+  no write would evict a body keyed on the Work's NOID.
+
 ## Byte-serving
 
 `send_file` hands a `Pathname` to `Rack::Files`, which chunks at the Rack layer,

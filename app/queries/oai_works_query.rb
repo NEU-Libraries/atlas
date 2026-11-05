@@ -8,7 +8,7 @@
 # authenticated principal.
 #
 # Two deliberate non-filters: `incomplete` Works stay IN (the flag flags
-# without hiding), and so do tombstoned ones, so a withdrawal is reportable.
+# without hiding), and so do tombstoned ones, so a tombstone is reportable.
 #
 # `-in_progress_bsi:true` is negative on purpose -- a document indexed before
 # the field existed carries no value, and `in_progress_bsi:false` drops it

@@ -238,7 +238,7 @@ describe ResourcesController, type: :controller do
       expect(response.parsed_body['code']).to eq('top_level_community')
     end
 
-    it 'withdraws a nested Community' do
+    it 'tombstones a nested Community' do
       nested = CommunityCreator.call(parent_id: community.noid)
       post :tombstone, params: { id: nested.noid }, as: :json
 
@@ -291,7 +291,7 @@ describe ResourcesController, type: :controller do
       expect(reloaded.tombstoned_by).to be_nil
     end
 
-    it 'refuses while the parent is tombstoned, and leaves the resource withdrawn' do
+    it 'refuses while the parent is tombstoned, and leaves the resource tombstoned' do
       parent = Collection.find(tombstoned.parent.noid)
       parent.tombstone(by: '000000002')
       Atlas.persister.save(resource: parent)

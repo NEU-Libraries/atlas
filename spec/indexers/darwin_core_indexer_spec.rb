@@ -69,12 +69,12 @@ RSpec.describe DarwinCoreIndexer do
   # A record write saves no Work, so the concern re-projects the Solr doc
   # itself; without that, the fields would wait for the next unrelated save.
   describe 'the Solr doc' do
-    it 'gains the fields on a write and loses them on a withdrawal' do
+    it 'gains the fields on a write and loses them on a tombstone' do
       work.darwin_core_xml = dwc_xml
       expect(solr_doc(work)).to include('dwc_country_ssim'     => ['United States'],
                                         'dwc_coordinates_llsi' => '35.45038,-118.9092')
 
-      Work.find(work.id).withdraw_darwin_core!(by: '000000004')
+      Work.find(work.id).tombstone_darwin_core!(by: '000000004')
       expect(solr_doc(work).keys & fields).to be_empty
     end
   end

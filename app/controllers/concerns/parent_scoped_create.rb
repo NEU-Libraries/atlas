@@ -9,7 +9,7 @@
 # even read — inheriting that container's ACL.
 #
 # A tombstoned container refuses the create, as it refuses a restore or a
-# re-parent into it: a new child would be discoverable inside a withdrawn
+# re-parent into it: a new child would be discoverable inside a tombstoned
 # container. See docs/resource-graph.md.
 module ParentScopedCreate
   extend ActiveSupport::Concern

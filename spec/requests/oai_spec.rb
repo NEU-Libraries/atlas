@@ -238,9 +238,9 @@ RSpec.describe 'OAI-PMH provider' do
       expect(doc.xpath('//record/metadata/dc/title').map(&:text)).to include('A harvestable thing')
     end
 
-    # v1 never emitted this: a withdrawn item stayed in Digital Commonwealth
+    # v1 never emitted this: a tombstoned item stayed in Digital Commonwealth
     # for good.
-    it 'reports a withdrawn Work as deleted, with no metadata' do
+    it 'reports a tombstoned Work as deleted, with no metadata' do
       deleted = public_work!(at: feb)
       deleted.tombstone(by: '000000004')
       Atlas.persister.save(resource: deleted)
@@ -472,7 +472,7 @@ RSpec.describe 'OAI-PMH provider' do
                         identifier: OAI.identifier_for(private_work.noid))).to eq('idDoesNotExist')
     end
 
-    it 'noMetadataFormats for a withdrawn record' do
+    it 'noMetadataFormats for a tombstoned record' do
       deleted = public_work!(at: feb)
       deleted.tombstone(by: '000000004')
       Atlas.persister.save(resource: deleted)

@@ -11,7 +11,7 @@ Source files:
 - `app/indexers/name_variant_indexer.rb` — diminutive and formal forms of personal names
 - `app/indexers/person_indexer.rb` — a Person as a first-class result
 - `app/indexers/thumbnail_indexer.rb` — thumbnail-family Delegate URIs
-- `app/indexers/tombstone_indexer.rb` — the withdrawal flag, date and actor
+- `app/indexers/tombstone_indexer.rb` — the tombstone flag, date and actor
 - `app/indexers/darwin_core_indexer.rb` — four terms of a Work's Darwin Core record
 - `app/controllers/index_documents_controller.rb` and `app/queries/index_document_query.rb`
   — `GET /resources/:id/solr`
@@ -423,7 +423,7 @@ is what keeps the fast path fast.
 | Field | What it is for |
 |---|---|
 | `tombstoned_bsi` | The flag every discovery query excludes on. See [`search.md`](search.md). |
-| `tombstoned_at_dtsi` | The withdrawal time as a Solr date, for range filters and sorts. |
+| `tombstoned_at_dtsi` | The tombstone time as a Solr date, for range filters and sorts. |
 | `tombstoned_by_ssi` | The NUID of the person who withdrew the resource. |
 
 **Filter and sort on `tombstoned_at_dtsi`, not `tombstoned_at_ssi`.** Valkyrie
@@ -431,12 +431,12 @@ writes every attribute as strings as well, so the document also carries
 `tombstoned_at_ssi` with a `datetime-` prefix. A range over that string is
 lexical. It holds only while the format and the UTC offset never change.
 
-**`updated_at_dtsi` is not the withdrawal time.** Any later save moves it, a
+**`updated_at_dtsi` is not the tombstone time.** Any later save moves it, a
 reindex included.
 
 **A tombstoned container keeps `ancestor_ids_ssim`.** `AncestryIndexer` does not
-read the flag. Works never carry the field, withdrawn or live, for the reason
-given in `app/indexers/ancestry_indexer.rb`. To list everything withdrawn beneath
+read the flag. Works never carry the field, tombstoned or live, for the reason
+given in `app/indexers/ancestry_indexer.rb`. To list everything tombstoned beneath
 a container, make two reads, as `DescendantWorksQuery` does:
 
 1. `{!terms f=ancestor_ids_ssim}<noid>` finds every container beneath it, at any
@@ -444,7 +444,7 @@ a container, make two reads, as `DescendantWorksQuery` does:
 2. `a_member_of_ssi` over the container itself and those results finds the
    Works. The values are `id-<uuid>`.
 
-Records withdrawn before the field was stored need a reindex to gain it.
+Records tombstoned before the field was stored need a reindex to gain it.
 
 ## `DarwinCoreIndexer`
 
@@ -462,7 +462,7 @@ The record itself is described in [`metadata-records.md`](metadata-records.md).
 Every suffix is an existing dynamic field, so the indexer needed no schema
 change. Only the `qf` entry is in the `blacklight-solr` image.
 
-**A record write re-projects the Work.** Writing or withdrawing a record saves
+**A record write re-projects the Work.** Writing or tombstoning a record saves
 no Work, so `MetadataRecords::DarwinCore` saves the Work through the index
 adapter itself. Without that, the fields would wait for the next unrelated save.
 

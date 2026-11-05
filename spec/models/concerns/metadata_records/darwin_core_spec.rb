@@ -62,11 +62,11 @@ RSpec.describe MetadataRecords::DarwinCore do
     expect(Metadata::DarwinCore.where(valkyrie_id: work.noid)).to be_empty
   end
 
-  describe '#withdraw_darwin_core!' do
+  describe '#tombstone_darwin_core!' do
     before { work.darwin_core_xml = dwc_xml }
 
     it 'tombstones the FileSet, drops the access copy and keeps the bytes' do
-      work.withdraw_darwin_core!(by: '000000004')
+      work.tombstone_darwin_core!(by: '000000004')
 
       reloaded = Work.find(work.id)
       expect(reloaded.darwin_core?).to be(false)
@@ -75,14 +75,14 @@ RSpec.describe MetadataRecords::DarwinCore do
       expect(reloaded.darwin_core_blob.file.read).to eq(dwc_xml)
     end
 
-    it 'does nothing when there is nothing to withdraw' do
-      work.withdraw_darwin_core!(by: '000000004')
-      expect { Work.find(work.id).withdraw_darwin_core!(by: '000000004') }
+    it 'does nothing when there is nothing to tombstone' do
+      work.tombstone_darwin_core!(by: '000000004')
+      expect { Work.find(work.id).tombstone_darwin_core!(by: '000000004') }
         .not_to(change { darwin_core_file_set(work).tombstoned_at })
     end
 
     it 'is undone by the next write, on the same Blob' do
-      work.withdraw_darwin_core!(by: '000000004')
+      work.tombstone_darwin_core!(by: '000000004')
       Work.find(work.id).darwin_core_xml = dwc_xml
 
       reloaded = Work.find(work.id)

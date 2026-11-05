@@ -6,7 +6,7 @@ module MetadataRecords
   # in metadata_darwin_core. See docs/metadata-records.md.
   #
   # Unlike MODS, a Work need not hold one. The FileSet is created on the first
-  # write, and a withdrawal tombstones it, so the bytes and their history stay.
+  # write, and a DELETE tombstones it, so the bytes and their history stay.
   module DarwinCore
     extend ActiveSupport::Concern
     include FileHelper
@@ -14,7 +14,7 @@ module MetadataRecords
     SOURCE   = 'dwc'
     FILENAME = 'dwc.xml'
 
-    # The access copy, and the one thing the read path consults: a withdrawal
+    # The access copy, and the one thing the read path consults: a tombstone
     # deletes the row, so its presence is what "the Work holds a record" means.
     def darwin_core
       return @darwin_core if defined?(@darwin_core)
@@ -35,7 +35,7 @@ module MetadataRecords
     end
 
     # Checks the document before writing anything, so a refused upload leaves
-    # no OCFL version behind. A PUT onto a withdrawn record restores it.
+    # no OCFL version behind. A PUT onto a tombstoned record restores it.
     def darwin_core_xml=(raw_xml)
       terms = DarwinCoreDocument.parse(raw_xml).to_h
       blob  = darwin_core_blob || create_darwin_core_blob
@@ -61,8 +61,8 @@ module MetadataRecords
 
     # The JSON row goes and the FileSet is tombstoned; the OCFL object stays.
     # A rebuild from disk reads the tombstone off the envelope and skips the
-    # record, so the two sides agree. A no-op when there is nothing to withdraw.
-    def withdraw_darwin_core!(by:)
+    # record, so the two sides agree. A no-op when there is nothing to tombstone.
+    def tombstone_darwin_core!(by:)
       return unless darwin_core?
 
       if (file_set = darwin_core_file_set)

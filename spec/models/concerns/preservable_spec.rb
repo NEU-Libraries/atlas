@@ -79,12 +79,12 @@ RSpec.describe Preservable do
         expect(work.graph_payload[:tombstone]).to be_nil
       end
 
-      it 'records when, by whom and why it was withdrawn' do
+      it 'records when, by whom and why it was tombstoned' do
         work.tombstone(by: '000000004', reason: Resource::TOMBSTONE_REASONS.first)
-        withdrawn = Atlas.persister.save(resource: work)
+        tombstoned = Atlas.persister.save(resource: work)
 
-        expect(withdrawn.graph_payload[:tombstone]).to eq(
-          at:     withdrawn.tombstoned_at.iso8601,
+        expect(tombstoned.graph_payload[:tombstone]).to eq(
+          at:     tombstoned.tombstoned_at.iso8601,
           by:     '000000004',
           reason: Resource::TOMBSTONE_REASONS.first
         )

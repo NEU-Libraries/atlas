@@ -92,7 +92,7 @@ attributes land on different sides of it.
 | `handle` | **Yes**, schema v5 | An external Handle service holds the other half of the binding and the outside world cites it. **Nothing in the repository can re-derive it**, so a rebuild that lost it would break every outside citation. |
 | `full_text` | No | A regenerable search aid, re-sent on any re-ingest. Postgres only, so `FullTextIndexer` re-reads and re-projects it on every reindex. |
 | `derivative_permissions` | No | Derived and advisory — Cerberus and the IIIF layer enforce it. |
-| `tombstoned_at`, `tombstoned_by`, `tombstone_reason` | **Yes**, schema v7, as one `tombstone` block | A withdrawal is a person's decision that nothing else records. A rebuild that lost it would bring withdrawn objects back into view, and drop the removal note the withdrawal policy requires. |
+| `tombstoned_at`, `tombstoned_by`, `tombstone_reason` | **Yes**, schema v7, as one `tombstone` block | A tombstone is a person's decision that nothing else records. A rebuild that lost it would bring tombstoned objects back into view, and drop the removal note the library's withdrawal policy requires. |
 
 `full_text` and `derivative_permissions` are omitted for the same reason the
 fungible thumbnail derivatives are: **they can be made again.**
@@ -120,7 +120,7 @@ Postgres or Solr.**
 | v3 → v4 | Added `associations` — the typed Work-to-Work edges, keyed by predicate |
 | v4 → v5 | Added `handle` |
 | v5 → v6 | Added a Blob's `language`, `track_label` and `revision_filenames` |
-| v6 → v7 | Added `tombstone` — `at`, `by` and `reason` while withdrawn, null while live |
+| v6 → v7 | Added `tombstone` — `at`, `by` and `reason` while tombstoned, null while live |
 
 **`position` is additive even though the Work-level METS structMap is the
 canonical record of order.** It keeps each FileSet's own OCFL object
@@ -241,7 +241,7 @@ shape. A delegate holds `:read_versions` only on the Modsable types and `Blob`,
 so for any other type, or an unresolvable id, a delegate gets 403 where an
 admin gets the empty array.
 
-### A withdrawal carries a policy removal note
+### A tombstone carries a policy removal note
 
 `POST /resources/:id/tombstone` takes an optional `reason`, and the reads return
 it as `tombstone_reason`. The library's withdrawal policy requires a note that
@@ -267,7 +267,7 @@ Atlas is the authority.
 - **It is not indexed.** Discovery excludes tombstoned resources, so nothing
   searches on the note.
 
-### A top-level Community cannot be withdrawn, purged or moved
+### A top-level Community cannot be tombstoned, purged or moved
 
 Two Communities have no parent: the repository root and the People Community.
 Every ancestor chain, trail and gated query hangs from one of them, so
@@ -279,20 +279,20 @@ and the system principal alike; it is an operator task.
   `has_children`, so the answer cannot reveal whether a root is empty.
 - **It lives in the controllers only.** `Resource#tombstone`, `Reparenter`,
   `ResourcePurger` and the persister do not check it, so an operator at the
-  Rails console can still withdraw, purge or move a root.
-- **It does not stop a client-side cascade.** A client that withdraws a subtree
-  deepest first reaches the root last, after everything under it is withdrawn.
+  Rails console can still tombstone, purge or move a root.
+- **It does not stop a client-side cascade.** A client that tombstones a subtree
+  deepest first reaches the root last, after everything under it is tombstoned.
   Such a client must refuse a root before it starts.
-- **Restore is not refused,** so a root withdrawn at the console can still come
+- **Restore is not refused,** so a root tombstoned at the console can still come
   back through the API.
 
-### Withdrawal runs leaf-first, restore runs root-first
+### Tombstoning runs leaf-first, restore runs root-first
 
 Neither action cascades, so each refuses the order that would leave a readable
-resource inside a withdrawn one. `tombstone` answers `422 has_live_children`
+resource inside a tombstoned one. `tombstone` answers `422 has_live_children`
 while the resource still holds a live Community, Collection or Work. `restore`
 answers `422 tombstoned_parent` while the resource's parent is still
-tombstoned; otherwise a Work would come back discoverable inside a withdrawn
+tombstoned; otherwise a Work would come back discoverable inside a tombstoned
 Collection. A top-level Community has no parent, so its restore is never
 refused. The reparenter refuses the matching move into a tombstoned parent with
 the same code.
@@ -310,7 +310,7 @@ a tombstoned Work.
 
 `tombstone` and `restore` answer for a FileSet as well as the three typed
 containers; every other generic write still 404s on one. **This is how a
-caption, or any other attached file, is withdrawn reversibly.** `DELETE
+caption, or any other attached file, is tombstoned reversibly.** `DELETE
 /files/:id` is the only other removal, and it takes every retained revision
 with it.
 
@@ -320,10 +320,10 @@ with it.
   `/file_sets` skip it, and `PageAssetsQuery` skips a tombstoned nested FileSet,
   so no consumer needs its own filter. The Blob's own reads still answer, as a
   tombstoned Work's Blobs do.
-- **`GET /works/:id/withdrawn_assets` lists what the others drop.** Without it,
-  Restore needs an id that nothing can look up once the withdrawing page is
-  gone. It is a separate route, not a flag on `/assets`, so withdrawn files sit
-  behind the tier that withdraws them rather than one parameter away from every
+- **`GET /works/:id/tombstoned_assets` lists what the others drop.** Without it,
+  Restore needs an id that nothing can look up once the tombstoning page is
+  gone. It is a separate route, not a flag on `/assets`, so tombstoned files sit
+  behind the tier that tombstones them rather than one parameter away from every
   public download listing and its response cache. It covers the Work's direct
   FileSets only, as `/assets` does: a tombstoned nested FileSet is not listed.
 - **Every asset entry carries `file_set`**, the NOID of the FileSet it is listed
@@ -362,13 +362,13 @@ Postgres.**
 
 It resolves NOIDs only; raw Valkyrie ids are not a supported input.
 
-### `children` answers for a withdrawn container
+### `children` answers for a tombstoned container
 
 `GET /collections/:id/children` and `/communities/:id/children` answer 410 for
 a tombstoned container. That is the right answer for a consumer, and it leaves
-an operator unable to walk a withdrawn subtree. **`GET /resources/:id/children`
+an operator unable to walk a tombstoned subtree. **`GET /resources/:id/children`
 is the operator's read,** in `ResourceChildrenController`. It lists every child
-of a Community or Collection, live or withdrawn, whatever the container's own
+of a Community or Collection, live or tombstoned, whatever the container's own
 state.
 
 - **It is a separate route, not a role check on the typed one.** The typed route
@@ -434,4 +434,4 @@ top_level_community`, because it would demote the root. Moving any Community to
 the top would mint a second root that nothing protects. `Reparenter` itself
 still accepts a nil destination for a Community, so a console operator can make
 that move; the refusal lives in `Reparentable`, for the reason given under
-[the top-level Community](#a-top-level-community-cannot-be-withdrawn-purged-or-moved).
+[the top-level Community](#a-top-level-community-cannot-be-tombstoned-purged-or-moved).

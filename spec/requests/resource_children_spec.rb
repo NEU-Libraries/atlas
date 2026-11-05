@@ -12,14 +12,14 @@ RSpec.describe 'Resource children', type: :request do
 
   after { Atlas.persister.wipe! }
 
-  def withdraw(resource)
+  def tombstone!(resource)
     resource = Resource.find(resource.noid)
     resource.tombstone(by: '000000004')
     Atlas.persister.save(resource: resource)
   end
 
   path '/resources/{id}/children' do
-    get "A container's children, withdrawn ones included" do
+    get "A container's children, tombstoned ones included" do
       tags 'Resources'
       produces 'application/json'
       description <<~DESC
@@ -44,9 +44,9 @@ RSpec.describe 'Resource children', type: :request do
         let(:id) { collection.noid }
 
         before do
-          withdraw(work)
-          withdraw(nested)
-          withdraw(collection)
+          tombstone!(work)
+          tombstone!(nested)
+          tombstone!(collection)
         end
 
         run_test! do |response|
@@ -64,7 +64,7 @@ RSpec.describe 'Resource children', type: :request do
 
         before do
           nested
-          withdraw(work)
+          tombstone!(work)
         end
 
         run_test! do |response|
@@ -89,8 +89,8 @@ RSpec.describe 'Resource children', type: :request do
 
   # The typed route keeps its answer for consumers; only this one opens.
   it 'leaves /collections/:id/children answering 410 for a tombstoned collection' do
-    withdraw(work)
-    withdraw(collection)
+    tombstone!(work)
+    tombstone!(collection)
 
     get "/collections/#{collection.noid}/children"
 

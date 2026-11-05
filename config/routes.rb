@@ -124,7 +124,7 @@ Rails.application.routes.draw do
     get '/resources/:id/history', to: 'audit_events#index', as: 'resource_history'
     get '/resources/:id/solr', to: 'index_documents#show', as: 'resource_index_document'
     get '/resources/:id/search_explanation', to: 'search_explanations#show', as: 'resource_search_explanation'
-    # A container's children, withdrawn ones included, past the 410 the typed
+    # A container's children, tombstoned ones included, past the 410 the typed
     # /children routes answer. The operator tier that may read /solr.
     get '/resources/:id/children', to: 'resource_children#show', as: 'resource_children'
     # Every Work beneath a container, at any depth — the structural counterpart
@@ -211,7 +211,7 @@ Rails.application.routes.draw do
     # Work has been completed.
     get '/works/:id/mets', to: 'works#mets', as: 'work_mets'
     # The Work's Darwin Core record, if it holds one. JSON by default, .xml for
-    # the stored document. The write, withdrawal and history sit under
+    # the stored document. The write, tombstone and history sit under
     # /resources/:id/dwc beside their MODS counterparts.
     get '/works/:id/dwc', to: 'darwin_core#show', as: 'work_dwc'
 
@@ -237,8 +237,8 @@ Rails.application.routes.draw do
     get '/works/:id/file_revisions', to: 'works#file_revisions', as: 'work_file_revisions'
 
     # The tombstoned FileSets' assets, which /assets drops. Operator tier only,
-    # so Restore has an id to act on after the withdrawing page is gone.
-    get '/works/:id/withdrawn_assets', to: 'works#withdrawn_assets', as: 'work_withdrawn_assets'
+    # so Restore has an id to act on after the tombstoning page is gone.
+    get '/works/:id/tombstoned_assets', to: 'works#tombstoned_assets', as: 'work_tombstoned_assets'
 
     # The green/yellow/red health grade (docs/work-health.md). Operator tier only.
     get '/works/:id/health_check', to: 'works#health_check', as: 'work_health_check'

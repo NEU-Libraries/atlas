@@ -249,7 +249,7 @@ so the read never touches the audit trail.
 - **Only a Blob with more than one entry in `file_identifiers` appears.** That
   count needs no OCFL read, so a Work whose files were never replaced costs no
   inventory reads. This read sits on the work page's critical path.
-- **The Blobs are those that `/works/:id/assets` lists.** Withdrawn FileSets
+- **The Blobs are those that `/works/:id/assets` lists.** Tombstoned FileSets
   and metadata FileSets stay out, and a Delegate has no revisions.
 - **It is not response-cached.** A replace saves the Blob and not the Work, so
   no write would evict a body keyed on the Work's NOID.
@@ -331,7 +331,7 @@ The measure is **impact on disk**, because the question behind it is storage
 cost. So an owner's figure counts every file of every OCFL object it owns:
 
 - originals, derivatives and captions, **every revision of each**;
-- withdrawn files, because a tombstone keeps the bytes;
+- tombstoned files, because a tombstone keeps the bytes;
 - MODS and METS versions and every envelope version;
 - each version's inventory and sidecar, the head pair and the object marker;
 - the object's `logs/`, such as its fixity check log ([`fixity.md`](fixity.md)).

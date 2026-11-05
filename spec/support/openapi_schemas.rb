@@ -29,7 +29,7 @@ module OpenapiSchemas
       BlobsIndex:         blobs_index,
       WorkAssets:         work_assets,
       WorkFileSets:       work_file_sets,
-      WithdrawnAssets:    work_withdrawn_assets,
+      TombstonedAssets:   work_tombstoned_assets,
       WorkFileRevisions:  work_file_revisions,
       WorkHealthCheck:    work_health_check,
       FixityCheck:        fixity_check,
@@ -180,7 +180,7 @@ module OpenapiSchemas
       type:             { type: :string, nullable: true },
       position:         { type: :integer, nullable: true,
                        description: '1-based page order within the parent Work; null = unordered' },
-      tombstoned:       { type: :boolean, description: 'Withdrawn-from-discovery flag' },
+      tombstoned:       { type: :boolean, description: 'Tombstoned (retracted from discovery) flag' },
       tombstoned_at:    { type: :string, nullable: true, description: 'ISO-8601 timestamp set when tombstoned' },
       tombstoned_by:    { type: :string, nullable: true, description: 'NUID of the user who tombstoned the resource' },
       tombstone_reason: tombstone_reason_prop
@@ -205,7 +205,7 @@ module OpenapiSchemas
                 items: { type: :object, additionalProperties: true,
                  description: 'Valkyrie::ID-shaped reference to the underlying bytes' }
               },
-              tombstoned:        { type: :boolean, description: 'Withdrawn-from-discovery flag' },
+              tombstoned:        { type: :boolean, description: 'Tombstoned (retracted from discovery) flag' },
               tombstoned_at:     { type: :string, nullable: true, description: 'ISO-8601 timestamp set when tombstoned' },
               tombstoned_by:     { type: :string, nullable: true, description: 'NUID of the user who tombstoned the resource' }
             })
@@ -223,7 +223,7 @@ module OpenapiSchemas
               mime_type:         { type: :string, nullable: true },
               original_filename: { type: :string, nullable: true },
               label:             { type: :string, nullable: true },
-              tombstoned:        { type: :boolean, description: 'Withdrawn-from-discovery flag' },
+              tombstoned:        { type: :boolean, description: 'Tombstoned (retracted from discovery) flag' },
               tombstoned_at:     { type: :string, nullable: true, description: 'ISO-8601 timestamp set when tombstoned' },
               tombstoned_by:     { type: :string, nullable: true, description: 'NUID of the user who tombstoned the resource' }
             })
@@ -329,10 +329,10 @@ module OpenapiSchemas
     }
   end
 
-  # GET /works/:id/withdrawn_assets — the WorkAssets item for a tombstoned
+  # GET /works/:id/tombstoned_assets — the WorkAssets item for a tombstoned
   # FileSet, plus the FileSet's tombstone stamp. Mirrors
-  # app/views/works/withdrawn_assets.json.jbuilder.
-  def work_withdrawn_assets
+  # app/views/works/tombstoned_assets.json.jbuilder.
+  def work_tombstoned_assets
     stamp = {
       tombstoned_at: { type: :string, nullable: true, description: 'ISO-8601 timestamp the FileSet was tombstoned' },
       tombstoned_by: { type: :string, nullable: true, description: 'NUID of the user who tombstoned the FileSet' }
@@ -429,7 +429,7 @@ module OpenapiSchemas
   end
 
   # Polymorphic per-asset item shared by WorkAssets (flattened),
-  # WorkFileSets (grouped per page) and WithdrawnAssets — mirrors the
+  # WorkFileSets (grouped per page) and TombstonedAssets — mirrors the
   # shared works/_asset.json.jbuilder partial.
   def asset_item
     {
@@ -496,7 +496,7 @@ module OpenapiSchemas
           type:       { type: :string, nullable: true, description: 'Classification name' },
           position:   { type: :integer, nullable: true,
                         description: '1-based page order; null = unordered (sorted last)' },
-          tombstoned: { type: :boolean, description: 'Withdrawn-from-discovery flag' },
+          tombstoned: { type: :boolean, description: 'Tombstoned (retracted from discovery) flag' },
           assets:     { type: :array, items: asset_item }
         },
         required:   %w[noid type position tombstoned assets]
@@ -834,7 +834,7 @@ module OpenapiSchemas
           klass:      { type: :string, description: 'Resolved resource class name' },
           title:      { type: :string, nullable: true, description: 'Plain-text title; null off the Modsable backbone' },
           thumbnail:  { type: :string, nullable: true, description: 'IIIF URL of the thumbnail tier, or null' },
-          tombstoned: { type: :boolean, description: 'Withdrawn-from-discovery flag — kept in the result but flagged' }
+          tombstoned: { type: :boolean, description: 'Tombstoned (retracted from discovery) flag — kept in the result but flagged' }
         },
         required:   %w[id noid klass title thumbnail tombstoned]
       }
@@ -845,7 +845,7 @@ module OpenapiSchemas
 
   def tombstone_reason_prop
     { type: :string, nullable: true, enum: Resource::TOMBSTONE_REASONS,
-      description: 'The policy removal note chosen at withdrawal, or null. The date comes from tombstoned_at.' }
+      description: 'The policy removal note chosen at tombstoning, or null. The date comes from tombstoned_at.' }
   end
 
   def base_resource_props
@@ -860,7 +860,7 @@ module OpenapiSchemas
       title:            { type: :string, nullable: true },
       description:      { type: :string, nullable: true },
       permanent_url:    { type: :string, nullable: true },
-      tombstoned:       { type: :boolean, description: 'Withdrawn-from-discovery flag' },
+      tombstoned:       { type: :boolean, description: 'Tombstoned (retracted from discovery) flag' },
       tombstoned_at:    { type: :string, nullable: true, description: 'ISO-8601 timestamp set when tombstoned' },
       tombstoned_by:    { type: :string, nullable: true, description: 'NUID of the user who tombstoned the resource' },
       tombstone_reason: tombstone_reason_prop

@@ -10,7 +10,7 @@ class DarwinCoreVersionHistory < MetadataVersionHistory
       @blob ||= resource.darwin_core_blob
     end
 
-    # Only an `update` writes the file. A withdrawal touches the FileSet's
+    # Only an `update` writes the file. A tombstone touches the FileSet's
     # envelope instead, so it must not be matched to a version of the Blob.
     def edit_events(events)
       events.where(action: 'update').where("payload->>'source' = ?", MetadataRecords::DarwinCore::SOURCE)

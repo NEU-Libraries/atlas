@@ -692,7 +692,7 @@ RSpec.describe 'Auth matrix', type: :request, default_auth: false do
       end
     end
 
-    # Reversing a withdrawal joined this tier: :tombstone still rides edit
+    # Reversing a tombstone joined this tier: :tombstone still rides edit
     # rights, but :restore is an operator action. `staff` holds edit rights on
     # the Work via STAFF_EDIT_GROUP and could restore it before, so these
     # examples pin a deliberate narrowing rather than a new denial.

@@ -76,7 +76,7 @@ record out of `FileSet#page?`, so it never reaches the METS structMap,
 **Checked before written.** `DarwinCoreDocument` parses the upload before
 anything is stored, so a refused document leaves no OCFL version behind.
 
-**Withdrawal, not purge.** `DELETE /resources/{id}/dwc` tombstones the FileSet and
+**Tombstone, not purge.** `DELETE /resources/{id}/dwc` tombstones the FileSet and
 deletes the access-copy row. The OCFL object stays, and so does its version
 history. The tombstone rides the FileSet's envelope, so a rebuild from disk
 skips the record too. The next PUT restores the FileSet and appends a version to
@@ -84,7 +84,7 @@ the same Blob.
 
 **The access copy decides presence.** The read endpoints and `metadata_formats`
 ask one question, "is there a row?", which is a single indexed lookup. A
-withdrawal deletes the row, so the read path never has to walk the Work's
+tombstone deletes the row, so the read path never has to walk the Work's
 children to find a tombstone.
 
 ## Audit and version history
@@ -95,7 +95,7 @@ closed list, and `source` already tells MODS writes apart.
 
 `MetadataVersionHistory` holds the version logic shared with MODS; see
 [`mods.md`](mods.md#version-history-xml-only). `DarwinCoreVersionHistory`
-correlates only `update` events with the `dwc` source. A withdrawal writes the
+correlates only `update` events with the `dwc` source. A tombstone writes the
 FileSet's envelope rather than the Blob, so it must not be matched to a Blob
 version.
 

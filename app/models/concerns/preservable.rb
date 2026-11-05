@@ -42,7 +42,7 @@ module Preservable
 
   private
 
-    # A withdrawal and its policy note are a human decision that nothing else
+    # A tombstone and its policy note are a human decision that nothing else
     # records, so a rebuild from disk must not bring the resource back as live.
     def tombstone_payload
       return nil unless tombstoned

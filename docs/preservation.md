@@ -54,7 +54,7 @@ explain each:
 | The on-disk envelope that makes the graph and the ACLs recoverable | [`resource-graph.md`](resource-graph.md) |
 | `handle` rides the envelope because nothing can re-derive it | [`handles.md`](handles.md) |
 | `full_text` and `derivative_permissions` are omitted because they can be made again | [`resource-graph.md`](resource-graph.md) |
-| A withdrawal and its removal note ride the envelope, so a rebuild does not bring the object back into view | [`resource-graph.md`](resource-graph.md) |
+| A tombstone and its removal note ride the envelope, so a rebuild does not bring the object back into view | [`resource-graph.md`](resource-graph.md) |
 | Why a personal root's MODS gets a real title rather than `""` | [`people.md`](people.md) |
 | A fixity check is logged in the object's `logs/`, so its history survives with the bytes | [`fixity.md`](fixity.md) |
 

@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # A Work's Darwin Core record: the read, the full-document write, the
-# withdrawal and the version history. See docs/metadata-records.md.
+# tombstone and the version history. See docs/metadata-records.md.
 #
 # Every path answers 404 for a resource that is not a Work, whichever verb
 # asks, because only a Work holds this record.
@@ -39,14 +39,14 @@ class DarwinCoreController < ApplicationController
     render :show
   end
 
-  # Withdraws rather than purges, so the bytes and the version history stay
+  # Tombstones rather than purges, so the bytes and the version history stay
   # and a later PUT brings the record back.
   def destroy
     work = find_work
     authorize! :update, work || Work
     return head(:not_found) unless work&.darwin_core?
 
-    work.withdraw_darwin_core!(by: @current_user&.nuid)
+    work.tombstone_darwin_core!(by: @current_user&.nuid)
     audit!(resource: work, action: 'tombstone', change_type: 'metadata', payload: audit_payload)
     head :no_content
   end

@@ -197,7 +197,7 @@ components:
               nullable: true
             tombstoned:
               type: boolean
-              description: Withdrawn-from-discovery flag
+              description: Tombstoned (retracted from discovery) flag
             tombstoned_at:
               type: string
               nullable: true
@@ -215,7 +215,7 @@ components:
               - Removed from view at Northeastern University's discretion
               - Removed from view at Northeastern University Library's discretion
               - Removed from view at contributor or content curator's discretion
-              description: The policy removal note chosen at withdrawal, or null.
+              description: The policy removal note chosen at tombstoning, or null.
                 The date comes from tombstoned_at.
             depositor:
               type: string
@@ -378,7 +378,7 @@ components:
               nullable: true
             tombstoned:
               type: boolean
-              description: Withdrawn-from-discovery flag
+              description: Tombstoned (retracted from discovery) flag
             tombstoned_at:
               type: string
               nullable: true
@@ -396,7 +396,7 @@ components:
               - Removed from view at Northeastern University's discretion
               - Removed from view at Northeastern University Library's discretion
               - Removed from view at contributor or content curator's discretion
-              description: The policy removal note chosen at withdrawal, or null.
+              description: The policy removal note chosen at tombstoning, or null.
                 The date comes from tombstoned_at.
             depositor:
               type: string
@@ -522,7 +522,7 @@ components:
               nullable: true
             tombstoned:
               type: boolean
-              description: Withdrawn-from-discovery flag
+              description: Tombstoned (retracted from discovery) flag
             tombstoned_at:
               type: string
               nullable: true
@@ -540,7 +540,7 @@ components:
               - Removed from view at Northeastern University's discretion
               - Removed from view at Northeastern University Library's discretion
               - Removed from view at contributor or content curator's discretion
-              description: The policy removal note chosen at withdrawal, or null.
+              description: The policy removal note chosen at tombstoning, or null.
                 The date comes from tombstoned_at.
             depositor:
               type: string
@@ -599,7 +599,7 @@ components:
               description: 1-based page order within the parent Work; null = unordered
             tombstoned:
               type: boolean
-              description: Withdrawn-from-discovery flag
+              description: Tombstoned (retracted from discovery) flag
             tombstoned_at:
               type: string
               nullable: true
@@ -617,7 +617,7 @@ components:
               - Removed from view at Northeastern University's discretion
               - Removed from view at Northeastern University Library's discretion
               - Removed from view at contributor or content curator's discretion
-              description: The policy removal note chosen at withdrawal, or null.
+              description: The policy removal note chosen at tombstoning, or null.
                 The date comes from tombstoned_at.
           required:
           - id
@@ -678,7 +678,7 @@ components:
                 description: Valkyrie::ID-shaped reference to the underlying bytes
             tombstoned:
               type: boolean
-              description: Withdrawn-from-discovery flag
+              description: Tombstoned (retracted from discovery) flag
             tombstoned_at:
               type: string
               nullable: true
@@ -734,7 +734,7 @@ components:
               nullable: true
             tombstoned:
               type: boolean
-              description: Withdrawn-from-discovery flag
+              description: Tombstoned (retracted from discovery) flag
             tombstoned_at:
               type: string
               nullable: true
@@ -840,7 +840,7 @@ components:
           description: 1-based page order within the parent Work; null = unordered
         tombstoned:
           type: boolean
-          description: Withdrawn-from-discovery flag
+          description: Tombstoned (retracted from discovery) flag
         tombstoned_at:
           type: string
           nullable: true
@@ -858,7 +858,7 @@ components:
           - Removed from view at Northeastern University's discretion
           - Removed from view at Northeastern University Library's discretion
           - Removed from view at contributor or content curator's discretion
-          description: The policy removal note chosen at withdrawal, or null. The
+          description: The policy removal note chosen at tombstoning, or null. The
             date comes from tombstoned_at.
       required:
       - id
@@ -1069,7 +1069,7 @@ components:
             description: 1-based page order; null = unordered (sorted last)
           tombstoned:
             type: boolean
-            description: Withdrawn-from-discovery flag
+            description: Tombstoned (retracted from discovery) flag
           assets:
             type: array
             items:
@@ -1189,7 +1189,7 @@ components:
         - position
         - tombstoned
         - assets
-    WithdrawnAssets:
+    TombstonedAssets:
       type: array
       items:
         oneOf:
@@ -1697,7 +1697,8 @@ components:
             description: IIIF URL of the thumbnail tier, or null
           tombstoned:
             type: boolean
-            description: Withdrawn-from-discovery flag — kept in the result but flagged
+            description: Tombstoned (retracted from discovery) flag — kept in the
+              result but flagged
         required:
         - id
         - noid
@@ -4314,7 +4315,7 @@ paths:
 
         Gated like `/works/{id}/mods`: whoever may read the Work may read its
         record. 404 when the Work holds no record, including one that has been
-        withdrawn, and for any NOID that is not a Work. The Work JSON's
+        tombstoned, and for any NOID that is not a Work. The Work JSON's
         `metadata_formats` says whether to call this.
       responses:
         '200':
@@ -4346,7 +4347,7 @@ paths:
       description: |
         Replaces the Work's Darwin Core record with the supplied `binary`, a
         Simple Darwin Core XML document. PUT because the caller sends the whole
-        document. The first PUT creates the record; a PUT onto a withdrawn
+        document. The first PUT creates the record; a PUT onto a tombstoned
         record restores it. Each PUT appends an OCFL version.
 
         Atlas checks the shape only, and answers 422 with an `error` code when
@@ -4390,20 +4391,20 @@ paths:
         '422':
           description: the document breaks a shape rule
     delete:
-      summary: Withdraw a work's Darwin Core record
+      summary: Tombstone a work's Darwin Core record
       tags:
       - Resources
       description: |
-        Withdraws the record: `GET /works/{id}/dwc` answers 404 and the Work
+        Tombstones the record: `GET /works/{id}/dwc` answers 404 and the Work
         JSON drops `dwc` from `metadata_formats`. Nothing is purged. The
         preserved document and its version history stay, and the next PUT
         restores the record. 404 when the Work holds no record, and for any
         NOID that is not a Work. Gated by `:update` on the Work.
       responses:
         '204':
-          description: record withdrawn
+          description: record tombstoned
         '404':
-          description: nothing to withdraw
+          description: nothing to tombstone
   "/resources/{id}/dwc/versions":
     parameters:
     - name: id
@@ -5323,7 +5324,7 @@ paths:
                 "$ref": "#/components/schemas/Person"
   "/resources/{id}/children":
     get:
-      summary: A container's children, withdrawn ones included
+      summary: A container's children, tombstoned ones included
       tags:
       - Resources
       description: |
@@ -5382,14 +5383,14 @@ paths:
       tags:
       - Resources
       description: |
-        Permanently removes the resource. This is a purge, not a withdrawal: it
+        Permanently removes the resource. This is a purge, not a tombstone: it
         deletes the metadata, cascades into members (a Work's FileSets and
         their Blobs), and removes the OCFL objects that hold the preserved
         bytes — every retained revision, not only the current one. Nothing
         survives but the audit row, which records the NOIDs it removed.
 
-        Use `POST /resources/{id}/tombstone` for the user-visible withdrawal
-        path. That one keeps everything and can be reversed.
+        Use `POST /resources/{id}/tombstone` for the reversible, user-visible
+        removal. That one keeps everything and can be reversed.
 
         Refused with `422 has_children` while any Community, Collection or Work
         is still a member — and unlike tombstone it refuses a member that is
@@ -5775,26 +5776,26 @@ paths:
       tags:
       - Resources
       description: |
-        Withdraws the resource. Everything stays in storage and the withdrawal
+        Tombstones the resource. Everything stays in storage and the tombstone
         is reversible via `POST /resources/{id}/restore`; reads answer `410`
-        with a withdrawn stub. Use `DELETE /resources/{id}` for the
+        with a tombstoned stub. Use `DELETE /resources/{id}` for the
         irreversible purge.
 
         Refused with `422 top_level_community` for a Community with no parent —
         the repository root or the People Community. The API offers no way to
-        withdraw a root.
+        tombstone a root.
 
         Refused with `422 has_live_children` while the resource still holds a
-        live Community, Collection or Work, so a withdrawal can never orphan a
+        live Community, Collection or Work, so a tombstone can never orphan a
         readable descendant — empty the tree leaf-first. A Work's FileSets and
         Blobs are not counted and ride along.
 
         Conflicts surface immediately as `409 stale_resource` rather than being
-        retried: the caller decides whether a withdrawal still applies.
+        retried: the caller decides whether a tombstone still applies.
 
         A FileSet is accepted too, and answers in the FileSet shape. It drops
         out of `GET /works/{id}/assets` and `/file_sets`, which is how a caption
-        or other attached file is withdrawn reversibly. Admins and the
+        or other attached file is tombstoned reversibly. Admins and the
         devolved-admin tier only.
 
         `reason` is optional. When given, it must be one of the removal notes
@@ -5841,13 +5842,13 @@ paths:
       tags:
       - Resources
       description: |
-        Reverses a withdrawal: reads stop answering `410`, and
+        Reverses a tombstone: reads stop answering `410`, and
         `tombstone_reason` is cleared. Admin only. No confirmation marker —
         restoring is itself reversible, by tombstoning again.
 
         Refused with `422 tombstoned_parent` while the resource's parent is
         still tombstoned, so a restore can never surface a resource inside a
-        withdrawn container — restore the tree root-first. A top-level
+        tombstoned container — restore the tree root-first. A top-level
         Community has no parent and is never refused.
       responses:
         '200':
@@ -6737,7 +6738,7 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/WorkAssets"
-  "/works/{id}/withdrawn_assets":
+  "/works/{id}/tombstoned_assets":
     parameters:
     - name: id
       in: path
@@ -6746,7 +6747,7 @@ paths:
       schema:
         type: string
     get:
-      summary: List the assets of a work's withdrawn FileSets
+      summary: List the assets of a work's tombstoned FileSets
       tags:
       - Works
       description: |
@@ -6760,11 +6761,11 @@ paths:
         rights on the Work. Not response-cached.
       responses:
         '200':
-          description: withdrawn assets listed
+          description: tombstoned assets listed
           content:
             application/json:
               schema:
-                "$ref": "#/components/schemas/WithdrawnAssets"
+                "$ref": "#/components/schemas/TombstonedAssets"
         '404':
           description: work not found
   "/works/{id}/file_revisions":
@@ -6783,7 +6784,7 @@ paths:
         One entry per Blob on the Work that has been replaced at least once,
         each listing its content revisions newest first. A revision carries
         only its `revision` ordinal and its `created` date. The Blobs are the
-        ones `/works/{id}/assets` lists, so withdrawn files stay out.
+        ones `/works/{id}/assets` lists, so tombstoned files stay out.
 
         Gated by `:read` on the Work, so anyone who can read the Work can read
         this. The attributed history, with actor, digest, size and filename,

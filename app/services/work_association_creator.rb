@@ -7,7 +7,7 @@
 #
 # Only the asserting Work is written. The other end is read back with
 # find_inverse_references_by, so there is no reciprocal edge to keep in step
-# and no paired delete to unwind when either Work is withdrawn.
+# and no paired delete to unwind when either Work is tombstoned.
 #
 # No cycle guard, deliberately. "A is a transcription of B" and "B is a
 # figure for A" are both meaningful statements, and nothing walks these

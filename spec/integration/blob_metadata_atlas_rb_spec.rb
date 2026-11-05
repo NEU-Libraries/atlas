@@ -58,7 +58,7 @@ RSpec.describe 'Blob name, language and removal via atlas_rb', :atlas_rb_server 
       .to raise_error(AtlasRb::ResourceError) { |e| expect(e.status).to eq(422) }
   end
 
-  it 'withdraws a caption FileSet reversibly' do
+  it 'tombstones a caption FileSet reversibly' do
     blob = AtlasRb::Blob.create(work.noid, caption, 'en.vtt', nuid: admin_nuid)
     file_set_id = Blob.find(blob['id']).parent.noid
 

@@ -22,7 +22,7 @@ class ResourcesController < ApplicationController
   }.freeze
 
   # Tombstone and restore also answer for a FileSet, so a caption or other
-  # attached file can be withdrawn reversibly. Every other generic write stays
+  # attached file can be tombstoned reversibly. Every other generic write stays
   # on TYPED_IVARS. See docs/resource-graph.md.
   LIFECYCLE_IVARS = TYPED_IVARS.merge(FileSet => '@file_set').freeze
 
@@ -190,7 +190,7 @@ class ResourcesController < ApplicationController
   end
 
   # Irreversible. Removes the resource's metadata, its members, and the OCFL
-  # objects holding the preserved bytes. #tombstone is the withdrawal path --
+  # objects holding the preserved bytes. #tombstone is the reversible path --
   # that one keeps everything and can be undone.
   def destroy
     resource = Resource.find(params.expect(:id))
@@ -295,7 +295,7 @@ class ResourcesController < ApplicationController
 
     # A top-level Community is refused first, so the answer cannot reveal
     # whether a root is empty. Otherwise refuses while the resource still holds
-    # a live container or Work, so a withdrawal can never orphan a readable
+    # a live container or Work, so a tombstone can never orphan a readable
     # descendant: `live_children?` counts only those three, so a Work holding
     # FileSets and Blobs always passes and they ride along.
     def tombstone_refusal(resource, reason)
@@ -308,7 +308,7 @@ class ResourcesController < ApplicationController
       end
     end
 
-    # The mirror of `tombstone_refusal`: restoring under a withdrawn parent
+    # The mirror of `tombstone_refusal`: restoring under a tombstoned parent
     # would make the resource discoverable inside it, so restores run
     # root-first. A top-level Community has no parent and always passes.
     def restore_refusal(resource)
@@ -317,7 +317,7 @@ class ResourcesController < ApplicationController
       { error: 'restore the parent first', code: 'tombstoned_parent' }
     end
 
-    # The envelope carries the withdrawal, so a rebuild from disk keeps it. A
+    # The envelope carries the tombstone, so a rebuild from disk keeps it. A
     # derivative FileSet has no OCFL object of its own, and this must not
     # create one.
     def save_lifecycle(resource)

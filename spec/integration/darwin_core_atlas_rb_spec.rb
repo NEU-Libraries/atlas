@@ -90,10 +90,10 @@ RSpec.describe 'Darwin Core records via atlas_rb', :atlas_rb_server do
     end
   end
 
-  describe 'withdrawing and restoring the record' do
+  describe 'tombstoning and restoring the record' do
     before { put_dwc }
 
-    it 'withdraws without purging, and the next write restores it' do
+    it 'tombstones without purging, and the next write restores it' do
       expect(AtlasRb::Resource.delete_dwc(work.noid, nuid: admin_nuid)).to be(true)
       expect(AtlasRb::Work.dwc(work.noid, nuid: admin_nuid)).to be_nil
       expect(metadata_formats).to eq([])
@@ -104,7 +104,7 @@ RSpec.describe 'Darwin Core records via atlas_rb', :atlas_rb_server do
       expect(AtlasRb::Resource.dwc_versions(work.noid, nuid: admin_nuid)['versions'].length).to eq(2)
     end
 
-    it 'raises NotFoundError when there is nothing to withdraw' do
+    it 'raises NotFoundError when there is nothing to tombstone' do
       AtlasRb::Resource.delete_dwc(work.noid, nuid: admin_nuid)
 
       expect { AtlasRb::Resource.delete_dwc(work.noid, nuid: admin_nuid) }

@@ -88,7 +88,7 @@ them through edit rights:
 |---|---|
 | `:reparent` | Structural mutation of the content graph |
 | `:link_member` | Same, with one narrow `:system` exception below |
-| `:restore` | Reversing a withdrawal is an operator action, though `:tombstone` does ride edit rights |
+| `:restore` | Reversing a tombstone is an operator action, though `:tombstone` does ride edit rights |
 | `:associate` | The claim renders on **both** Works, including a target the asserter may hold no rights over |
 
 `:associate` is the subtlest. Edit rights on the asserting Work would otherwise
@@ -209,7 +209,7 @@ group_acl_grants?(resource, user) ||
 **Ownership has to count separately, because it is not in the ACL.** A personal
 root and everything beneath it carries `edit: [repository:staff]` with the owner
 recorded only as `depositor`. A non-staff owner would otherwise be locked out of
-their own workspace. So a depositor may edit, withdraw and deposit into their own
+their own workspace. So a depositor may edit, tombstone and deposit into their own
 resource independent of Grouper membership. `:restore` is deliberately not one of
 those verbs.
 
@@ -273,7 +273,7 @@ Each grant is a named carve-out beneath the wildcard, not a promotion:
 - **`:tombstone` and `:restore` on `FileSet`.** Delegates remove a caption or other
   attached file reversibly, and put it back. Standard users get neither, because
   Atlas cannot cheaply trace a FileSet to the Work whose edit rights would apply.
-- **`:read_withdrawn` on `Work`.** `GET /works/:id/withdrawn_assets`, the listing
+- **`:read_tombstoned` on `Work`.** `GET /works/:id/tombstoned_assets`, the listing
   that names a tombstoned FileSet so it can be restored. It goes to the tiers
   that can act on what it lists; edit rights on the Work do not reach it, because
   they do not reach `:restore` either.
@@ -302,7 +302,7 @@ Each grant is a named carve-out beneath the wildcard, not a promotion:
   grant on, so only an admin reads its history.
 - **`:read_index` on every indexed type.** `GET /resources/:id/solr` and
   `GET /resources/:id/search_explanation`, the two Solr debugging endpoints, and
-  `GET /resources/:id/children`, which inspects a withdrawn container. A
+  `GET /resources/:id/children`, which inspects a tombstoned container. A
   verb of its own rather than `:read_versions`, which means "who edited what":
   sharing one verb would tie two unrelated grants together. All three endpoints
   also check `:read` on the object, so the grant opens no object the delegate

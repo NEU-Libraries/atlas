@@ -50,7 +50,7 @@ RSpec.describe 'Storage footprint via atlas_rb', :atlas_rb_server do
     expect(indexed_bytes(work)).to eq(bytes_on_disk(Work.find(work.id)))
   end
 
-  it 'keeps counting a file withdrawn through the gem' do
+  it 'keeps counting a file tombstoned through the gem' do
     blob = AtlasRb::Blob.create(work.noid, fixture, 'example.png', nuid: admin_nuid)
     file_set = Atlas.query.find_parents(resource: Blob.find(blob['id'])).first
 

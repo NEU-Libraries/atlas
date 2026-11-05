@@ -65,7 +65,7 @@ class OAIController < ActionController::Base # rubocop:disable Rails/Application
       record = resolve_record(@oai.identifier, metadata: false)
       return if record.nil?
 
-      # A withdrawn record's metadata is gone in every format; only its header
+      # A tombstoned record's metadata is gone in every format; only its header
       # survives, which is exactly what GetRecord returns for it.
       @oai.error!('noMetadataFormats', 'the record is deleted and has no metadata') if record.deleted?
     end

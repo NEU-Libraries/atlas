@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# Every child of a Community or Collection, live or withdrawn, for inspecting
+# Every child of a Community or Collection, live or tombstoned, for inspecting
 # the graph from an API client. The typed /children routes answer 410 for a
 # tombstoned container; this one does not. Admins and delegated admins only.
 # See docs/resource-graph.md.

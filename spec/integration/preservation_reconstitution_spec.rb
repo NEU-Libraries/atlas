@@ -120,14 +120,14 @@ RSpec.describe 'OCFL preservation reconstitution', type: :integration do
   end
 
   # docs/metadata-records.md: the record is found on disk by its FileSet's
-  # classification and its Blob's use, and a withdrawal rides the envelope, so
-  # a rebuild skips a withdrawn record just as the API does.
-  it 'recovers a Darwin Core record, and its withdrawal, from disk alone' do
+  # classification and its Blob's use, and a tombstone rides the envelope, so
+  # a rebuild skips a tombstoned record just as the API does.
+  it 'recovers a Darwin Core record, and its tombstone, from disk alone' do
     community  = CommunityCreator.call
     collection = CollectionCreator.call(parent_id: community.noid)
     work       = WorkCreator.call(parent_id: collection.noid)
     work.darwin_core_xml = Rails.root.join('spec/fixtures/files/dwc.xml').read
-    Work.find(work.id).withdraw_darwin_core!(by: '000000004')
+    Work.find(work.id).tombstone_darwin_core!(by: '000000004')
 
     recovered = reconstitute_from_disk
     file_set  = recovered.values.find do |s|

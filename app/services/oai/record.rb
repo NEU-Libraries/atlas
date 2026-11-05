@@ -57,7 +57,7 @@ module OAI
       value.present? ? Time.parse(value).utc.iso8601 : nil
     end
 
-    # A withdrawn Work keeps its Solr document and its public ACL, so it can
+    # A tombstoned Work keeps its Solr document and its public ACL, so it can
     # be reported. A purged one leaves nothing behind, which is why the
     # repository declares deletedRecord as transient.
     def deleted?

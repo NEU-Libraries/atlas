@@ -21,13 +21,13 @@ RSpec.describe 'A tombstoned resource in the Solr document' do
          .dig('response', 'docs').flat_map { |doc| doc['alternate_ids_ssim'].map { |id| id.delete_prefix('id-') } }
   end
 
-  it 'stores the withdrawal time as a Solr date' do
+  it 'stores the tombstone time as a Solr date' do
     saved = tombstoned(nested, at: Time.utc(2026, 10, 7, 19, 22, 34))
 
     expect(IndexDocumentQuery.call(saved.noid)['tombstoned_at_dtsi']).to eq('2026-10-07T19:22:34Z')
   end
 
-  it 'filters by withdrawal date as a date range' do
+  it 'filters by tombstone date as a date range' do
     inside  = tombstoned(nested, at: Time.utc(2026, 10, 7, 12))
     outside = tombstoned(Atlas.persister.save(resource: Collection.new(a_member_of: collection.id)),
                          at: Time.utc(2026, 10, 9, 12))

@@ -245,7 +245,7 @@ RSpec.describe 'Collections', type: :request do
   end
 
   # The refusal sits behind the edit-rights check, so the 422 cannot tell a
-  # caller without rights that the parent is withdrawn.
+  # caller without rights that the parent is tombstoned.
   describe 'POST /collections under a tombstoned parent, without edit rights', type: :request do
     let!(:outsider) do
       User.create!(email: 'outsider-tomb@example.invalid', password: SecureRandom.hex(16),

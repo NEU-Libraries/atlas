@@ -49,7 +49,7 @@ RSpec.describe 'Darwin Core records', type: :request do
 
         Gated like `/works/{id}/mods`: whoever may read the Work may read its
         record. 404 when the Work holds no record, including one that has been
-        withdrawn, and for any NOID that is not a Work. The Work JSON's
+        tombstoned, and for any NOID that is not a Work. The Work JSON's
         `metadata_formats` says whether to call this.
       DESC
 
@@ -79,7 +79,7 @@ RSpec.describe 'Darwin Core records', type: :request do
       description <<~DESC
         Replaces the Work's Darwin Core record with the supplied `binary`, a
         Simple Darwin Core XML document. PUT because the caller sends the whole
-        document. The first PUT creates the record; a PUT onto a withdrawn
+        document. The first PUT creates the record; a PUT onto a tombstoned
         record restores it. Each PUT appends an OCFL version.
 
         Atlas checks the shape only, and answers 422 with an `error` code when
@@ -123,23 +123,23 @@ RSpec.describe 'Darwin Core records', type: :request do
       end
     end
 
-    delete "Withdraw a work's Darwin Core record" do
+    delete "Tombstone a work's Darwin Core record" do
       tags 'Resources'
       description <<~DESC
-        Withdraws the record: `GET /works/{id}/dwc` answers 404 and the Work
+        Tombstones the record: `GET /works/{id}/dwc` answers 404 and the Work
         JSON drops `dwc` from `metadata_formats`. Nothing is purged. The
         preserved document and its version history stay, and the next PUT
         restores the record. 404 when the Work holds no record, and for any
         NOID that is not a Work. Gated by `:update` on the Work.
       DESC
 
-      response '204', 'record withdrawn' do
+      response '204', 'record tombstoned' do
         let(:id) { work.noid }
         before { put_dwc(work.noid) }
         run_test!
       end
 
-      response '404', 'nothing to withdraw' do
+      response '404', 'nothing to tombstone' do
         let(:id) { work.noid }
         run_test!
       end
@@ -318,10 +318,10 @@ RSpec.describe 'Darwin Core records', type: :request do
     end
   end
 
-  describe 'withdrawing and restoring the record' do
+  describe 'tombstoning and restoring the record' do
     before { put_dwc(work.noid) }
 
-    it 'hides the record, records the withdrawal, and keeps the history' do
+    it 'hides the record, records the tombstone, and keeps the history' do
       delete "/resources/#{work.noid}/dwc"
       expect(response).to have_http_status(:no_content)
 

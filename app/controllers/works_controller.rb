@@ -135,16 +135,16 @@ class WorksController < ApplicationController
     end
   end
 
-  # The only read that names a withdrawn FileSet, so Restore stays reachable
+  # The only read that names a tombstoned FileSet, so Restore stays reachable
   # after the page that tombstoned it is gone. A separate route rather than a
-  # flag on #assets keeps withdrawn files off the public download listing and
+  # flag on #assets keeps tombstoned files off the public download listing and
   # out of its response cache; the gate is the tier that may tombstone one.
-  def withdrawn_assets
+  def tombstoned_assets
     @work = Work.find(params.expect(:id))
-    authorize! :read_withdrawn, @work || Work
+    authorize! :read_tombstoned, @work || Work
     return head(:not_found) if @work.nil?
 
-    render_assets(withdrawn: true)
+    render_assets(tombstoned: true)
   end
 
   # Never re-hashes the bytes: on a large file that would hold a worker for
@@ -277,14 +277,14 @@ class WorksController < ApplicationController
     # surface the FileSet's NOID and classification per asset. Members come
     # from one batched read for every FileSet at once: a many-page Work would
     # otherwise cost a query per page.
-    def render_assets(withdrawn: false)
-      @assets = downloadable_assets(withdrawn: withdrawn)
-      render(withdrawn ? :withdrawn_assets : :assets)
+    def render_assets(tombstoned: false)
+      @assets = downloadable_assets(tombstoned: tombstoned)
+      render(tombstoned ? :tombstoned_assets : :assets)
     end
 
-    def downloadable_assets(withdrawn: false)
+    def downloadable_assets(tombstoned: false)
       file_sets = @work.children.reject { |fs| Classification.metadata?(fs.type) }
-                       .select { |fs| fs.tombstoned.present? == withdrawn }
+                       .select { |fs| fs.tombstoned.present? == tombstoned }
       members   = Atlas.query.custom_queries.find_many_ordered_members(resources: file_sets)
 
       file_sets.flat_map do |fs|

@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-# A withdrawn Work carries status="deleted" and nothing else — no metadata,
-# no about. v1 never emitted this, so a withdrawn item stayed in Digital
+# A tombstoned Work carries status="deleted" and nothing else — no metadata,
+# no about. v1 never emitted this, so a tombstoned item stayed in Digital
 # Commonwealth indefinitely.
 #
 # Every published Set the Work belongs to appears as a <setSpec>. v1 emitted

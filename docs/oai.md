@@ -26,7 +26,7 @@ documented crosswalk off the JSON access copy.
 
 | Setting | Value | Why |
 |---|---|---|
-| `deletedRecord` | `transient` | Withdrawn records come back as `<header status="deleted">`, but a purged one leaves no Solr document at all. So this repository cannot promise a harvester that every deletion is reported, and `transient` is the honest declaration. |
+| `deletedRecord` | `transient` | Tombstoned records come back as `<header status="deleted">`, but a purged one leaves no Solr document at all. So this repository cannot promise a harvester that every deletion is reported, and `transient` is the honest declaration. |
 | `granularity` | `YYYY-MM-DDThh:mm:ssZ` | The finest accepted and advertised. A repository advertising seconds must also accept `YYYY-MM-DD`, and `OAI::Request` does. |
 | `baseURL` | Per deployment, from `config_for(:oai)` | v1's single worst defect was an `Identify` advertising the site root instead of the endpoint. **A harvester that trusts `baseURL` follows it and finds nothing.** |
 | `SAMPLE_NOID` | `cj82kf90c` | `Identify` advertises the *shape* of an identifier, so this is illustrative rather than live. |
@@ -91,7 +91,7 @@ group is the whole of its visibility.
 by design flags without hiding. Dropping them would make records vanish from
 Digital Commonwealth after a pipeline failure.
 
-**Tombstoned Works stay in**, so a withdrawal is reportable. A Work that loses its
+**Tombstoned Works stay in**, so a tombstone is reportable. A Work that loses its
 public read group instead just disappears, which is why `deletedRecord` is
 `transient`.
 

@@ -41,14 +41,14 @@ RSpec.describe 'Resources', type: :request do
       tags 'Resources'
       produces 'application/json'
       description <<~DESC
-        Permanently removes the resource. This is a purge, not a withdrawal: it
+        Permanently removes the resource. This is a purge, not a tombstone: it
         deletes the metadata, cascades into members (a Work's FileSets and
         their Blobs), and removes the OCFL objects that hold the preserved
         bytes — every retained revision, not only the current one. Nothing
         survives but the audit row, which records the NOIDs it removed.
 
-        Use `POST /resources/{id}/tombstone` for the user-visible withdrawal
-        path. That one keeps everything and can be reversed.
+        Use `POST /resources/{id}/tombstone` for the reversible, user-visible
+        removal. That one keeps everything and can be reversed.
 
         Refused with `422 has_children` while any Community, Collection or Work
         is still a member — and unlike tombstone it refuses a member that is
@@ -563,26 +563,26 @@ RSpec.describe 'Resources', type: :request do
       tags 'Resources'
       produces 'application/json'
       description <<~DESC
-        Withdraws the resource. Everything stays in storage and the withdrawal
+        Tombstones the resource. Everything stays in storage and the tombstone
         is reversible via `POST /resources/{id}/restore`; reads answer `410`
-        with a withdrawn stub. Use `DELETE /resources/{id}` for the
+        with a tombstoned stub. Use `DELETE /resources/{id}` for the
         irreversible purge.
 
         Refused with `422 top_level_community` for a Community with no parent —
         the repository root or the People Community. The API offers no way to
-        withdraw a root.
+        tombstone a root.
 
         Refused with `422 has_live_children` while the resource still holds a
-        live Community, Collection or Work, so a withdrawal can never orphan a
+        live Community, Collection or Work, so a tombstone can never orphan a
         readable descendant — empty the tree leaf-first. A Work's FileSets and
         Blobs are not counted and ride along.
 
         Conflicts surface immediately as `409 stale_resource` rather than being
-        retried: the caller decides whether a withdrawal still applies.
+        retried: the caller decides whether a tombstone still applies.
 
         A FileSet is accepted too, and answers in the FileSet shape. It drops
         out of `GET /works/{id}/assets` and `/file_sets`, which is how a caption
-        or other attached file is withdrawn reversibly. Admins and the
+        or other attached file is tombstoned reversibly. Admins and the
         devolved-admin tier only.
 
         `reason` is optional. When given, it must be one of the removal notes
@@ -602,9 +602,9 @@ RSpec.describe 'Resources', type: :request do
         let(:body) { { reason: Resource::TOMBSTONE_REASONS.last } }
         schema '$ref' => '#/components/schemas/Work'
         run_test! do |response|
-          withdrawn = JSON.parse(response.body)['work']
-          expect(withdrawn['tombstoned']).to be(true)
-          expect(withdrawn['tombstone_reason']).to eq(Resource::TOMBSTONE_REASONS.last)
+          tombstoned = JSON.parse(response.body)['work']
+          expect(tombstoned['tombstoned']).to be(true)
+          expect(tombstoned['tombstone_reason']).to eq(Resource::TOMBSTONE_REASONS.last)
         end
       end
 
@@ -650,13 +650,13 @@ RSpec.describe 'Resources', type: :request do
       tags 'Resources'
       produces 'application/json'
       description <<~DESC
-        Reverses a withdrawal: reads stop answering `410`, and
+        Reverses a tombstone: reads stop answering `410`, and
         `tombstone_reason` is cleared. Admin only. No confirmation marker —
         restoring is itself reversible, by tombstoning again.
 
         Refused with `422 tombstoned_parent` while the resource's parent is
         still tombstoned, so a restore can never surface a resource inside a
-        withdrawn container — restore the tree root-first. A top-level
+        tombstoned container — restore the tree root-first. A top-level
         Community has no parent and is never refused.
       DESC
 
@@ -700,7 +700,7 @@ RSpec.describe 'Resources', type: :request do
     end
   end
 
-  # Plain (non-rswag) coverage of who may withdraw a FileSet and what the
+  # Plain (non-rswag) coverage of who may tombstone a FileSet and what the
   # listings do with it afterwards.
   describe 'POST /resources/:id/tombstone on a FileSet', type: :request do
     let(:fixture)  { Rails.root.join('spec/fixtures/files/example.bin').to_s }

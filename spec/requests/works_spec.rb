@@ -511,10 +511,10 @@ RSpec.describe 'Works', type: :request do
     end
   end
 
-  path '/works/{id}/withdrawn_assets' do
+  path '/works/{id}/tombstoned_assets' do
     parameter name: :id, in: :path, type: :string, description: 'NOID of the Work'
 
-    get "List the assets of a work's withdrawn FileSets" do
+    get "List the assets of a work's tombstoned FileSets" do
       tags 'Works'
       produces 'application/json'
       description <<~DESC
@@ -528,23 +528,23 @@ RSpec.describe 'Works', type: :request do
         rights on the Work. Not response-cached.
       DESC
 
-      response '200', 'withdrawn assets listed' do
+      response '200', 'tombstoned assets listed' do
         let(:work) { WorkCreator.call(parent_id: collection.noid) }
         let(:id)   { work.noid }
-        let(:fixture)   { Rails.root.join('spec/fixtures/files/example.bin').to_s }
-        let(:withdrawn) { BlobCreator.call(work_id: work.noid, original_filename: 'es.vtt', path: fixture) }
-        let(:live)      { BlobCreator.call(work_id: work.noid, original_filename: 'live.bin', path: fixture) }
+        let(:fixture)    { Rails.root.join('spec/fixtures/files/example.bin').to_s }
+        let(:tombstoned) { BlobCreator.call(work_id: work.noid, original_filename: 'es.vtt', path: fixture) }
+        let(:live)       { BlobCreator.call(work_id: work.noid, original_filename: 'live.bin', path: fixture) }
         before do
           live
-          file_set = withdrawn.parent
+          file_set = tombstoned.parent
           file_set.tombstone(by: '000000004')
           Atlas.persister.save(resource: file_set)
         end
-        schema '$ref' => '#/components/schemas/WithdrawnAssets'
+        schema '$ref' => '#/components/schemas/TombstonedAssets'
         run_test! do |response|
           entries = JSON.parse(response.body)
-          expect(entries.pluck('noid')).to eq([withdrawn.noid])
-          expect(entries.first).to include('file_set' => withdrawn.parent.noid, 'tombstoned_by' => '000000004')
+          expect(entries.pluck('noid')).to eq([tombstoned.noid])
+          expect(entries.first).to include('file_set' => tombstoned.parent.noid, 'tombstoned_by' => '000000004')
           expect(entries.first['tombstoned_at']).to be_present
         end
       end
@@ -556,30 +556,30 @@ RSpec.describe 'Works', type: :request do
     end
   end
 
-  # Plain (non-rswag) coverage of who may read the withdrawn listing.
-  describe 'GET /works/:id/withdrawn_assets tiers', type: :request do
+  # Plain (non-rswag) coverage of who may read the tombstoned listing.
+  describe 'GET /works/:id/tombstoned_assets tiers', type: :request do
     let(:work)    { WorkCreator.call(parent_id: collection.noid) }
     let(:fixture) { Rails.root.join('spec/fixtures/files/example.bin').to_s }
     let(:blob)    { BlobCreator.call(work_id: work.noid, original_filename: 'a.bin', path: fixture) }
     let!(:delegate) do
-      User.create!(email: 'delegate-withdrawn@example.invalid', password: SecureRandom.hex(16),
+      User.create!(email: 'delegate-tombstoned@example.invalid', password: SecureRandom.hex(16),
                    nuid: '000000054', name: 'Williams, Delegate', role: :privileged,
                    groups: [Permissions::ADMIN_GROUP])
     end
     let!(:standard) do
-      User.create!(email: 'standard-withdrawn@example.invalid', password: SecureRandom.hex(16),
+      User.create!(email: 'standard-tombstoned@example.invalid', password: SecureRandom.hex(16),
                    nuid: '000000055', name: 'Roe, Sam', role: :standard, groups: [])
     end
 
     it 'lists a FileSet the delegate tombstoned, and drops it again on restore' do
       post "/resources/#{blob.parent.noid}/tombstone", headers: signed_auth_headers(delegate.nuid)
-      get "/works/#{work.noid}/withdrawn_assets", headers: signed_auth_headers(delegate.nuid)
+      get "/works/#{work.noid}/tombstoned_assets", headers: signed_auth_headers(delegate.nuid)
       expect(response).to have_http_status(:ok)
       expect(response.parsed_body.pluck('file_set')).to eq([blob.parent.noid])
       expect(response.parsed_body.first['tombstoned_by']).to eq(delegate.nuid)
 
       post "/resources/#{blob.parent.noid}/restore", headers: signed_auth_headers(delegate.nuid)
-      get "/works/#{work.noid}/withdrawn_assets", headers: signed_auth_headers(delegate.nuid)
+      get "/works/#{work.noid}/tombstoned_assets", headers: signed_auth_headers(delegate.nuid)
       expect(response.parsed_body).to eq([])
     end
 
@@ -587,7 +587,7 @@ RSpec.describe 'Works', type: :request do
       work.edit_users = [standard.nuid]
       Atlas.persister.save(resource: work)
 
-      get "/works/#{work.noid}/withdrawn_assets", headers: signed_auth_headers(standard.nuid)
+      get "/works/#{work.noid}/tombstoned_assets", headers: signed_auth_headers(standard.nuid)
       expect(response).to have_http_status(:forbidden)
     end
 
@@ -596,7 +596,7 @@ RSpec.describe 'Works', type: :request do
       metadata.tombstone(by: delegate.nuid)
       Atlas.persister.save(resource: metadata)
 
-      get "/works/#{work.noid}/withdrawn_assets", headers: signed_auth_headers(delegate.nuid)
+      get "/works/#{work.noid}/tombstoned_assets", headers: signed_auth_headers(delegate.nuid)
       expect(response.parsed_body).to eq([])
     end
   end
@@ -611,7 +611,7 @@ RSpec.describe 'Works', type: :request do
         One entry per Blob on the Work that has been replaced at least once,
         each listing its content revisions newest first. A revision carries
         only its `revision` ordinal and its `created` date. The Blobs are the
-        ones `/works/{id}/assets` lists, so withdrawn files stay out.
+        ones `/works/{id}/assets` lists, so tombstoned files stay out.
 
         Gated by `:read` on the Work, so anyone who can read the Work can read
         this. The attributed history, with actor, digest, size and filename,
@@ -696,7 +696,7 @@ RSpec.describe 'Works', type: :request do
       expect(response).to have_http_status(:forbidden)
     end
 
-    it 'leaves out a replaced file whose FileSet is withdrawn' do
+    it 'leaves out a replaced file whose FileSet is tombstoned' do
       work, blob = work_with_replaced_file(:publicize)
       file_set = blob.parent
       file_set.tombstone(by: DefaultAuthHeaders::ADMIN_NUID)

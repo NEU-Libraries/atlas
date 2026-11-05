@@ -82,9 +82,9 @@ RSpec.describe 'Tombstone bindings via atlas_rb', :atlas_rb_server do
       expect(event.payload['reason']).to eq(reason)
     end
 
-    # A rebuild from disk alone must not bring a withdrawn Work back as live,
+    # A rebuild from disk alone must not bring a tombstoned Work back as live,
     # nor lose the policy note.
-    it 'writes the withdrawal into the preservation envelope, and restore clears it' do
+    it 'writes the tombstone into the preservation envelope, and restore clears it' do
       AtlasRb::Resource.tombstone(work.noid, reason: reason, nuid: nuid)
 
       tombstone = envelope_on_disk(work.noid)['tombstone']

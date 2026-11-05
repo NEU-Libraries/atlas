@@ -104,7 +104,7 @@ RSpec.describe 'Work incomplete state via atlas_rb', :atlas_rb_server do
   # The pill is rendered from the search document, so an unindexed field cannot
   # drive it and a per-row fetch would defeat the result list.
   describe 'the Solr projection' do
-    it 'lands both fields on the Work document, and withdraws them on repair' do
+    it 'lands both fields on the Work document, and removes them on repair' do
       work = WorkCreator.call(parent_id: collection.noid)
 
       AtlasRb::Work.mark_incomplete(work.noid, reason: 'pdf_rendition_gave_up', nuid: admin_nuid)

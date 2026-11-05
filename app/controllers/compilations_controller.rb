@@ -95,7 +95,7 @@ class CompilationsController < ApplicationController
     change_published(true)
   end
 
-  # DELETE /compilations/:id/published — withdraw it from the feed.
+  # DELETE /compilations/:id/published — remove it from the feed.
   #
   # A harvester that already holds the Set's records is NOT told they went
   # away: OAI deletion is per record, and unpublishing removes the set, not

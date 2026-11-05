@@ -586,7 +586,7 @@ RSpec.describe 'Resources', type: :request do
         devolved-admin tier only.
 
         `reason` is optional. When given, it must be one of the removal notes
-        the library's withdrawal policy allows, word for word, or the call
+        the library's removal policy allows, word for word, or the call
         answers `422 invalid_reason`. It is returned as `tombstone_reason`,
         recorded on the audit event and kept in the preservation envelope.
         It carries no date: a reader takes that from `tombstoned_at`.

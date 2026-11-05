@@ -692,7 +692,7 @@ RSpec.describe 'Compilations', type: :request, default_auth: false do
         end
       end
 
-      delete 'Withdraw the Set from OAI-PMH' do
+      delete 'Remove the Set from OAI-PMH' do
         tags 'Compilations'
         produces 'application/json'
         description 'Clears the flag; ListSets stops advertising it. Admin-only. ' \
@@ -702,7 +702,7 @@ RSpec.describe 'Compilations', type: :request, default_auth: false do
         parameter name: :Authorization, in: :header, type: :string, required: false
         parameter name: :User, in: :header, type: :string, required: false
 
-        response '200', 'set withdrawn' do
+        response '200', 'set removed' do
           schema '$ref' => '#/components/schemas/Compilation'
           let(:Authorization) { auth_header }
           let(:User) { "NUID #{admin.nuid}" }

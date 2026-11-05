@@ -4207,7 +4207,7 @@ paths:
         '403':
           description: owner without admin is refused
     delete:
-      summary: Withdraw the Set from OAI-PMH
+      summary: Remove the Set from OAI-PMH
       tags:
       - Compilations
       description: Clears the flag; ListSets stops advertising it. Admin-only. Harvesters
@@ -4229,7 +4229,7 @@ paths:
           type: string
       responses:
         '200':
-          description: set withdrawn
+          description: set removed
           content:
             application/json:
               schema:
@@ -5799,7 +5799,7 @@ paths:
         devolved-admin tier only.
 
         `reason` is optional. When given, it must be one of the removal notes
-        the library's withdrawal policy allows, word for word, or the call
+        the library's removal policy allows, word for word, or the call
         answers `422 invalid_reason`. It is returned as `tombstone_reason`,
         recorded on the audit event and kept in the preservation envelope.
         It carries no date: a reader takes that from `tombstoned_at`.

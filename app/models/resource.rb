@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 class Resource < Valkyrie::Resource
-  # The removal notes the library's withdrawal policy allows, in its wording.
+  # The removal notes the library's removal policy allows, in its wording.
   # The date is not part of the note: a reader takes it from tombstoned_at.
   # See docs/resource-graph.md.
   TOMBSTONE_REASONS = [

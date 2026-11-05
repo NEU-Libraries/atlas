@@ -6386,11 +6386,13 @@ paths:
         against Atlas (Authorization: Bearer …) from scripts. Tokens carry a
         1-week TTL. Requires the system Bearer token; non-system callers
         receive 403. An unknown NUID returns 404. Emits a mint_token audit row.
-        An optional `read_only: true` mints a token that can only reach
-        read-shaped actions (:read, :preview, :read_versions) regardless of
-        the underlying user's own permissions — the shape to hand to a
-        non-human caller (e.g. an MCP client) that must never be able to
-        mutate the repository.
+        An optional `read_only: true` mints a token that can only reach the
+        read-shaped actions in `ApplicationController::READ_ONLY_TOKEN_ACTIONS`,
+        however much more the underlying user may do. Within that list the
+        user's own tier still applies, so an operator read such as
+        `GET /works/{id}/health_check` answers only an admin's token. It is the
+        shape to hand to a non-human caller (e.g. an MCP client) that must
+        never be able to mutate the repository.
       security:
       - BearerAuth: []
       parameters:

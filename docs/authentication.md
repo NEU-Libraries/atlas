@@ -188,6 +188,11 @@ Both answer the same question, "is this action read-shaped?", from one allowlist
 **One allowlist is the point.** A write-shaped action added next year is refused
 by default and need not be enumerated anywhere.
 
+**`:read_due` stays off it, though it writes nothing.** `GET /fixity_checks/due`
+hands a fixity sweep its next batch, and during a maintenance window the sweep
+must stop before it hashes anything it could not record. Leaving the verb off
+the list is what refuses it there.
+
 ### The per-token floor
 
 A JWT minted with the `read_only` custom claim sets `@token_read_only`, and any

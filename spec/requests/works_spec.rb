@@ -5,6 +5,14 @@ require 'swagger_helper'
 RSpec.describe 'Works', type: :request do
   let(:community)  { CommunityCreator.call }
   let(:collection) { CollectionCreator.call(parent_id: community.noid) }
+
+  # The personal access token Hyperion signs in with: POST /nuid minted with
+  # read_only, which reaches only READ_ONLY_TOKEN_ACTIONS.
+  def read_only_headers(user)
+    payload = Warden::JWTAuth::PayloadUserHelper.payload_for_user(user, :user).merge('aud' => nil)
+    payload['read_only'] = true
+    { 'Authorization' => "Bearer #{Warden::JWTAuth::TokenEncoder.new.call(payload)}" }
+  end
   # Idempotency-Key replay scopes records to the guest user when no other
   # auth context is present; seed one so the rswag examples can persist
   # their setup IdempotencyKey rows.
@@ -591,6 +599,23 @@ RSpec.describe 'Works', type: :request do
       expect(response).to have_http_status(:forbidden)
     end
 
+    it "lists them for an admin's and a delegated admin's read-only token" do
+      post "/resources/#{blob.parent.noid}/tombstone", headers: signed_auth_headers(delegate.nuid)
+
+      [User.find_by!(nuid: DefaultAuthHeaders::ADMIN_NUID), delegate].each do |user|
+        get "/works/#{work.noid}/tombstoned_assets", headers: read_only_headers(user)
+        expect(response).to have_http_status(:ok)
+        expect(response.parsed_body.pluck('file_set')).to eq([blob.parent.noid])
+      end
+    end
+
+    it "refuses a standard user's read-only token on the tier gate, not the token" do
+      get "/works/#{work.noid}/tombstoned_assets", headers: read_only_headers(standard)
+      expect(response).to have_http_status(:forbidden)
+      expect(response.parsed_body).to include('action' => 'read_tombstoned')
+      expect(response.parsed_body['error']).not_to match(/read-only token/)
+    end
+
     it 'leaves the metadata FileSet out even if it is tombstoned' do
       metadata = work.children.find { |fs| Classification.metadata?(fs.type) }
       metadata.tombstone(by: delegate.nuid)
@@ -796,6 +821,37 @@ RSpec.describe 'Works', type: :request do
       get "/works/#{work.noid}/health_check", headers: { 'Authorization' => '' }
 
       expect(response).to have_http_status(:forbidden)
+    end
+
+    it "grades a Work for an admin's and a delegated admin's read-only token" do
+      [User.find_by!(nuid: DefaultAuthHeaders::ADMIN_NUID), delegate].each do |user|
+        get "/works/#{work.noid}/health_check", headers: read_only_headers(user)
+
+        expect(response).to have_http_status(:ok)
+        expect(response.parsed_body['grade']).to eq('green')
+      end
+    end
+
+    it "refuses a standard user's read-only token on the tier gate, not the token" do
+      get "/works/#{work.noid}/health_check", headers: read_only_headers(standard)
+
+      expect(response).to have_http_status(:forbidden)
+      expect(response.parsed_body).to include('action' => 'read_health')
+      expect(response.parsed_body['error']).not_to match(/read-only token/)
+    end
+
+    # The same allowlist is the maintenance floor, and a window is when an
+    # admin most wants the grade.
+    it 'answers during a maintenance window' do
+      MaintenanceMode.open!(source: 'operator')
+      MaintenanceMode::Cache.reset
+
+      get "/works/#{work.noid}/health_check", headers: signed_auth_headers(delegate.nuid)
+
+      expect(response).to have_http_status(:ok)
+    ensure
+      MaintenanceMode.delete_all
+      MaintenanceMode::Cache.reset
     end
   end
 

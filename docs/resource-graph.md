@@ -318,8 +318,8 @@ with it.
   FileSets do, because `live_children?` counts only containers and Works.
 - **The asset listings drop a tombstoned FileSet.** `GET /works/:id/assets` and
   `/file_sets` skip it, and `PageAssetsQuery` skips a tombstoned nested FileSet,
-  so no consumer needs its own filter. The Blob's own reads still answer, as a
-  tombstoned Work's Blobs do.
+  so no consumer needs its own filter. The Blob's bytes are withheld too; see
+  [A tombstone withholds the files beneath it](#a-tombstone-withholds-the-files-beneath-it).
 - **`GET /works/:id/tombstoned_assets` lists what the others drop.** Without it,
   Restore needs an id that nothing can look up once the tombstoning page is
   gone. It is a separate route, not a flag on `/assets`, so tombstoned files sit
@@ -334,6 +334,41 @@ with it.
 - **Only the devolved-admin tier and admins may do it.** A standard user's edit
   rights on the Work do not extend to it. See
   [`authorization.md`](authorization.md).
+
+### A tombstone withholds the files beneath it
+
+A tombstone does not cascade, so the Blobs under a tombstoned FileSet or Work
+keep `tombstoned: false`. The file routes therefore read the ancestors.
+`tombstone_source` (`LeafReadAuthority`) returns the first tombstoned resource
+among the leaf and its chain up to its read authority, or nil.
+
+| Route | Below the operator tiers | Admins and delegated admins |
+|---|---|---|
+| `GET /files/:id/content`, `/files/:id/versions/:version_id/content` | `410 tombstoned`, no bytes | Served |
+| `GET /works/:id/assets`, `/file_sets`, `/file_revisions` on a tombstoned Work | `410 tombstoned` | Served |
+| `GET /files/:id`, `/file_sets/:id`, `/delegates/:id` | 410 with the body | 410 with the body, as `GET /works/:id` |
+| `GET /files/:id/ancestry` | 200, with `file_set_tombstoned` and `work_tombstoned` | The same |
+
+- **The operator tiers keep the bytes,** because they review a removed file
+  before they restore it. The gate is `:read_tombstoned`, which those tiers hold
+  on Work, FileSet, Blob and Delegate.
+- **The 410 names the tombstoned resource.** `tombstoned_resource_type` tells a
+  removed file (`FileSet`) from a retracted Work (`Work`), which a client shows
+  differently. The Blob read carries the same pair, with `tombstoned_in_effect`,
+  so a client can refuse before it asks for the content.
+- **The gate runs after the read check.** A caller who may not read the Work gets
+  403 and learns nothing about the tombstone. It also runs before the response
+  cache, because an operator's 200 is cached under an audience that other
+  signed-in callers share.
+- **Nothing above the read authority is consulted.** A container cannot be
+  tombstoned while it holds a live Work, so the Work is the highest tombstone that
+  can apply.
+- **The walk costs nothing extra.** The read gate walks the same chain, and the
+  chain is memoized on the resource for the request.
+- **Atlas cannot gate the IIIF image server.** Cantaloupe reads the JP2s without
+  asking Atlas, so its tiers for a tombstoned image Work must be refused by the
+  caller that hands out the IIIF URL. `GET /works/:id/file_sets`, where a manifest
+  finds those URLs, answers 410.
 
 ### `/mods` renders the typed view
 

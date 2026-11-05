@@ -140,18 +140,17 @@ RSpec.describe 'Read status guard via atlas_rb', :atlas_rb_server do
     end
   end
 
-  # A streamed read cannot raise, and this is the example that shows why: the
-  # error envelope really is yielded as a chunk, because on_data fires as bytes
-  # arrive and nothing knows the status yet. Discarding the status left the
-  # caller unable to tell those bytes from the file it asked for — an error page
-  # saved to disk under the download filename. Handing the status back is the
-  # only fix available at this seam.
+  # A streamed read hands its chunks to the caller as they arrive, so a caller
+  # writing them to a browser or a file has committed to them by the time the
+  # call returns. atlas_rb therefore yields only a 2xx body; for anything else
+  # the caller gets the status and no bytes, so an error envelope can never be
+  # saved under the download filename.
   describe 'the streamed reads' do
-    it 'hands version_content the status alongside the bytes it streamed' do
+    it 'hands version_content the status of a refusal and none of its body' do
       chunks = []
       result = AtlasRb::Blob.version_content('nosuchblob', 'v1', nuid: stranger_nuid) { |c| chunks << c }
 
-      expect(chunks.join).to include('unknown principal')
+      expect(chunks).to be_empty
       expect(result[:status]).to eq(400)
       expect(result[:headers]).to be_a(Hash)
     end

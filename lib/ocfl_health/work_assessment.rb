@@ -71,7 +71,7 @@ module OcflHealth
         perms = envelope.permissions || {}
         @facts.merge!(handle: envelope.graph&.fetch('handle', nil), depositor: perms['depositor'],
                       read: perms['read'], tombstoned: !envelope.graph&.fetch('tombstone', nil).nil?)
-        add(:advisory, :withdrawn, 'the envelope records a withdrawal') if @facts[:tombstoned]
+        add(:advisory, :retracted, 'the envelope records a tombstone') if @facts[:tombstoned]
         add(:advisory, :no_handle, 'no handle in the envelope') if @facts[:handle].nil?
       end
 
@@ -109,7 +109,7 @@ module OcflHealth
         end
         return if @facts[:tombstoned] || parent.graph&.fetch('tombstone', nil).nil?
 
-        add(:repairable, :live_under_withdrawn, "the Work is live but ancestor #{parent.key} is withdrawn")
+        add(:repairable, :live_under_retracted, "the Work is live but ancestor #{parent.key} is retracted")
       end
 
       def assess_file_sets

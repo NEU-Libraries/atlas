@@ -45,6 +45,15 @@ RSpec.describe WorkHealthCheck do
     expect(described_class.call(noid: 'zzzzzzzzz')).to include(grade: :red)
   end
 
+  # Cerberus renders the message as sent, so it carries the staff-facing word.
+  it 'notes a tombstoned Work as retracted, with its removal note, and keeps it green' do
+    reason = Resource::TOMBSTONE_REASONS.first
+    save(reload(work).tap { |w| w.tombstone(by: 'spec', reason: reason) }).write_preservation_envelope!
+
+    expect(report[:findings]).to include(include(severity: :advisory, code: :retracted, message: "retracted: #{reason}"))
+    expect(report[:grade]).to eq(:green)
+  end
+
   describe 'yellow: viable once repaired, nothing lost' do
     it 'flags a Work with no title' do
       work.mods_xml = Rails.root.join('spec/fixtures/files/work-mods.xml').read
@@ -63,9 +72,9 @@ RSpec.describe WorkHealthCheck do
       expect(codes).to include(:orphaned)
     end
 
-    it 'flags a Work left readable inside a withdrawn Collection' do
+    it 'flags a Work left readable inside a retracted Collection' do
       save(reload(collection).tap { |c| c.tombstone(by: 'spec') })
-      expect(codes).to eq([:live_under_withdrawn])
+      expect(codes).to eq([:live_under_retracted])
     end
 
     it 'flags an ACL that locks out staff and the depositor' do

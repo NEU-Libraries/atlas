@@ -687,6 +687,19 @@ components:
               type: string
               nullable: true
               description: NUID of the user who tombstoned the resource
+            tombstoned_in_effect:
+              type: boolean
+              description: True when the Blob, its FileSet or its Work is tombstoned.
+                Its content is then withheld below the operator tiers
+            tombstoned_resource_id:
+              type: string
+              nullable: true
+              description: NOID of the resource whose tombstone applies; null when
+                none does
+            tombstoned_resource_type:
+              type: string
+              nullable: true
+              description: Type of the resource whose tombstone applies
           required:
           - id
           - mime_type
@@ -702,6 +715,9 @@ components:
           - tombstoned
           - tombstoned_at
           - tombstoned_by
+          - tombstoned_in_effect
+          - tombstoned_resource_id
+          - tombstoned_resource_type
       required:
       - blob
     Delegate:
@@ -2277,9 +2293,19 @@ components:
           type: string
           nullable: true
           description: NOID of the containing Work; null when unresolvable
+        file_set_tombstoned:
+          type: boolean
+          nullable: true
+          description: Whether the FileSet is tombstoned; null with file_set
+        work_tombstoned:
+          type: boolean
+          nullable: true
+          description: Whether the Work is tombstoned; null with work
       required:
       - file_set
       - work
+      - file_set_tombstoned
+      - work_tombstoned
     DescendantWorks:
       type: object
       properties:
@@ -2695,6 +2721,30 @@ components:
             call
       required:
       - released
+    Tombstoned:
+      type: object
+      properties:
+        error:
+          type: string
+          enum:
+          - tombstoned
+        resource_id:
+          type: string
+          description: NOID that was requested
+        tombstoned_resource_id:
+          type: string
+          description: NOID of the resource whose tombstone applies
+        tombstoned_resource_type:
+          type: string
+          description: 'Its type: Blob, FileSet or Work'
+        message:
+          type: string
+      required:
+      - error
+      - resource_id
+      - tombstoned_resource_id
+      - tombstoned_resource_type
+      - message
     Compilation:
       type: object
       properties:
@@ -3077,7 +3127,7 @@ paths:
               schema:
                 "$ref": "#/components/schemas/Blob"
         '410':
-          description: file tombstoned
+          description: file, its FileSet or its Work tombstoned
           content:
             application/json:
               schema:
@@ -3184,6 +3234,11 @@ paths:
         `Content-Range`, and a syntactically-valid but unsatisfiable range is
         rejected `416`. Multi-range is not supported; an absent or unparseable
         Range serves the full `200` body.
+
+        When the Blob, its FileSet or its Work is tombstoned, the bytes are
+        withheld with `410 tombstoned`, which names the tombstoned resource.
+        Admins and delegated admins are still served, so they can review a
+        removed file before they restore it.
       parameters:
       - name: Range
         in: header
@@ -3199,6 +3254,12 @@ paths:
           description: partial content (byte range)
         '416':
           description: range not satisfiable
+        '410':
+          description: content withheld by a tombstoned Work
+          content:
+            application/octet-stream:
+              schema:
+                "$ref": "#/components/schemas/Tombstoned"
   "/files/{id}/ancestry":
     parameters:
     - name: id
@@ -4482,7 +4543,7 @@ paths:
               schema:
                 "$ref": "#/components/schemas/Delegate"
         '410':
-          description: delegate tombstoned
+          description: delegate or its Work tombstoned
           content:
             application/json:
               schema:
@@ -6733,7 +6794,16 @@ paths:
         use + uri, e.g. IIIF-served sized image variants). Thumbnails
         (Role.thumbnail_image) and metadata roles are excluded by
         Role.downloadable?.
+
+        A tombstoned Work answers `410 tombstoned` to everyone but admins and
+        delegated admins, as do `/file_sets` and `/file_revisions`.
       responses:
+        '410':
+          description: work tombstoned
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Tombstoned"
         '200':
           description: the gate also surfaces on held Blob entries (original / pdf)
           content:

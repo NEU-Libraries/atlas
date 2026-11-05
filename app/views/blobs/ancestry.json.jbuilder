@@ -4,5 +4,8 @@
 # consumer (Cerberus impression capture) can roll a download up to its
 # containing Work from the blob id alone. Either is null when unresolvable
 # (orphan blob, or a non-content blob whose ancestor isn't a FileSet/Work).
+# Each tombstoned flag is null exactly when its ancestor is.
 json.file_set @file_set&.noid
 json.work @work&.noid
+json.file_set_tombstoned @file_set&.tombstoned
+json.work_tombstoned @work&.tombstoned

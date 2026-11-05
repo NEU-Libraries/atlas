@@ -15,4 +15,10 @@ json.blob do
   json.tombstoned @blob.tombstoned
   json.tombstoned_at @blob.tombstoned_at&.to_s
   json.tombstoned_by @blob.tombstoned_by
+  # A tombstone on the FileSet or Work withholds the Blob without setting its
+  # own flag, so a client reads these to refuse before it asks for content.
+  source = @blob.tombstone_source
+  json.tombstoned_in_effect !source.nil?
+  json.tombstoned_resource_id source&.noid
+  json.tombstoned_resource_type source&.class&.name
 end

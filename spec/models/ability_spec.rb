@@ -263,8 +263,9 @@ RSpec.describe Ability do
       expect(subject).not_to be_able_to(:read_index, Compilation)
     end
 
-    it 'grants :read_tombstoned on Work, unconditionally, beside :tombstone and :restore on FileSet' do
+    it 'grants :read_tombstoned on Work and its leaves, unconditionally, beside :tombstone and :restore on FileSet' do
       expect(subject).to be_able_to(:read_tombstoned, stranger_work)
+      [FileSet, Blob, Delegate].each { |klass| expect(subject).to be_able_to(:read_tombstoned, klass.new) }
       expect(subject).to be_able_to(:tombstone,      FileSet.new)
       expect(subject).to be_able_to(:restore,        FileSet.new)
     end
@@ -302,6 +303,7 @@ RSpec.describe Ability do
       expect(subject).not_to be_able_to(:read_versions, Community)
       expect(subject).not_to be_able_to(:read_index,    Work)
       expect(subject).not_to be_able_to(:read_tombstoned, Work.new(edit_groups: [Permissions::STAFF_EDIT_GROUP]))
+      expect(subject).not_to be_able_to(:read_tombstoned, Blob.new(edit_groups: [Permissions::STAFF_EDIT_GROUP]))
       expect(subject).not_to be_able_to(:read_health, Work.new(edit_groups: [Permissions::STAFF_EDIT_GROUP]))
       expect(subject).not_to be_able_to(:read_history, Work)
     end

@@ -158,6 +158,18 @@ class ApplicationController < ActionController::API
     }, status: :unprocessable_content
   end
 
+  # The tombstoned resource can be an ancestor of the one requested, so the body
+  # names it: a client tells a removed file from a retracted Work by its type.
+  rescue_from Exceptions::Tombstoned do |exception|
+    render json: {
+      error:                    Exceptions::Tombstoned::CODE,
+      resource_id:              params[:id],
+      tombstoned_resource_id:   exception.source.noid,
+      tombstoned_resource_type: exception.source.class.name,
+      message:                  exception.message
+    }, status: :gone
+  end
+
   # A 503 and not a 403: during a window the caller's rights are fine and the
   # repository is closed. `read_only_mode` is an exact-match wire contract --
   # atlas_rb raises AtlasRb::ReadOnlyModeError on it.

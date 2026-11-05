@@ -27,14 +27,39 @@ module LeafReadAuthority
   # "deny". An unattached Blob — created but not yet joined to a FileSet — has
   # nobody to speak for it, and guessing would defeat the gate.
   def read_authority
-    node = self
+    node = authority_chain.last
+    node if authority?(node)
+  end
 
-    MAX_HOPS.times do
-      node = node.parent
-      return nil if node.nil?
-      return node if node.is_a?(Work) || node.is_a?(Collection) || node.is_a?(Community)
+  # A tombstone does not cascade, so a Blob under a tombstoned FileSet or Work
+  # keeps its own flag false. This is the resource whose tombstone withholds the
+  # leaf: the leaf itself, or an ancestor up to its read authority. Nothing above
+  # the authority is consulted, because a container cannot be tombstoned while it
+  # holds a live Work. See docs/resource-graph.md.
+  def tombstone_source
+    [self, *authority_chain].find(&:tombstoned)
+  end
+
+  private
+
+    # Memoized, because the read gate and the tombstone gate walk the same chain
+    # on the same request, and each hop is a query.
+    def authority_chain
+      @authority_chain ||= begin
+        chain = []
+        node  = self
+        MAX_HOPS.times do
+          node = node.parent
+          break if node.nil?
+
+          chain << node
+          break if authority?(node)
+        end
+        chain
+      end
     end
 
-    nil
-  end
+    def authority?(node)
+      node.is_a?(Work) || node.is_a?(Collection) || node.is_a?(Community)
+    end
 end

@@ -45,6 +45,12 @@ class Resource < Valkyrie::Resource
     is_a?(Community) && parent.nil?
   end
 
+  # The resource whose tombstone withholds this one. A Work or container answers
+  # for itself; LeafReadAuthority widens it to a leaf's ancestors.
+  def tombstone_source
+    self if tombstoned
+  end
+
   def tombstone(by:, reason: nil)
     self.tombstoned       = true
     self.tombstoned_at    = Time.current

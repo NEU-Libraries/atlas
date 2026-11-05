@@ -49,6 +49,23 @@ RSpec.describe 'Delegates', type: :request do
         schema '$ref' => '#/components/schemas/Delegate'
         run_test!
       end
+
+      response '410', 'delegate or its Work tombstoned' do
+        let(:delegate) do
+          DelegateCreator.call(resource_id: work.id, use: Role.thumbnail_image.name, uri: 'https://iiif.example/thumb.jpg')
+        end
+        let(:id) { delegate.noid }
+        before do
+          delegate
+          retracted = Work.find(work.noid)
+          retracted.tombstone(by: '000000004')
+          Atlas.persister.save(resource: retracted)
+        end
+        schema '$ref' => '#/components/schemas/Delegate'
+        run_test! do |response|
+          expect(JSON.parse(response.body).dig('delegate', 'tombstoned')).to be(false)
+        end
+      end
     end
   end
 end

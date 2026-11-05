@@ -420,7 +420,26 @@ RSpec.describe 'Works', type: :request do
         use + uri, e.g. IIIF-served sized image variants). Thumbnails
         (Role.thumbnail_image) and metadata roles are excluded by
         Role.downloadable?.
+
+        A tombstoned Work answers `410 tombstoned` to everyone but admins and
+        delegated admins, as do `/file_sets` and `/file_revisions`.
       DESC
+
+      response '410', 'work tombstoned', default_auth: false do
+        let(:community) { public_community! }
+        let(:work) do
+          w = WorkCreator.call(parent_id: collection.noid)
+          w.publicize
+          w.tombstone(by: '000000004')
+          Atlas.persister.save(resource: w)
+        end
+        let(:id) { work.noid }
+        before { signed_auth_headers(nil) }
+        schema '$ref' => '#/components/schemas/Tombstoned'
+        run_test! do |response|
+          expect(JSON.parse(response.body)).to include('error' => 'tombstoned', 'tombstoned_resource_id' => work.noid)
+        end
+      end
 
       response '200', 'assets listed' do
         let(:work)     { WorkCreator.call(parent_id: collection.noid) }

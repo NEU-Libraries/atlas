@@ -15,6 +15,7 @@ class WorksController < ApplicationController
   include Auditable
   include ParentScopedCreate
   include CachedResponses
+  include TombstoneGate
 
   # The operator monitoring filters on GET /works, each an exact match on a
   # Work lifecycle flag. An absent param means "no filtering" on that flag, so
@@ -102,6 +103,8 @@ class WorksController < ApplicationController
     authorize! :read, @work || Work
     return head(:not_found) if @work.nil?
 
+    refuse_tombstoned!(@work)
+
     cached_render('works.assets', @work, audience: asset_audience) do
       render_assets
     end
@@ -115,6 +118,8 @@ class WorksController < ApplicationController
     authorize! :read, @work || Work
     return head(:not_found) if @work.nil?
 
+    refuse_tombstoned!(@work)
+
     cached_render('works.file_sets', @work, audience: asset_audience) do
       render_file_sets
     end
@@ -127,6 +132,8 @@ class WorksController < ApplicationController
     @work = Work.find(params.expect(:id))
     authorize! :read, @work || Work
     return head(:not_found) if @work.nil?
+
+    refuse_tombstoned!(@work)
 
     @revisions = downloadable_assets.filter_map do |asset, _file_set|
       next unless asset.is_a?(Blob) && asset.file_identifiers.size > 1

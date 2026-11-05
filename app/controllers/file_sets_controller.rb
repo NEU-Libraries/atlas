@@ -20,7 +20,7 @@ class FileSetsController < ApplicationController
     authorize! :read, @file_set || FileSet
     return head(:not_found) if @file_set.nil?
 
-    render :show, status: (@file_set.tombstoned ? :gone : :ok)
+    render :show, status: (@file_set.tombstone_source ? :gone : :ok)
   end
 
   def mets

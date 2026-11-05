@@ -57,7 +57,8 @@ module OpenapiSchemas
       MaintenanceMode:    maintenance_mode,
       Health:             health,
       Latency:            latency,
-      EmbargoRelease:     embargo_release
+      EmbargoRelease:     embargo_release,
+      Tombstoned:         tombstoned_error
     }.merge(compilation_schemas).merge(person_schemas)
   end
   # rubocop:enable Metrics/AbcSize
@@ -189,25 +190,32 @@ module OpenapiSchemas
 
   def blob
     wrapped(:blob, {
-              id:                { type: :string, description: 'NOID' },
-              mime_type:         { type: :string, nullable: true },
-              original_filename: { type: :string, nullable: true },
-              use:               { type: :string, nullable: true },
-              size:              { type: :integer, nullable: true },
-              digest:            { type: :string, nullable: true,
+              id:                       { type: :string, description: 'NOID' },
+              mime_type:                { type: :string, nullable: true },
+              original_filename:        { type: :string, nullable: true },
+              use:                      { type: :string, nullable: true },
+              size:                     { type: :integer, nullable: true },
+              digest:                   { type: :string, nullable: true,
                                    description: 'Fixity digest of the head revision, "<algorithm>:<hexvalue>" (e.g. sha512:…), recorded at ingest from the OCFL inventory' },
-              filename:          { type: :string, nullable: true },
-              label:             { type: :string, nullable: true },
-              language:          { type: :string, nullable: true, description: 'BCP 47 language of a caption or other text track (e.g. en, es-MX)' },
-              track_label:       { type: :string, nullable: true, description: 'Display name a player shows for the track (e.g. "Español")' },
-              file_identifiers:  {
+              filename:                 { type: :string, nullable: true },
+              label:                    { type: :string, nullable: true },
+              language:                 { type: :string, nullable: true, description: 'BCP 47 language of a caption or other text track (e.g. en, es-MX)' },
+              track_label:              { type: :string, nullable: true, description: 'Display name a player shows for the track (e.g. "Español")' },
+              file_identifiers:         {
                 type:  :array,
                 items: { type: :object, additionalProperties: true,
                  description: 'Valkyrie::ID-shaped reference to the underlying bytes' }
               },
-              tombstoned:        { type: :boolean, description: 'Tombstoned (retracted from discovery) flag' },
-              tombstoned_at:     { type: :string, nullable: true, description: 'ISO-8601 timestamp set when tombstoned' },
-              tombstoned_by:     { type: :string, nullable: true, description: 'NUID of the user who tombstoned the resource' }
+              tombstoned:               { type: :boolean, description: 'Tombstoned (retracted from discovery) flag' },
+              tombstoned_at:            { type: :string, nullable: true, description: 'ISO-8601 timestamp set when tombstoned' },
+              tombstoned_by:            { type: :string, nullable: true, description: 'NUID of the user who tombstoned the resource' },
+              tombstoned_in_effect:     { type:        :boolean,
+                                          description: 'True when the Blob, its FileSet or its Work is tombstoned. ' \
+                                                       'Its content is then withheld below the operator tiers' },
+              tombstoned_resource_id:   { type: :string, nullable: true,
+                                          description: 'NOID of the resource whose tombstone applies; null when none does' },
+              tombstoned_resource_type: { type: :string, nullable: true,
+                                          description: 'Type of the resource whose tombstone applies' }
             })
   end
 
@@ -1163,10 +1171,28 @@ module OpenapiSchemas
     {
       type:       :object,
       properties: {
-        file_set: { type: :string, nullable: true, description: 'NOID of the parent FileSet; null when unresolvable' },
-        work:     { type: :string, nullable: true, description: 'NOID of the containing Work; null when unresolvable' }
+        file_set:            { type: :string, nullable: true, description: 'NOID of the parent FileSet; null when unresolvable' },
+        work:                { type: :string, nullable: true, description: 'NOID of the containing Work; null when unresolvable' },
+        file_set_tombstoned: { type: :boolean, nullable: true, description: 'Whether the FileSet is tombstoned; null with file_set' },
+        work_tombstoned:     { type: :boolean, nullable: true, description: 'Whether the Work is tombstoned; null with work' }
       },
-      required:   %w[file_set work]
+      required:   %w[file_set work file_set_tombstoned work_tombstoned]
+    }
+  end
+
+  # The 410 a tombstone answers on a file or a file list. The tombstoned
+  # resource can be an ancestor of the one requested, so the body names it.
+  def tombstoned_error
+    {
+      type:       :object,
+      properties: {
+        error:                    { type: :string, enum: ['tombstoned'] },
+        resource_id:              { type: :string, description: 'NOID that was requested' },
+        tombstoned_resource_id:   { type: :string, description: 'NOID of the resource whose tombstone applies' },
+        tombstoned_resource_type: { type: :string, description: 'Its type: Blob, FileSet or Work' },
+        message:                  { type: :string }
+      },
+      required:   %w[error resource_id tombstoned_resource_id tombstoned_resource_type message]
     }
   end
 

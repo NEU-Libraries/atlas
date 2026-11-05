@@ -161,6 +161,22 @@ RSpec.describe 'Files (Blobs)', type: :request do
         schema '$ref' => '#/components/schemas/Blob'
         run_test!
       end
+
+      response '410', 'file, its FileSet or its Work tombstoned' do
+        let(:blob) { BlobCreator.call(work_id: work.noid, original_filename: 'example.bin', path: fixture.to_s) }
+        let(:id)   { blob.noid }
+        before do
+          file_set = blob.parent
+          file_set.tombstone(by: '000000004')
+          Atlas.persister.save(resource: file_set)
+        end
+        schema '$ref' => '#/components/schemas/Blob'
+        run_test! do |response|
+          expect(JSON.parse(response.body)['blob']).to include('tombstoned'             => false,
+                                                               'tombstoned_in_effect'   => true,
+                                                               'tombstoned_resource_id' => blob.parent.noid)
+        end
+      end
     end
 
     patch 'Append a new revision to a file' do
@@ -271,6 +287,11 @@ RSpec.describe 'Files (Blobs)', type: :request do
         `Content-Range`, and a syntactically-valid but unsatisfiable range is
         rejected `416`. Multi-range is not supported; an absent or unparseable
         Range serves the full `200` body.
+
+        When the Blob, its FileSet or its Work is tombstoned, the bytes are
+        withheld with `410 tombstoned`, which names the tombstoned resource.
+        Admins and delegated admins are still served, so they can review a
+        removed file before they restore it.
       DESC
 
       parameter name: 'Range', in: :header, type: :string, required: false,
@@ -303,6 +324,26 @@ RSpec.describe 'Files (Blobs)', type: :request do
         let(:Range) { 'bytes=200000-200010' }
         run_test! do |response|
           expect(response.headers['Content-Range']).to eq("bytes */#{File.size(fixture)}")
+        end
+      end
+
+      response '410', 'content withheld by a tombstoned Work', default_auth: false do
+        let(:community) { public_community! }
+        let(:work) do
+          w = WorkCreator.call(parent_id: collection.noid)
+          w.publicize
+          Atlas.persister.save(resource: w)
+        end
+        before do
+          signed_auth_headers(nil)
+          blob
+          retracted = Work.find(work.noid)
+          retracted.tombstone(by: '000000004')
+          Atlas.persister.save(resource: retracted)
+        end
+        schema '$ref' => '#/components/schemas/Tombstoned'
+        run_test! do |response|
+          expect(JSON.parse(response.body)).to include('error' => 'tombstoned', 'tombstoned_resource_type' => 'Work')
         end
       end
     end

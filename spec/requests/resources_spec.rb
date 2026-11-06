@@ -673,6 +673,11 @@ RSpec.describe 'Resources', type: :request do
         still tombstoned, so a restore can never surface a resource inside a
         tombstoned container — restore the tree root-first. A top-level
         Community has no parent and is never refused.
+
+        The restored resource comes back no wider than its parent: its read
+        groups are narrowed to their intersection with the parent's, and the
+        restore's audit event records any narrowing as `read_before` and
+        `read_after`. A FileSet reads through its Work and is not narrowed.
       DESC
 
       response '200', 'resource restored' do

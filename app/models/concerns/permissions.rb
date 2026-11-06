@@ -158,6 +158,20 @@ module Permissions
     self
   end
 
+  # Answers the read groups held before, or nil when nothing changed. See
+  # docs/resource-graph.md for why a restore needs it.
+  def clamp_read_groups_to_parent
+    container = parent
+    return if container.nil? || !read_authority.equal?(self)
+
+    before  = Array(read_groups)
+    clamped = TierVisibility.audience_intersect(before, Array(container.read_groups))
+    return if clamped.sort == before.sort
+
+    self.read_groups = clamped
+    before
+  end
+
   def privatize
     delete_read_group('public')
   end

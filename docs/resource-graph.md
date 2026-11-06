@@ -306,6 +306,26 @@ tombstoned container is itself tombstoned.
 The rule does not reach a file. `POST /file_sets` and `POST /files` still accept
 a tombstoned Work.
 
+#### A restore comes back no wider than its parent
+
+A restore narrows the resource's read groups to their intersection with its
+parent's, then clears the tombstone. A narrowing cascade from Cerberus cannot
+read a tombstoned resource, so it skips one. Without the clamp, a Work
+tombstoned while its Collection was public would come back public inside a
+Collection narrowed since.
+
+- **The parent is enough to check.** A live parent already fits inside its own
+  parent, because `PermissionsWriteGuard` refuses any write that would make it
+  wider, and a restore needs a live parent.
+- **The restore's audit event records a narrowing,** as `read_before` and
+  `read_after`. An empty `read_after` means no group in common was left, so
+  only the Work's editors and the operator tiers can read it, which is what the
+  cascade gives in the same case.
+- **Only a resource with its own ACL is clamped.** A FileSet reads through its
+  Work, so its restore changes no ACL. A Work's derivative tiers need no write,
+  because each one is clamped to the Work's read groups when it resolves.
+- **Edit groups are untouched,** as in the containment check.
+
 ### A FileSet can be tombstoned, and nothing else below a Work can
 
 `tombstone` and `restore` answer for a FileSet as well as the three typed

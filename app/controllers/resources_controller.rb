@@ -186,9 +186,10 @@ class ResourcesController < ApplicationController
     refusal = restore_refusal(resource)
     return render(json: refusal, status: :unprocessable_content) if refusal
 
+    read_before = resource.clamp_read_groups_to_parent
     resource.restore
     saved = save_lifecycle(resource)
-    audit_lifecycle!(saved, 'restore')
+    audit_lifecycle!(saved, 'restore', read_before ? { read_before: read_before, read_after: saved.read_groups } : {})
     render_typed(saved, 'show')
   end
 

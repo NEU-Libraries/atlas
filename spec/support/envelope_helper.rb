@@ -12,3 +12,12 @@ def on_disk_envelope(resource)
   validator = OcflHealth::ObjectValidator.new(path, key: resource.noid, fixity: false).call
   OcflHealth::Envelope.read(validator).graph
 end
+
+# The permissions.json a resource's OCFL object holds at its head, or nil.
+def on_disk_permissions(resource)
+  path = OcflHealth::Pool.new([TestStorage.root]).object_path(resource.noid)
+  return nil if path.nil?
+
+  validator = OcflHealth::ObjectValidator.new(path, key: resource.noid, fixity: false).call
+  OcflHealth::Envelope.read(validator).permissions
+end

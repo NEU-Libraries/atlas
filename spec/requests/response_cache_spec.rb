@@ -162,6 +162,88 @@ RSpec.describe 'Response cache', :response_cache, type: :request, default_auth: 
     end
   end
 
+  # A file write saves the FileSet and the Blob, never the Work, yet both file
+  # listings are cached under the Work's NOID.
+  describe "a file write reaches its Work's file listings" do
+    let(:example_png) { Rails.root.join('spec/fixtures/files/example.png').to_s }
+    let(:file_scopes) { %w[works.assets/authenticated works.file_sets/authenticated] }
+    let!(:blob) do
+      BlobCreator.call(path: example_png, work_id: public_work.noid, original_filename: 'example.png')
+    end
+
+    def warm_file_listings(work)
+      get "/works/#{work.noid}/assets", headers: signed_auth_headers(reader.nuid)
+      get "/works/#{work.noid}/file_sets", headers: signed_auth_headers(reader.nuid)
+      expect(cached_scopes_for(work.noid)).to include(*file_scopes)
+    end
+
+    def listed_filenames(work)
+      get "/works/#{work.noid}/assets", headers: signed_auth_headers(reader.nuid)
+      expect(response.headers['X-Atlas-Cache']).to eq('miss')
+      response.parsed_body.pluck('original_filename')
+    end
+
+    it 'lists an added file on the next read' do
+      warm_file_listings(public_work)
+
+      BlobCreator.call(path: example_png, work_id: public_work.noid, original_filename: 'second.png')
+
+      expect(cached_scopes_for(public_work.noid)).not_to include(*file_scopes)
+      expect(listed_filenames(public_work)).to include('example.png', 'second.png')
+    end
+
+    it 'drops the listings when a file is replaced' do
+      warm_file_listings(public_work)
+
+      BlobRevisionAppender.call(blob: Blob.find(blob.noid), source_path: example_png, name: 'renamed.png')
+
+      expect(cached_scopes_for(public_work.noid)).not_to include(*file_scopes)
+      expect(listed_filenames(public_work)).to include('renamed.png')
+    end
+
+    it 'drops the listings when a Blob alone is saved' do
+      warm_file_listings(public_work)
+
+      Atlas.persister.save(resource: Blob.find(blob.noid))
+
+      expect(cached_scopes_for(public_work.noid)).not_to include(*file_scopes)
+    end
+
+    it 'drops the listings when a FileSet is tombstoned and when it is restored' do
+      admin = ensure_default_admin!
+      file_set = Blob.find(blob.noid).parent
+
+      warm_file_listings(public_work)
+      post "/resources/#{file_set.noid}/tombstone", headers: signed_auth_headers(admin.nuid)
+      expect(response).to have_http_status(:ok)
+      expect(cached_scopes_for(public_work.noid)).not_to include(*file_scopes)
+      expect(listed_filenames(public_work)).not_to include('example.png')
+
+      warm_file_listings(public_work)
+      post "/resources/#{file_set.noid}/restore", headers: signed_auth_headers(admin.nuid)
+      expect(response).to have_http_status(:ok)
+      expect(cached_scopes_for(public_work.noid)).not_to include(*file_scopes)
+      expect(listed_filenames(public_work)).to include('example.png')
+    end
+
+    it "leaves the Work's entries alone when an unrelated resource is saved" do
+      other = restricted_work
+      warm_file_listings(public_work)
+
+      Atlas.persister.save(resource: Work.find(other.noid))
+      BlobCreator.call(path: example_png, work_id: other.noid, original_filename: 'elsewhere.png')
+
+      expect(cached_scopes_for(public_work.noid)).to include(*file_scopes)
+    end
+
+    it 'never fails the write when the owner lookup raises' do
+      warm_file_listings(public_work)
+      allow(Atlas.query.custom_queries).to receive(:find_many_parents).and_raise(StandardError, 'boom')
+
+      expect { Atlas.persister.save(resource: Blob.find(blob.noid)) }.not_to raise_error
+    end
+  end
+
   # A container's title is embedded in every descendant Work's `ancestors`, and
   # nothing re-saves those Works — so a rename or a move has to reach them.
   describe 'the ancestor cascade' do

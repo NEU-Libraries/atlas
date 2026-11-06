@@ -35,8 +35,12 @@ module Valkyrie
         end
       end
 
+      # The owner is read BEFORE the delete: a Blob reaches its FileSet only
+      # through the FileSet's member_ids, and that edge may not survive the
+      # delete.
       def delete(resource:, **)
-        @persister.delete(resource: resource, **).tap { |deleted| evict(deleted) }
+        owners = owner_noids([resource])
+        @persister.delete(resource: resource, **).tap { |deleted| evict(deleted, owners) }
       end
 
       def wipe!(...)
@@ -55,15 +59,42 @@ module Valkyrie
 
       private
 
-        def evict(resource)
-          evict_many([resource])
+        def evict(resource, owners = nil)
+          evict_many([resource], owners)
         end
 
-        def evict_many(resources)
+        def evict_many(resources, owners = nil)
+          return unless ResponseCache.enabled?
+
           noids = resources.filter_map { |resource| resource.try(:noid).presence }
-          ResponseCache.evict_many(noids)
+          ResponseCache.evict_many((noids + (owners || owner_noids(resources))).uniq)
         rescue StandardError => e
           Rails.logger.warn("ResponseCache eviction failed: #{e.class} #{e.message}")
+        end
+
+        # A FileSet or Blob write changes the file listings cached under its
+        # Work's NOID, and nothing on that path re-saves the Work. Batched, so a
+        # save_all costs at most two parent reads; see docs/read-performance.md.
+        def owner_noids(resources)
+          return [] unless ResponseCache.enabled?
+
+          leaves = resources.select { |resource| resource.is_a?(Blob) || resource.is_a?(FileSet) }
+          return [] if leaves.empty?
+
+          file_sets = leaves.grep(FileSet) + parents_of(leaves.grep(Blob)).grep(FileSet)
+          parents_of(file_sets).filter_map { |owner| owner.try(:noid).presence }
+        rescue StandardError => e
+          Rails.logger.warn("ResponseCache owner lookup failed: #{e.class} #{e.message}")
+          []
+        end
+
+        # A Blob saved before it joins its FileSet has no parent yet. The
+        # FileSet save that follows finds the Work, so nothing is missed.
+        def parents_of(resources)
+          persisted = resources.select { |resource| resource.id.present? }
+          return [] if persisted.empty?
+
+          Atlas.query.custom_queries.find_many_parents(resources: persisted).values
         end
     end
   end

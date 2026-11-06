@@ -251,8 +251,10 @@ so the read never touches the audit trail.
   inventory reads. This read sits on the work page's critical path.
 - **The Blobs are those that `/works/:id/assets` lists.** Tombstoned FileSets
   and metadata FileSets stay out, and a Delegate has no revisions.
-- **It is not response-cached.** A replace saves the Blob and not the Work, so
-  no write would evict a body keyed on the Work's NOID.
+- **It is not response-cached.** A replace saves the Blob and its FileSet, which
+  does evict the Work (see
+  [`read-performance.md`](read-performance.md#a-file-write-evicts-its-work)), so
+  caching it would be safe. It has not been measured as worth the scope.
 
 ## Byte-serving
 

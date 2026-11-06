@@ -50,6 +50,27 @@ rendered one.
 
 Every response carries an `X-Atlas-Cache` header of `hit` or `miss`.
 
+### A file write evicts its Work
+
+`CacheEvictingPersister` evicts the NOID of each resource it saves or deletes.
+That alone misses the Work's file listings: `works.assets` and `works.file_sets`
+are keyed on the Work's NOID, and adding, replacing, tombstoning or restoring a
+file saves only the FileSet and the Blob. **So a FileSet or Blob write also
+evicts the resource that owns its FileSet.** Without it, a new upload stays
+invisible until the TTL expires.
+
+- **The owner comes from `FindManyParents`**, Blob to FileSet, then FileSet to
+  owner. A `save_all` of many leaves costs two parent reads, not two per leaf.
+- **The lookup is skipped while `ResponseCache.enabled?` is false**, so test and
+  a development checkout without `tmp/caching-dev.txt` pay nothing for it.
+- **A delete reads the owner first.** A Blob reaches its FileSet only through the
+  FileSet's `member_ids`, and that edge may not survive the delete.
+- **A Blob saved before it joins its FileSet finds no owner.** `BlobCreator`
+  saves the Blob, attaches it, then saves it again. The FileSet save and the
+  second Blob save both reach the Work.
+- **The owner need not be a Work.** A Collection's descriptive-metadata FileSet
+  evicts the Collection, which is harmless.
+
 ### The one axis a cached view varies on
 
 `works/_asset.json.jbuilder` withholds the `permission` group list from guests,

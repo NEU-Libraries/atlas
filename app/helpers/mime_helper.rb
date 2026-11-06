@@ -58,8 +58,13 @@ module MimeHelper
   end
 
   def assign_classification(file_path, name: nil)
-    type = mime_type(file_path, name: name)
-    key = CLASSIFICATION_BY_MIME_TYPE[type] || CLASSIFICATION_BY_MEDIA_TYPE[type.split('/').first]
+    MimeHelper.classification_for(mime_type(file_path, name: name))
+  end
+
+  # The classification of an already-detected MIME type, for a caller holding a
+  # Blob's stored mime_type rather than its bytes.
+  def self.classification_for(type)
+    key = CLASSIFICATION_BY_MIME_TYPE[type] || CLASSIFICATION_BY_MEDIA_TYPE[type.to_s.split('/').first]
     key ? Classification.public_send(key) : Classification.generic
   end
 

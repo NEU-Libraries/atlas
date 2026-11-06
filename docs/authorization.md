@@ -512,16 +512,30 @@ open display pipe, public by construction, and never gated.
 
 ### Non-image media gate independently
 
-`INDEPENDENT_MEDIA` is `%i[audio video pdf]`. There is no meaningful resolution
-ordering across a PDF, an audio file and a video, so each is validated only
-against the Work (`tier ⊆ resource`) and an absent key inherits the Work directly
-with no cascade.
+`INDEPENDENT_MEDIA` is `%i[audio video pdf archive spreadsheet structured_text
+presentation text generic]`. There is no meaningful resolution ordering across a
+PDF, a spreadsheet and a video, so each is validated only against the Work
+(`tier ⊆ resource`) and an absent key inherits the Work directly with no cascade.
+A Work with no key for a tier therefore serves that file exactly as the Work does.
 
-`media_tier` classifies a held Blob from its detected MIME type: an image original
-is `original`, `application/pdf` is `pdf`, and audio and video take their media
-type. PDF is keyed on the full MIME string rather than a media type, so it is
-handled before the lookup. Anything else — text, office documents, archives,
-metadata — has no tier and rides the Work's own read gate.
+`media_tier` classifies a held Blob from its stored MIME type, in this order:
+
+1. A caption (`text/vtt`, `application/x-subrip`) has no tier and rides the
+   Work's own read gate. It serves the player, so restricting Documents or Other
+   files must not strip a video of its captions.
+2. `application/pdf` is `pdf`. A PDF classifies as `text`, so this check must
+   come before the classification lookup. A Word file's PDF rendition is its own
+   `application/pdf` Blob, so it rides `pdf`, not `text`.
+3. An image original is `original`, and audio and video take their media type.
+4. Anything else takes the tier named for its classification
+   (`MimeHelper.classification_for`, the same rule that sets `FileSet#type`):
+   `archive`, `spreadsheet`, `structured_text`, `presentation` or `text`.
+   A file with any other classification is `generic`.
+
+The classification is recomputed from the Blob's `mime_type` rather than read
+from its FileSet, because `derivative_gate_for` runs once per asset on every
+assets read and every index. Metadata FileSets never reach it: they are not
+downloadable assets.
 
 ### The clamp
 

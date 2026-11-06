@@ -87,6 +87,17 @@ RSpec.describe 'Download access roll-up', type: :request do
     expect_rollup(true, ['grp:a'])
   end
 
+  it 'reflects a gated per-classification tier' do
+    patch "/works/#{work.noid}/derivative_permissions", params:  { structured_text: ['grp:data'] }.to_json,
+                                                        headers: { 'CONTENT_TYPE' => 'application/json' }
+    expect(response).to have_http_status(:ok)
+    add_file
+    expect_rollup(true, ['public'])
+
+    add_file(Rails.root.join('spec/fixtures/files/example.csv'), name: 'a.csv')
+    expect_rollup(true, ['grp:data', 'public'])
+  end
+
   it 'follows a deleted file' do
     blob = add_file
     delete "/files/#{blob}"

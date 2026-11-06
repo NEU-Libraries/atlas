@@ -159,7 +159,8 @@ module OpenapiSchemas
                        additionalProperties: { type: :array, items: { type: :string } },
                        description:          'Per-asset derivative read policy: sparse map of tier => ' \
                                              '[read groups]. Image ladder small/medium/large/service/' \
-                                             'original plus independent media audio/video/pdf. Empty ' \
+                                             'original plus independent tiers audio/video/pdf/archive/' \
+                                             'spreadsheet/structured_text/presentation/text/generic. Empty ' \
                                              'when unset (tiers inherit the Work visibility).'
                      },
                      metadata_formats:       {

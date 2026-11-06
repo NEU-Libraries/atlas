@@ -29,20 +29,35 @@ module TierVisibility
 
   # No resolution ordering exists across these, so each is validated only
   # against the Work and an absent key inherits the Work directly.
-  INDEPENDENT_MEDIA = %i[audio video pdf].freeze
+  INDEPENDENT_MEDIA = %i[audio video pdf archive spreadsheet structured_text presentation text generic].freeze
 
   # The complete accepted policy vocabulary.
   TIERS = (IMAGE_LADDER + INDEPENDENT_MEDIA).freeze
 
   MEDIA_TIER_BY_MEDIA_TYPE = { 'image' => :original, 'audio' => :audio, 'video' => :video }.freeze
 
-  # PDF is keyed on the full mime string rather than a media type, so it is
-  # answered before the lookup. Anything with no tier rides the Work's own gate.
+  # Keyed on the classification a FileSet already carries, so the two
+  # vocabularies cannot drift apart.
+  TIER_BY_CLASSIFICATION = {
+    Classification.archive.name         => :archive,
+    Classification.spreadsheet.name     => :spreadsheet,
+    Classification.structured_text.name => :structured_text,
+    Classification.presentation.name    => :presentation,
+    Classification.text.name            => :text
+  }.freeze
+
+  # A caption serves the player, not the reader, so restricting Documents or
+  # Other files must not strip a video of its captions.
+  CAPTION_MIME_TYPES = %w[text/vtt application/x-subrip].freeze
+
+  # PDF classifies as text, so it must be answered before the classification
+  # lookup. A caption has no tier and rides the Work's own gate.
   def self.media_tier(mime_type)
-    return nil if mime_type.blank?
+    return nil if mime_type.blank? || CAPTION_MIME_TYPES.include?(mime_type)
     return :pdf if mime_type == 'application/pdf'
 
-    MEDIA_TIER_BY_MEDIA_TYPE[mime_type.split('/').first]
+    MEDIA_TIER_BY_MEDIA_TYPE[mime_type.split('/').first] ||
+      TIER_BY_CLASSIFICATION.fetch(MimeHelper.classification_for(mime_type).name, :generic)
   end
 
   # Malformed JSON degrades to empty rather than raising: this sits on the read

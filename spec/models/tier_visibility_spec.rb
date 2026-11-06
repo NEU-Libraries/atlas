@@ -38,9 +38,30 @@ RSpec.describe TierVisibility do
       expect(described_class.media_tier('video/mp4')).to eq(:video)
     end
 
-    it 'has no tier for other or blank media types' do
-      expect(described_class.media_tier('text/plain')).to be_nil
-      expect(described_class.media_tier('application/zip')).to be_nil
+    it 'maps every other file to the tier named for its classification' do
+      {
+        'application/zip'                                                           => :archive,
+        'application/x-tar'                                                         => :archive,
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'         => :spreadsheet,
+        'text/csv'                                                                  => :structured_text,
+        'application/json'                                                          => :structured_text,
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation' => :presentation,
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'   => :text,
+        'application/epub+zip'                                                      => :text,
+        'text/plain'                                                                => :text,
+        'application/octet-stream'                                                  => :generic,
+        'model/gltf+json'                                                           => :generic
+      }.each { |mime, tier| expect(described_class.media_tier(mime)).to eq(tier), mime }
+    end
+
+    it 'keeps a PDF on pdf, though a PDF classifies as text' do
+      expect(MimeHelper.classification_for('application/pdf')).to eq(Classification.text)
+      expect(described_class.media_tier('application/pdf')).to eq(:pdf)
+    end
+
+    it 'has no tier for a caption or a blank media type' do
+      expect(described_class.media_tier('text/vtt')).to be_nil
+      expect(described_class.media_tier('application/x-subrip')).to be_nil
       expect(described_class.media_tier(nil)).to be_nil
     end
   end
@@ -90,6 +111,31 @@ RSpec.describe TierVisibility do
       # image ladder gating does not spill onto audio/video
       expect(work.derivative_gated?(blob('audio/mpeg'))).to be(false)
       expect(work.derivative_gated?(blob('video/mp4'))).to be(false)
+    end
+
+    it 'gates each classified file by its own key' do
+      files = { spreadsheet: 'application/vnd.ms-excel', structured_text: 'text/csv',
+                presentation: 'application/vnd.ms-powerpoint', text: 'application/msword',
+                archive: 'application/zip', generic: 'application/octet-stream' }
+      files.each_key do |tier|
+        work = Work.new(read_groups: ['public'], derivative_permissions: JSON.dump(tier => ['grp:x']))
+        files.each do |other, mime|
+          expect(work.derivative_gate_for(blob(mime))).to eq(other == tier ? ['grp:x'] : ['public']), "#{tier}/#{other}"
+        end
+      end
+    end
+
+    it 'serves a classified file under the Work when the policy has no key for it' do
+      work = Work.new(read_groups: ['grp:w'], derivative_permissions: JSON.dump(pdf: ['grp:w']))
+      expect(work.derivative_gate_for(blob('text/csv'))).to eq(['grp:w'])
+      expect(work.derivative_gate_for(blob('application/octet-stream'))).to eq(['grp:w'])
+    end
+
+    it 'leaves a caption on the Work when Documents and Other files are restricted' do
+      work = Work.new(read_groups: ['public'], derivative_permissions: JSON.dump(text: [], generic: []))
+      expect(work.derivative_gated?(blob('text/vtt'))).to be(false)
+      expect(work.derivative_gated?(blob('application/x-subrip'))).to be(false)
+      expect(work.derivative_gated?(blob('text/plain'))).to be(true)
     end
 
     it 'does not cascade: an absent media key rides the Work, not a sibling media key' do

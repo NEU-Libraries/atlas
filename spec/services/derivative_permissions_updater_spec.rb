@@ -102,6 +102,14 @@ RSpec.describe DerivativePermissionsUpdater do
         .to raise_error(Exceptions::DerivativePermissionsError) { |e| expect(e.code).to eq(:tier_exceeds_resource) }
     end
 
+    %w[archive spreadsheet structured_text presentation text generic].each do |tier|
+      it "accepts #{tier} within the Work and rejects it wider (tier_exceeds_resource)" do
+        expect { described_class.call(work: work_with(['grp:a']), policy: { tier => ['grp:a'] }) }.not_to raise_error
+        expect { described_class.call(work: work_with(['grp:a']), policy: { tier => ['grp:b'] }) }
+          .to raise_error(Exceptions::DerivativePermissionsError) { |e| expect(e.code).to eq(:tier_exceeds_resource) }
+      end
+    end
+
     it 'imposes NO ordering across independent media (audio vs video)' do
       work = work_with(['public'])
       expect { described_class.call(work: work, policy: { 'audio' => ['grp:a'], 'video' => ['public'] }) }

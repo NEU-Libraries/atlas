@@ -1047,14 +1047,20 @@ RSpec.describe 'Works', type: :request do
       parameter name: :body, in: :body, schema: {
         type:       :object,
         properties: {
-          small:    { type: :array, items: { type: :string }, description: 'Read groups for the small image tier' },
-          medium:   { type: :array, items: { type: :string }, description: 'Read groups for the medium image tier' },
-          large:    { type: :array, items: { type: :string }, description: 'Read groups for the large image tier' },
-          service:  { type: :array, items: { type: :string }, description: 'Read groups for the service (deep-zoom) image tier' },
-          original: { type: :array, items: { type: :string }, description: 'Read groups for the original image — the image-ladder floor. `master` is accepted as an alias for one release and stored as `original`' },
-          audio:    { type: :array, items: { type: :string }, description: 'Read groups for audio renditions (independent)' },
-          video:    { type: :array, items: { type: :string }, description: 'Read groups for video renditions (independent)' },
-          pdf:      { type: :array, items: { type: :string }, description: 'Read groups for PDF renditions (independent)' }
+          small:           { type: :array, items: { type: :string }, description: 'Read groups for the small image tier' },
+          medium:          { type: :array, items: { type: :string }, description: 'Read groups for the medium image tier' },
+          large:           { type: :array, items: { type: :string }, description: 'Read groups for the large image tier' },
+          service:         { type: :array, items: { type: :string }, description: 'Read groups for the service (deep-zoom) image tier' },
+          original:        { type: :array, items: { type: :string }, description: 'Read groups for the original image — the image-ladder floor. `master` is accepted as an alias for one release and stored as `original`' },
+          audio:           { type: :array, items: { type: :string }, description: 'Read groups for audio renditions (independent)' },
+          video:           { type: :array, items: { type: :string }, description: 'Read groups for video renditions (independent)' },
+          pdf:             { type: :array, items: { type: :string }, description: 'Read groups for PDF renditions (independent)' },
+          archive:         { type: :array, items: { type: :string }, description: 'Read groups for zip and tar files (independent)' },
+          spreadsheet:     { type: :array, items: { type: :string }, description: 'Read groups for Excel files (independent)' },
+          structured_text: { type: :array, items: { type: :string }, description: 'Read groups for CSV, TSV, XML and JSON files (independent)' },
+          presentation:    { type: :array, items: { type: :string }, description: 'Read groups for PowerPoint files (independent)' },
+          text:            { type: :array, items: { type: :string }, description: 'Read groups for Word, EPUB and plain-text files (independent)' },
+          generic:         { type: :array, items: { type: :string }, description: 'Read groups for any other file (independent). Captions are never tiered; they follow the Work' }
         }
       }
 
@@ -1087,6 +1093,22 @@ RSpec.describe 'Works', type: :request do
           dp = JSON.parse(response.body).dig('work', 'derivative_permissions')
           expect(dp['original']).to eq(['northeastern:drs:x:archives'])
           expect(dp['pdf']).to eq(['northeastern:drs:x:pdf'])
+        end
+      end
+
+      response '200', 'accepts the per-classification tiers' do
+        let(:work) do
+          w = WorkCreator.call(parent_id: collection.noid)
+          w.publicize
+          Atlas.persister.save(resource: w)
+        end
+        let(:id)   { work.noid }
+        let(:body) { TierVisibility::INDEPENDENT_MEDIA.index_with { |t| ["northeastern:drs:x:#{t}"] } }
+        schema '$ref' => '#/components/schemas/Work'
+        run_test! do |response|
+          dp = JSON.parse(response.body).dig('work', 'derivative_permissions')
+          expect(dp).to include('spreadsheet' => ['northeastern:drs:x:spreadsheet'],
+                                'generic'     => ['northeastern:drs:x:generic'])
         end
       end
 

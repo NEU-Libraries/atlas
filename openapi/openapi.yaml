@@ -258,8 +258,8 @@ components:
                   type: string
               description: 'Per-asset derivative read policy: sparse map of tier =>
                 [read groups]. Image ladder small/medium/large/service/original plus
-                independent media audio/video/pdf. Empty when unset (tiers inherit
-                the Work visibility).'
+                independent tiers audio/video/pdf/archive/spreadsheet/structured_text/presentation/text/generic.
+                Empty when unset (tiers inherit the Work visibility).'
             metadata_formats:
               type: array
               items:
@@ -7273,7 +7273,7 @@ paths:
       parameters: []
       responses:
         '200':
-          description: accepts the widened vocabulary (original + independent media)
+          description: accepts the per-classification tiers
           content:
             application/json:
               schema:
@@ -7331,6 +7331,37 @@ paths:
                   items:
                     type: string
                   description: Read groups for PDF renditions (independent)
+                archive:
+                  type: array
+                  items:
+                    type: string
+                  description: Read groups for zip and tar files (independent)
+                spreadsheet:
+                  type: array
+                  items:
+                    type: string
+                  description: Read groups for Excel files (independent)
+                structured_text:
+                  type: array
+                  items:
+                    type: string
+                  description: Read groups for CSV, TSV, XML and JSON files (independent)
+                presentation:
+                  type: array
+                  items:
+                    type: string
+                  description: Read groups for PowerPoint files (independent)
+                text:
+                  type: array
+                  items:
+                    type: string
+                  description: Read groups for Word, EPUB and plain-text files (independent)
+                generic:
+                  type: array
+                  items:
+                    type: string
+                  description: Read groups for any other file (independent). Captions
+                    are never tiered; they follow the Work
   "/works/{id}/full_text":
     parameters:
     - name: id

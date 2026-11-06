@@ -6,9 +6,9 @@
 #   1. no tier may be more visible than the Work itself, and
 #   2. within the image ladder, visibility narrows as resolution grows
 #      (original ⊆ service ⊆ large ⊆ medium ⊆ small) — otherwise a gated `large`
-#      rendition is voided by an open full-res / original tier. Non-image media
-#      (audio / video / pdf) gate independently: only invariant 1 applies, no
-#      cross-media ordering.
+#      rendition is voided by an open full-res / original tier. Every other
+#      tier (INDEPENDENT_MEDIA) gates independently: only invariant 1 applies,
+#      no cross-media ordering.
 #
 # Whole-object replace, NOT upsert: the incoming policy is the complete desired
 # map; omitted tiers inherit per the cascade in TierVisibility (send `[]` to

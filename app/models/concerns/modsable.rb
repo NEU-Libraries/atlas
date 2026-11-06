@@ -57,7 +57,7 @@ module Modsable
   # this, and only then saves the resource. A hook downstream would read the
   # new title as though it had always been there and never notice the change.
   #
-  # A container's title is embedded in every descendant Work's `ancestors`, so
+  # A container's title is embedded in every descendant's `ancestors`, so
   # renaming one invalidates their cached bodies too. That cascade is a Solr
   # lookup and is only paid when the title actually moved — comparing the
   # composed title parts before and after costs one hash comparison, and
@@ -74,7 +74,7 @@ module Modsable
     return unless is_a?(Collection) || is_a?(Community)
     return if record.main_title&.attributes == previous_title
 
-    ResponseCache.evict_many(DescendantWorkNoidsQuery.call(self))
+    ResponseCache.evict_many(DescendantNoidsQuery.call(self))
   end
 
   private

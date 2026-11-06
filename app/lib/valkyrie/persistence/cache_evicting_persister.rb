@@ -11,8 +11,8 @@ module Valkyrie
     # for it. Two write paths still need an explicit hook because they change a
     # cached body WITHOUT saving the resource whose body it is: Modsable#mods_json=
     # writes the metadata_mods row before the persister sees anything, and a
-    # container re-parent changes the ancestor chain embedded in descendant
-    # Works that are never re-saved. Both call ResponseCache directly.
+    # container re-parent changes the ancestor chain embedded in every
+    # descendant, and none of them is re-saved. Both call ResponseCache directly.
     #
     # Eviction never fails a write. A cache that cannot be reached is a
     # performance problem; a save that rolls back because of one is a data

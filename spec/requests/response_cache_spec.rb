@@ -267,5 +267,30 @@ RSpec.describe 'Response cache', :response_cache, type: :request, default_auth: 
 
       expect(cached_scopes_for(child.noid)).to be_empty
     end
+
+    it 'drops a descendant Collection when its Community is renamed' do
+      sub = CollectionCreator.call(parent_id: collection.noid)
+      get "/collections/#{sub.noid}"
+      expect(cached_scopes_for(sub.noid)).to include('collections.show/any')
+
+      set_mods_primary_title!(Community.find(community.noid), 'A Renamed Community')
+
+      expect(cached_scopes_for(sub.noid)).to be_empty
+      get "/collections/#{sub.noid}"
+      expect(response.parsed_body.dig('collection', 'ancestors').pluck('title')).to include('A Renamed Community')
+    end
+
+    it 'drops a descendant Collection when its parent Collection moves' do
+      sub = CollectionCreator.call(parent_id: collection.noid)
+      destination = public_community!
+      get "/collections/#{sub.noid}"
+      expect(cached_scopes_for(sub.noid)).to include('collections.show/any')
+
+      Reparenter.call(node: Collection.find(collection.noid), destination: destination)
+
+      expect(cached_scopes_for(sub.noid)).to be_empty
+      get "/collections/#{sub.noid}"
+      expect(response.parsed_body.dig('collection', 'ancestors').pluck('noid')).to include(destination.noid)
+    end
   end
 end

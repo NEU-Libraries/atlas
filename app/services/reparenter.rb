@@ -50,16 +50,15 @@ class Reparenter < ApplicationService
 
   private
 
-    # Descendant Works embed the moved node's chain in their `ancestors`, and
-    # nothing re-saves them — SubtreeReindexer re-projects containers only, and
-    # Works carry no ancestor field to re-project. So their cached bodies are
-    # the one thing a move leaves stale, and they are dropped here rather than
+    # Every descendant embeds the moved node's chain in its `ancestors`, and
+    # nothing re-saves them: SubtreeReindexer writes Solr only, past the
+    # evicting persister. So their cached bodies are dropped here rather than
     # left to age out. A Work move needs none of this: it has no descendants.
     def evict_descendant_response_cache!
       ResponseCache.evict(@node.noid)
       return if @node.is_a?(Work)
 
-      ResponseCache.evict_many(DescendantWorkNoidsQuery.call(@node))
+      ResponseCache.evict_many(DescendantNoidsQuery.call(@node))
     end
 
     def validate!

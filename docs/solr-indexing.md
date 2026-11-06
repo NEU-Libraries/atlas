@@ -418,6 +418,50 @@ Delegates, FileSets themselves, and resources whose ingest has not minted
 derivatives yet. The composite indexer fires on every save, so that early return
 is what keeps the fast path fast.
 
+## `DownloadAccessIndexer`
+
+Rolls a Work's download access up onto its own Solr doc, so a results page can
+decide whether to offer downloads from the doc alone. A page of 100 rows then
+costs one Solr query, not 100 Atlas reads.
+
+| Field | Value |
+|---|---|
+| `has_downloads_bsi` | Whether `GET /works/:id/assets` lists at least one asset |
+| `download_read_groups_ssim` | The union of every listed asset's read gate, with `public` for an ungated asset |
+
+- **Both fields must equal what `/assets` answers.** The indexer and the
+  controller both call `DownloadableAssetsQuery`, so "downloadable" has one
+  definition.
+- **It is a union,** because the row asks whether the viewer can fetch at least
+  one file. Each asset's own gate is still enforced at the download.
+- **The group names are no new exposure.** `read_access_group_ssim` already
+  carries them. Atlas withholds them only from its guest API responses.
+- **A gate is a function of the Work,** through `derivative_gate_for`: the
+  asset's tier, from its role or MIME type, resolved from the Work's
+  `derivative_permissions` and clamped to its read groups.
+
+### What keeps it current
+
+The fields are only as current as the Work's last reindex.
+`spec/requests/download_access_rollup_spec.rb` makes each write below to a
+completed Work, then checks the doc against `/assets`.
+
+- **Any write to the Work itself** reindexes it: the ACL, `derivative_permissions`,
+  and a Delegate attached to the Work, which `DelegateCreator` re-saves the
+  Work for.
+- **Any write that touches storage** reindexes the Work at the end of the
+  action, through `StorageFootprintRecorder`: a file added, replaced, rolled
+  back or deleted, and a preserved FileSet's tombstone, restore or delete.
+- **A derivative FileSet writes no storage,** so its tombstone, restore and
+  delete reindex the Work explicitly, in `ResourcesController#save_lifecycle`
+  and `FileSetsController#destroy`.
+- **A deposit needs nothing extra.** Each upload writes storage, and
+  `POST /works/:id/complete` saves the Work.
+- **The IIIF service pointer does not count.** It hangs off a page's derivative
+  FileSet, which `/assets` does not list.
+
+A doc written before this indexer has neither field. A reindex fills them.
+
 ## `TombstoneIndexer`
 
 | Field | What it is for |

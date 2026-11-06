@@ -137,7 +137,7 @@ class WorksController < ApplicationController
 
     refuse_tombstoned!(@work)
 
-    @revisions = downloadable_assets.filter_map do |asset, _file_set|
+    @revisions = DownloadableAssetsQuery.call(work: @work).filter_map do |asset, _file_set|
       next unless asset.is_a?(Blob) && asset.file_identifiers.size > 1
 
       [asset, BinaryVersionHistory.revision_dates(blob: asset)]
@@ -287,20 +287,8 @@ class WorksController < ApplicationController
     # from one batched read for every FileSet at once: a many-page Work would
     # otherwise cost a query per page.
     def render_assets(tombstoned: false)
-      @assets = downloadable_assets(tombstoned: tombstoned)
+      @assets = DownloadableAssetsQuery.call(work: @work, tombstoned: tombstoned)
       render(tombstoned ? :tombstoned_assets : :assets)
-    end
-
-    def downloadable_assets(tombstoned: false)
-      file_sets = @work.children.reject { |fs| Classification.metadata?(fs.type) }
-                       .select { |fs| fs.tombstoned.present? == tombstoned }
-      members   = Atlas.query.custom_queries.find_many_ordered_members(resources: file_sets)
-
-      file_sets.flat_map do |fs|
-        members.fetch(fs.id.to_s, [])
-               .select { |m| Role.downloadable?(m.use) }
-               .map    { |m| [m, fs] }
-      end
     end
 
     def render_file_sets

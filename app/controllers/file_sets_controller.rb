@@ -107,7 +107,11 @@ class FileSetsController < ApplicationController
 
     parent = file_set.parent
     ResourcePurger.call(resource: file_set)
-    rebuild_parent_mets(parent, file_set)
+    return rebuild_parent_mets(parent) if file_set.page?
+
+    # A derivative FileSet writes no storage, so nothing else reindexes the
+    # Work, whose doc rolls up its downloadable files.
+    Atlas.reindex(parent) if parent.is_a?(Work)
   end
 
   private
@@ -115,8 +119,7 @@ class FileSetsController < ApplicationController
     # Eager-after-finalize (mirrors FileSetCreator): removing a page from a
     # completed Work re-cuts the preserved structMap so it never goes stale;
     # in-progress Works wait for POST /works/:id/complete.
-    def rebuild_parent_mets(parent, file_set)
-      return unless file_set.page?
+    def rebuild_parent_mets(parent)
       return unless parent.is_a?(Work) && parent.in_progress == false
 
       parent = WorkMETSRebuilder.call(work: parent)

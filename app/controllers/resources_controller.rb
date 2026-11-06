@@ -330,6 +330,10 @@ class ResourcesController < ApplicationController
     def save_lifecycle(resource)
       saved = Atlas.persister.save(resource: resource)
       saved.write_preservation_envelope! unless saved.is_a?(FileSet) && !Classification.preserved?(saved.type)
+      # The Work's doc projects its live files: the download roll-up and the
+      # content facet. A derivative FileSet writes no storage, so nothing else
+      # reindexes the Work.
+      Atlas.reindex(saved.read_authority) if saved.is_a?(FileSet) && saved.read_authority.is_a?(Work)
       saved
     end
 

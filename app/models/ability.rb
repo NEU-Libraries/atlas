@@ -84,7 +84,7 @@ class Ability
         can :create_child, [Community, Collection]
         can :reindex, Resource
         can :release, :embargo
-        can %i[create update], Person
+        can %i[create update update_profile], Person
 
         # Scoped on both sides: only a featured Collection, and only a Work
         # owned by the asserted on_behalf_of target.
@@ -105,9 +105,7 @@ class Ability
 
         # The type half only. Which container the child lands in is decided
         # per-instance by :create_child in apply_group_abilities.
-        can :create, Work
-        can :create, Community
-        can :create, Collection
+        can :create, [Work, Community, Collection]
 
         can :create, Compilation
 
@@ -126,6 +124,9 @@ class Ability
       return if user.system?     # non-human; no group axis
       return if user.anonymous?  # never authenticates
       return if user.guest?      # the read gate only; no write rules
+
+      # Never :update, whose class-level check gates affiliations. See docs/people.md.
+      can(:update_profile, Person) { |person| user.nuid.present? && person.nuid == user.nuid }
 
       [Work, Collection, Community].each do |klass|
         can %i[update tombstone], klass do |resource|

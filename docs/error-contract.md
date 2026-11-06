@@ -47,6 +47,7 @@ any of them without a contract bump:
 | `Exceptions::WorkAssociationError` | 422 | The exception's code | Unknown type; target missing, not a Work, or the Work itself; either end tombstoned |
 | `Exceptions::FixityMismatch` | 422 | The exception's code | Uploaded bytes do not match `expected_digest`, or an unsupported digest algorithm |
 | `Exceptions::BlobMetadataError` | 422 | The exception's code | A Blob's `language` is not shaped like a BCP 47 tag, or its `track_label` is over 64 characters |
+| `Exceptions::PersonProfileError` | 422 | The exception's code | A Person update sends a blank `display_name` (`blank_display_name`), a `bio` over 4,000 characters (`invalid_bio`), or an `orcid` that is not a valid ORCID iD (`invalid_orcid`) |
 | `Exceptions::DarwinCoreError` | 422 | The exception's code | A Darwin Core upload is not well-formed (`malformed_xml`), has the wrong root (`invalid_root`), holds other than one record (`record_count`) or repeats a term (`duplicate_term`) |
 | `Exceptions::DerivativePermissionsError` | 422 | The exception's code | Unknown tier, a tier more visible than its Work, or visibility not narrowing with resolution |
 | `Exceptions::PreviewImageError` | 422 | The exception's code | The preview's size or placeholder is malformed (`invalid_preview_dimension`, `invalid_preview_placeholder`), half a size (`preview_dimensions_incomplete`), or sent without the preview URI (`preview_required`) |

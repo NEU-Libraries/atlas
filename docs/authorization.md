@@ -111,8 +111,9 @@ and `:release` on `:embargo`. Reindex is a side-effect-free Solr re-projection:
 no Postgres write, no lifecycle transition, no audit row. Release writes audit
 rows only, never a resource — see [`write-safety.md`](write-safety.md).
 
-`:system` also holds `%i[create update]` on `Person`, because name authority and
-affiliations are curatorial rather than self-service.
+`:system` also holds `%i[create update update_profile]` on `Person`, because name
+authority and affiliations are curatorial. The one self-service carve-out is a
+person's own profile, described in [`people.md`](people.md#a-person-may-edit-their-own-profile).
 
 ### `:fixity_checker`
 

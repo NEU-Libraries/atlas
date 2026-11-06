@@ -46,6 +46,48 @@ That is the correlation invariant. **The uniqueness guard lives in
 `PeopleController#create`**, which answers 409, so `PersonCreator` stays a pure
 constructor usable by specs and internal callers.
 
+## A person may edit their own profile
+
+A signed-in person may change their own Person's `display_name`, `bio` and
+`orcid` through `PATCH /people/:id`. Nothing else about a Person is theirs to
+change: its NUID is immutable, and its affiliations stay curatorial
+(`:system` and admin only).
+
+The rule is `:update_profile`, granted to the `standard`, `loader` and
+`privileged` roles for the Person whose NUID matches the authenticated user's.
+Three points keep it narrow:
+
+- **It is a verb of its own, not a rule on `:update`.** CanCanCan answers a
+  class-level check true when any rule for that verb exists, block or not. The
+  affiliation actions check `authorize! :update, Person` before any lookup, so a
+  self rule on `:update` would let every signed-in user change anyone's
+  affiliations.
+- **It keys on the authenticated subject.** Acting-as never changes the NUID
+  compared: the operator stays `@current_user`, and the `obo` target only
+  attributes the audit row.
+- **A guest holds no write rules**, so a guest-role user cannot edit a Person
+  even when the NUIDs match.
+
+Admins hold the verb through `manage :all`, and `:system` holds it beside
+`create` and `update`. The update authorizes after the lookup, because the rule
+needs the Person; a missing Person answers 404.
+
+**The display name is no longer librarian-only.** It is still never re-synced
+from SSO, so a person's own correction survives every login.
+
+The update validates every caller's write, librarian or self, before anything
+is saved, and answers 422 with a code (see
+[`error-contract.md`](error-contract.md)):
+
+- `display_name` must not be blank (`blank_display_name`).
+- `bio` is at most 4,000 characters (`invalid_bio`). A blank `bio` clears it.
+- `orcid` must be a bare ORCID iD, `0000-0002-1825-0097`, whose last character
+  passes ORCID's ISO 7064 MOD 11-2 check (`invalid_orcid`). The `https://orcid.org/`
+  form is refused. A blank `orcid` clears it.
+
+`POST /people` does not validate these fields. Its caller is `:system` after
+SSO, and a refused create there would fail a sign-in.
+
 ## The personal root hangs under a singleton "People" Community
 
 Not under the person's affiliated community. Three reasons:

@@ -4,7 +4,7 @@
 #
 # One human typically has several `users` rows (student/staff/faculty) sharing
 # a NUID; a Person correlates them by that shared NUID and carries the
-# authoritative, librarian-editable `display_name` (the SSO-fed `users.name` is
+# authoritative, curated `display_name` (the SSO-fed `users.name` is
 # frequently wrong and is clobbered on every login, so the correction must live
 # on a stable object). Persons also declare community affiliations, which drive
 # which community genre-showcases the publish conduit targets.
@@ -25,7 +25,8 @@ class Person < Resource
   # per NUID); the public address for the People surface (/people/:nuid).
   attribute :nuid, Valkyrie::Types::String
 
-  # AUTHORITATIVE display name — librarian-editable, never re-synced from SSO.
+  # AUTHORITATIVE display name — edited by a librarian or the person, never
+  # re-synced from SSO.
   attribute :display_name, Valkyrie::Types::String
 
   attribute :bio,   Valkyrie::Types::String.optional
@@ -48,4 +49,41 @@ class Person < Resource
   attribute :personal_root_id, Valkyrie::Types::String.optional
 
   attribute :type, Valkyrie::Types::String.default(Classification.person.name.freeze)
+
+  PROFILE_FIELDS = %w[display_name bio orcid].freeze
+  BIO_MAX_LENGTH = 4000
+  ORCID_FORMAT   = /\A\d{4}-\d{4}-\d{4}-\d{3}[\dX]\z/
+
+  # Only the keys the caller sent, so an update never clears a field it did not
+  # mention. A blank bio or orcid clears it; a blank display_name is refused.
+  # Raises Exceptions::PersonProfileError.
+  def self.profile_fields(given)
+    fields = given.to_h.stringify_keys.slice(*PROFILE_FIELDS).transform_values { |v| v.to_s.strip.presence }
+    validate_profile_fields!(fields)
+    fields
+  end
+
+  def self.validate_profile_fields!(fields)
+    if fields.key?('display_name') && fields['display_name'].nil?
+      raise Exceptions::PersonProfileError.new(:blank_display_name, 'display_name must not be blank')
+    end
+    if fields['bio'] && fields['bio'].length > BIO_MAX_LENGTH
+      raise Exceptions::PersonProfileError.new(:invalid_bio, "bio must be at most #{BIO_MAX_LENGTH} characters")
+    end
+    return unless fields['orcid'] && !valid_orcid?(fields['orcid'])
+
+    raise Exceptions::PersonProfileError.new(
+      :invalid_orcid, "orcid must be an ORCID iD such as 0000-0002-1825-0097; got #{fields['orcid'].inspect}"
+    )
+  end
+
+  # ISO 7064 MOD 11-2, the check character ORCID defines for its last digit.
+  def self.valid_orcid?(orcid)
+    return false unless ORCID_FORMAT.match?(orcid)
+
+    digits = orcid.delete('-')
+    total  = digits[0..14].each_char.reduce(0) { |sum, d| (sum + d.to_i) * 2 }
+    check  = (12 - (total % 11)) % 11
+    digits[15] == (check == 10 ? 'X' : check.to_s)
+  end
 end

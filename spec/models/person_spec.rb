@@ -22,4 +22,29 @@ RSpec.describe Person do
     expect(reloaded.display_name).to eq('Doe, Jane')
     expect(reloaded).not_to respond_to(:title)
   end
+
+  describe '.valid_orcid?' do
+    it 'accepts an iD whose check character is right, including X' do
+      %w[0000-0002-1825-0097 0000-0001-5109-3700 0000-0002-1694-233X].each do |orcid|
+        expect(described_class.valid_orcid?(orcid)).to be(true), orcid
+      end
+    end
+
+    it 'refuses a wrong check character, a URL form or a malformed iD' do
+      %w[0000-0002-1825-0098 https://orcid.org/0000-0002-1825-0097 0000000218250097 0000-0002-1825-009x].each do |orcid|
+        expect(described_class.valid_orcid?(orcid)).to be(false), orcid
+      end
+    end
+  end
+
+  describe '.profile_fields' do
+    it 'keeps only the profile keys sent, stripped' do
+      expect(described_class.profile_fields('bio' => ' Hi ', 'nuid' => '1')).to eq('bio' => 'Hi')
+    end
+
+    it 'refuses a blank display_name with its code' do
+      expect { described_class.profile_fields('display_name' => ' ') }
+        .to raise_error(Exceptions::PersonProfileError) { |e| expect(e.code).to eq(:blank_display_name) }
+    end
+  end
 end

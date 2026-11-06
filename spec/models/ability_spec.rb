@@ -60,6 +60,8 @@ RSpec.describe Ability do
     it { is_expected.to     be_able_to(:read,    public_resource) }
     it { is_expected.not_to be_able_to(:read,    private_resource) }
     it { is_expected.to     be_able_to(:read,    User) }
+    # A guest holds no write rules, even on a Person whose NUID is its own.
+    it { is_expected.not_to be_able_to(:update_profile, Person.new(nuid: user.nuid)) }
     it { is_expected.not_to be_able_to(:create,  Work) }
     it { is_expected.not_to be_able_to(:create,  Community) }
     it { is_expected.not_to be_able_to(:create,  Collection) }
@@ -107,6 +109,7 @@ RSpec.describe Ability do
     # Person curation (create/edit authority + manage affiliations) is :system + admin.
     it { is_expected.to     be_able_to(:create,     Person) }
     it { is_expected.to     be_able_to(:update,     Person.new) }
+    it { is_expected.to     be_able_to(:update_profile, Person.new(nuid: '009990000')) }
 
     # The rule the piece-2 reject_system_principal sprinkle encoded by hand:
     # :system cannot author Works or mutate any container resource. Note the
@@ -193,6 +196,12 @@ RSpec.describe Ability do
       # Person curation is :system + admin — a standard human cannot.
       it { is_expected.not_to be_able_to(:create,     Person) }
       it { is_expected.not_to be_able_to(:update,     Person.new) }
+      # Their own profile only, and never through :update, which the class-level
+      # affiliation checks read.
+      it { is_expected.to     be_able_to(:update_profile, Person.new(nuid: user.nuid)) }
+      it { is_expected.not_to be_able_to(:update_profile, Person.new(nuid: '009990000')) }
+      it { is_expected.not_to be_able_to(:update_profile, Person.new) }
+      it { is_expected.not_to be_able_to(:update,         Person) }
       it { is_expected.not_to be_able_to(:destroy,    Work.new) }
       it { is_expected.not_to be_able_to(:destroy,    FileSet) }
       it { is_expected.not_to be_able_to(:destroy,    Blob) }
@@ -647,7 +656,8 @@ RSpec.describe Ability do
     subject { described_class.new(user) }
 
     # Wildcard.
-    it { is_expected.to be_able_to(:manage,     :all) }
+    it { is_expected.to be_able_to(:manage, :all) }
+    it { is_expected.to be_able_to(:update_profile, Person.new(nuid: '009990000')) }
     it { is_expected.to be_able_to(:read,       public_resource) }
     it { is_expected.to be_able_to(:read,       private_resource) }
     it { is_expected.to be_able_to(:create,     Work) }

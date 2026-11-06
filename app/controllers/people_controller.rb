@@ -6,7 +6,8 @@
 # enumeration risk. NUID stays the key only where it must: create (one Person
 # per NUID, the correlation key) and the ?nuids= resolve batch (NuidResolver,
 # never user-facing). Reads sit on the authenticated floor, except the
-# admin-only ?q= search; create/update/affiliation writes are :system + admin.
+# admin-only ?q= search; create and affiliation writes are :system + admin, and
+# a signed-in person may also edit their own Person's profile fields.
 class PeopleController < ApplicationController
   include LazyPagination
   include StaleObjectRetry
@@ -69,18 +70,19 @@ class PeopleController < ApplicationController
     render :show, status: :created
   end
 
-  # PATCH /people/:noid — librarian edits to authority fields. NUID is the
-  # immutable correlation key and is not patchable here. Person carries no
-  # per-instance ACL, so authorization is class-level (:system + admin) and
-  # runs before the lookup.
+  # PATCH /people/:noid — edits to the profile fields, by a librarian or by the
+  # person themself. NUID is the immutable correlation key and is not patchable
+  # here. The self-edit rule needs the Person, so authorization follows the
+  # lookup; it is :update_profile, never :update, because the affiliation
+  # actions check :update at class level (see docs/people.md).
   def update
-    authorize! :update, Person
     with_stale_object_retry do
       @person = find_person
+      authorize! :update_profile, @person || Person
       return head(:not_found) if @person.nil?
 
-      %w[display_name bio orcid].each do |attr|
-        @person.public_send("#{attr}=", params[attr]) if params.key?(attr)
+      Person.profile_fields(params.permit(*Person::PROFILE_FIELDS)).each do |attr, value|
+        @person.public_send("#{attr}=", value)
       end
       @person = Atlas.persister.save(resource: @person)
       audit!(resource: @person, action: 'update', change_type: 'metadata')

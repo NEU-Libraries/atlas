@@ -5490,19 +5490,34 @@ paths:
         '404':
           description: unknown noid
     patch:
-      summary: Edit authority fields (system/admin)
+      summary: Edit profile fields (system/admin, or the person themself)
       tags:
       - People
-      description: Librarian edits to display_name/bio/orcid. NUID is immutable and
-        not patchable.
-      parameters: []
+      description: |
+        Edits display_name, bio and orcid. System and admin callers may edit any
+        Person; a signed-in standard, loader or privileged user may edit the
+        Person whose NUID matches their own. NUID is immutable and not patchable.
+        Only the fields sent change. A blank display_name is refused
+        (`blank_display_name`), as are a bio over 4,000 characters
+        (`invalid_bio`) and an orcid that is not a valid bare ORCID iD
+        (`invalid_orcid`); a blank bio or orcid clears it.
+      parameters:
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          type: string
       responses:
         '200':
-          description: updated
+          description: a person edits their own profile
           content:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Person"
+        '403':
+          description: a person cannot edit someone else's profile
+        '422':
+          description: an orcid that fails its checksum is refused
         '404':
           description: unknown noid
       requestBody:

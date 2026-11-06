@@ -210,11 +210,24 @@ RSpec.describe 'People', type: :request do
       end
     end
 
-    patch 'Edit authority fields (system/admin)' do
+    patch 'Edit profile fields (system/admin, or the person themself)' do
       tags 'People'
       consumes 'application/json'
       produces 'application/json'
-      description 'Librarian edits to display_name/bio/orcid. NUID is immutable and not patchable.'
+      description <<~DESC
+        Edits display_name, bio and orcid. System and admin callers may edit any
+        Person; a signed-in standard, loader or privileged user may edit the
+        Person whose NUID matches their own. NUID is immutable and not patchable.
+        Only the fields sent change. A blank display_name is refused
+        (`blank_display_name`), as are a bio over 4,000 characters
+        (`invalid_bio`) and an orcid that is not a valid bare ORCID iD
+        (`invalid_orcid`); a blank bio or orcid clears it.
+      DESC
+      parameter name: :Authorization, in: :header, type: :string, required: false
+      let(:Authorization) { "Bearer #{DefaultAuthHeaders.admin_assertion}" }
+      let!(:self_user) do
+        User.create!(email: 'jane@example.edu', password: SecureRandom.hex(16), nuid: jane.nuid, role: :standard)
+      end
       parameter name: :body, in: :body, schema: {
         type:       :object,
         properties: {
@@ -231,6 +244,47 @@ RSpec.describe 'People', type: :request do
         run_test! do |response|
           person = JSON.parse(response.body)['person']
           expect(person).to include('display_name' => 'Jane A. Doe', 'bio' => 'Researcher')
+        end
+      end
+
+      response '200', 'a person edits their own profile' do
+        let(:Authorization) { "Bearer #{DefaultAuthHeaders.assertion_for(jane.nuid)}" }
+        let(:id) { jane.noid }
+        let(:body) { { display_name: 'Jane Q. Doe', bio: 'Historian', orcid: '0000-0001-5109-3700' } }
+        schema '$ref' => '#/components/schemas/Person'
+        run_test! do |response|
+          person = JSON.parse(response.body)['person']
+          expect(person).to include('display_name' => 'Jane Q. Doe', 'bio' => 'Historian',
+                                    'orcid' => '0000-0001-5109-3700', 'nuid' => jane.nuid)
+          event = AuditEvent.find_by(action: 'update', resource_id: jane.id.to_s)
+          expect(event.actor_nuid).to eq(jane.nuid)
+        end
+      end
+
+      response '403', "a person cannot edit someone else's profile" do
+        let!(:other) { PersonCreator.call(nuid: '007770000', display_name: 'Other Person') }
+        let(:Authorization) { "Bearer #{DefaultAuthHeaders.assertion_for(jane.nuid)}" }
+        let(:id) { other.noid }
+        let(:body) { { bio: 'Not mine' } }
+        run_test! do
+          expect(Person.find(other.noid).bio).to be_nil
+        end
+      end
+
+      response '422', 'a blank display_name is refused' do
+        let(:id) { jane.noid }
+        let(:body) { { display_name: '  ' } }
+        run_test! do |response|
+          expect(JSON.parse(response.body)['error']).to eq('blank_display_name')
+          expect(Person.find(jane.noid).display_name).to eq('Jane Doe')
+        end
+      end
+
+      response '422', 'an orcid that fails its checksum is refused' do
+        let(:id) { jane.noid }
+        let(:body) { { orcid: '0000-0002-1825-0098' } }
+        run_test! do |response|
+          expect(JSON.parse(response.body)['error']).to eq('invalid_orcid')
         end
       end
 
@@ -297,6 +351,49 @@ RSpec.describe 'People', type: :request do
           expect(JSON.parse(response.body)['person']['affiliated_community_ids']).to eq([])
         end
       end
+    end
+  end
+
+  # The self-edit grant is :update_profile only; these pin what it must not open.
+  describe 'self-edit boundaries' do
+    let(:self_headers) { signed_auth_headers(jane.nuid) }
+    let(:json)         { { 'CONTENT_TYPE' => 'application/json' } }
+
+    before do
+      User.create!(email: 'jane@example.edu', password: SecureRandom.hex(16), nuid: jane.nuid, role: :standard)
+    end
+
+    it 'refuses a person adding or removing affiliations on their own Person' do
+      post "/people/#{jane.noid}/affiliations", params:  { community_id: community.noid }.to_json,
+                                                headers: self_headers.merge(json)
+      expect(response).to have_http_status(:forbidden)
+
+      delete "/people/#{jane.noid}/affiliations/#{community.noid}", headers: self_headers
+      expect(response).to have_http_status(:forbidden)
+    end
+
+    it 'ignores a nuid in the body' do
+      patch "/people/#{jane.noid}", params: { nuid: '009990000', bio: 'x' }.to_json, headers: self_headers.merge(json)
+      expect(response).to have_http_status(:ok)
+      expect(Person.find(jane.noid).nuid).to eq('001234567')
+    end
+
+    it 'refuses a guest-role user whose NUID matches' do
+      User.find_by(nuid: jane.nuid).update!(role: :guest)
+      patch "/people/#{jane.noid}", params: { bio: 'x' }.to_json, headers: self_headers.merge(json)
+      expect(response).to have_http_status(:forbidden)
+    end
+
+    it 'clears a blank bio or orcid and leaves unsent fields alone' do
+      patch "/people/#{jane.noid}", params: { orcid: '', bio: 'Kept' }.to_json, headers: self_headers.merge(json)
+      expect(Person.find(jane.noid)).to have_attributes(orcid: nil, bio: 'Kept', display_name: 'Jane Doe')
+    end
+
+    it 'refuses a bio over the length cap' do
+      patch "/people/#{jane.noid}", params:  { bio: 'x' * (Person::BIO_MAX_LENGTH + 1) }.to_json,
+                                    headers: self_headers.merge(json)
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(response.parsed_body['error']).to eq('invalid_bio')
     end
   end
 end

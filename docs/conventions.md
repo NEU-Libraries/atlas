@@ -22,6 +22,11 @@ metadata serialization or persistence.
   decorated interface.
 - Paginate an index action with `LazyPagination`: `paginate_model(Work)`
   returns `[pagination, items]`.
+- Before you add a state that withholds something, such as a tombstone or an
+  embargo, write its promise in one sentence on the page that owns it: "no
+  caller below the operator tiers gets X by any route". Then add the state to
+  the access matrix ([`testing.md`](testing.md#the-access-matrix)), so the
+  promise is checked on every route rather than only the one being built.
 - Keep MODS work on the write path. Do not parse XML with Nokogiri in a
   controller or a decorator; [`mods.md`](mods.md) explains the dual
   representation that makes reads fast.

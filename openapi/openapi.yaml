@@ -5400,7 +5400,9 @@ paths:
       operationId: maintenance_reset
       description: |
         Wipes the database, the Solr index, the OCFL storage roots and the
-        response cache, then seeds the fixture users. Refuses to run in
+        response cache, then seeds the fixture users and a Person, with a
+        personal root, for the staff (000000002) and admin (000000004)
+        fixtures. Refuses to run in
         production, and during a maintenance window. `rake reset:clean` runs
         the same wipe without this route.
 

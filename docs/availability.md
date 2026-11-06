@@ -162,7 +162,7 @@ database's behalf.
 
 The test and dev bootstrap escape hatch, and the most destructive write Atlas
 has. It wipes every table, empties Solr, purges the OCFL storage roots, clears
-the response cache, and re-seeds the fixture users.
+the response cache, and re-seeds the fixture users and fixture Persons.
 
 **Both doors run one service, `RepositoryReset`.** The route calls it from a
 request; the rake task calls it in-process, so a reset needs no running Puma.
@@ -264,3 +264,22 @@ human fixture is worth calling out: `User, Standard` (NUID `000000005`) is the p
 depositor tier — no Grouper groups, and not an owner of the seed tree. **It
 isolates the standard-versus-staff boundary**, for controls that appear only to a
 non-editor and non-owner of a Work.
+
+### The fixture Persons
+
+`seed_fixture_people!` gives the staff fixture (`000000002`, Jane Doe) and the
+admin fixture (`000000004`) a Person each. **A Person is what carries a personal
+root**, and a client shows a depositor a workspace to create collections in only
+when that root exists. `PersonCreator` mints the root, and with it the singleton
+People Community.
+
+- **The Persons live here, beside their users, so the two cannot drift.** A
+  client seed that layers content on top must look these Persons up, not create
+  them: Atlas answers a second Person for the same NUID with a 409.
+- **The seed spends NOIDs.** The minter restarts at the wipe, so every NOID a
+  later seed mints comes after the Persons, their roots and the People
+  Community.
+- **`000000005` gets no Person, on purpose.** It stays the control for a
+  depositor with no workspace.
+- **The rswag example for `GET /reset` wipes after itself.** The Persons reach
+  Solr and OCFL, which the fixture transaction does not roll back.

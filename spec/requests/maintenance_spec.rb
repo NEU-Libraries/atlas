@@ -73,7 +73,9 @@ RSpec.describe 'Maintenance', type: :request do
       operationId 'maintenance_reset'
       description <<~D
         Wipes the database, the Solr index, the OCFL storage roots and the
-        response cache, then seeds the fixture users. Refuses to run in
+        response cache, then seeds the fixture users and a Person, with a
+        personal root, for the staff (000000002) and admin (000000004)
+        fixtures. Refuses to run in
         production, and during a maintenance window. `rake reset:clean` runs
         the same wipe without this route.
 
@@ -82,6 +84,10 @@ RSpec.describe 'Maintenance', type: :request do
       D
 
       response '204', 'state reset' do
+        # The seeded Persons reach Solr and OCFL, which the fixture transaction
+        # does not roll back.
+        after { Atlas.persister.wipe! }
+
         run_test!
       end
     end

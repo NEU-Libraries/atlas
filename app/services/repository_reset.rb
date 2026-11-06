@@ -11,6 +11,16 @@ class RepositoryReset < ApplicationService
   # emptying these would leave the app looking un-migrated.
   RETAINED_TABLES = %w[ar_internal_metadata schema_migrations].freeze
 
+  # A Person is what carries a personal root, and a depositor without one has
+  # no workspace to create a collection in. Seeded beside the users so the
+  # two cannot drift; a client seed that calls Person.create for one of these
+  # NUIDs gets a 409. See docs/availability.md.
+  FIXTURE_PEOPLE = [
+    { nuid: '000000002', display_name: 'Jane Doe',
+      bio: 'Researches coastal resilience and marine ecosystems.' },
+    { nuid: '000000004', display_name: 'Admin User' }
+  ].freeze
+
   def call
     raise "Wrong env - #{Rails.env} - must not be production" unless resettable_env?
     # A caller that skips authorize! never meets the maintenance floor, so the
@@ -22,6 +32,7 @@ class RepositoryReset < ApplicationService
     purge_storage!
     ResponseCache.clear!
     seed_fixture_users!
+    seed_fixture_people!
   end
 
   private
@@ -118,6 +129,10 @@ class RepositoryReset < ApplicationService
       create_fixture_user(name: 'User, Admin', nuid: '000000004',
                           email: 'drs-admin@northeastern.edu', role: :admin,
                           groups: ['northeastern:drs:repository:admin', 'northeastern:drs:repository:api'])
+    end
+
+    def seed_fixture_people!
+      FIXTURE_PEOPLE.each { |attrs| PersonCreator.call(**attrs) }
     end
 
     def create_fixture_user(**attrs)

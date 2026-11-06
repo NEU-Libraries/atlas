@@ -129,6 +129,7 @@ RSpec.describe RepositoryReset do
       allow(reset).to receive(:delete_all_rows!)
       allow(reset).to receive(:purge_storage!)
       allow(reset).to receive(:seed_fixture_users!)
+      allow(reset).to receive(:seed_fixture_people!)
       allow(RSolr).to receive(:connect).and_return(instance_double(RSolr::Client, delete_by_query: nil, commit: nil))
     end
 
@@ -148,7 +149,9 @@ RSpec.describe RepositoryReset do
     let(:solr) { instance_double(RSolr::Client, delete_by_query: nil, commit: nil) }
 
     before do
-      %i[delete_all_rows! purge_storage! seed_fixture_users!].each { |step| allow(reset).to receive(step) }
+      %i[delete_all_rows! purge_storage! seed_fixture_users! seed_fixture_people!].each do |step|
+        allow(reset).to receive(step)
+      end
       allow(RSolr).to receive(:connect).and_return(solr)
     end
 
@@ -159,6 +162,7 @@ RSpec.describe RepositoryReset do
       expect(solr).to have_received(:delete_by_query).with('*:*').ordered
       expect(reset).to have_received(:purge_storage!).ordered
       expect(reset).to have_received(:seed_fixture_users!).ordered
+      expect(reset).to have_received(:seed_fixture_people!).ordered
     end
 
     it 'wipes the core the persister writes to, not a fixed URL' do
@@ -208,6 +212,24 @@ RSpec.describe RepositoryReset do
 
       expect(User.find_by(nuid: User::FIXITY_CHECKER_NUID)&.role).to eq('fixity_checker')
       expect(User.where(role: %i[system anonymous fixity_checker]).count).to eq(3)
+    end
+  end
+
+  # The Persons write Solr and OCFL, which the fixture transaction does not roll
+  # back, hence the wipe.
+  describe '#seed_fixture_people!' do
+    after { Atlas.persister.wipe! }
+
+    it 'gives the staff and admin fixtures a Person with a personal root' do
+      reset.send(:seed_fixture_people!)
+
+      described_class::FIXTURE_PEOPLE.each do |attrs|
+        person = Atlas.query.find_all_of_model(model: Person).find { |p| p.nuid == attrs[:nuid] }
+        expect(person&.display_name).to eq(attrs[:display_name])
+        root = Collection.find(person.personal_root_id)
+        expect(root.personal_root).to be(true)
+        expect(root.depositor).to eq(attrs[:nuid])
+      end
     end
   end
 end

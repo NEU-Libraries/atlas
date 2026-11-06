@@ -103,15 +103,8 @@ RSpec.describe 'Communities', type: :request do
         run_test!
       end
 
-      response '410', 'community tombstoned' do
-        let(:community) do
-          c = CommunityCreator.call
-          c.tombstoned = true
-          Atlas.persister.save(resource: c)
-        end
-        let(:id) { community.noid }
-        schema '$ref' => '#/components/schemas/Community'
-        run_test!
+      tombstoned_record_responses(full: 'Community', withheld: 'CommunityTombstone') do
+        let(:id) { tombstoned_public_container!(Community).noid }
       end
     end
   end
@@ -122,6 +115,10 @@ RSpec.describe 'Communities', type: :request do
     get 'Retrieve MODS metadata for a community' do
       tags 'Communities'
       produces 'application/xml', 'application/json'
+
+      withheld_by_tombstone do
+        let(:id) { tombstoned_public_container!(Community).noid }
+      end
 
       response '200', 'mods returned' do
         let(:community) { CommunityCreator.call }
@@ -146,15 +143,8 @@ RSpec.describe 'Communities', type: :request do
         run_test!
       end
 
-      response '410', 'community tombstoned' do
-        let(:community) do
-          c = CommunityCreator.call
-          c.tombstoned = true
-          Atlas.persister.save(resource: c)
-        end
-        let(:id) { community.noid }
-        schema '$ref' => '#/components/schemas/Community'
-        run_test!
+      tombstoned_record_responses(full: 'Community', withheld: 'CommunityTombstone') do
+        let(:id) { tombstoned_public_container!(Community).noid }
       end
     end
   end

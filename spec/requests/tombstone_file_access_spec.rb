@@ -89,8 +89,14 @@ RSpec.describe 'Tombstone withholds file access', type: :request, default_auth: 
       end
     end
 
-    it 'answers the metadata read 410, naming the tombstoned resource' do
+    it 'withholds the record from a guest, naming the tombstoned resource' do
       get "/files/#{blob.noid}", headers: headers_for(guest)
+      expect_withheld(source)
+      expect(response.parsed_body).not_to have_key('blob')
+    end
+
+    it 'answers an operator the record as 410, naming the tombstoned resource' do
+      get "/files/#{blob.noid}", headers: headers_for(delegate)
       expect(response).to have_http_status(:gone)
       expect(response.parsed_body['blob']).to include('tombstoned'               => false,
                                                       'tombstoned_in_effect'     => true,

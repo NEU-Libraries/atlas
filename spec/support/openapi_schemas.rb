@@ -59,9 +59,24 @@ module OpenapiSchemas
       Latency:            latency,
       EmbargoRelease:     embargo_release,
       Tombstoned:         tombstoned_error
-    }.merge(compilation_schemas).merge(person_schemas)
+    }.merge(compilation_schemas).merge(person_schemas).merge(tombstone_stub_schemas)
   end
   # rubocop:enable Metrics/AbcSize
+
+  # The record a tombstoned Work or container answers below the operator tiers.
+  # Mirrors resources/tombstone.json.jbuilder.
+  def tombstone_stub_schemas
+    %i[work collection community].to_h do |key|
+      [:"#{key.to_s.capitalize}Tombstone", wrapped(key, {
+                                                     id:               { type: :string, description: 'NOID' },
+                                                     title:            { type: :string, nullable: true },
+                                                     permanent_url:    { type: :string, nullable: true },
+                                                     tombstoned:       { type: :boolean, enum: [true] },
+                                                     tombstoned_at:    { type: :string, nullable: true },
+                                                     tombstone_reason: tombstone_reason_prop
+                                                   })]
+    end
+  end
 
   def person_schemas
     {
@@ -1189,7 +1204,8 @@ module OpenapiSchemas
         error:                    { type: :string, enum: ['tombstoned'] },
         resource_id:              { type: :string, description: 'NOID that was requested' },
         tombstoned_resource_id:   { type: :string, description: 'NOID of the resource whose tombstone applies' },
-        tombstoned_resource_type: { type: :string, description: 'Its type: Blob, FileSet or Work' },
+        tombstoned_resource_type: { type:        :string,
+                                    description: 'Its type: Community, Collection, Work, FileSet, Blob or Delegate' },
         message:                  { type: :string }
       },
       required:   %w[error resource_id tombstoned_resource_id tombstoned_resource_type message]

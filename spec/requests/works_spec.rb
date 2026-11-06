@@ -255,15 +255,8 @@ RSpec.describe 'Works', type: :request do
         run_test!
       end
 
-      response '410', 'work tombstoned' do
-        let(:work) do
-          w = WorkCreator.call(parent_id: collection.noid)
-          w.tombstoned = true
-          Atlas.persister.save(resource: w)
-        end
-        let(:id) { work.noid }
-        schema '$ref' => '#/components/schemas/Work'
-        run_test!
+      tombstoned_record_responses(full: 'Work', withheld: 'WorkTombstone') do
+        let(:id) { tombstoned_public_work!.noid }
       end
 
       response '200', 'depositor and proxy_uploader project onto the Work JSON' do
@@ -369,6 +362,10 @@ RSpec.describe 'Works', type: :request do
         let(:Accept) { 'application/xml' }
         run_test!
       end
+
+      withheld_by_tombstone do
+        let(:id) { tombstoned_public_work!.noid }
+      end
     end
   end
 
@@ -385,6 +382,14 @@ RSpec.describe 'Works', type: :request do
         and rebuilt eagerly on page changes thereafter. 404 for Works that
         have never been completed.
       DESC
+
+      withheld_by_tombstone do
+        let(:id) do
+          work = public_work!
+          WorkMETSRebuilder.call(work: work)
+          tombstoned!(Work.find(work.noid)).noid
+        end
+      end
 
       response '200', 'work mets returned' do
         let(:work) { WorkCreator.call(parent_id: collection.noid) }
@@ -1208,6 +1213,10 @@ RSpec.describe 'Works', type: :request do
         structural parent (that's `a_member_of`, surfaced via ancestors).
       DESC
 
+      withheld_by_tombstone do
+        let(:id) { tombstoned_public_work!.noid }
+      end
+
       response '200', 'linked collections listed' do
         let(:destination) { CollectionCreator.call(parent_id: community.noid) }
         let(:work) do
@@ -1322,6 +1331,10 @@ RSpec.describe 'Works', type: :request do
 
         Not part of the Work show payload — fetch it here when you need it.
       DESC
+
+      withheld_by_tombstone do
+        let(:id) { tombstoned_public_work!.noid }
+      end
 
       response '200', 'associations listed' do
         let(:dataset) { WorkCreator.call(parent_id: collection.noid) }

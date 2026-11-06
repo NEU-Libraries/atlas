@@ -273,10 +273,11 @@ Each grant is a named carve-out beneath the wildcard, not a promotion:
 - **`:tombstone` and `:restore` on `FileSet`.** Delegates remove a caption or other
   attached file reversibly, and put it back. Standard users get neither, because
   Atlas cannot cheaply trace a FileSet to the Work whose edit rights would apply.
-- **`:read_tombstoned` on `Work`, `FileSet`, `Blob` and `Delegate`.**
+- **`:read_tombstoned` on every resource type.**
   `GET /works/:id/tombstoned_assets`, the listing that names a tombstoned FileSet
-  so it can be restored, and the bytes and file lists a tombstone withholds from
-  everyone else (see [`resource-graph.md`](resource-graph.md#a-tombstone-withholds-the-files-beneath-it)).
+  so it can be restored, and everything else a tombstone withholds from other
+  callers: the bytes, the file lists, the metadata and the full record (see
+  [`resource-graph.md`](resource-graph.md#a-tombstone-withholds-the-resource-below-the-operator-tiers)).
   It goes to the tiers that can act on what it shows; edit rights on the Work do
   not reach it, because they do not reach `:restore` either.
 - **`:read_health` on `Work`.** `GET /works/:id/health_check`, the

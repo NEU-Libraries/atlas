@@ -63,6 +63,7 @@ class ResourcesController < ApplicationController
     authorize! :read, resource || Resource
     return head(:not_found) if resource.nil?
 
+    refuse_tombstoned!(resource)
     cached_render('resources.permissions', resource) do
       @resource = resource
       render :permissions
@@ -85,6 +86,7 @@ class ResourcesController < ApplicationController
   def mods_version
     resource = Resource.find(params.expect(:id))
     authorize! :read, resource || Resource
+    refuse_tombstoned!(resource) if resource
     xml = MODSVersionHistory.fetch_xml(resource: resource, version_id: params[:version_id])
     return head(:not_found) if xml.nil?
 
@@ -99,6 +101,7 @@ class ResourcesController < ApplicationController
     authorize! :read, resource || Resource
     return head(:not_found) unless resource && TYPED_IVARS.key?(resource.class) && resource.mods
 
+    refuse_tombstoned!(resource)
     render_typed(resource, 'mods')
   end
 
@@ -229,6 +232,9 @@ class ResourcesController < ApplicationController
     # Without this filter the endpoint is a batch bypass of the
     # single-resource read gate.
     @resources = readable(resources).map(&:decorate)
+    # A tombstoned row keeps its title, as the removal page does, but not its
+    # thumbnail, which the image server answers without asking Atlas.
+    @withheld_noids = @resources.select { |resource| tombstone_withheld?(resource) }.to_set(&:noid)
     # NOT optional: the digest renders a title and a thumbnail per row, each
     # its own read, so without batching the endpoint just moves the fan-out
     # from HTTP to Postgres.

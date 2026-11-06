@@ -16,6 +16,7 @@ class DarwinCoreController < ApplicationController
     authorize! :read, work || Work
     return head(:not_found) unless work&.darwin_core?
 
+    refuse_tombstoned!(work)
     cached_render(format_scope('works.dwc'), work) do
       @work = work.decorate
       respond_to do |format|
@@ -66,6 +67,7 @@ class DarwinCoreController < ApplicationController
   def version
     work = find_work
     authorize! :read, work || Work
+    refuse_tombstoned!(work) if work
     xml = work && DarwinCoreVersionHistory.fetch_xml(resource: work, version_id: params[:version_id])
     return head(:not_found) if xml.nil?
 

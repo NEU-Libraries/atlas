@@ -169,7 +169,7 @@ class Ability
       can :reparent,  [Work, Collection, Community]
       can :restore,   [Work, Collection, Community, FileSet]
       can :tombstone, FileSet
-      can :read_tombstoned, [Work, FileSet, Blob, Delegate]
+      can :read_tombstoned, [Community, Collection, Work, FileSet, Blob, Delegate]
       can :read_health, Work
       can :associate, Work
       can :create, AuditEvent

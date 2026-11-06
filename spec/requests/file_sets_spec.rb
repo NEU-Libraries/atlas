@@ -116,15 +116,10 @@ RSpec.describe 'FileSets', type: :request do
         run_test!
       end
 
-      response '410', 'file set tombstoned' do
-        let(:file_set) do
-          fs = FileSetCreator.call(work_id: work.noid, classification: Classification.generic)
-          fs.tombstoned = true
-          Atlas.persister.save(resource: fs)
+      tombstoned_record_responses(full: 'FileSet', withheld: 'Tombstoned') do
+        let(:id) do
+          tombstoned!(FileSetCreator.call(work_id: public_work!.noid, classification: Classification.generic)).noid
         end
-        let(:id) { file_set.noid }
-        schema '$ref' => '#/components/schemas/FileSet'
-        run_test!
       end
     end
 
@@ -333,6 +328,13 @@ RSpec.describe 'FileSets', type: :request do
       tags 'FileSets'
       produces 'application/json'
       description 'Returns the JSON projection of the FileSet structural (METS) metadata.'
+
+      withheld_by_tombstone do
+        let(:id) do
+          file_set = FileSetCreator.call(work_id: public_work!.noid, classification: Classification.image, position: 1)
+          tombstoned!(file_set).noid
+        end
+      end
 
       response '200', 'mets returned' do
         let(:file_set) { FileSetCreator.call(work_id: work.noid, classification: Classification.generic) }

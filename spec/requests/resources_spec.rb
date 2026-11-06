@@ -129,6 +129,12 @@ RSpec.describe 'Resources', type: :request do
         end
       end
 
+      # The guest sends no header, which the declared parameter has to allow.
+      withheld_by_tombstone do
+        let(:id) { tombstoned_public_work!.noid }
+        let(:Authorization) { nil }
+      end
+
       response '403', 'caller may not read the resource' do
         let!(:outsider) do
           User.create!(email: 'outsider@example.edu', password: SecureRandom.hex(16),
@@ -219,6 +225,10 @@ RSpec.describe 'Resources', type: :request do
         (/resources/{id}/mods.xml) for MODS XML. 404 for an unknown id, a
         non-Modsable resource, or one with no MODS.
       DESC
+
+      withheld_by_tombstone do
+        let(:id) { tombstoned_public_work!.noid }
+      end
 
       response '200', 'current mods returned' do
         let(:id)     { work.noid }
@@ -390,6 +400,11 @@ RSpec.describe 'Resources', type: :request do
         version. XML only — the JSON access copy is overwritten in place and
         is not version-recoverable. Unknown version or absent MODS → 404.
       DESC
+
+      withheld_by_tombstone do
+        let(:id)         { tombstoned_public_work!.noid }
+        let(:version_id) { 'v1' }
+      end
 
       response '200', 'historical MODS XML returned' do
         let(:id) { work.noid }

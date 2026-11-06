@@ -27,12 +27,12 @@ RSpec.describe 'Tombstone file access via atlas_rb', :atlas_rb_server do
     [result, chunks.join]
   end
 
-  it 'raises before a chunk for a removed file, which Blob.find reports first' do
+  it 'raises before a chunk for a removed file, and on its record below the operator tiers' do
     AtlasRb::Resource.tombstone(caption.parent.noid, nuid: admin)
 
-    blob = AtlasRb::Blob.find(caption.noid, nuid: editor.nuid)
-    expect(blob.tombstoned_in_effect).to be(true)
-    expect(blob.tombstoned_resource_type).to eq('FileSet')
+    expect { AtlasRb::Blob.find(caption.noid, nuid: editor.nuid) }
+      .to raise_error(AtlasRb::TombstonedError) { |e| expect(e.tombstoned_resource_type).to eq('FileSet') }
+    expect(AtlasRb::Blob.find(caption.noid, nuid: admin).tombstoned_in_effect).to be(true)
 
     chunks = []
     expect { AtlasRb::Blob.content(caption.noid, nuid: editor.nuid) { |chunk| chunks << chunk } }

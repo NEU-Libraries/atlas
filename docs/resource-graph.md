@@ -319,7 +319,7 @@ with it.
 - **The asset listings drop a tombstoned FileSet.** `GET /works/:id/assets` and
   `/file_sets` skip it, and `PageAssetsQuery` skips a tombstoned nested FileSet,
   so no consumer needs its own filter. The Blob's bytes are withheld too; see
-  [A tombstone withholds the files beneath it](#a-tombstone-withholds-the-files-beneath-it).
+  [A tombstone withholds the resource below the operator tiers](#a-tombstone-withholds-the-resource-below-the-operator-tiers).
 - **`GET /works/:id/tombstoned_assets` lists what the others drop.** Without it,
   Restore needs an id that nothing can look up once the tombstoning page is
   gone. It is a separate route, not a flag on `/assets`, so tombstoned files sit
@@ -335,40 +335,56 @@ with it.
   rights on the Work do not extend to it. See
   [`authorization.md`](authorization.md).
 
-### A tombstone withholds the files beneath it
+### A tombstone withholds the resource below the operator tiers
 
-A tombstone does not cascade, so the Blobs under a tombstoned FileSet or Work
-keep `tombstoned: false`. The file routes therefore read the ancestors.
-`tombstone_source` (`LeafReadAuthority`) returns the first tombstoned resource
-among the leaf and its chain up to its read authority, or nil.
+A tombstone means "remove this from view", and the reason for the removal is
+not known in general: the problem can lie in the file, the description or the
+title. So below the operator tiers, a tombstone withholds everything about the
+resource that a search engine could keep indexing. The admin and delegated-admin
+tiers keep it all, because they review a removal before they restore it.
+
+The rule covers every resource type: a Community, a Collection, a Work, and a
+Work's FileSets, Blobs and Delegates. A tombstone does not cascade, so a leaf
+reads its ancestors. `tombstone_source` returns the first tombstoned resource
+among the leaf and its chain up to its read authority, or nil. A container or a
+Work answers for itself.
 
 | Route | Below the operator tiers | Admins and delegated admins |
 |---|---|---|
-| `GET /files/:id/content`, `/files/:id/versions/:version_id/content` | `410 tombstoned`, no bytes | Served |
-| `GET /works/:id/assets`, `/file_sets`, `/file_revisions` on a tombstoned Work | `410 tombstoned` | Served |
-| `GET /files/:id`, `/file_sets/:id`, `/delegates/:id` | 410 with the body | 410 with the body, as `GET /works/:id` |
+| `GET /works/:id`, `/collections/:id`, `/communities/:id` and their `/children` | 410 with a stub: id, title, permanent URL and the tombstone fields | 410 with the full record |
+| `GET /files/:id`, `/file_sets/:id`, `/delegates/:id` | `410 tombstoned` | 410 with the full record |
+| The bytes: `/files/:id/content`, `/files/:id/versions/:version_id/content` | `410 tombstoned` | Served |
+| The file lists: `/works/:id/assets`, `/file_sets`, `/file_revisions` | `410 tombstoned` | Served |
+| The metadata: MODS, METS, Darwin Core, their versions, associations, linked members, the ACL envelope | `410 tombstoned` | Served |
+| `POST /resources/find_many` | The row, flagged, with its thumbnail nulled | The row, flagged |
 | `GET /files/:id/ancestry` | 200, with `file_set_tombstoned` and `work_tombstoned` | The same |
 
-- **The operator tiers keep the bytes,** because they review a removed file
-  before they restore it. The gate is `:read_tombstoned`, which those tiers hold
-  on Work, FileSet, Blob and Delegate.
+- **The stub keeps the title** because the removal page names what was removed.
+  A 410 is not indexed, so the title on it does not keep the resource findable.
+  The stub drops the description, the thumbnail and preview URLs and the
+  tombstoning operator's NUID.
+- **A thumbnail URL is withheld wherever it appears.** The image server answers
+  it without asking Atlas, so a URL handed out stays live.
+- **The ancestry read stays open.** It carries NOIDs and tombstone flags only,
+  and it is how a client learns which ancestor withholds a file.
 - **The 410 names the tombstoned resource.** `tombstoned_resource_type` tells a
   removed file (`FileSet`) from a retracted Work (`Work`), which a client shows
-  differently. The Blob read carries the same pair, with `tombstoned_in_effect`,
-  so a client can refuse before it asks for the content.
-- **The gate runs after the read check.** A caller who may not read the Work gets
-  403 and learns nothing about the tombstone. It also runs before the response
-  cache, because an operator's 200 is cached under an audience that other
-  signed-in callers share.
-- **Nothing above the read authority is consulted.** A container cannot be
-  tombstoned while it holds a live Work, so the Work is the highest tombstone that
-  can apply.
-- **The walk costs nothing extra.** The read gate walks the same chain, and the
-  chain is memoized on the resource for the request.
+  differently.
+- **The gate is `:read_tombstoned`,** which the operator tiers hold on every
+  resource type. It runs after the read check, so a caller who may not read the
+  resource gets 403 and learns nothing about the tombstone.
+- **The gate runs before the response cache.** The cached 410 is the operators'
+  full record, so a withheld caller is answered before the cache is read, and the
+  stub is never stored.
+- **Lists already drop a tombstoned resource.** Search, the collection digests,
+  `descendant_works` and Set contents filter on `tombstoned_bsi`, and OAI-PMH
+  answers a deleted record with its header only.
 - **Atlas cannot gate the IIIF image server.** Cantaloupe reads the JP2s without
-  asking Atlas, so its tiers for a tombstoned image Work must be refused by the
-  caller that hands out the IIIF URL. `GET /works/:id/file_sets`, where a manifest
-  finds those URLs, answers 410.
+  asking Atlas, so a IIIF URL that a client already holds still works. Atlas
+  stops handing the URLs out, through the file lists, the Delegate record and
+  the thumbnails.
+- **`spec/requests/access_matrix_spec.rb` checks the rule on every route.** See
+  [`testing.md`](testing.md#the-access-matrix).
 
 ### `/mods` renders the typed view
 
@@ -388,7 +404,8 @@ filter this is a batch bypass of the single-resource read gate.**
 
 The endpoint already contracts to drop ids it cannot resolve, so a withheld row
 reads the same as an absent one. Tombstoned resources are kept but flagged, so
-callers can render a placeholder.
+callers can render a placeholder. Below the operator tiers the placeholder has
+no thumbnail.
 
 **`MODSPreloader` is not optional.** The digest renders a title and a thumbnail
 per row, each its own read. Batching both is what stops the endpoint trading N
@@ -400,7 +417,7 @@ It resolves NOIDs only; raw Valkyrie ids are not a supported input.
 ### `children` answers for a tombstoned container
 
 `GET /collections/:id/children` and `/communities/:id/children` answer 410 for
-a tombstoned container. That is the right answer for a consumer, and it leaves
+a tombstoned container, with the stub below the operator tiers. That is the right answer for a consumer, and it leaves
 an operator unable to walk a tombstoned subtree. **`GET /resources/:id/children`
 is the operator's read,** in `ResourceChildrenController`. It lists every child
 of a Community or Collection, live or tombstoned, whatever the container's own

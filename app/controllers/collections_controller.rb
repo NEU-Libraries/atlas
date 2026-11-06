@@ -25,6 +25,7 @@ class CollectionsController < ApplicationController
     resource = Collection.find(params.expect(:id))
     authorize! :read, resource || Collection
     return head(:not_found) if resource.nil?
+    return render_tombstone_stub(resource, root: :collection) if tombstone_withheld?(resource)
 
     cached_render('collections.show', resource) do
       @collection = resource.decorate
@@ -56,6 +57,7 @@ class CollectionsController < ApplicationController
     authorize! :read, collection || Collection
     return head(:not_found) if collection.nil? || collection.mods.nil?
 
+    refuse_tombstoned!(collection)
     cached_render(format_scope('collections.mods'), collection) do
       @collection = collection.decorate
       render :mods
@@ -84,6 +86,7 @@ class CollectionsController < ApplicationController
     resource = Collection.find(params.expect(:id))
     authorize! :read, resource || Collection
     return head(:not_found) if resource.nil?
+    return render_tombstone_stub(resource, root: :collection) if tombstone_withheld?(resource)
 
     @collection = resource.decorate
     return render(:show, status: :gone) if @collection.tombstoned

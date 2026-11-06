@@ -151,30 +151,15 @@ RSpec.describe 'Files (Blobs)', type: :request do
         run_test!
       end
 
-      response '410', 'file tombstoned' do
-        let(:blob) do
-          b = BlobCreator.call(work_id: work.noid, original_filename: 'example.bin', path: fixture.to_s)
-          b.tombstoned = true
-          Atlas.persister.save(resource: b)
-        end
-        let(:id) { blob.noid }
-        schema '$ref' => '#/components/schemas/Blob'
-        run_test!
+      tombstoned_record_responses(full: 'Blob', withheld: 'Tombstoned') do
+        let(:id) { tombstoned!(BlobCreator.call(work_id: public_work!.noid, original_filename: 'example.bin', path: fixture.to_s)).noid }
       end
 
-      response '410', 'file, its FileSet or its Work tombstoned' do
-        let(:blob) { BlobCreator.call(work_id: work.noid, original_filename: 'example.bin', path: fixture.to_s) }
-        let(:id)   { blob.noid }
-        before do
-          file_set = blob.parent
-          file_set.tombstone(by: '000000004')
-          Atlas.persister.save(resource: file_set)
-        end
-        schema '$ref' => '#/components/schemas/Blob'
-        run_test! do |response|
-          expect(JSON.parse(response.body)['blob']).to include('tombstoned'             => false,
-                                                               'tombstoned_in_effect'   => true,
-                                                               'tombstoned_resource_id' => blob.parent.noid)
+      tombstoned_record_responses(full: 'Blob', withheld: 'Tombstoned') do
+        let(:id) do
+          blob = BlobCreator.call(work_id: public_work!.noid, original_filename: 'example.bin', path: fixture.to_s)
+          tombstoned!(blob.parent)
+          blob.noid
         end
       end
     end

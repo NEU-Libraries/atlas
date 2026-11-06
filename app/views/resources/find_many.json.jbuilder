@@ -11,6 +11,7 @@ json.array! @resources do |resource|
   json.noid resource.noid
   json.klass resource.class.to_s
   json.title(resource.respond_to?(:plain_title) ? resource.plain_title : nil)
-  json.thumbnail(resource.respond_to?(:thumbnail_uri) ? resource.thumbnail_uri : nil)
+  withheld = @withheld_noids&.include?(resource.noid)
+  json.thumbnail(resource.respond_to?(:thumbnail_uri) && !withheld ? resource.thumbnail_uri : nil)
   json.tombstoned resource.tombstoned
 end

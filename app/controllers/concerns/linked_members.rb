@@ -28,6 +28,7 @@ module LinkedMembers
     authorize! :read, work || Work
     return head(:not_found) if work.nil?
 
+    refuse_tombstoned!(work)
     render_linked_members(work)
   end
 

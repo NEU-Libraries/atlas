@@ -35,35 +35,18 @@ RSpec.describe 'Delegates', type: :request do
         run_test!
       end
 
-      response '410', 'delegate tombstoned' do
-        let(:delegate) do
-          d = DelegateCreator.call(
-            resource_id: work.id,
-            use:         Role.thumbnail_image.name,
-            uri:         'https://iiif.example/thumb.jpg'
-          )
-          d.tombstoned = true
-          Atlas.persister.save(resource: d)
+      tombstoned_record_responses(full: 'Delegate', withheld: 'Tombstoned') do
+        let(:id) do
+          tombstoned!(DelegateCreator.call(resource_id: public_work!.id, use: Role.thumbnail_image.name, uri: 'https://iiif.example/thumb.jpg')).noid
         end
-        let(:id) { delegate.noid }
-        schema '$ref' => '#/components/schemas/Delegate'
-        run_test!
       end
 
-      response '410', 'delegate or its Work tombstoned' do
-        let(:delegate) do
-          DelegateCreator.call(resource_id: work.id, use: Role.thumbnail_image.name, uri: 'https://iiif.example/thumb.jpg')
-        end
-        let(:id) { delegate.noid }
-        before do
-          delegate
-          retracted = Work.find(work.noid)
-          retracted.tombstone(by: '000000004')
-          Atlas.persister.save(resource: retracted)
-        end
-        schema '$ref' => '#/components/schemas/Delegate'
-        run_test! do |response|
-          expect(JSON.parse(response.body).dig('delegate', 'tombstoned')).to be(false)
+      tombstoned_record_responses(full: 'Delegate', withheld: 'Tombstoned') do
+        let(:id) do
+          work = public_work!
+          delegate = DelegateCreator.call(resource_id: work.id, use: Role.thumbnail_image.name, uri: 'https://iiif.example/thumb.jpg')
+          tombstoned!(Work.find(work.noid))
+          delegate.noid
         end
       end
     end

@@ -53,6 +53,14 @@ RSpec.describe 'Darwin Core records', type: :request do
         `metadata_formats` says whether to call this.
       DESC
 
+      withheld_by_tombstone do
+        let(:id) do
+          work = public_work!
+          work.darwin_core_xml = Rails.root.join('spec/fixtures/files/dwc.xml').read
+          tombstoned!(work).noid
+        end
+      end
+
       response '200', 'darwin core returned' do
         let(:id) { work.noid }
         before { put_dwc(work.noid) }
@@ -183,6 +191,11 @@ RSpec.describe 'Darwin Core records', type: :request do
         JSON access copy is overwritten in place. Gated by `:read` on the Work.
         Unknown version, or no record ever written, answers 404.
       DESC
+
+      withheld_by_tombstone do
+        let(:id)         { tombstoned_public_work!.noid }
+        let(:version_id) { 'v1' }
+      end
 
       response '200', 'historical darwin core returned' do
         let(:id) { work.noid }

@@ -7,6 +7,7 @@ class DelegatesController < ApplicationController
     authorize! :read, @delegate || Delegate
     return head(:not_found) if @delegate.nil?
 
+    refuse_tombstoned!(@delegate)
     render :show, status: (@delegate.tombstone_source ? :gone : :ok)
   end
 end

@@ -24,6 +24,7 @@ class CommunitiesController < ApplicationController
     resource = Community.find(params.expect(:id))
     authorize! :read, resource || Community
     return head(:not_found) if resource.nil?
+    return render_tombstone_stub(resource, root: :community) if tombstone_withheld?(resource)
 
     cached_render('communities.show', resource) do
       @community = resource.decorate
@@ -55,6 +56,7 @@ class CommunitiesController < ApplicationController
     authorize! :read, community || Community
     return head(:not_found) if community.nil? || community.mods.nil?
 
+    refuse_tombstoned!(community)
     cached_render(format_scope('communities.mods'), community) do
       @community = community.decorate
       render :mods
@@ -68,6 +70,7 @@ class CommunitiesController < ApplicationController
     resource = Community.find(params.expect(:id))
     authorize! :read, resource || Community
     return head(:not_found) if resource.nil?
+    return render_tombstone_stub(resource, root: :community) if tombstone_withheld?(resource)
 
     @community = resource.decorate
     return render(:show, status: :gone) if @community.tombstoned

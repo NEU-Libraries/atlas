@@ -75,16 +75,33 @@ RSpec.describe 'Response cache', :response_cache, type: :request, default_auth: 
 
     # A tombstoned Work answers `gone` with a stable body until something
     # writes to it, and that write evicts — so 410 is as cacheable as 200.
-    it 'caches a 410 and replays its status' do
+    it "caches an operator's 410 and replays its status" do
+      admin = ensure_default_admin!
       work = public_work
       work.tombstone(by: reader.nuid)
       Atlas.persister.save(resource: work)
 
-      get "/works/#{work.noid}"
-      expect(response).to have_http_status(:gone)
-      get "/works/#{work.noid}"
+      2.times { get "/works/#{work.noid}", headers: signed_auth_headers(admin.nuid) }
       expect(response).to have_http_status(:gone)
       expect(response.headers['X-Atlas-Cache']).to eq('hit')
+    end
+
+    # The cached 410 is the full record. Below the operator tiers the stub is
+    # answered before the cache is read, so a warm entry never reaches them.
+    it 'answers a guest the tombstone stub even when the full 410 is cached' do
+      admin = ensure_default_admin!
+      work = public_work
+      work.tombstone(by: reader.nuid)
+      Atlas.persister.save(resource: work)
+
+      2.times { get "/works/#{work.noid}", headers: signed_auth_headers(admin.nuid) }
+      expect(response.parsed_body['work']).to include('description')
+
+      get "/works/#{work.noid}"
+      expect(response).to have_http_status(:gone)
+      expect(response.headers['X-Atlas-Cache']).to be_nil
+      expect(response.parsed_body['work'].keys)
+        .to match_array(%w[id title permanent_url tombstoned tombstoned_at tombstone_reason])
     end
 
     it 'keeps each MODS format in its own entry' do

@@ -8,6 +8,7 @@ class ApplicationController < ActionController::API
   include ActionController::MimeResponds
   include CanCan::ControllerAdditions
   include BackendUnavailable
+  include TombstoneGate
 
   respond_to :json
 

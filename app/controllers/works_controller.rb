@@ -15,7 +15,6 @@ class WorksController < ApplicationController
   include Auditable
   include ParentScopedCreate
   include CachedResponses
-  include TombstoneGate
 
   # The operator monitoring filters on GET /works, each an exact match on a
   # Work lifecycle flag. An absent param means "no filtering" on that flag, so
@@ -39,6 +38,7 @@ class WorksController < ApplicationController
     work = Work.find(params.expect(:id))
     authorize! :read, work || Work
     return head(:not_found) if work.nil?
+    return render_tombstone_stub(work, root: :work) if tombstone_withheld?(work)
 
     cached_render('works.show', work) do
       @work = work.decorate
@@ -79,6 +79,7 @@ class WorksController < ApplicationController
     authorize! :read, work || Work
     return head(:not_found) if work.nil? || work.mods.nil?
 
+    refuse_tombstoned!(work)
     cached_render(format_scope('works.mods'), work) do
       @work = work.decorate
       render :mods
@@ -92,6 +93,7 @@ class WorksController < ApplicationController
     authorize! :read, work || Work
     return head(:not_found) if work.nil? || work.mets.nil?
 
+    refuse_tombstoned!(work)
     cached_render('works.mets', work) do
       @work = work
       render :mets

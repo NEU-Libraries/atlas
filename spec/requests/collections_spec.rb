@@ -118,15 +118,8 @@ RSpec.describe 'Collections', type: :request do
         run_test!
       end
 
-      response '410', 'collection tombstoned' do
-        let(:collection) do
-          c = CollectionCreator.call(parent_id: community.noid)
-          c.tombstoned = true
-          Atlas.persister.save(resource: c)
-        end
-        let(:id) { collection.noid }
-        schema '$ref' => '#/components/schemas/Collection'
-        run_test!
+      tombstoned_record_responses(full: 'Collection', withheld: 'CollectionTombstone') do
+        let(:id) { tombstoned_public_container!(Collection).noid }
       end
     end
   end
@@ -137,6 +130,10 @@ RSpec.describe 'Collections', type: :request do
     get 'Retrieve MODS metadata for a collection' do
       tags 'Collections'
       produces 'application/xml', 'application/json'
+
+      withheld_by_tombstone do
+        let(:id) { tombstoned_public_container!(Collection).noid }
+      end
 
       response '200', 'mods returned' do
         let(:collection) { CollectionCreator.call(parent_id: community.noid) }
@@ -200,15 +197,8 @@ RSpec.describe 'Collections', type: :request do
         run_test!
       end
 
-      response '410', 'collection tombstoned' do
-        let(:collection) do
-          c = CollectionCreator.call(parent_id: community.noid)
-          c.tombstoned = true
-          Atlas.persister.save(resource: c)
-        end
-        let(:id) { collection.noid }
-        schema '$ref' => '#/components/schemas/Collection'
-        run_test!
+      tombstoned_record_responses(full: 'Collection', withheld: 'CollectionTombstone') do
+        let(:id) { tombstoned_public_container!(Collection).noid }
       end
     end
   end

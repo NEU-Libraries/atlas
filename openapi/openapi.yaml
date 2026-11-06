@@ -2736,7 +2736,7 @@ components:
           description: NOID of the resource whose tombstone applies
         tombstoned_resource_type:
           type: string
-          description: 'Its type: Blob, FileSet or Work'
+          description: 'Its type: Community, Collection, Work, FileSet, Blob or Delegate'
         message:
           type: string
       required:
@@ -3025,6 +3025,132 @@ components:
       required:
       - people
       - pagination
+    WorkTombstone:
+      type: object
+      properties:
+        work:
+          type: object
+          properties:
+            id:
+              type: string
+              description: NOID
+            title:
+              type: string
+              nullable: true
+            permanent_url:
+              type: string
+              nullable: true
+            tombstoned:
+              type: boolean
+              enum:
+              - true
+            tombstoned_at:
+              type: string
+              nullable: true
+            tombstone_reason:
+              type: string
+              nullable: true
+              enum:
+              - Removed from view by legal order
+              - Removed from view at request of copyright holder
+              - Removed from view at Northeastern University's discretion
+              - Removed from view at Northeastern University Library's discretion
+              - Removed from view at contributor or content curator's discretion
+              description: The policy removal note chosen at tombstoning, or null.
+                The date comes from tombstoned_at.
+          required:
+          - id
+          - title
+          - permanent_url
+          - tombstoned
+          - tombstoned_at
+          - tombstone_reason
+      required:
+      - work
+    CollectionTombstone:
+      type: object
+      properties:
+        collection:
+          type: object
+          properties:
+            id:
+              type: string
+              description: NOID
+            title:
+              type: string
+              nullable: true
+            permanent_url:
+              type: string
+              nullable: true
+            tombstoned:
+              type: boolean
+              enum:
+              - true
+            tombstoned_at:
+              type: string
+              nullable: true
+            tombstone_reason:
+              type: string
+              nullable: true
+              enum:
+              - Removed from view by legal order
+              - Removed from view at request of copyright holder
+              - Removed from view at Northeastern University's discretion
+              - Removed from view at Northeastern University Library's discretion
+              - Removed from view at contributor or content curator's discretion
+              description: The policy removal note chosen at tombstoning, or null.
+                The date comes from tombstoned_at.
+          required:
+          - id
+          - title
+          - permanent_url
+          - tombstoned
+          - tombstoned_at
+          - tombstone_reason
+      required:
+      - collection
+    CommunityTombstone:
+      type: object
+      properties:
+        community:
+          type: object
+          properties:
+            id:
+              type: string
+              description: NOID
+            title:
+              type: string
+              nullable: true
+            permanent_url:
+              type: string
+              nullable: true
+            tombstoned:
+              type: boolean
+              enum:
+              - true
+            tombstoned_at:
+              type: string
+              nullable: true
+            tombstone_reason:
+              type: string
+              nullable: true
+              enum:
+              - Removed from view by legal order
+              - Removed from view at request of copyright holder
+              - Removed from view at Northeastern University's discretion
+              - Removed from view at Northeastern University Library's discretion
+              - Removed from view at contributor or content curator's discretion
+              description: The policy removal note chosen at tombstoning, or null.
+                The date comes from tombstoned_at.
+          required:
+          - id
+          - title
+          - permanent_url
+          - tombstoned
+          - tombstoned_at
+          - tombstone_reason
+      required:
+      - community
 paths:
   "/files":
     get:
@@ -3127,11 +3253,14 @@ paths:
               schema:
                 "$ref": "#/components/schemas/Blob"
         '410':
-          description: file, its FileSet or its Work tombstoned
+          description: 'tombstoned: the Blob to admins and delegated admins, Tombstoned
+            to everyone else'
           content:
             application/json:
               schema:
-                "$ref": "#/components/schemas/Blob"
+                oneOf:
+                - "$ref": "#/components/schemas/Blob"
+                - "$ref": "#/components/schemas/Tombstoned"
     patch:
       summary: Append a new revision to a file
       tags:
@@ -3517,11 +3646,14 @@ paths:
               schema:
                 "$ref": "#/components/schemas/Collection"
         '410':
-          description: collection tombstoned
+          description: 'tombstoned: the Collection to admins and delegated admins,
+            CollectionTombstone to everyone else'
           content:
             application/json:
               schema:
-                "$ref": "#/components/schemas/Collection"
+                oneOf:
+                - "$ref": "#/components/schemas/Collection"
+                - "$ref": "#/components/schemas/CollectionTombstone"
   "/collections/{id}/mods":
     parameters:
     - name: id
@@ -3534,6 +3666,16 @@ paths:
       tags:
       - Collections
       responses:
+        '410':
+          description: withheld by a tombstone from everyone but admins and delegated
+            admins
+          content:
+            application/xml:
+              schema:
+                "$ref": "#/components/schemas/Tombstoned"
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Tombstoned"
         '200':
           description: mods returned
   "/collections/{id}/featured":
@@ -3595,11 +3737,14 @@ paths:
                 items:
                   type: string
         '410':
-          description: collection tombstoned
+          description: 'tombstoned: the Collection to admins and delegated admins,
+            CollectionTombstone to everyone else'
           content:
             application/json:
               schema:
-                "$ref": "#/components/schemas/Collection"
+                oneOf:
+                - "$ref": "#/components/schemas/Collection"
+                - "$ref": "#/components/schemas/CollectionTombstone"
   "/communities":
     get:
       summary: List communities
@@ -3678,11 +3823,14 @@ paths:
               schema:
                 "$ref": "#/components/schemas/Community"
         '410':
-          description: community tombstoned
+          description: 'tombstoned: the Community to admins and delegated admins,
+            CommunityTombstone to everyone else'
           content:
             application/json:
               schema:
-                "$ref": "#/components/schemas/Community"
+                oneOf:
+                - "$ref": "#/components/schemas/Community"
+                - "$ref": "#/components/schemas/CommunityTombstone"
   "/communities/{id}/mods":
     parameters:
     - name: id
@@ -3695,6 +3843,16 @@ paths:
       tags:
       - Communities
       responses:
+        '410':
+          description: withheld by a tombstone from everyone but admins and delegated
+            admins
+          content:
+            application/xml:
+              schema:
+                "$ref": "#/components/schemas/Tombstoned"
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Tombstoned"
         '200':
           description: mods returned
   "/communities/{id}/children":
@@ -3718,11 +3876,14 @@ paths:
                 items:
                   type: string
         '410':
-          description: community tombstoned
+          description: 'tombstoned: the Community to admins and delegated admins,
+            CommunityTombstone to everyone else'
           content:
             application/json:
               schema:
-                "$ref": "#/components/schemas/Community"
+                oneOf:
+                - "$ref": "#/components/schemas/Community"
+                - "$ref": "#/components/schemas/CommunityTombstone"
   "/compilations":
     get:
       summary: List compilations (owner- or grant-scoped)
@@ -4379,6 +4540,19 @@ paths:
         tombstoned, and for any NOID that is not a Work. The Work JSON's
         `metadata_formats` says whether to call this.
       responses:
+        '410':
+          description: withheld by a tombstone from everyone but admins and delegated
+            admins
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Tombstoned"
+            application/xml:
+              schema:
+                "$ref": "#/components/schemas/Tombstoned"
+            text/html:
+              schema:
+                "$ref": "#/components/schemas/Tombstoned"
         '200':
           description: darwin core returned
           content:
@@ -4514,6 +4688,13 @@ paths:
         JSON access copy is overwritten in place. Gated by `:read` on the Work.
         Unknown version, or no record ever written, answers 404.
       responses:
+        '410':
+          description: withheld by a tombstone from everyone but admins and delegated
+            admins
+          content:
+            application/xml:
+              schema:
+                "$ref": "#/components/schemas/Tombstoned"
         '200':
           description: historical darwin core returned
         '404':
@@ -4543,11 +4724,14 @@ paths:
               schema:
                 "$ref": "#/components/schemas/Delegate"
         '410':
-          description: delegate or its Work tombstoned
+          description: 'tombstoned: the Delegate to admins and delegated admins, Tombstoned
+            to everyone else'
           content:
             application/json:
               schema:
-                "$ref": "#/components/schemas/Delegate"
+                oneOf:
+                - "$ref": "#/components/schemas/Delegate"
+                - "$ref": "#/components/schemas/Tombstoned"
   "/embargoes/release":
     post:
       summary: Record the embargoes that have lapsed (system-only)
@@ -4676,11 +4860,14 @@ paths:
               schema:
                 "$ref": "#/components/schemas/FileSet"
         '410':
-          description: file set tombstoned
+          description: 'tombstoned: the FileSet to admins and delegated admins, Tombstoned
+            to everyone else'
           content:
             application/json:
               schema:
-                "$ref": "#/components/schemas/FileSet"
+                oneOf:
+                - "$ref": "#/components/schemas/FileSet"
+                - "$ref": "#/components/schemas/Tombstoned"
     patch:
       summary: Append binary content to a file set
       tags:
@@ -4810,6 +4997,13 @@ paths:
       - FileSets
       description: Returns the JSON projection of the FileSet structural (METS) metadata.
       responses:
+        '410':
+          description: withheld by a tombstone from everyone but admins and delegated
+            admins
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Tombstoned"
         '200':
           description: mets returned
   "/fixity_checks":
@@ -5508,6 +5702,13 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Permissions"
+        '410':
+          description: withheld by a tombstone from everyone but admins and delegated
+            admins
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Tombstoned"
         '403':
           description: caller may not read the resource
         '404':
@@ -5595,6 +5796,16 @@ paths:
         (/resources/{id}/mods.xml) for MODS XML. 404 for an unknown id, a
         non-Modsable resource, or one with no MODS.
       responses:
+        '410':
+          description: withheld by a tombstone from everyone but admins and delegated
+            admins
+          content:
+            application/xml:
+              schema:
+                "$ref": "#/components/schemas/Tombstoned"
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Tombstoned"
         '200':
           description: current mods returned
         '404':
@@ -5700,6 +5911,13 @@ paths:
         version. XML only — the JSON access copy is overwritten in place and
         is not version-recoverable. Unknown version or absent MODS → 404.
       responses:
+        '410':
+          description: withheld by a tombstone from everyone but admins and delegated
+            admins
+          content:
+            application/xml:
+              schema:
+                "$ref": "#/components/schemas/Tombstoned"
         '200':
           description: historical MODS XML returned
         '404':
@@ -6721,11 +6939,14 @@ paths:
               schema:
                 "$ref": "#/components/schemas/Work"
         '410':
-          description: work tombstoned
+          description: 'tombstoned: the Work to admins and delegated admins, WorkTombstone
+            to everyone else'
           content:
             application/json:
               schema:
-                "$ref": "#/components/schemas/Work"
+                oneOf:
+                - "$ref": "#/components/schemas/Work"
+                - "$ref": "#/components/schemas/WorkTombstone"
   "/works/{id}/mods":
     parameters:
     - name: id
@@ -6752,6 +6973,16 @@ paths:
       responses:
         '200':
           description: mods returned
+        '410':
+          description: withheld by a tombstone from everyone but admins and delegated
+            admins
+          content:
+            application/xml:
+              schema:
+                "$ref": "#/components/schemas/Tombstoned"
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Tombstoned"
   "/works/{id}/mets":
     parameters:
     - name: id
@@ -6771,6 +7002,13 @@ paths:
         and rebuilt eagerly on page changes thereafter. 404 for Works that
         have never been completed.
       responses:
+        '410':
+          description: withheld by a tombstone from everyone but admins and delegated
+            admins
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Tombstoned"
         '200':
           description: work mets returned
         '404':
@@ -7150,6 +7388,13 @@ paths:
         home). Powers Cerberus's provenance panel. Does not include the
         structural parent (that's `a_member_of`, surfaced via ancestors).
       responses:
+        '410':
+          description: withheld by a tombstone from everyone but admins and delegated
+            admins
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Tombstoned"
         '200':
           description: linked collections listed
           content:
@@ -7257,6 +7502,13 @@ paths:
 
         Not part of the Work show payload — fetch it here when you need it.
       responses:
+        '410':
+          description: withheld by a tombstone from everyone but admins and delegated
+            admins
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Tombstoned"
         '200':
           description: associations listed
           content:

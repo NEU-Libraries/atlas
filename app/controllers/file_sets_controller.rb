@@ -20,12 +20,14 @@ class FileSetsController < ApplicationController
     authorize! :read, @file_set || FileSet
     return head(:not_found) if @file_set.nil?
 
+    refuse_tombstoned!(@file_set)
     render :show, status: (@file_set.tombstone_source ? :gone : :ok)
   end
 
   def mets
     @file_set = FileSet.find(params.expect(:id))
     authorize! :read, @file_set || FileSet
+    refuse_tombstoned!(@file_set) if @file_set
 
     head(:not_found) if @file_set.nil? ||
                         Classification.metadata?(@file_set.type) ||

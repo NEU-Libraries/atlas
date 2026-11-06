@@ -7,7 +7,6 @@ class BlobsController < ApplicationController
   include MimeHelper
   include IdempotentCreate
   include Auditable
-  include TombstoneGate
 
   # The unfiltered roll of every Blob. :index_all is admin-only (via the
   # manage :all wildcard) for the same reason as WorksController#index — a
@@ -22,6 +21,7 @@ class BlobsController < ApplicationController
     authorize! :read, @blob || Blob
     return head(:not_found) if @blob.nil?
 
+    refuse_tombstoned!(@blob)
     render :show, status: (@blob.tombstone_source ? :gone : :ok)
   end
 

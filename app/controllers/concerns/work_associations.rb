@@ -28,6 +28,7 @@ module WorkAssociations
     authorize! :read, work || Work
     return head(:not_found) if work.nil?
 
+    refuse_tombstoned!(work)
     render_associations(work)
   end
 

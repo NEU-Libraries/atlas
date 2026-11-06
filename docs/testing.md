@@ -117,28 +117,39 @@ Three concentric layers in `spec/`:
 ## The access matrix
 
 `spec/requests/access_matrix_spec.rb` asks one question of every read route:
-what does each caller get, in each state a Work can be in? The states are live,
-private, tombstoned, and holding a tombstoned FileSet. The callers are a guest,
-a standard user, an editor of the Work, a delegated admin and an admin.
+what does each caller get, in each state a resource can be in? The states are
+live, a private Work, and a tombstone on a Work, a FileSet, a Collection or a
+Community. The callers are a guest, a standard user, an editor of the Work, a
+delegated admin and an admin.
 
 The specs for each endpoint test what that endpoint does. They cannot see a
 hole between two endpoints that are each correct: a tombstone that withholds a
 Work's record while its bytes stay reachable through `/files/:id/content`. The
 matrix tests the promise a state makes across every route instead.
 
-Each route is a row naming a policy, such as `:bytes` or `:read`, and the
-policy gives the expected status for each cell. A refused cell must carry none
-of the file's bytes, and a served byte route must carry all of them. A route
-with no `:id`, or one keyed on something other than a Work, its leaves or its
-containers, goes in `UNSCOPED` with a reason that names where its gate is
-tested.
+Each route is a row naming a policy, such as `:withheld` or `:read`, and the
+policy gives the expected status for each cell. Two checks look at the body as
+well as the status:
+
+- **The bytes.** A refused cell must carry none of the file's bytes, and a
+  served byte route must carry all of them.
+- **The markers.** Each resource carries a unique marker string, in its
+  description, its filename or its image URI. Below the operator tiers, no
+  response from any route may carry the marker of a withheld resource. This is
+  what catches a leak through a route that does not belong to the resource, such
+  as a thumbnail URL in another resource's list. The live state proves that
+  every marker reaches some response, so the check cannot pass vacuously.
+
+A `POST` that reads, such as `resources#find_many`, takes a row with `post:`.
+A route keyed on something outside the resource tree, such as a Set or an
+account, goes in `UNSCOPED` with a reason that names where its gate is tested.
 
 The inventory examples read the route table itself. A new `GET` route fails the
 spec until it has a row or a reason, so nobody can add a read without deciding
 what a tombstone or a private ACL means for it. A row for a route that is no
 longer drawn fails too.
 
-When you add a state that withholds something, add it to `STATES`, give each
-policy its answer for the new state, and let the failures show which routes
-disagree. Writes are not in the matrix; their gate is `Ability`, tested in
+When you add a state that withholds something, add it to `STATES` and say in
+`WITHHELD` which resources it withholds. Then let the failures show which
+routes disagree. Writes are not in the matrix; their gate is `Ability`, tested in
 `spec/models/ability_spec.rb`.

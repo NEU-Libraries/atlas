@@ -2,23 +2,50 @@
 
 require 'rails_helper'
 
-# What every read route answers, for each state a Work can be in and each
+# What every read route answers, for each state a resource can be in and each
 # caller tier. A route is a row, and its policy says what each cell should get.
 # The inventory examples fail when a route has no row, so a new route cannot
 # ship without someone deciding what a tombstone or a private ACL means for it.
 # See docs/testing.md.
+#
+# rubocop:disable Metrics/ModuleLength -- the rows are one table, and splitting
+# it would scatter a single decision across modules.
 module AccessMatrix
-  STATES    = %i[live private work_tombstoned file_set_tombstoned].freeze
+  STATES = %i[live private work_tombstoned file_set_tombstoned collection_tombstoned community_tombstoned].freeze
   TIERS     = %i[guest standard editor delegate admin].freeze
   OPERATORS = %i[delegate admin].freeze
 
+  # The subjects each state withholds. A leaf is withheld by its own tombstone
+  # and by its Work's; the Delegate hangs off the Work.
+  WITHHELD = {
+    live:                  [],
+    private:               [],
+    work_tombstoned:       %i[work delegate file_set blob],
+    file_set_tombstoned:   %i[file_set blob],
+    collection_tombstoned: %i[empty_collection],
+    community_tombstoned:  %i[sub_community]
+  }.freeze
+
+  # The private state narrows the Work's ACL, which its leaves read through.
+  PRIVATE_SUBJECTS = %i[work delegate file_set blob].freeze
+
+  # A marker string planted in each subject. Below the operator tiers, no
+  # response from any route may carry the marker of a withheld subject.
+  MARKERS = {
+    work:             'zqworkmarker',
+    delegate:         'zqdelegatemarker',
+    blob:             'zqfilemarker',
+    empty_collection: 'zqcollectionmarker',
+    sub_community:    'zqcommunitymarker'
+  }.freeze
+
   # The editor holds an edit grant on the Work, which is what lets it past a
   # private ACL. A tombstone leaves the ACL public.
-  Cell = Struct.new(:state, :tier) do
-    def readable? = state != :private || %i[editor admin].include?(tier)
+  Cell = Struct.new(:state, :tier, :subject) do
+    def readable? = state != :private || PRIVATE_SUBJECTS.exclude?(subject) || %i[editor admin].include?(tier)
     def operator? = OPERATORS.include?(tier)
-    def work_tombstoned? = state == :work_tombstoned
-    def tombstoned? = %i[work_tombstoned file_set_tombstoned].include?(state)
+    def tombstoned? = WITHHELD.fetch(state).include?(subject)
+    def withheld? = tombstoned? && !operator?
 
     # The per-resource read gate answers first, so a caller who may not read
     # the resource learns nothing about its tombstone.
@@ -28,82 +55,86 @@ module AccessMatrix
   POLICIES = {
     read:          ->(c) { c.gated { 200 } },
     redirect:      ->(c) { c.gated { 302 } },
-    # The record of a tombstoned resource still renders, as 410, for the page
-    # that explains the removal.
-    work_record:   ->(c) { c.gated { c.work_tombstoned? ? 410 : 200 } },
-    leaf_record:   ->(c) { c.gated { c.tombstoned? ? 410 : 200 } },
-    # The bytes, and the Work's file lists, are withheld below the operator tiers.
-    bytes:         ->(c) { c.gated { c.tombstoned? && !c.operator? ? 410 : 200 } },
-    file_list:     ->(c) { c.gated { c.work_tombstoned? && !c.operator? ? 410 : 200 } },
+    # The record of a tombstoned resource answers 410 to everyone: the full
+    # record to an operator, a stub or the tombstoned envelope to the rest.
+    record:        ->(c) { c.gated { c.tombstoned? ? 410 : 200 } },
+    # The bytes, the file lists and the metadata are withheld below the
+    # operator tiers.
+    withheld:      ->(c) { c.gated { c.withheld? ? 410 : 200 } },
     # A class-wide operator verb makes no per-resource read decision.
     operator:      ->(c) { c.operator? ? 200 : 403 },
     operator_read: ->(c) { c.operator? ? c.gated { 200 } : 403 },
     admin:         ->(c) { c.tier == :admin ? 200 : 403 },
-    # A container above the Work: the Work's state does not reach it.
-    container:     ->(_) { 200 }
+    # A list or a container no state here tombstones: always served, and the
+    # marker check alone says whether it leaks a withheld subject.
+    open:          ->(_) { 200 }
   }.freeze
 
   # 'controller#action' => [policy, options]. `on:` names the subject the :id
-  # resolves to when the path's first segment does not.
+  # resolves to when the path's first segment does not. `bytes:` marks a route
+  # that must serve the file's bytes whole whenever it answers 200.
   MATRIX = {
-    'works#show'                 => [:work_record],
-    'works#mods'                 => [:read],
-    'works#mets'                 => [:read],
-    'works#associations'         => [:read],
-    'works#linked_members'       => [:read],
-    'works#assets'               => [:file_list],
-    'works#file_sets'            => [:file_list],
-    'works#file_revisions'       => [:file_list],
+    'works#show'                 => [:record],
+    'works#mods'                 => [:withheld],
+    'works#mets'                 => [:withheld],
+    'works#associations'         => [:withheld],
+    'works#linked_members'       => [:withheld],
+    'works#assets'               => [:withheld],
+    'works#file_sets'            => [:withheld],
+    'works#file_revisions'       => [:withheld],
     'works#tombstoned_assets'    => [:operator],
     'works#health_check'         => [:operator],
     'works#index'                => [:admin],
-    'darwin_core#show'           => [:read],
+    'darwin_core#show'           => [:withheld],
     'darwin_core#versions'       => [:operator],
-    'darwin_core#version'        => [:read],
-    'file_sets#show'             => [:leaf_record],
-    'file_sets#mets'             => [:read],
+    'darwin_core#version'        => [:withheld],
+    'file_sets#show'             => [:record],
+    'file_sets#mets'             => [:withheld],
     'file_sets#index'            => [:admin],
-    'blobs#show'                 => [:leaf_record],
-    'blobs#content'              => [:bytes],
-    'blobs#version_content'      => [:bytes],
+    'blobs#show'                 => [:record],
+    'blobs#content'              => [:withheld, { bytes: true }],
+    'blobs#version_content'      => [:withheld, { bytes: true }],
+    # NOIDs and tombstone flags only: it is how a client learns which ancestor
+    # withholds a file.
     'blobs#ancestry'             => [:read],
     'blobs#versions'             => [:operator],
     'blobs#index'                => [:admin],
-    'delegates#show'             => [:work_record],
+    'delegates#show'             => [:record],
     'resources#show'             => [:redirect],
-    'resources#mods'             => [:read],
+    'resources#mods'             => [:withheld],
     'resources#mods_versions'    => [:operator],
-    'resources#mods_version'     => [:read],
-    'resources#permissions'      => [:read],
-    'resources#descendant_works' => [:container, { on: :collection }],
+    'resources#mods_version'     => [:withheld],
+    'resources#permissions'      => [:withheld],
+    'resources#descendant_works' => [:open, { on: :collection }],
     'resource_children#show'     => [:operator, { on: :collection }],
     'audit_events#index'         => [:operator_read],
     'index_documents#show'       => [:operator_read],
     'search_explanations#show'   => [:operator_read, { query: { q: 'title' } }],
-    'collections#show'           => [:container],
-    'collections#mods'           => [:container],
-    'collections#children'       => [:container],
-    'communities#show'           => [:container],
-    'communities#mods'           => [:container],
-    'communities#children'       => [:container]
+    'search#index'               => [:open, { query: { q: MARKERS.values.join(' OR ') } }],
+    # A POST that reads: the batch resolver, asked for every subject at once.
+    'resources#find_many'        => [:open, { post: :all_subjects }],
+    'collections#show'           => [:record, { on: :empty_collection }],
+    'collections#mods'           => [:withheld, { on: :empty_collection }],
+    'collections#children'       => [:record, { on: :empty_collection }],
+    'communities#show'           => [:record, { on: :sub_community }],
+    'communities#mods'           => [:withheld, { on: :sub_community }],
+    'communities#children'       => [:record, { on: :sub_community }]
   }.freeze
 
-  # Reads keyed on something other than a Work, its leaves or its containers.
-  # Each names where its gate is covered instead.
+  # Reads keyed on something other than a resource in this tree. Each names
+  # where its gate is covered instead.
   UNSCOPED = {
-    'compilations#index'       => 'a Set, not a Work: spec/requests/compilations_spec.rb',
-    'compilations#show'        => 'a Set, not a Work: spec/requests/compilations_spec.rb',
-    'compilations#contents'    => 'a Set, not a Work: spec/requests/compilations_spec.rb',
+    'compilations#index'       => 'a Set, not a resource: spec/requests/compilations_spec.rb',
+    'compilations#show'        => 'a Set, not a resource: spec/requests/compilations_spec.rb',
+    'compilations#contents'    => 'a Set, not a resource: spec/requests/compilations_spec.rb',
     'communities#index'        => 'a roll of containers: spec/requests/index_read_gate_spec.rb',
     'collections#index'        => 'a roll of containers: spec/requests/index_read_gate_spec.rb',
-    'people#index'             => 'a Person, not a Work: spec/requests/people_spec.rb',
-    'people#show'              => 'a Person, not a Work: spec/requests/people_spec.rb',
-    'search#index'             => 'a query, gated per document: spec/requests/search_spec.rb',
-    'resources#find_many'      => 'a batch, filtered per resource: spec/requests/resources_spec.rb',
+    'people#index'             => 'a Person, not a resource: spec/requests/people_spec.rb',
+    'people#show'              => 'a Person, not a resource: spec/requests/people_spec.rb',
     'resources#preview'        => 'renders posted MODS and reads no resource',
     'blobs#find_many_versions' => 'class-wide :read_versions: spec/requests/binary_versions_spec.rb',
     'fixity_checks#due'        => 'the fixity checker only: spec/requests/fixity_checks_spec.rb',
-    'oai#index'                => 'the public metadata harvest: spec/requests/oai_spec.rb',
+    'oai#index'                => 'the metadata harvest, which withholds a tombstoned record: spec/requests/oai_spec.rb',
     'docs#show'                => 'the API documentation',
     'maintenance#show'         => 'the maintenance flag',
     'maintenance#reset'        => 'the development data reset',
@@ -117,6 +148,12 @@ module AccessMatrix
     'devise/passwords#edit'    => 'a devise default route; Atlas takes no password'
   }.freeze
 
+  # The subject a path's first segment names, absent an `on:`.
+  SEGMENT_SUBJECTS = {
+    'works' => :work, 'file_sets' => :file_set, 'files' => :blob, 'delegates' => :delegate,
+    'resources' => :work, 'collections' => :empty_collection, 'communities' => :sub_community
+  }.freeze
+
   # Every route the application draws, framework routes aside, as
   # [route, 'controller#action'].
   def self.routes
@@ -128,6 +165,7 @@ module AccessMatrix
     end
   end
 end
+# rubocop:enable Metrics/ModuleLength
 
 # default_auth: false — the global admin default is an operator and would be
 # served everything.
@@ -152,6 +190,7 @@ RSpec.describe 'Access matrix', type: :request, default_auth: false do
     }
   end
 
+  let(:markers)    { AccessMatrix::MARKERS }
   let(:fixture)    { Rails.root.join('spec/fixtures/files/example.bin') }
   let(:bytes)      { File.binread(fixture) }
   let(:community)  { public_community! }
@@ -160,15 +199,31 @@ RSpec.describe 'Access matrix', type: :request, default_auth: false do
     work = WorkCreator.call(parent_id: collection.noid)
     work.publicize
     work.edit_users = [users[:editor].nuid]
-    Atlas.persister.save(resource: work)
+    described!(Atlas.persister.save(resource: work), markers[:work])
   end
-  let(:blob)     { BlobCreator.call(work_id: work.noid, original_filename: 'a.bin', path: fixture.to_s) }
+  let(:blob) do
+    BlobCreator.call(work_id: work.noid, original_filename: "#{markers[:blob]}.bin", path: fixture.to_s)
+  end
   let(:file_set) { blob.parent }
   let(:delegate) do
-    DelegateCreator.call(resource_id: work.id, use: Role.thumbnail_image.name, uri: 'https://iiif.example/t.jpg')
+    DelegateCreator.call(resource_id: work.id, use: Role.thumbnail_image.name,
+                         uri: "https://iiif.example/#{markers[:delegate]}.jpg")
+  end
+  let(:empty_collection) do
+    described!(CollectionCreator.call(parent_id: community.noid), markers[:empty_collection])
+  end
+  let(:sub_community) do
+    sub = CommunityCreator.call(parent_id: community.noid)
+    sub.publicize
+    described!(Atlas.persister.save(resource: sub), markers[:sub_community])
   end
 
   after { Atlas.persister.wipe! }
+
+  def described!(resource, marker)
+    set_mods_abstract!(resource, marker)
+    Atlas.persister.save(resource: resource)
+  end
 
   def headers_for(tier)
     signed_auth_headers(tier == :guest ? nil : users[tier].nuid)
@@ -177,7 +232,7 @@ RSpec.describe 'Access matrix', type: :request, default_auth: false do
   # Every route in the matrix must have something to serve, or a 404 would
   # pass for a refusal. The METS and Darwin Core records give their routes one.
   def build_world!
-    [blob, delegate]
+    [blob, delegate, empty_collection, sub_community]
     WorkMETSRebuilder.call(work: work)
     dwc = Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/dwc.xml'), 'application/xml')
     put "/resources/#{work.noid}/dwc", headers: headers_for(:admin), params: { binary: dwc }
@@ -185,7 +240,8 @@ RSpec.describe 'Access matrix', type: :request, default_auth: false do
   end
 
   def apply!(state)
-    resource = { private: work, work_tombstoned: work, file_set_tombstoned: file_set }[state]
+    resource = { private: work, work_tombstoned: work, file_set_tombstoned: file_set,
+                 collection_tombstoned: empty_collection, community_tombstoned: sub_community }[state]
     return if resource.nil?
 
     resource = Resource.find(resource.noid)
@@ -193,55 +249,81 @@ RSpec.describe 'Access matrix', type: :request, default_auth: false do
     Atlas.persister.save(resource: resource)
   end
 
-  def subject_ids
-    { 'works' => work.noid, 'file_sets' => file_set.noid, 'files' => blob.noid,
-      'delegates' => delegate.noid, 'resources' => work.noid,
-      'collections' => collection.noid, 'communities' => community.noid }
-  end
-
   # A pinned version is looked up, as an operator, through the listing beside
   # it, before the state is applied.
-  def path_for(route, options)
+  def path_for(route, subject)
     path = route.path.spec.to_s.sub('(.:format)', '')
-    id = options[:on] ? public_send(options[:on]).noid : subject_ids[path.split('/')[1]]
-    path = path.sub(':id', id.to_s)
+    path = path.sub(':id', public_send(subject).noid) if subject
     return path unless path.include?(':version_id')
 
     get path.sub(%r{/:version_id.*}, ''), headers: headers_for(:admin)
     path.sub(':version_id', response.parsed_body['versions'].first['version_id'].to_s)
   end
 
-  # A refusal must carry no bytes, and a served byte route must carry them all.
-  def bytes_wrong?(policy)
-    served = response.body.b
-    response.status == 200 && policy == :bytes ? served != bytes : response.status != 200 && served.include?(bytes)
-  end
+  def probes
+    AccessMatrix.routes.filter_map do |route, key|
+      options = AccessMatrix::MATRIX.dig(key, 1) || {}
+      next unless AccessMatrix::MATRIX.key?(key) && route.verb == (options[:post] ? 'POST' : 'GET')
 
-  def misses_for(state, paths)
-    paths.flat_map do |key, path|
-      policy, options = AccessMatrix::MATRIX[key]
-      AccessMatrix::TIERS.filter_map do |tier|
-        get path, params: options&.dig(:query), headers: headers_for(tier)
-        expected = AccessMatrix::POLICIES.fetch(policy).call(AccessMatrix::Cell.new(state, tier))
-        next if response.status == expected && !bytes_wrong?(policy)
-
-        "#{key} as #{tier}: expected #{expected}, got #{response.status}#{', bytes wrong' if bytes_wrong?(policy)}"
-      end
+      spec = route.path.spec.to_s
+      subject = options[:on] || (AccessMatrix::SEGMENT_SUBJECTS[spec.split('/')[1]] if spec.include?(':id'))
+      [key, subject, path_for(route, subject)]
     end
   end
 
-  AccessMatrix::STATES.each do |state|
-    it "answers every route as its row says when the Work is #{state.to_s.tr('_', ' ')}" do
-      build_world!
-      paths = AccessMatrix.routes.filter_map do |route, key|
-        next unless route.verb == 'GET' && AccessMatrix::MATRIX.key?(key)
+  def request!(key, path, tier)
+    options = AccessMatrix::MATRIX.dig(key, 1) || {}
+    return get(path, params: options[:query], headers: headers_for(tier)) unless options[:post]
 
-        [key, path_for(route, AccessMatrix::MATRIX[key][1] || {})]
-      end
+    ids = %i[work file_set blob delegate empty_collection sub_community].map { |s| public_send(s).noid }
+    post path, params: { ids: ids }, headers: headers_for(tier)
+  end
+
+  # A refusal carries no bytes, and a byte route that serves carries them whole.
+  def bytes_wrong?(options)
+    served = response.body.b
+    return served != bytes if response.status == 200 && options[:bytes]
+
+    response.status != 200 && served.include?(bytes)
+  end
+
+  def leaked_markers(state, tier)
+    return [] if AccessMatrix::OPERATORS.include?(tier)
+
+    body = response.body.b
+    AccessMatrix::WITHHELD.fetch(state).select { |s| markers[s] && body.include?(markers[s]) }
+  end
+
+  # The cell's miss, or nil when the response is what the row says.
+  def check(state, key, subject, tier)
+    policy, options = AccessMatrix::MATRIX[key]
+    expected = AccessMatrix::POLICIES.fetch(policy).call(AccessMatrix::Cell.new(state, tier, subject))
+    faults = [(', bytes wrong' if bytes_wrong?(options || {}))]
+    leaks = leaked_markers(state, tier)
+    faults << ", carries #{leaks.join(', ')}" if leaks.any?
+    return if response.status == expected && faults.compact.empty?
+
+    "#{key} as #{tier}: expected #{expected}, got #{response.status}#{faults.join}"
+  end
+
+  AccessMatrix::STATES.each do |state|
+    it "answers every route as its row says when #{state.to_s.tr('_', ' ').sub(/\Alive/, 'all is live')}" do
+      build_world!
+      routes = probes
       apply!(state)
 
-      misses = misses_for(state, paths)
+      seen = Set.new
+      misses = routes.flat_map do |key, subject, path|
+        AccessMatrix::TIERS.filter_map do |tier|
+          request!(key, path, tier)
+          markers.each { |s, marker| seen << s if response.body.b.include?(marker) }
+          check(state, key, subject, tier)
+        end
+      end
+
       expect(misses).to be_empty, "#{misses.size} cells differ:\n  #{misses.join("\n  ")}"
+      # Proves the marker check can fire: every marker reaches some response.
+      expect(seen).to match_array(markers.keys) if state == :live
     end
   end
 

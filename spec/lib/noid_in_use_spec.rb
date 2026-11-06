@@ -28,6 +28,16 @@ RSpec.describe NoidInUse do
     expect(Rails.logger).to have_received(:warn).with(/#{work.noid} already has an OCFL object/)
   end
 
+  it 'is true for a purged NOID, whose object is gone, and logs it' do
+    allow(Rails.logger).to receive(:warn)
+    noid = work.noid
+    ResourcePurger.call(resource: work)
+
+    expect(Valkyrie.config.storage_adapter.object_exists?(key: noid)).to be(false)
+    expect(described_class.call(noid)).to be(true)
+    expect(Rails.logger).to have_received(:warn).with(/#{noid} was purged/)
+  end
+
   it 'is false for a NOID no root holds' do
     expect(described_class.call(fresh_noid)).to be(false)
   end
@@ -54,6 +64,15 @@ RSpec.describe NoidInUse do
       expect(community.noid).to eq(fresh)
       expect(Valkyrie.config.storage_adapter.object_versions(key: used).max_by { |v| v.delete_prefix('v').to_i })
         .to eq(head)
+    end
+
+    it 'passes over a purged NOID' do
+      purged = work.noid
+      ResourcePurger.call(resource: work)
+      fresh = fresh_noid
+      mint_sequence(purged, fresh)
+
+      expect(Minter.mint).to eq(fresh)
     end
 
     # Compilations own no OCFL object, but share the minter and its namespace.

@@ -37,7 +37,7 @@ class WorksController < ApplicationController
   def show
     work = Work.find(params.expect(:id))
     authorize! :read, work || Work
-    return head(:not_found) if work.nil?
+    return render_absent(Work, root: :work) if work.nil?
     return render_tombstone_stub(work, root: :work) if tombstone_withheld?(work)
 
     cached_render('works.show', work) do

@@ -118,7 +118,7 @@ RSpec.describe 'Collections', type: :request do
         run_test!
       end
 
-      tombstoned_record_responses(full: 'Collection', withheld: 'CollectionTombstone') do
+      tombstoned_record_responses(full: 'Collection', withheld: 'CollectionTombstone', purged: true) do
         let(:id) { tombstoned_public_container!(Collection).noid }
       end
     end

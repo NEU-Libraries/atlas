@@ -3025,6 +3025,72 @@ components:
       required:
       - people
       - pagination
+    WorkPurged:
+      type: object
+      properties:
+        work:
+          type: object
+          properties:
+            id:
+              type: string
+              description: NOID
+            purged:
+              type: boolean
+              enum:
+              - true
+            purged_at:
+              type: string
+              format: date-time
+          required:
+          - id
+          - purged
+          - purged_at
+      required:
+      - work
+    CollectionPurged:
+      type: object
+      properties:
+        collection:
+          type: object
+          properties:
+            id:
+              type: string
+              description: NOID
+            purged:
+              type: boolean
+              enum:
+              - true
+            purged_at:
+              type: string
+              format: date-time
+          required:
+          - id
+          - purged
+          - purged_at
+      required:
+      - collection
+    CommunityPurged:
+      type: object
+      properties:
+        community:
+          type: object
+          properties:
+            id:
+              type: string
+              description: NOID
+            purged:
+              type: boolean
+              enum:
+              - true
+            purged_at:
+              type: string
+              format: date-time
+          required:
+          - id
+          - purged
+          - purged_at
+      required:
+      - community
     WorkTombstone:
       type: object
       properties:
@@ -3647,13 +3713,14 @@ paths:
                 "$ref": "#/components/schemas/Collection"
         '410':
           description: 'tombstoned: the Collection to admins and delegated admins,
-            CollectionTombstone to everyone else'
+            CollectionTombstone to everyone else; purged: CollectionPurged to everyone'
           content:
             application/json:
               schema:
                 oneOf:
                 - "$ref": "#/components/schemas/Collection"
                 - "$ref": "#/components/schemas/CollectionTombstone"
+                - "$ref": "#/components/schemas/CollectionPurged"
   "/collections/{id}/mods":
     parameters:
     - name: id
@@ -3824,13 +3891,14 @@ paths:
                 "$ref": "#/components/schemas/Community"
         '410':
           description: 'tombstoned: the Community to admins and delegated admins,
-            CommunityTombstone to everyone else'
+            CommunityTombstone to everyone else; purged: CommunityPurged to everyone'
           content:
             application/json:
               schema:
                 oneOf:
                 - "$ref": "#/components/schemas/Community"
                 - "$ref": "#/components/schemas/CommunityTombstone"
+                - "$ref": "#/components/schemas/CommunityPurged"
   "/communities/{id}/mods":
     parameters:
     - name: id
@@ -6960,13 +7028,14 @@ paths:
                 "$ref": "#/components/schemas/Work"
         '410':
           description: 'tombstoned: the Work to admins and delegated admins, WorkTombstone
-            to everyone else'
+            to everyone else; purged: WorkPurged to everyone'
           content:
             application/json:
               schema:
                 oneOf:
                 - "$ref": "#/components/schemas/Work"
                 - "$ref": "#/components/schemas/WorkTombstone"
+                - "$ref": "#/components/schemas/WorkPurged"
   "/works/{id}/mods":
     parameters:
     - name: id

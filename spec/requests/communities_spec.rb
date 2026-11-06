@@ -103,7 +103,7 @@ RSpec.describe 'Communities', type: :request do
         run_test!
       end
 
-      tombstoned_record_responses(full: 'Community', withheld: 'CommunityTombstone') do
+      tombstoned_record_responses(full: 'Community', withheld: 'CommunityTombstone', purged: true) do
         let(:id) { tombstoned_public_container!(Community).noid }
       end
     end

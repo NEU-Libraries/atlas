@@ -34,6 +34,15 @@ RSpec.describe 'Works via atlas_rb', :atlas_rb_server do
     expect(Work.find(work.noid)).to be_nil
   end
 
+  it 'finds a purged Work as its stub rather than raising' do
+    work = WorkCreator.call(parent_id: collection.noid)
+    AtlasRb::Admin::Resource.destroy(work.noid, confirm: :i_understand, nuid: admin_nuid)
+
+    found = AtlasRb::Work.find(work.noid, nuid: admin_nuid)
+    expect(found).to include('id' => work.noid, 'purged' => true)
+    expect(found).not_to include('title')
+  end
+
   describe '.assets' do
     it 'returns a polymorphic array of Blob and Delegate entries, with thumbnail-family Delegates filtered out' do
       work    = WorkCreator.call(parent_id: collection.noid)

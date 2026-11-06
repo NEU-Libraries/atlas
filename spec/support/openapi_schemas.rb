@@ -66,6 +66,22 @@ module OpenapiSchemas
   # The record a tombstoned Work or container answers below the operator tiers.
   # Mirrors resources/tombstone.json.jbuilder.
   def tombstone_stub_schemas
+    purged_stub_schemas.merge(tombstoned_stub_schemas)
+  end
+
+  # The record a purged Work or container answers to every caller. Mirrors
+  # resources/purged.json.jbuilder.
+  def purged_stub_schemas
+    %i[work collection community].to_h do |key|
+      [:"#{key.to_s.capitalize}Purged", wrapped(key, {
+                                                  id:        { type: :string, description: 'NOID' },
+                                                  purged:    { type: :boolean, enum: [true] },
+                                                  purged_at: { type: :string, format: 'date-time' }
+                                                })]
+    end
+  end
+
+  def tombstoned_stub_schemas
     %i[work collection community].to_h do |key|
       [:"#{key.to_s.capitalize}Tombstone", wrapped(key, {
                                                      id:               { type: :string, description: 'NOID' },

@@ -339,6 +339,25 @@ describe WorksController, type: :controller do
       expect(response).to have_http_status(:not_found)
     end
 
+    it 'GET #show 404s for an id that never existed' do
+      get :show, params: { id: 'neverminted' }, as: :json
+      expect(response).to have_http_status(:not_found)
+    end
+
+    # The purge record is typed, so a purged Community's NOID is not a gone Work.
+    it 'GET #show 404s for a purged id of another type' do
+      noid = ResourcePurger.call(resource: community).first
+      get :show, params: { id: noid }, as: :json
+      expect(response).to have_http_status(:not_found)
+    end
+
+    it 'GET #assets 404s for a purged Work' do
+      work = WorkCreator.call(parent_id: CollectionCreator.call(parent_id: community.noid).noid)
+      ResourcePurger.call(resource: work)
+      get :assets, params: { id: work.noid }, as: :json
+      expect(response).to have_http_status(:not_found)
+    end
+
     it 'GET #assets 404s for a non-Work id' do
       get :assets, params: { id: community.noid }, as: :json
       expect(response).to have_http_status(:not_found)

@@ -27,4 +27,15 @@ module TombstoneGate
       @root = root
       render 'resources/tombstone', status: :gone
     end
+
+    # A resource that does not resolve: 410 when a purge removed it, so a kept
+    # handle reads as removed rather than as never having existed, else 404.
+    # Call it after authorize!, so the answer is the same for every caller.
+    def render_absent(klass, root:)
+      @purged = PurgedIdentifier.find_by(noid: params[:id].to_s, resource_type: klass.name)
+      return head(:not_found) if @purged.nil?
+
+      @root = root
+      render 'resources/purged', status: :gone
+    end
 end

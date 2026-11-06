@@ -112,6 +112,7 @@ RSpec.configure do |config|
     # `by_actor` in audit_event_spec) see only what the suite itself
     # creates.
     AuditEvent.delete_all
+    PurgedIdentifier.delete_all
   end
 
   # Remove this line if you're not using ActiveRecord or ActiveRecord fixtures

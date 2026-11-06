@@ -24,7 +24,7 @@ class CollectionsController < ApplicationController
   def show
     resource = Collection.find(params.expect(:id))
     authorize! :read, resource || Collection
-    return head(:not_found) if resource.nil?
+    return render_absent(Collection, root: :collection) if resource.nil?
     return render_tombstone_stub(resource, root: :collection) if tombstone_withheld?(resource)
 
     cached_render('collections.show', resource) do

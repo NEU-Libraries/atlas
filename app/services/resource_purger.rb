@@ -3,8 +3,9 @@
 # Hard-deletes a resource: its Postgres row, its Solr document, and the OCFL
 # object holding its preservation envelope and its bytes. This is the only
 # path in Atlas that removes preserved bytes, which is why :destroy is
-# admin-only and why the audit row is written before anything is removed —
-# the row is the last remaining evidence that the object existed.
+# admin-only and why the audit row and the PurgedIdentifier rows are written
+# before anything is removed — they are the last remaining evidence that the
+# object existed.
 #
 # A Work, Collection or Community cascades into its own FileSets and their
 # Blobs. Those are parts of the resource, not things a curator manages
@@ -21,7 +22,10 @@ class ResourcePurger < ApplicationService
 
   def call
     targets = [@resource] + descendants(@resource)
-    emit_audit_event!(targets)
+    ActiveRecord::Base.transaction do
+      PurgedIdentifier.record!(targets, purged_by: @actor_nuid.presence)
+      emit_audit_event!(targets)
+    end
 
     # Deepest first, so a failure part-way through leaves a resolvable parent
     # with fewer children rather than children whose parent no longer exists.

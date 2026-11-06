@@ -174,6 +174,39 @@ Compilation owns no object, but sharing the check keeps the namespace unique.
 - **A reset still purges storage** (see [`availability.md`](availability.md)).
   The guard is for the cases no reset covers.
 
+**The minter also passes over a purged NOID.** A purge deletes the OCFL object,
+so the existence check alone would hand the NOID out again. Its handle and its
+citations outlive the purge, and a reissued NOID would send every one of them to
+unrelated material. `NoidInUse` therefore answers true for any NOID in
+`purged_identifiers`, and logs it the same way.
+
+## A purged ID answers 410, not 404
+
+`ResourcePurger` writes one `purged_identifiers` row for every NOID it removes:
+the resource and each of its FileSets and Blobs, with the type, the time and the
+acting NUID. It writes them in the same transaction as the audit row and before
+anything is deleted. Unlike the audit row, the rows are written when no actor is
+known, because they answer reads rather than record who acted.
+
+`GET /works/:id`, `/collections/:id` and `/communities/:id` answer a NOID that
+does not resolve from these rows. If a row of that type exists, the answer is
+`410` with an ID-only stub (`WorkPurged`, `CollectionPurged`,
+`CommunityPurged`); otherwise it stays `404`. So a reader who follows a kept
+handle learns the item was removed, not that it never existed.
+
+- **The stub carries the ID, `purged` and `purged_at`, and nothing else.** A
+  purge is the stronger act than a tombstone, taken because the record itself
+  must go, so no title survives it.
+- **The stub has no `error` key.** atlas_rb raises `TombstonedError` for a 410
+  whose `error` is `tombstoned`; without the key, `find` returns the stub.
+- **The lookup follows `authorize!`,** as the nil check always has, so a purged
+  ID answers the same 410 to every caller who passes authentication.
+- **Only these three routes answer 410.** A purged FileSet or Blob has a row, so
+  its NOID is never reissued, but `/files/:id` and the other routes keep `404`.
+- **The rows cannot be rebuilt from disk,** because the purge deleted the object
+  that would have shown it. Like `minter_states`, they are Postgres state a
+  rebuild from disk does not recover. A reset clears them with every other table.
+
 ## Page order is a total order
 
 `Work#page_file_sets` sorts by position ascending, unordered (nil) last, with a

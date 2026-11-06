@@ -21,11 +21,31 @@ end
 # into one entry: the full record to an operator, and to everyone else the
 # stub (a Work or container) or the Tombstoned body (a leaf).
 module TombstonedRecordExamples
-  def tombstoned_record_responses(full:, withheld:, &)
+  # `purged:` adds the stub a purged ID answers, on a resource's own show route.
+  def tombstoned_record_responses(full:, withheld:, purged: false, &)
     description = "tombstoned: the #{full} to admins and delegated admins, #{withheld} to everyone else"
-    one_of = { oneOf: [{ '$ref' => "#/components/schemas/#{full}" }, { '$ref' => "#/components/schemas/#{withheld}" }] }
+    description += "; purged: #{full}Purged to everyone" if purged
+    schemas = [full, withheld] + (purged ? ["#{full}Purged"] : [])
+    one_of = { oneOf: schemas.map { |s| { '$ref' => "#/components/schemas/#{s}" } } }
     operator_record_response(description, one_of, full.underscore, &)
     withheld_record_response(description, one_of, full.underscore, &)
+    purged_record_responses(description, one_of, full) if purged
+  end
+
+  # A purged ID answers the same stub to an admin and a guest.
+  def purged_record_responses(description, one_of, full)
+    key = full.underscore
+    [true, false].each do |admin|
+      response '410', description, default_auth: admin do
+        let(:id) { purged_public_resource!(full.constantize) }
+        before { guest_caller! } unless admin
+        schema one_of
+        run_test! do |response|
+          expect(JSON.parse(response.body)).to eq(key => { 'id' => id, 'purged' => true,
+                                                           'purged_at' => PurgedIdentifier.find(id).purged_at.iso8601 })
+        end
+      end
+    end
   end
 
   # The suite's default caller is the admin.
@@ -75,6 +95,19 @@ module TombstonedFixtures
 
   def tombstoned_public_work!
     tombstoned!(public_work!)
+  end
+
+  # The NOID of a public resource of the class, purged.
+  def purged_public_resource!(klass)
+    resource = if klass == Work
+                 public_work!
+               else
+                 container = (klass == Community ? CommunityCreator : CollectionCreator)
+                             .call(parent_id: public_community!.noid)
+                 container.publicize
+                 Atlas.persister.save(resource: container)
+               end
+    ResourcePurger.call(resource: resource).first
   end
 
   # Empty, because a container holding a live child cannot be tombstoned.

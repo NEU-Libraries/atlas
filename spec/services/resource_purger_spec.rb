@@ -96,6 +96,33 @@ RSpec.describe ResourcePurger do
     end
   end
 
+  describe 'the purged identifiers' do
+    it 'records every NOID it removes, with its type, time and actor' do
+      blob = BlobCreator.call(path: fixture_path, work_id: work.noid, original_filename: 'example.png')
+      purged = described_class.call(resource: work, actor_nuid: '000000004')
+
+      rows = PurgedIdentifier.where(noid: purged)
+      expect(rows.pluck(:noid)).to match_array(purged)
+      expect(rows.find(work.noid)).to have_attributes(resource_type: 'Work', purged_by: '000000004')
+      expect(rows.find(blob.noid).resource_type).to eq('Blob')
+      expect(rows.pluck(:purged_at)).to all(be_present)
+    end
+
+    it 'records them when no actor is supplied' do
+      described_class.call(resource: work)
+
+      expect(PurgedIdentifier.find(work.noid)).to have_attributes(resource_type: 'Work', purged_by: nil)
+    end
+
+    it 'keeps the first purge time when a NOID is recorded twice' do
+      first = 1.day.ago.floor
+      PurgedIdentifier.create!(noid: work.noid, resource_type: 'Work', purged_at: first, purged_by: '000000004')
+
+      described_class.call(resource: work)
+      expect(PurgedIdentifier.find(work.noid)).to have_attributes(purged_at: first, purged_by: '000000004')
+    end
+  end
+
   describe 'the audit row' do
     it 'records the whole purge manifest before the resources go' do
       BlobCreator.call(path: fixture_path, work_id: work.noid, original_filename: 'example.png')

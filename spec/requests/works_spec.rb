@@ -255,7 +255,7 @@ RSpec.describe 'Works', type: :request do
         run_test!
       end
 
-      tombstoned_record_responses(full: 'Work', withheld: 'WorkTombstone') do
+      tombstoned_record_responses(full: 'Work', withheld: 'WorkTombstone', purged: true) do
         let(:id) { tombstoned_public_work!.noid }
       end
 

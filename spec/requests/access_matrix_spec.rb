@@ -265,10 +265,17 @@ RSpec.describe 'Access matrix', type: :request, default_auth: false do
       options = AccessMatrix::MATRIX.dig(key, 1) || {}
       next unless AccessMatrix::MATRIX.key?(key) && route.verb == (options[:post] ? 'POST' : 'GET')
 
-      spec = route.path.spec.to_s
-      subject = options[:on] || (AccessMatrix::SEGMENT_SUBJECTS[spec.split('/')[1]] if spec.include?(':id'))
+      subject = subject_for(route, options)
       [key, subject, path_for(route, subject)]
     end
+  end
+
+  # The resource a row's :id names, or nil for a route that takes none.
+  def subject_for(route, options)
+    return options[:on] if options[:on]
+
+    spec = route.path.spec.to_s
+    AccessMatrix::SEGMENT_SUBJECTS[spec.split('/')[1]] if spec.include?(':id')
   end
 
   def request!(key, path, tier)

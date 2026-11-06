@@ -32,11 +32,14 @@ module Metsable
     files.compact.find { |b| b.use == Role.structural_metadata.name }
   end
 
+  # Evicts after the row lands. The Blob save in mets_xml= has already evicted,
+  # so a read between that save and this row would re-cache the old METS.
   def mets_json=(raw_xml)
     record = Metadata::METS.find_or_create_by(valkyrie_id: noid)
     record.json_attributes = convert_mets_xml_to_json(raw_xml)
     record.save!
     @mets = record
+    ResponseCache.evict(noid)
   end
 
   private

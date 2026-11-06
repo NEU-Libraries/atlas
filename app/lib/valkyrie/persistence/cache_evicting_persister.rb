@@ -8,11 +8,12 @@ module Valkyrie
     # This is the seam every write already passes through — the creators, the
     # lifecycle verbs, the thumbnail and derivative setters, the re-parent, the
     # purge — so eviction does not depend on each controller remembering to ask
-    # for it. Two write paths still need an explicit hook because they change a
-    # cached body WITHOUT saving the resource whose body it is: Modsable#mods_json=
-    # writes the metadata_mods row before the persister sees anything, and a
-    # container re-parent changes the ancestor chain embedded in every
-    # descendant, and none of them is re-saved. Both call ResponseCache directly.
+    # for it. Three write paths still need an explicit hook because they change a
+    # cached body WITHOUT saving the resource whose body it is. Modsable#mods_json=
+    # writes the metadata_mods row before the persister sees anything, and
+    # Metsable#mets_json= writes the metadata_mets row after it. A container
+    # re-parent changes the ancestor chain embedded in every descendant, and
+    # none of them is re-saved. All three call ResponseCache directly.
     #
     # Eviction never fails a write. A cache that cannot be reached is a
     # performance problem; a save that rolls back because of one is a data

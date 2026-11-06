@@ -150,6 +150,20 @@ RSpec.describe 'Response cache', :response_cache, type: :request, default_auth: 
       expect(cached_scopes_for(public_work.noid)).to be_empty
     end
 
+    # mets_xml= saves the METS Blob, which evicts, and only then writes the
+    # metadata_mets row the body is rendered from.
+    it 'drops the cached METS when the metadata_mets row is written' do
+      FileSetCreator.call(work_id: public_work.noid, classification: Classification.image, position: 1)
+      work = WorkMETSRebuilder.call(work: public_work)
+      get "/works/#{work.noid}/mets"
+      expect(response).to have_http_status(:ok)
+      expect(cached_scopes_for(work.noid)).to include('works.mets/any')
+
+      work.mets_json = work.mets_xml
+
+      expect(cached_scopes_for(work.noid)).not_to include('works.mets/any')
+    end
+
     it 'reflects a metadata write on the next read' do
       get "/works/#{public_work.noid}"
       expect(response.parsed_body.dig('work', 'title')).to be_blank

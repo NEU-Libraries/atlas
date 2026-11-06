@@ -31,6 +31,7 @@ class ResourcePurger < ApplicationService
     # with fewer children rather than children whose parent no longer exists.
     targets.reverse_each do |resource|
       detach_inbound_references!(resource)
+      evict_affiliated_people!(resource)
       purge_storage(resource)
       Atlas.persister.delete(resource: resource)
     end
@@ -55,6 +56,15 @@ class ResourcePurger < ApplicationService
           Atlas.persister.save(resource: holder)
         end
       end
+    end
+
+    # A Person's body lists its affiliated Communities, resolved at render time,
+    # so a purged one drops out of a fresh render on its own. The edge itself is
+    # left on the Person; only the cached body has to go.
+    def evict_affiliated_people!(resource)
+      return unless resource.is_a?(Community)
+
+      ResponseCache.evict_many(holders_by(resource, :affiliated_community_ids).map(&:noid))
     end
 
     def holders_by(resource, property)

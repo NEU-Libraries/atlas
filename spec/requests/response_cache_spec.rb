@@ -258,6 +258,28 @@ RSpec.describe 'Response cache', :response_cache, type: :request, default_auth: 
     end
   end
 
+  # A Person's body lists its affiliated Communities, and purging one does not
+  # save the Person.
+  describe 'purging an affiliated Community' do
+    it "drops the Person's cached body" do
+      admin = ensure_default_admin!
+      affiliated = public_community!
+      person = PersonCreator.call(nuid: '000000077', display_name: 'Roe, Rita')
+      person.affiliated_community_ids = [affiliated.id]
+      person = Atlas.persister.save(resource: person)
+
+      get "/people/#{person.noid}", headers: signed_auth_headers(admin.nuid)
+      expect(response.parsed_body.to_s).to include(affiliated.noid)
+      expect(cached_scopes_for(person.noid)).to include('people.show/any')
+
+      ResourcePurger.call(resource: Community.find(affiliated.noid))
+
+      expect(cached_scopes_for(person.noid)).to be_empty
+      get "/people/#{person.noid}", headers: signed_auth_headers(admin.nuid)
+      expect(response.parsed_body.to_s).not_to include(affiliated.noid)
+    end
+  end
+
   # A container's title is embedded in every descendant Work's `ancestors`, and
   # nothing re-saves those Works — so a rename or a move has to reach them.
   describe 'the ancestor cascade' do

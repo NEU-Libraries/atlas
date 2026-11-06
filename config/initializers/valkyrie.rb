@@ -71,6 +71,7 @@ Rails.application.config.to_prepare do
           SystemContainerIndexer,
           EmbargoIndexer,
           OAIIndexer,
+          MODSEditDateIndexer,
           StorageIndexer,
           FixityIndexer
         )
@@ -102,6 +103,7 @@ Rails.application.config.to_prepare do
           SystemContainerIndexer,
           EmbargoIndexer,
           OAIIndexer,
+          MODSEditDateIndexer,
           StorageIndexer,
           FixityIndexer
         )

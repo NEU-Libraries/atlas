@@ -24,6 +24,10 @@ class MetadataVersionHistory
     new(resource).fetch_xml(version_id)
   end
 
+  def self.last_changed_at(resource:)
+    new(resource).last_changed_at
+  end
+
   def initialize(resource)
     @resource = resource
   end
@@ -49,6 +53,16 @@ class MetadataVersionHistory
         note:              event&.note
       }
     end
+  end
+
+  # When the record last changed: the newest content-distinct version, as
+  # #descriptors reports it, without the audit correlation it pays for.
+  def last_changed_at
+    return nil if blob&.latest_revision.nil?
+
+    versions = storage_adapter.find_version_metadata(id: blob.latest_revision)
+    created  = collapse_consecutive_identical(versions).first&.dig(:created)
+    created && Time.iso8601(created).utc
   end
 
   # Located through find_versions rather than by reconstructing the per-version

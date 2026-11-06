@@ -462,6 +462,32 @@ completed Work, then checks the doc against `/assets`.
 
 A doc written before this indexer has neither field. A reindex fills them.
 
+## `MODSEditDateIndexer`
+
+Projects `mods_updated_at_dtsi` onto each Work: the time its MODS XML last
+changed. The metadata exports print it beside the ingest date, so librarians can
+see which records changed since a load.
+
+- **It is read from preservation, not stored.** The time is the `created` stamp
+  of the newest content-distinct OCFL version of the MODS file, which
+  `MODSVersionHistory.last_changed_at` reads from the object's inventory. A
+  stored attribute would need a backfill and would not survive a rebuild from
+  disk; this survives a reindex, a reproject and a rebuild unchanged.
+- **Only a change to the XML moves it.** The MODS file shares its OCFL object
+  with the preservation envelope, so a permissions write or another envelope
+  rewrite cuts a version with the same digest. Consecutive identical versions
+  collapse, as they do in the version history, so neither those nor an identical
+  re-upload count as an edit. `oai_datestamp_dtsi` is not this date: it moves
+  on any save of the Work.
+- **A Work's first date is its creation,** when `WorkCreator` writes the MODS.
+- **Minting a handle counts as an edit.** `HandleMinter` writes the handle into
+  the MODS, so a completed Work's date is at least its handle mint. That is
+  accurate, because the XML changed, but it is not a librarian's edit.
+- **It costs one inventory read per Work save,** beside the MODS XML read
+  `OAIIndexer` already makes. It runs on writes and reindexes, never on a
+  search. It skips the audit-event correlation that the version history
+  endpoint pays for.
+
 ## `TombstoneIndexer`
 
 | Field | What it is for |

@@ -114,19 +114,48 @@ Three concentric layers in `spec/`:
    Transactional fixtures do not apply here: the test thread and the server
    thread hold different Active Record connections.
 
-## The access matrix
+## The access matrices
 
-`spec/requests/access_matrix_spec.rb` asks one question of every read route:
-what does each caller get, in each state a resource can be in? The states are
-live, a private Work, a tombstone on a Work, a FileSet, a Collection or a
-Community, an embargoed Work, and a Work whose file tier is reserved to a group.
-The last two withhold the file bytes and nothing else. The callers are a guest, a standard user, an editor of the Work, a
-delegated admin and an admin.
+Six matrices ask one question of every route: what does each caller get, in
+each state a subject can be in? The specs for each endpoint test what that
+endpoint does. They cannot see a hole between two endpoints that are each
+correct: a tombstone that withholds a Work's record while its bytes stay
+reachable through `/files/:id/content`. A matrix tests the promise a state
+makes across every route instead.
 
-The specs for each endpoint test what that endpoint does. They cannot see a
-hole between two endpoints that are each correct: a tombstone that withholds a
-Work's record while its bytes stay reachable through `/files/:id/content`. The
-matrix tests the promise a state makes across every route instead.
+| Matrix | Spec | Routes | States |
+|---|---|---|---|
+| Read | `access_matrix_spec.rb` | every read of the resource tree | live, private, the four tombstones, embargoed, tier gated, readable by one group, purged, unattached |
+| Write | `write_matrix_spec.rb` | every write to the resource tree | live, the four tombstones, maintenance; private as refusals only |
+| Sets | `set_matrix_spec.rb` | Compilations | a public Set, a private Set |
+| People | `people_matrix_spec.rb` | Persons | live, maintenance |
+| Accounts | `account_matrix_spec.rb` | the user directory, accounts, tokens | live, maintenance |
+| Services | `service_matrix_spec.rb` | operator, backend and public endpoints | live, maintenance |
+
+Each table lives in `spec/support/matrices/`, apart from the spec that sends its
+requests, so `bin/acl-coverage` can read every row without RSpec.
+
+### Callers
+
+Every caller is defined once, in `MatrixTree` (`spec/support/matrices/tree.rb`),
+by what it holds in the fixture world, and every expected cell is derived from
+those sets. The callers between them reach each way Atlas grants or refuses
+access:
+
+- **Credentials:** a guest with no token; a signed Cerberus assertion; an
+  assertion carrying an `obo` claim, from the admin (`:acting_admin`) and from a
+  standard user, who is refused (`:obo_refused`); the editor on a read-write
+  personal token (`:jwt_editor`) and the admin on a read-only one (`:read_only`);
+  the system token; the fixity token.
+- **Grants on the Work:** `edit_users` (`:editor`), `edit_groups`
+  (`:group_editor`), depositor ownership alone (`:owner`), membership of a read
+  group (`:group_reader`), the staff group Atlas prepends to every resource
+  (`:staff`), and an edit grant on the containers but not the Work
+  (`:curator`).
+- **Roles:** `:standard`, `:loader` and `:privileged` without the admin group,
+  all standard at the wire; the delegated admin; `:system`; the admin.
+
+### What the read matrix checks
 
 Each route is a row naming a policy, such as `:withheld` or `:read`, and the
 policy gives the expected status for each cell. Two checks look at the body as
@@ -142,44 +171,21 @@ well as the status:
   every marker reaches some response, so the check cannot pass vacuously.
 
 A `POST` that reads, such as `resources#find_many`, takes a row with `post:`.
-A route keyed on something outside the resource tree, such as a Set or an
-account, goes in `UNSCOPED` with a reason that names where its gate is tested.
-
-The inventory examples read the route table itself. A new `GET` route fails the
-spec until it has a row or a reason, so nobody can add a read without deciding
-what a tombstone or a private ACL means for it. A row for a route that is no
-longer drawn fails too.
 
 When you add a state that withholds something, add it to `STATES` and say in
 `WITHHELD` which resources it withholds. Then let the failures show which
 routes disagree.
 
-### The write matrix
-
-`spec/requests/write_matrix_spec.rb` asks the same question of every `POST`,
-`PUT`, `PATCH` and `DELETE` route: who may change or delete this resource, in
-each state it can be in? Both matrices run against one fixture tree, one set of
-states and one set of callers, in `spec/support/matrix_world.rb`.
-
-The write matrix adds two callers and one state, and runs the private state as
-refusals only (see below):
-
-- **`:system`**, because its scoped grants live on writes: it creates
-  containers, reindexes, and links a Work into a featured Collection while
-  acting as the Work's depositor.
-- **`:read_only`**, the admin on a read-only personal token. Every write must
-  answer 403, which proves the token floor holds even for the widest grant.
-- **`maintenance`**, the read-only window. Every write must answer 503 for every
-  caller.
+### What the write matrix checks
 
 Each row names a policy (`:edit`, `:operator`, `:admin`, `:reindex`,
-`:create_container` or `:link_member`) and the status a permitted write
-answers. A permitted caller then meets the tombstone gate: below the operator
-tiers, a write to a tombstoned resource answers 410. A row that runs no gate,
-such as `restore`, says `gate: false`, and a row whose service refuses a
-tombstoned node or target says so in `refuses:`. A route that needs a second
-row, such as the one `:system` grant on linked members, takes an `@variant`
-suffix.
+`:create_work`, `:create_container` or `:link_member`) and the status a
+permitted write answers. A permitted caller then meets the tombstone gate: below
+the operator tiers, a write to a tombstoned resource answers 410. A row that
+runs no gate, such as `restore`, says `gate: false`, and a row whose service
+refuses a tombstoned node or target says so in `refuses:`. A route that needs a
+second row, such as the one `:system` grant on linked members, takes an
+`@variant` suffix.
 
 Two checks go beyond the status:
 
@@ -200,10 +206,72 @@ subject, which `MatrixWorld#scratch` builds in the shape the state gives the
 shared one, and it takes a new copy after each success. The shared world is
 built once per state, because rebuilding it costs about four seconds.
 
-A private Work changes no write cell: the editor holds the grant either way, and
-nobody else could write. So the private state is not a full run. One example
-sends every refused cell against the private Work and expects 403, never a 404
-that would hide whether the Work exists.
+A private Work changes no write cell: the Work's editors hold the grant either
+way, and nobody else could write. So the private state is not a full run. One
+example sends every refused cell against the private Work and expects 403,
+never a 404 that would hide whether the Work exists.
 
-The inventory works as it does for reads. A new write route fails the spec until
-it has a row, or a reason in `UNSCOPED`.
+### The flat matrices
+
+Sets, People, accounts and the service endpoints have no resource tree, so their
+tables share one cell rule, `FlatMatrix`. A row names the callers it admits and
+the status a permitted call answers. `write:` applies the read-only token and
+the maintenance window; `no_auth:` marks an action that skips authentication.
+`spec/support/flat_matrix_runner.rb` sends the rows and applies the same
+fingerprint check to a refused write.
+
+`GET /reset` is sent with the environment guard closed, as production has it,
+so a permitted reset would show as a miss rather than wipe the world.
+
+## Access-control coverage
+
+`bin/acl-coverage` reports five numbers, from the routes, the controllers'
+source and the matrix tables:
+
+| Number | What it counts |
+|---|---|
+| M1 route inventory | routed actions with a matrix row or a written reason |
+| M2 matrix depth | routed actions a matrix crosses with every caller and state |
+| M3 gate conformance | routed actions that break no conformance rule |
+| M4 asserted cells | rows × callers × states, across the matrices |
+| M5 axis reach | the ways of being granted or refused access (`ACLAxes`) that a matrix exercises |
+
+Gate conformance reads the controllers with Prism and follows calls through each
+controller's helpers, its concerns and `ApplicationController`, so a gate called
+from a helper counts. Two rules apply:
+
+- Every routed action reaches `authorize!`, or carries a reason in
+  `ACLMatrices::PUBLIC`. A controller outside `ApplicationController`, which
+  `check_authorization` never reaches, must be listed there.
+- Every action of a resource controller keyed on `:id` reaches a tombstone gate,
+  or carries a reason in `ACLMatrices::TOMBSTONE_EXEMPT`.
+
+A reason for a route the application no longer draws fails too, and so does a
+reason for an action that reaches the gate anyway.
+
+```bash
+bin/acl-coverage            # the numbers, and every unreached axis
+bin/acl-coverage --check    # fail on a broken rule or a number below the baseline
+bin/acl-coverage --update   # raise spec/acl_coverage_baseline.json; it never lowers one
+```
+
+The baseline only rises. When a change raises a number, run `--update` and
+commit the new baseline with the change. `spec/lib/acl_coverage_spec.rb` runs the
+check in the full suite, and CI runs it as its own step.
+
+### Running it on every edit
+
+The check takes a few seconds and needs no database, so it suits a local hook.
+Hooks are per developer and stay out of the repository; two that work:
+
+- **A git `pre-push` hook,** `.git/hooks/pre-push`:
+
+  ```bash
+  #!/usr/bin/env bash
+  exec bin/acl-coverage --check
+  ```
+
+- **A Claude Code `PostToolUse` hook,** in your own `.claude/settings.json`, on
+  `Edit|Write`, that runs `bin/acl-coverage --check` when the edited path is
+  under `app/controllers/`, or is `app/models/ability.rb` or
+  `config/routes.rb`.

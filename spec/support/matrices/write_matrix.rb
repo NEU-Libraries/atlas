@@ -7,7 +7,6 @@ require_relative 'tree'
 # loads without RSpec, so bin/acl-coverage can read it;
 # spec/requests/write_matrix_spec.rb sends the requests. See docs/testing.md.
 #
-# rubocop:disable Metrics/ModuleLength -- the rows are one table, and splitting
 # it would scatter a single decision across modules.
 module WriteMatrix
   # Least to most privileged, so most rows refuse until their last cells.
@@ -141,39 +140,9 @@ module WriteMatrix
     'blobs#destroy'                       => [:admin, { on: :blob, gate: false, fresh: true, ok: 204 }]
   }.freeze
 
-  # Writes keyed on something other than a resource in this tree. Each names
-  # where its gate is covered instead.
-  UNSCOPED = {
-    'compilations#create'                     => 'a Set, not a resource: spec/requests/compilations_spec.rb',
-    'compilations#update'                     => 'a Set, not a resource: spec/requests/compilations_spec.rb',
-    'compilations#destroy'                    => 'a Set, not a resource: spec/requests/compilations_spec.rb',
-    'compilations#add_included_collection'    => 'a Set, not a resource: spec/requests/compilations_spec.rb',
-    'compilations#remove_included_collection' => 'a Set, not a resource: spec/requests/compilations_spec.rb',
-    'compilations#add_included_work'          => 'a Set, not a resource: spec/requests/compilations_spec.rb',
-    'compilations#remove_included_work'       => 'a Set, not a resource: spec/requests/compilations_spec.rb',
-    'compilations#add_exclusion'              => 'a Set, not a resource: spec/requests/compilations_spec.rb',
-    'compilations#remove_exclusion'           => 'a Set, not a resource: spec/requests/compilations_spec.rb',
-    'compilations#publish'                    => 'a Set, not a resource: spec/requests/compilations_spec.rb',
-    'compilations#unpublish'                  => 'a Set, not a resource: spec/requests/compilations_spec.rb',
-    'people#create'                           => 'a Person, not a resource: spec/requests/people_spec.rb',
-    'people#update'                           => 'a Person, not a resource: spec/requests/people_spec.rb',
-    'people#add_affiliation'                  => 'a Person, not a resource: spec/requests/people_spec.rb',
-    'people#remove_affiliation'               => 'a Person, not a resource: spec/requests/people_spec.rb',
-    'users#update'                            => 'accounts: spec/requests/users_spec.rb',
-    'users#update_by_email'                   => 'accounts: spec/requests/users_spec.rb',
-    'users#preferred_account'                 => 'accounts: spec/requests/user_accounts_spec.rb',
-    'users/tokens#nuid'                       => 'token minting: spec/requests/users_spec.rb',
-    'users/tokens#revoke'                     => 'token revocation: spec/requests/users_spec.rb',
-    'embargoes#release'                       => 'a :system sweep: spec/requests/embargoes_spec.rb',
-    'fixity_checks#create'                    => 'the fixity checker only: spec/requests/fixity_checks_spec.rb',
-    'audit_events#create'                     => 'the operator ledger: spec/requests/audit_events_spec.rb',
-    'maintenance#update'                      => 'the maintenance window: spec/requests/maintenance_read_only_spec.rb',
-    'resources#preview'                       => 'renders posted MODS and writes nothing',
-    'resources#find_many'                     => 'a POST that reads: a row in the read matrix',
-    'oai#index'                               => 'the OAI-PMH POST form of the harvest read: spec/requests/oai_spec.rb',
-    'blobs#find_many_versions'                => 'a POST that reads: spec/requests/binary_versions_spec.rb'
-  }.freeze
+  # Every route the matrices reach has a row in one of them. A route none can
+  # cross with its callers goes here with a reason naming where it is tested.
+  UNSCOPED = {}.freeze
 
   def self.key_of(row) = row.split('@').first
 end
-# rubocop:enable Metrics/ModuleLength

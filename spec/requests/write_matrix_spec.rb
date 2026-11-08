@@ -108,20 +108,4 @@ RSpec.describe 'Write matrix', type: :request, default_auth: false do
     end
     expect(misses).to be_empty, "#{misses.size} cells differ:\n  #{misses.join("\n  ")}"
   end
-
-  describe 'the route inventory' do
-    it 'gives every write route a row or a reason' do
-      writes = MatrixWorld.routes.reject { |route, _| route.verb == 'GET' }.map(&:last).uniq
-      rows = WriteMatrix::MATRIX.keys.map { |row| WriteMatrix.key_of(row) }
-      unclassified = writes - rows - WriteMatrix::UNSCOPED.keys
-      expect(unclassified).to be_empty,
-                              "Add a row to MATRIX, or a reason to UNSCOPED, for: #{unclassified.join(', ')}"
-    end
-
-    it 'names no route that the application no longer draws' do
-      drawn = MatrixWorld.routes.map(&:last)
-      rows = WriteMatrix::MATRIX.keys.map { |row| WriteMatrix.key_of(row) }
-      expect(rows + WriteMatrix::UNSCOPED.keys - drawn).to be_empty
-    end
-  end
 end

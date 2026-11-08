@@ -121,18 +121,4 @@ RSpec.describe 'Access matrix', type: :request, default_auth: false do
       expect(seen).to match_array(markers.keys) if state == :live
     end
   end
-
-  describe 'the route inventory' do
-    it 'gives every read route a row or a reason' do
-      reads = MatrixWorld.routes.select { |route, _| route.verb == 'GET' }.map(&:last).uniq
-      unclassified = reads - AccessMatrix::MATRIX.keys - AccessMatrix::UNSCOPED.keys
-      expect(unclassified).to be_empty,
-                              "Add a row to MATRIX, or a reason to UNSCOPED, for: #{unclassified.join(', ')}"
-    end
-
-    it 'names no route that the application no longer draws' do
-      drawn = MatrixWorld.routes.map(&:last)
-      expect(AccessMatrix::MATRIX.keys + AccessMatrix::UNSCOPED.keys - drawn).to be_empty
-    end
-  end
 end

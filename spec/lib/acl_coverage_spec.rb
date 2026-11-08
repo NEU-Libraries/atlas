@@ -10,6 +10,13 @@ RSpec.describe ACLCoverage do
   describe 'this checkout' do
     let(:report) { described_class.report }
 
+    # The inventory: a new route cannot ship until someone decides who may
+    # call it, in every state its subject can be in.
+    it 'gives every routed action a row in some matrix, or a reason' do
+      expect(report.unclassified).to be_empty,
+                                     "Add a row to a matrix in spec/support/matrices for: #{report.unclassified.join(', ')}"
+    end
+
     it 'breaks no conformance rule' do
       expect(report.violations).to be_empty
     end

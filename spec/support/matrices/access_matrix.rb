@@ -153,30 +153,9 @@ module AccessMatrix
     'communities#children'       => [:record, { on: :sub_community }]
   }.freeze
 
-  # Reads keyed on something other than a resource in this tree. Each names
-  # where its gate is covered instead.
-  UNSCOPED = {
-    'compilations#index'       => 'a Set, not a resource: spec/requests/compilations_spec.rb',
-    'compilations#show'        => 'a Set, not a resource: spec/requests/compilations_spec.rb',
-    'compilations#contents'    => 'a Set, not a resource: spec/requests/compilations_spec.rb',
-    'communities#index'        => 'a roll of containers: spec/requests/index_read_gate_spec.rb',
-    'collections#index'        => 'a roll of containers: spec/requests/index_read_gate_spec.rb',
-    'people#index'             => 'a Person, not a resource: spec/requests/people_spec.rb',
-    'people#show'              => 'a Person, not a resource: spec/requests/people_spec.rb',
-    'resources#preview'        => 'renders posted MODS and reads no resource',
-    'blobs#find_many_versions' => 'class-wide :read_versions: spec/requests/binary_versions_spec.rb',
-    'fixity_checks#due'        => 'the fixity checker only: spec/requests/fixity_checks_spec.rb',
-    'oai#index'                => 'the metadata harvest, which withholds a tombstoned record: spec/requests/oai_spec.rb',
-    'docs#show'                => 'the API documentation',
-    'maintenance#show'         => 'the maintenance flag',
-    'maintenance#reset'        => 'the development data reset',
-    'health#show'              => 'service health',
-    'metrics#latency'          => 'operator latency figures: spec/requests/metrics_spec.rb',
-    'users/tokens#show'        => "the caller's own account",
-    'users#index'              => 'accounts: spec/requests/users_spec.rb',
-    'users#show'               => 'accounts: spec/requests/users_spec.rb',
-    'users#accounts'           => 'accounts: spec/requests/user_accounts_spec.rb'
-  }.freeze
+  # Every route the matrices reach has a row in one of them. A route none can
+  # cross with its callers goes here with a reason naming where it is tested.
+  UNSCOPED = {}.freeze
 
   # The subject a path's first segment names, absent an `on:`.
   SEGMENT_SUBJECTS = {

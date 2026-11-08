@@ -437,7 +437,7 @@ Work answers for itself.
   stops handing the URLs out, through the file lists, the Delegate record and
   the thumbnails.
 - **`spec/requests/access_matrix_spec.rb` checks the rule on every route.** See
-  [`testing.md`](testing.md#the-access-matrix).
+  [`testing.md`](testing.md#the-access-matrices).
 
 #### A tombstone refuses writes below the operator tiers
 

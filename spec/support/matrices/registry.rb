@@ -3,6 +3,10 @@
 require_relative 'axes'
 require_relative 'access_matrix'
 require_relative 'write_matrix'
+require_relative 'set_matrix'
+require_relative 'people_matrix'
+require_relative 'account_matrix'
+require_relative 'service_matrix'
 
 # What bin/acl-coverage reads beyond the matrix tables: which matrices exist,
 # which controllers act on the resource tree, and the written reasons for the
@@ -10,7 +14,8 @@ require_relative 'write_matrix'
 # one: an action with neither the gate nor a reason fails the coverage check.
 # See docs/testing.md.
 module ACLMatrices
-  ALL = { read: AccessMatrix, write: WriteMatrix }.freeze
+  ALL = { read: AccessMatrix, write: WriteMatrix, sets: SetMatrix, people: PeopleMatrix, accounts: AccountMatrix,
+          services: ServiceMatrix }.freeze
 
   # Controllers whose :id names a Resource, so an action keyed on it must
   # refuse a tombstone or say here why it does not.

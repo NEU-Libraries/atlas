@@ -11,6 +11,17 @@ class MatrixWorld
   include MODSFixtureHelper
   include MatrixTree
 
+  # The callers whose credential is not a plain signed assertion.
+  CREDENTIALS = {
+    guest:        ->(_) { {} },
+    system:       ->(ctx) { ctx.token_headers(:system_token, ctx.system_user) },
+    fixity:       ->(ctx) { ctx.token_headers(:fixity_token, ctx.fixity_user) },
+    read_only:    ->(ctx) { ctx.jwt_headers(ctx.admin, read_only: true) },
+    jwt_editor:   ->(ctx) { ctx.jwt_headers(ctx.users[:editor]) },
+    obo_refused:  ->(ctx) { ctx.assertion_headers(ctx.users[:standard], obo: ctx.users[:editor]) },
+    acting_admin: ->(ctx) { ctx.assertion_headers(ctx.admin, obo: ctx.users[:owner]) }
+  }.freeze
+
   FIXTURE = Rails.root.join('spec/fixtures/files/example.bin')
   DWC     = Rails.root.join('spec/fixtures/files/dwc.xml')
 
@@ -33,10 +44,7 @@ class MatrixWorld
     @community  = public_community!
     @collection = CollectionCreator.call(parent_id: community.noid)
     build_work!
-    @blob = BlobCreator.call(work_id: work.noid, original_filename: "#{MARKERS[:blob]}.bin", path: FIXTURE.to_s)
-    @file_set = blob.parent
-    @delegate = DelegateCreator.call(resource_id: work.id, use: Role.thumbnail_image.name,
-                                     uri: "https://iiif.example/#{MARKERS[:delegate]}.jpg")
+    build_leaves!
     build_containers!
     [collection, empty_collection, sub_community].each { |container| curate!(container) }
     WorkMETSRebuilder.call(work: work)
@@ -131,6 +139,13 @@ class MatrixWorld
       Atlas.persister.save(resource: parent)
     end
 
+    def build_leaves!
+      @blob = BlobCreator.call(work_id: work.noid, original_filename: "#{MARKERS[:blob]}.bin", path: FIXTURE.to_s)
+      @file_set = blob.parent
+      @delegate = DelegateCreator.call(resource_id: work.id, use: Role.thumbnail_image.name,
+                                       uri: "https://iiif.example/#{MARKERS[:delegate]}.jpg")
+    end
+
     def build_containers!
       @empty_collection = described!(CollectionCreator.call(parent_id: community.noid), MARKERS[:empty_collection])
       sub = CommunityCreator.call(parent_id: community.noid)
@@ -179,16 +194,7 @@ RSpec.shared_context 'access matrix callers' do
 
   def headers_for(tier)
     signed_auth_headers(nil)
-    case tier
-    when :guest        then {}
-    when :system       then token_headers(:system_token, system_user)
-    when :fixity       then token_headers(:fixity_token, fixity_user)
-    when :read_only    then jwt_headers(admin, read_only: true)
-    when :jwt_editor   then jwt_headers(users[:editor])
-    when :obo_refused  then assertion_headers(users[:standard], obo: users[:editor])
-    when :acting_admin then assertion_headers(admin, obo: users[:owner])
-    else assertion_headers(users[tier])
-    end
+    MatrixWorld::CREDENTIALS.fetch(tier) { ->(ctx) { ctx.assertion_headers(ctx.users[tier]) } }.call(self)
   end
 
   def assertion_headers(user, obo: nil)

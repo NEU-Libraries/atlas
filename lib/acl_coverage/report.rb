@@ -36,6 +36,12 @@ module ACLCoverage
 
     def actions = @actions ||= @routes.map(&:key).uniq.sort
 
+    # Routed actions no matrix crosses with its callers and states.
+    def without_row = actions.reject { |key| rows.include?(key) }
+
+    # Routed actions with neither a row nor a written reason.
+    def unclassified = actions.reject { |key| classified?(key) }
+
     def missing_axes = ACLAxes.ids - axes
 
     private

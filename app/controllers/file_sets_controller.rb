@@ -4,6 +4,7 @@
 class FileSetsController < ApplicationController
   include LazyPagination
   include IdempotentCreate
+  include LeafWriteTarget
   include DelegateUris
   include StaleObjectRetry
 
@@ -35,15 +36,16 @@ class FileSetsController < ApplicationController
   end
 
   def create
-    authorize! :create, FileSet
+    work = authorized_leaf_target(params[:work_id])
 
     if (record = find_idempotency_record(FileSet))
       @file_set = FileSet.find(record.resource_noid)
       return render_idempotent_resource(@file_set)
     end
+    return head(:not_found) if work.nil?
 
     @file_set = FileSetCreator.call(
-      work_id:        params[:work_id],
+      work_id:        work.noid,
       classification: Classification.find(
         params.expect(:classification)
       ),
@@ -61,23 +63,22 @@ class FileSetsController < ApplicationController
   # carries through the v1 original_filename, and honors verify-on-ingest via
   # expected_digest. Unknown id → 404.
   def update
-    authorize! :update, FileSet
+    file_set = FileSet.find(params.expect(:id))
+    authorize! :update, file_set || FileSet
 
     if (record = find_idempotency_record(FileSet))
       @file_set = FileSet.find(record.resource_noid)
       return render_idempotent_resource(@file_set, view: :update)
     end
+    return head(:not_found) if file_set.nil?
 
-    return head(:not_found) if FileSet.find(params.expect(:id)).nil?
-
-    file = params[:binary]
     BlobCreator.call(
-      path:              file.tempfile.path.presence || file.path,
-      file_set_id:       params[:id],
+      path:              uploaded_path(params[:binary]),
+      file_set_id:       file_set.id,
       original_filename: params[:original_filename],
       expected_digest:   params[:expected_digest]
     )
-    @file_set = FileSet.find(params.expect(:id))
+    @file_set = FileSet.find(file_set.id)
     record_idempotency_key!(@file_set.noid, FileSet)
   end
 
@@ -86,10 +87,9 @@ class FileSetsController < ApplicationController
   # reads back through GET /works/:id/file_sets. Upsert semantics via
   # DelegateUpdater: re-PATCHing a URI never mints a duplicate Delegate.
   def update_iiif_service
-    authorize! :update_iiif_service, FileSet
-
     with_stale_object_retry do
       @file_set = FileSet.find(params.expect(:id))
+      authorize! :update_iiif_service, @file_set || FileSet
       return head(:not_found) if @file_set.nil?
 
       apply_iiif_service_uri(resource_id: @file_set.id)
@@ -115,6 +115,12 @@ class FileSetsController < ApplicationController
   end
 
   private
+
+    # The multipart upload arrives as a Rack or ActionDispatch upload
+    # depending on the client, and only one of the two exposes #tempfile.
+    def uploaded_path(file)
+      file.tempfile.path.presence || file.path
+    end
 
     # Eager-after-finalize (mirrors FileSetCreator): removing a page from a
     # completed Work re-cuts the preserved structMap so it never goes stale;

@@ -6,6 +6,7 @@ class BlobsController < ApplicationController
   include FileHelper
   include MimeHelper
   include IdempotentCreate
+  include LeafWriteTarget
   include Auditable
   include WithheldBytesGate
 
@@ -27,15 +28,15 @@ class BlobsController < ApplicationController
   end
 
   def create
-    authorize! :create, Blob
+    work = authorized_leaf_target(params[:work_id])
 
     if (record = find_idempotency_record(Blob))
-      @blob = Blob.find(record.resource_noid)
-      return render_idempotent_resource(@blob)
+      return render_idempotent_resource(@blob = Blob.find(record.resource_noid))
     end
+    return head(:not_found) if work.nil?
 
     @blob = BlobCreator.call(
-      work_id:           params[:work_id],
+      work_id:           work.noid,
       original_filename: params[:original_filename],
       use:               params[:use],
       expected_digest:   params[:expected_digest],
@@ -51,14 +52,13 @@ class BlobsController < ApplicationController
   # double-submit returns the existing Blob rather than minting a second OCFL
   # version.
   def update
-    authorize! :update, Blob
+    blob = Blob.find(params.expect(:id))
+    authorize! :update, blob || Blob
 
     if (record = find_idempotency_record(Blob))
       @blob = Blob.find(record.resource_noid)
       return render_idempotent_resource(@blob, view: :update)
     end
-
-    blob = Blob.find(params.expect(:id))
     return head(:not_found) if blob.nil?
 
     path = uploaded_path(params.expect(:binary))
@@ -116,8 +116,8 @@ class BlobsController < ApplicationController
   # dedups the identical content, so no bytes are copied -- only a pointer is
   # cut.
   def rollback
-    authorize! :update, Blob
     blob = Blob.find(params.expect(:id))
+    authorize! :update, blob || Blob
     return head(:not_found) if blob.nil?
 
     file = BinaryVersionHistory.find_file(blob: blob, version_id: params[:version_id])

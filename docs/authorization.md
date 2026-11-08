@@ -174,10 +174,21 @@ They hold `:read` and `:read_directory` on `User`, `:preview` on `Resource`, and
 `:create` on `Work`, `Community`, `Collection` and `Compilation`. Any signed-in
 human may curate their own Sets; guests may not.
 
-**`FileSet` and `Blob` writes are not group-ACL-gated at the wire.** They hang
-off Works, and Atlas cannot cheaply trace a FileSet back to its Work. The role
-gate at Work creation is the entry barrier: once you can author a Work, you can
-attach FileSets and Blobs to it. `:destroy` is absent on both — admin only.
+**A `FileSet` or `Blob` write needs an edit grant on the Work.** A leaf's own ACL
+is a copy taken at creation and never refreshed, so `:update` on a leaf is a
+block rule that asks `leaf.read_authority`, the same walk the read gate makes
+(see [`read_authority`](#reading-a-resource-read_authority)). It covers
+`PATCH /files/:id`, `POST /files/:id/rollback`, `PATCH /file_sets/:id` and
+`PATCH /file_sets/:id/iiif_service`, and each of them authorizes the instance.
+A create has no leaf yet, so `POST /files` and `POST /file_sets` authorize
+`:update` on the Work named by `work_id`. A role gate at Work creation is not
+enough: anyone who may author a Work would otherwise hold `:update` on every
+Blob in the repository.
+
+The devolved-admin tier gets no leaf write from this, matching the Work-level
+`:update` it also lacks. It may tombstone any FileSet, so an unsafe file it
+tombstones is repaired by an admin, or by a delegate who also holds the Work's
+edit grant. `:destroy` is absent on both leaves — admin only.
 
 ### `:admin`
 

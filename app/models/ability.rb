@@ -108,12 +108,6 @@ class Ability
         can :create, [Work, Community, Collection]
 
         can :create, Compilation
-
-        # Not group-ACL-gated at the wire: leaves hang off Works and Atlas
-        # cannot cheaply trace FileSet -> Work ownership. :destroy is admin
-        # only, deliberately.
-        can %i[create update], FileSet
-        can %i[create update], Blob
       when :admin
         can :manage, :all
       end
@@ -128,11 +122,13 @@ class Ability
       # Never :update, whose class-level check gates affiliations. See docs/people.md.
       can(:update_profile, Person) { |person| user.nuid.present? && person.nuid == user.nuid }
 
-      [Work, Collection, Community].each do |klass|
-        can %i[update tombstone], klass do |resource|
-          edit_grants?(resource, user)
-        end
+      can %i[update tombstone], [Work, Collection, Community] do |resource|
+        edit_grants?(resource, user)
       end
+
+      # A leaf's own ACL is a stale copy, so a write to it asks the Work it
+      # answers to. Every caller must pass an instance -- see the class header.
+      can(:update, [FileSet, Blob]) { |leaf| edit_grants?(leaf.read_authority, user) }
 
       # The subject is the CONTAINER the child lands in, never the child. A
       # Work is never a container of Works or Collections, so only these two

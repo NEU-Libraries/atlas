@@ -177,11 +177,40 @@ RSpec.describe Ability do
       it { is_expected.to     be_able_to(:create,  Community) }
       it { is_expected.to     be_able_to(:create,  Collection) }
       it { is_expected.to     be_able_to(:create,  Compilation) }
-      it { is_expected.to     be_able_to(:create,  FileSet) }
-      it { is_expected.to     be_able_to(:create,  Blob) }
-      it { is_expected.to     be_able_to(:update,  FileSet) }
-      it { is_expected.to     be_able_to(:update,  Blob) }
+      it { is_expected.not_to be_able_to(:create,  FileSet) }
+      it { is_expected.not_to be_able_to(:create,  Blob) }
       it { is_expected.to     be_able_to(:preview, Resource) }
+
+      # A leaf write asks the Work the leaf answers to, never the leaf's own
+      # stale ACL copy. Stubs `parent`, as the read-gate leaf examples do.
+      describe 'a leaf write' do
+        def leaf(klass, parent:)
+          klass.new(edit_users: [user.nuid]).tap do |resource|
+            allow(resource).to receive(:parent).and_return(parent)
+          end
+        end
+
+        let(:own_work)      { Work.new(edit_users: [user.nuid]) }
+        let(:stranger_work) { Work.new(read_groups: ['public'], edit_users: ['009990000']) }
+
+        it 'is allowed when the caller holds an edit grant on the Work' do
+          file_set = leaf(FileSet, parent: own_work)
+          expect(subject).to be_able_to(:update, file_set)
+          expect(subject).to be_able_to(:update_iiif_service, file_set)
+          expect(subject).to be_able_to(:update, leaf(Blob, parent: file_set))
+        end
+
+        it "is refused on a stranger's Work, whatever the leaf's own ACL says" do
+          file_set = leaf(FileSet, parent: stranger_work)
+          expect(subject).not_to be_able_to(:update, file_set)
+          expect(subject).not_to be_able_to(:update_iiif_service, file_set)
+          expect(subject).not_to be_able_to(:update, leaf(Blob, parent: file_set))
+        end
+
+        it 'is refused on an unattached leaf, which has no Work to ask' do
+          expect(subject).not_to be_able_to(:update, leaf(Blob, parent: nil))
+        end
+      end
 
       # The class-level :create grants above are only the type half — writing
       # into a specific container still needs an ACL/ownership match, which this

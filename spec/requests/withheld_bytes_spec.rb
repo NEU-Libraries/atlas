@@ -117,6 +117,11 @@ RSpec.describe 'Withheld file bytes', type: :request, default_auth: false do
       expect(status_for(staff)).to eq(403)
     end
 
+    it 'serves the editor of a private Work, whose tier is no narrower than the Work' do
+      withhold!(read_groups: [], derivative_permissions: nil)
+      expect(status_for(editor)).to eq(200)
+    end
+
     it 'serves a Range request to nobody it would refuse whole' do
       get "/files/#{blob.noid}/content", headers: signed_auth_headers(nil).merge('Range' => 'bytes=0-9')
       expect(response).to have_http_status(:forbidden)

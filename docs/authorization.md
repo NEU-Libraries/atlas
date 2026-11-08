@@ -270,10 +270,12 @@ read check and the tombstone gate, and answer **403** before anything streams.
   pair is Cerberus's `User#can_bypass_embargo?`. The depositor and an editor get
   no bypass of their own. Change both apps together, or they disagree on who sees
   embargoed bytes.
-- **Tier.** The caller must be in `Work#derivative_gate_for(blob)`: the audience
-  holds `public`, or one of the caller's groups. Only an `:admin` passes
-  otherwise. An edit grant does not admit an editor outside the reserved group,
-  because Cerberus's download gate projects read groups only.
+- **Tier.** When `Work#derivative_gate_for(blob)` is narrower than the Work's own
+  read groups, the caller must be in it: the audience holds `public`, or one of
+  the caller's groups. Only an `:admin` passes otherwise. An edit grant does not
+  admit an editor outside the reserved group, because Cerberus's download gate
+  projects read groups only. When no tier narrows the Work, the read gate has
+  already decided, so the editor of a private Work keeps their own bytes.
 
 `:system` gets no carve-out: nothing fetches bytes as `:system`. The fixity
 checker reads bytes from disk, not through these routes. Descriptive-metadata

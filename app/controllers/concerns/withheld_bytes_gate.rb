@@ -34,10 +34,14 @@ module WithheldBytesGate
       Array(@current_user&.groups).include?(Permissions::STAFF_EDIT_GROUP)
     end
 
-    # Read groups only, as Cerberus's download gate does: an edit grant does
-    # not admit a caller outside the reserved group.
+    # An audience no narrower than the Work's own is the read gate's decision,
+    # which an editor of a private Work has already passed. A narrower one
+    # counts read groups only, as Cerberus's download gate does: an edit grant
+    # does not admit a caller outside the reserved group.
     def tier_audience?(work, blob)
       audience = work.derivative_gate_for(blob)
+      return true if TierVisibility.audience_subset?(work.read_groups, audience)
+
       audience.include?('public') || audience.intersect?(Array(@current_user&.groups))
     end
 end

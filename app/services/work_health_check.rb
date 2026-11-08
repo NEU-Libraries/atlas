@@ -68,7 +68,7 @@ class WorkHealthCheck < ApplicationService
       add(:repairable, :wrong_parent_type, "filed under #{parent.class} #{parent.noid}") unless parent.is_a?(Collection)
       return unless parent.tombstoned && !@work.tombstoned
 
-      add(:repairable, :live_under_retracted, "readable inside retracted #{parent.noid}")
+      add(:repairable, :live_under_suppressed, "readable inside suppressed #{parent.noid}")
     end
 
     # Admins pass every gate, so these show up only for the people the ACL is for.
@@ -111,7 +111,7 @@ class WorkHealthCheck < ApplicationService
     end
 
     def check_lifecycle
-      add(:advisory, :retracted, "retracted: #{@work.tombstone_reason}") if @work.tombstoned
+      add(:advisory, :suppressed, "suppressed: #{@work.tombstone_reason}") if @work.tombstoned
       add(:advisory, :in_progress, "deposit still open since #{@work.created_at&.to_date}") if @work.in_progress
       add(:repairable, :flagged_incomplete, "incomplete: #{@work.incomplete_reason}") if @work.incomplete
       add(:advisory, :no_handle, 'no handle') if @work.handle.blank? && !@work.in_progress

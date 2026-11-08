@@ -329,9 +329,9 @@ RSpec.describe 'Files (Blobs)', type: :request do
         before do
           signed_auth_headers(nil)
           blob
-          retracted = Work.find(work.noid)
-          retracted.tombstone(by: '000000004')
-          Atlas.persister.save(resource: retracted)
+          suppressed = Work.find(work.noid)
+          suppressed.tombstone(by: '000000004')
+          Atlas.persister.save(resource: suppressed)
         end
         schema '$ref' => '#/components/schemas/Tombstoned'
         run_test! do |response|

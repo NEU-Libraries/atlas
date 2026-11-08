@@ -421,7 +421,7 @@ Work answers for itself.
 - **The ancestry read stays open.** It carries NOIDs and tombstone flags only,
   and it is how a client learns which ancestor withholds a file.
 - **The 410 names the tombstoned resource.** `tombstoned_resource_type` tells a
-  removed file (`FileSet`) from a retracted Work (`Work`), which a client shows
+  removed file (`FileSet`) from a suppressed Work (`Work`), which a client shows
   differently.
 - **The gate is `:read_tombstoned`,** which the operator tiers hold on every
   resource type. It runs after the read check, so a caller who may not read the

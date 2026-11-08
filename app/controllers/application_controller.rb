@@ -169,7 +169,7 @@ class ApplicationController < ActionController::API
   end
 
   # The tombstoned resource can be an ancestor of the one requested, so the body
-  # names it: a client tells a removed file from a retracted Work by its type.
+  # names it: a client tells a removed file from a suppressed Work by its type.
   rescue_from Exceptions::Tombstoned do |exception|
     render json: {
       error:                    Exceptions::Tombstoned::CODE,

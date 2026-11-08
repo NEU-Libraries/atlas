@@ -4,7 +4,7 @@ require 'rails_helper'
 
 # What Cerberus sees when a tombstone withholds a file: atlas_rb raises before a
 # single chunk reaches the caller, and names the tombstone so a removed file and
-# a retracted Work can be answered differently. Operators are still served.
+# a suppressed Work can be answered differently. Operators are still served.
 RSpec.describe 'Tombstone file access via atlas_rb', :atlas_rb_server do
   let(:admin)      { '000000004' }
   let(:collection) { CollectionCreator.call(parent_id: public_community!.noid) }
@@ -44,10 +44,10 @@ RSpec.describe 'Tombstone file access via atlas_rb', :atlas_rb_server do
     expect(body.b).to eq(File.binread(fixture))
   end
 
-  it 'raises on the file list and the bytes of a retracted Work' do
-    retracted = Work.find(work.noid)
-    retracted.tombstone(by: admin)
-    Atlas.persister.save(resource: retracted)
+  it 'raises on the file list and the bytes of a suppressed Work' do
+    suppressed = Work.find(work.noid)
+    suppressed.tombstone(by: admin)
+    Atlas.persister.save(resource: suppressed)
 
     expect { AtlasRb::Work.assets(work.noid, nuid: editor.nuid) }
       .to raise_error(AtlasRb::TombstonedError) { |e| expect(e.tombstoned_resource_id).to eq(work.noid) }
@@ -59,9 +59,9 @@ RSpec.describe 'Tombstone file access via atlas_rb', :atlas_rb_server do
 
   it 'still returns a tombstoned Work from find rather than raising' do
     AtlasRb::Resource.tombstone(caption.parent.noid, nuid: admin)
-    retracted = Work.find(work.noid)
-    retracted.tombstone(by: admin)
-    Atlas.persister.save(resource: retracted)
+    suppressed = Work.find(work.noid)
+    suppressed.tombstone(by: admin)
+    Atlas.persister.save(resource: suppressed)
 
     expect(AtlasRb::Work.find(work.noid, nuid: editor.nuid).tombstoned).to be(true)
   end

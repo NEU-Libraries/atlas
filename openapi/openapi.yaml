@@ -197,7 +197,7 @@ components:
               nullable: true
             tombstoned:
               type: boolean
-              description: Tombstoned (retracted from discovery) flag
+              description: Tombstoned (suppressed from discovery) flag
             tombstoned_at:
               type: string
               nullable: true
@@ -378,7 +378,7 @@ components:
               nullable: true
             tombstoned:
               type: boolean
-              description: Tombstoned (retracted from discovery) flag
+              description: Tombstoned (suppressed from discovery) flag
             tombstoned_at:
               type: string
               nullable: true
@@ -522,7 +522,7 @@ components:
               nullable: true
             tombstoned:
               type: boolean
-              description: Tombstoned (retracted from discovery) flag
+              description: Tombstoned (suppressed from discovery) flag
             tombstoned_at:
               type: string
               nullable: true
@@ -599,7 +599,7 @@ components:
               description: 1-based page order within the parent Work; null = unordered
             tombstoned:
               type: boolean
-              description: Tombstoned (retracted from discovery) flag
+              description: Tombstoned (suppressed from discovery) flag
             tombstoned_at:
               type: string
               nullable: true
@@ -678,7 +678,7 @@ components:
                 description: Valkyrie::ID-shaped reference to the underlying bytes
             tombstoned:
               type: boolean
-              description: Tombstoned (retracted from discovery) flag
+              description: Tombstoned (suppressed from discovery) flag
             tombstoned_at:
               type: string
               nullable: true
@@ -752,7 +752,7 @@ components:
               nullable: true
             tombstoned:
               type: boolean
-              description: Tombstoned (retracted from discovery) flag
+              description: Tombstoned (suppressed from discovery) flag
             tombstoned_at:
               type: string
               nullable: true
@@ -858,7 +858,7 @@ components:
           description: 1-based page order within the parent Work; null = unordered
         tombstoned:
           type: boolean
-          description: Tombstoned (retracted from discovery) flag
+          description: Tombstoned (suppressed from discovery) flag
         tombstoned_at:
           type: string
           nullable: true
@@ -1089,7 +1089,7 @@ components:
             description: 1-based page order; null = unordered (sorted last)
           tombstoned:
             type: boolean
-            description: Tombstoned (retracted from discovery) flag
+            description: Tombstoned (suppressed from discovery) flag
           assets:
             type: array
             items:
@@ -1721,7 +1721,7 @@ components:
             description: IIIF URL of the thumbnail tier, or null
           tombstoned:
             type: boolean
-            description: Tombstoned (retracted from discovery) flag — kept in the
+            description: Tombstoned (suppressed from discovery) flag — kept in the
               result but flagged
         required:
         - id

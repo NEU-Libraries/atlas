@@ -50,9 +50,9 @@ RSpec.describe OcflHealth do
     end
   end
 
-  it 'notes a tombstoned Work as retracted without downgrading it' do
+  it 'notes a tombstoned Work as suppressed without downgrading it' do
     Atlas.persister.save(resource: Work.find(work.noid).tap { |w| w.tombstone(by: 'spec') }).write_preservation_envelope!
-    expect(codes(assessment.findings, :advisory)).to include(:retracted)
+    expect(codes(assessment.findings, :advisory)).to include(:suppressed)
     expect(assessment.grade).to eq(:green)
   end
 
@@ -112,10 +112,10 @@ RSpec.describe OcflHealth do
       expect(codes(validate.findings, :repairable)).to eq([:unmanifested_content])
     end
 
-    it 'grades the Work yellow when it is live inside a retracted parent' do
+    it 'grades the Work yellow when it is live inside a suppressed parent' do
       Atlas.persister.save(resource: Collection.find(collection.noid).tap { |c| c.tombstone(by: 'spec') }).write_preservation_envelope!
       expect(assessment.grade).to eq(:yellow)
-      expect(codes(assessment.findings, :repairable)).to eq([:live_under_retracted])
+      expect(codes(assessment.findings, :repairable)).to eq([:live_under_suppressed])
     end
 
     it 'grades the Work yellow when its parent is gone from disk' do

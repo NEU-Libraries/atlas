@@ -213,7 +213,7 @@ module OpenapiSchemas
       type:             { type: :string, nullable: true },
       position:         { type: :integer, nullable: true,
                        description: '1-based page order within the parent Work; null = unordered' },
-      tombstoned:       { type: :boolean, description: 'Tombstoned (retracted from discovery) flag' },
+      tombstoned:       { type: :boolean, description: 'Tombstoned (suppressed from discovery) flag' },
       tombstoned_at:    { type: :string, nullable: true, description: 'ISO-8601 timestamp set when tombstoned' },
       tombstoned_by:    { type: :string, nullable: true, description: 'NUID of the user who tombstoned the resource' },
       tombstone_reason: tombstone_reason_prop
@@ -238,7 +238,7 @@ module OpenapiSchemas
                 items: { type: :object, additionalProperties: true,
                  description: 'Valkyrie::ID-shaped reference to the underlying bytes' }
               },
-              tombstoned:               { type: :boolean, description: 'Tombstoned (retracted from discovery) flag' },
+              tombstoned:               { type: :boolean, description: 'Tombstoned (suppressed from discovery) flag' },
               tombstoned_at:            { type: :string, nullable: true, description: 'ISO-8601 timestamp set when tombstoned' },
               tombstoned_by:            { type: :string, nullable: true, description: 'NUID of the user who tombstoned the resource' },
               tombstoned_in_effect:     { type:        :boolean,
@@ -266,7 +266,7 @@ module OpenapiSchemas
               mime_type:         { type: :string, nullable: true },
               original_filename: { type: :string, nullable: true },
               label:             { type: :string, nullable: true },
-              tombstoned:        { type: :boolean, description: 'Tombstoned (retracted from discovery) flag' },
+              tombstoned:        { type: :boolean, description: 'Tombstoned (suppressed from discovery) flag' },
               tombstoned_at:     { type: :string, nullable: true, description: 'ISO-8601 timestamp set when tombstoned' },
               tombstoned_by:     { type: :string, nullable: true, description: 'NUID of the user who tombstoned the resource' }
             })
@@ -541,7 +541,7 @@ module OpenapiSchemas
           type:       { type: :string, nullable: true, description: 'Classification name' },
           position:   { type: :integer, nullable: true,
                         description: '1-based page order; null = unordered (sorted last)' },
-          tombstoned: { type: :boolean, description: 'Tombstoned (retracted from discovery) flag' },
+          tombstoned: { type: :boolean, description: 'Tombstoned (suppressed from discovery) flag' },
           assets:     { type: :array, items: asset_item }
         },
         required:   %w[noid type position tombstoned assets]
@@ -879,7 +879,7 @@ module OpenapiSchemas
           klass:      { type: :string, description: 'Resolved resource class name' },
           title:      { type: :string, nullable: true, description: 'Plain-text title; null off the Modsable backbone' },
           thumbnail:  { type: :string, nullable: true, description: 'IIIF URL of the thumbnail tier, or null' },
-          tombstoned: { type: :boolean, description: 'Tombstoned (retracted from discovery) flag — kept in the result but flagged' }
+          tombstoned: { type: :boolean, description: 'Tombstoned (suppressed from discovery) flag — kept in the result but flagged' }
         },
         required:   %w[id noid klass title thumbnail tombstoned]
       }
@@ -905,7 +905,7 @@ module OpenapiSchemas
       title:            { type: :string, nullable: true },
       description:      { type: :string, nullable: true },
       permanent_url:    { type: :string, nullable: true },
-      tombstoned:       { type: :boolean, description: 'Tombstoned (retracted from discovery) flag' },
+      tombstoned:       { type: :boolean, description: 'Tombstoned (suppressed from discovery) flag' },
       tombstoned_at:    { type: :string, nullable: true, description: 'ISO-8601 timestamp set when tombstoned' },
       tombstoned_by:    { type: :string, nullable: true, description: 'NUID of the user who tombstoned the resource' },
       tombstone_reason: tombstone_reason_prop

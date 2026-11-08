@@ -46,11 +46,11 @@ RSpec.describe WorkHealthCheck do
   end
 
   # Cerberus renders the message as sent, so it carries the staff-facing word.
-  it 'notes a tombstoned Work as retracted, with its removal note, and keeps it green' do
+  it 'notes a tombstoned Work as suppressed, with its removal note, and keeps it green' do
     reason = Resource::TOMBSTONE_REASONS.first
     save(reload(work).tap { |w| w.tombstone(by: 'spec', reason: reason) }).write_preservation_envelope!
 
-    expect(report[:findings]).to include(include(severity: :advisory, code: :retracted, message: "retracted: #{reason}"))
+    expect(report[:findings]).to include(include(severity: :advisory, code: :suppressed, message: "suppressed: #{reason}"))
     expect(report[:grade]).to eq(:green)
   end
 
@@ -72,9 +72,9 @@ RSpec.describe WorkHealthCheck do
       expect(codes).to include(:orphaned)
     end
 
-    it 'flags a Work left readable inside a retracted Collection' do
+    it 'flags a Work left readable inside a suppressed Collection' do
       save(reload(collection).tap { |c| c.tombstone(by: 'spec') })
-      expect(codes).to eq([:live_under_retracted])
+      expect(codes).to eq([:live_under_suppressed])
     end
 
     it 'flags an ACL that locks out staff and the depositor' do

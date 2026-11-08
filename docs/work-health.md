@@ -101,14 +101,14 @@ vocabulary grows with the checks. These are the Work-level codes:
 | `untitled` | repairable | Edit the MODS |
 | `descriptive_file_set_missing` | repairable | A MODS PUT recreates it |
 | `orphaned`, `parent_missing`, `wrong_parent_type` | repairable | Re-parent the Work |
-| `live_under_retracted` | repairable | Tombstone the Work (Cerberus's Delete tab), or restore its parent |
+| `live_under_suppressed` | repairable | Tombstone the Work (Cerberus's Delete tab), or restore its parent |
 | `staff_edit_missing`, `no_depositor` | repairable | Patch the ACL; the create `AuditEvent` names the depositor |
 | `no_content`, `empty_file_set`, `dangling_member`, `blob_unlinked` | repairable | Relink the bytes; the offline check shows whether disk still holds them |
 | `blob_metadata_missing` | repairable | Set the Blob's MIME type and filename |
 | `not_indexed` | repairable | `POST /resources/{id}/reindex` |
 | `envelope_missing`, `envelope_stale` | repairable | Rewrite the envelope (`atlas:preservation:backfill_envelopes`) |
 | `flagged_incomplete` | repairable | Rerun the Cerberus job that set it |
-| `in_progress`, `retracted`, `private`, `no_handle` | advisory | None; a state, not damage |
+| `in_progress`, `suppressed`, `private`, `no_handle` | advisory | None; a state, not damage |
 
 Every other code comes from validating an OCFL object, one per rule in
 `lib/ocfl_health/object_validator.rb` and `envelope.rb`, and its message names

@@ -271,6 +271,10 @@ follows is what the agent owes the developer on top of them.
 you report. Naming the specs you judged sufficient is part of the report, so the
 developer can see the reasoning rather than just the result.
 
+**Run `bin/acl-coverage --check` after any change to a controller, a route or
+`Ability`,** and commit a raised baseline (`--update`) with the change. It takes
+seconds; `docs/testing.md` explains the five numbers.
+
 **Run the specs covering what you touched, then `rake smoke`.** Choosing them is
 your call: the files you changed, their callers, and anything your change could
 plausibly reach. Do not run the full suite as a matter of routine — CI runs it,

@@ -11,7 +11,10 @@ when Blob
   json.filename asset.filename
   json.label Label.find(asset.label)&.name
 when Delegate
-  json.extract! asset, :noid, :mime_type, :use, :uri
+  json.extract! asset, :noid, :mime_type, :use
+  # An active embargo withholds the gated full-resolution URLs; the open
+  # thumbnail and preview copies stay. See docs/authorization.md.
+  json.uri(@embargo_withheld && TierVisibility::TIER_FOR_ROLE.key?(asset.use) ? nil : asset.uri)
   json.label Label.find(asset.label)&.name
 end
 

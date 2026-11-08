@@ -18,24 +18,25 @@ module MatrixTree
   }.freeze
 
   # The subjects each state withholds. A leaf is withheld by its own tombstone
-  # and by its Work's; the Delegate hangs off the Work.
+  # and by its Work's; the Delegates hang off the Work.
   WITHHELD = {
     live:                  [],
     private:               [],
-    work_tombstoned:       %i[work delegate file_set blob],
+    work_tombstoned:       %i[work delegate gated_delegate file_set blob],
     file_set_tombstoned:   %i[file_set blob],
     collection_tombstoned: %i[empty_collection],
     community_tombstoned:  %i[sub_community]
   }.freeze
 
   # The private state narrows the Work's ACL, which its leaves read through.
-  PRIVATE_SUBJECTS = %i[work delegate file_set blob].freeze
+  PRIVATE_SUBJECTS = %i[work delegate gated_delegate file_set blob].freeze
 
   # A marker string planted in each subject. Below the operator tiers, no
   # response from any read route may carry the marker of a withheld subject.
   MARKERS = {
     work:             'zqworkmarker',
     delegate:         'zqdelegatemarker',
+    gated_delegate:   'zqgatedmarker',
     blob:             'zqfilemarker',
     empty_collection: 'zqcollectionmarker',
     sub_community:    'zqcommunitymarker'

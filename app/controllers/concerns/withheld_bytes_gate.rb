@@ -3,7 +3,9 @@
 # The two promises a Work makes about its file bytes beyond its read ACL: an
 # active embargo withholds them from everyone who may not bypass it, and a
 # per-tier gate (Work#derivative_permissions) reserves them to its audience.
-# Metadata stays readable under both. See docs/authorization.md.
+# Metadata stays readable under both. The embargo also withholds the gated
+# image URLs, which the views read through #embargo_withholds?. See
+# docs/authorization.md.
 module WithheldBytesGate
   extend ActiveSupport::Concern
 
@@ -23,9 +25,15 @@ module WithheldBytesGate
     end
 
     def withholding_reason(work, blob)
-      return 'the Work is under embargo' if work.embargoed? && !embargo_bypass?
+      return 'the Work is under embargo' if embargo_withholds?(work)
 
       'the file is reserved to another audience' unless tier_audience?(work, blob)
+    end
+
+    # True when an active embargo on the Work withholds its bytes and its gated
+    # image URLs from this caller.
+    def embargo_withholds?(work)
+      work.is_a?(Work) && work.embargoed? && !@current_user&.admin? && !embargo_bypass?
     end
 
     # Mirrors Cerberus's User#can_bypass_embargo?; the two apps must agree on

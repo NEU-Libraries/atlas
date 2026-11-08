@@ -8,7 +8,6 @@ class BlobsController < ApplicationController
   include IdempotentCreate
   include LeafWriteTarget
   include Auditable
-  include WithheldBytesGate
 
   # The unfiltered roll of every Blob. :index_all is admin-only (via the
   # manage :all wildcard) for the same reason as WorksController#index — a

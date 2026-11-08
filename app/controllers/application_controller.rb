@@ -9,6 +9,7 @@ class ApplicationController < ActionController::API
   include CanCan::ControllerAdditions
   include BackendUnavailable
   include TombstoneGate
+  include WithheldBytesGate
 
   respond_to :json
 

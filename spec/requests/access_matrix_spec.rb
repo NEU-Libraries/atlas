@@ -48,13 +48,16 @@ RSpec.describe 'Access matrix', type: :request, default_auth: false do
     path.sub(':version_id', response.parsed_body['versions'].first['version_id'].to_s)
   end
 
+  # One probe per row; a route with a second row (an `@variant`) is sent twice.
   def probes
-    AccessMatrixFixtures.routes.filter_map do |route, key|
-      options = AccessMatrix::MATRIX.dig(key, 1) || {}
-      next unless AccessMatrix::MATRIX.key?(key) && route.verb == (options[:post] ? 'POST' : 'GET')
+    AccessMatrixFixtures.routes.flat_map do |route, key|
+      AccessMatrix::MATRIX.select { |row, _| row.split('@').first == key }.filter_map do |row, (_, options)|
+        options ||= {}
+        next unless route.verb == (options[:post] ? 'POST' : 'GET')
 
-      subject = subject_for(route, options)
-      [key, subject, path_for(route, subject)]
+        subject = subject_for(route, options)
+        [row, subject, path_for(route, subject)]
+      end
     end
   end
 
@@ -82,11 +85,13 @@ RSpec.describe 'Access matrix', type: :request, default_auth: false do
     response.status != 200 && served.include?(bytes)
   end
 
+  # A tombstone withholds below the operator tiers; an embargo withholds a
+  # gated URL below the embargo bypass.
   def leaked_markers(state, tier)
-    return [] if AccessMatrix::OPERATORS.include?(tier)
-
+    withheld = AccessMatrix::OPERATORS.include?(tier) ? [] : AccessMatrix::WITHHELD.fetch(state)
+    withheld += AccessMatrix::URI_WITHHELD.fetch(state, []) unless MatrixTree::EMBARGO_BYPASS.include?(tier)
     body = response.body.b
-    AccessMatrix::WITHHELD.fetch(state).select { |s| markers[s] && body.include?(markers[s]) }
+    withheld.select { |s| markers[s] && body.include?(markers[s]) }
   end
 
   # The cell's miss, or nil when the response is what the row says.

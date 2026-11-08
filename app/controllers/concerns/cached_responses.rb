@@ -38,9 +38,11 @@ module CachedResponses
 
     # Mirrors works/_asset.json.jbuilder, which withholds the `permission`
     # group list from guests so public traffic is never told a Grouper group's
-    # name. IF THE VIEW'S CONDITION CHANGES, THIS MUST CHANGE WITH IT.
+    # name, and the gated image URLs from a caller an embargo withholds them
+    # from. IF THE VIEW'S CONDITIONS CHANGE, THIS MUST CHANGE WITH THEM.
     def asset_audience
-      @current_user && !@current_user.guest? ? :authenticated : :guest
+      audience = @current_user && !@current_user.guest? ? 'authenticated' : 'guest'
+      embargo_withholds?(@work) ? :"#{audience}_withheld" : audience.to_sym
     end
 
     # nil for a format nobody enumerated, which renders without caching: the

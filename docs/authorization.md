@@ -105,11 +105,12 @@ A backend-to-backend credential held only by Cerberus, never a human. Tightly
 enumerated, and everything outside the list is denied — it cannot author Works,
 mutate any resource, or tombstone, restore or destroy anything.
 
-It holds `:provision` and `:mint_token` on `User` for the SSO path,
-`:read_directory`, `:maintain` on `:maintenance`, `:reindex` on `Resource`,
-and `:release` on `:embargo`. Reindex is a side-effect-free Solr re-projection:
-no Postgres write, no lifecycle transition, no audit row. Release writes audit
-rows only, never a resource — see [`write-safety.md`](write-safety.md).
+It holds `:provision`, `:mint_token` and `:choose_account` on `User` for the SSO
+path, `:read_directory`, `:maintain` on `:maintenance`, `:reindex` on
+`Resource`, and `:release` on `:embargo`. Reindex is a side-effect-free Solr
+re-projection: no Postgres write, no lifecycle transition, no audit row. Release
+writes audit rows and re-indexes each released Work, but never changes a
+resource — see [`write-safety.md`](write-safety.md).
 
 `:system` also holds `%i[create update update_profile]` on `Person`, because name
 authority and affiliations are curatorial. The one self-service carve-out is a
@@ -285,6 +286,30 @@ read check and the tombstone gate, and answer **403** before anything streams.
 checker reads bytes from disk, not through these routes. Descriptive-metadata
 Blobs (`Blob#metadata?`) are exempt, because the same XML is public through
 `/mods`.
+
+### What else an embargo withholds
+
+The bypass is the same pair for everything below: an `:admin` and a member of
+the staff group (`WithheldBytesGate#embargo_withholds?`).
+
+- **The gated image URLs.** Every image has two IIIF copies: an `open-` copy
+  capped at 500 pixels, which serves the thumbnail and preview, and a `gated-`
+  full-resolution copy, from which the small, medium, large and service-file
+  Delegates are cut. Cantaloupe serves a `gated-` identifier only with a token
+  Cerberus signs, and Cerberus signs none for an embargoed Work. So the URL alone
+  opens nothing, and withholding it is defence in depth: `/works/:id/assets`,
+  `/works/:id/file_sets` and `/delegates/:id` answer `uri: null` for those roles.
+  The thumbnail and preview stay, so an embargoed Work still shows its cover.
+  The asset listings are cached, so the cache audience carries the same
+  condition (`asset_audience`, `ResponseCache::AUDIENCES`).
+- **The full text.** `FullTextIndexer` leaves `full_text_tesimv` out of the Work's
+  Solr document while the embargo holds. A search could otherwise report which
+  words an embargoed file contains, one query at a time, and Cerberus builds its
+  "Full Text Match" snippet from the same field in the same core. The text
+  returns when the release sweep re-projects the Work (see
+  [`write-safety.md`](write-safety.md#embargo-release-rows)). The bypass does not
+  apply here: an index holds one document for every caller, so nobody can
+  full-text search an embargoed Work.
 
 Refusing before the stream matters to atlas_rb: `Blob.content` hands every chunk
 to its block whatever the status, so a refusal sent after the stream started

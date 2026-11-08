@@ -53,10 +53,11 @@ class ResponseCache
 
   # Most bodies are identical for every caller the gate admits. The two asset
   # listings are not: works/_asset.json.jbuilder withholds the `permission`
-  # group list from guests, to avoid naming Grouper groups to public traffic.
-  # That is the ONLY caller input in any cached view, and it is a boolean, so
-  # two buckets cover it rather than a key per principal.
-  AUDIENCES = %i[any guest authenticated].freeze
+  # group list from guests, to avoid naming Grouper groups to public traffic,
+  # and the gated image URLs from a caller an active embargo withholds them
+  # from. Those are the ONLY caller inputs in any cached view, and both are
+  # booleans, so four buckets cover them rather than a key per principal.
+  AUDIENCES = %i[any guest authenticated guest_withheld authenticated_withheld].freeze
 
   # Eviction is the real mechanism; this is the backstop for a write path that
   # somehow does not reach one. Short enough that a missed eviction is a blip.

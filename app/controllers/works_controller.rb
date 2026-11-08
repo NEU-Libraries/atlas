@@ -299,11 +299,13 @@ class WorksController < ApplicationController
     # from one batched read for every FileSet at once: a many-page Work would
     # otherwise cost a query per page.
     def render_assets(tombstoned: false)
+      @embargo_withheld = embargo_withholds?(@work)
       @assets = DownloadableAssetsQuery.call(work: @work, tombstoned: tombstoned)
       render(tombstoned ? :tombstoned_assets : :assets)
     end
 
     def render_file_sets
+      @embargo_withheld = embargo_withholds?(@work)
       pages  = @work.page_file_sets.reject(&:tombstoned)
       assets = PageAssetsQuery.call(file_sets: pages)
       @pages = pages.map { |fs| [fs, assets.fetch(fs.id.to_s, [])] }

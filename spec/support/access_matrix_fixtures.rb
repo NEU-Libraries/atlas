@@ -25,7 +25,8 @@ class AccessMatrixFixtures
   FIXTURE = Rails.root.join('spec/fixtures/files/example.bin')
   DWC     = Rails.root.join('spec/fixtures/files/dwc.xml')
 
-  attr_reader :community, :collection, :work, :blob, :file_set, :delegate, :empty_collection, :sub_community
+  attr_reader :community, :collection, :work, :blob, :file_set, :delegate, :gated_delegate, :empty_collection,
+              :sub_community
 
   # Every route the application draws, framework routes aside, as
   # [route, 'controller#action'].
@@ -144,6 +145,8 @@ class AccessMatrixFixtures
       @file_set = blob.parent
       @delegate = DelegateCreator.call(resource_id: work.id, use: Role.thumbnail_image.name,
                                        uri: "https://iiif.example/#{MARKERS[:delegate]}.jpg")
+      @gated_delegate = DelegateCreator.call(resource_id: work.id, use: Role.large_image.name,
+                                             uri: "https://iiif.example/gated-#{MARKERS[:gated_delegate]}.jpg")
     end
 
     def build_containers!

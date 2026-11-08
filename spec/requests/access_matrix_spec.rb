@@ -14,8 +14,8 @@ RSpec.describe 'Access matrix', type: :request, default_auth: false do
   include_context 'access matrix callers'
 
   let(:markers) { AccessMatrix::MARKERS }
-  let(:bytes)   { File.binread(MatrixWorld::FIXTURE) }
-  let(:world)   { MatrixWorld.new }
+  let(:bytes)   { File.binread(AccessMatrixFixtures::FIXTURE) }
+  let(:world)   { AccessMatrixFixtures.new }
 
   after { Atlas.persister.wipe! }
 
@@ -49,7 +49,7 @@ RSpec.describe 'Access matrix', type: :request, default_auth: false do
   end
 
   def probes
-    MatrixWorld.routes.filter_map do |route, key|
+    AccessMatrixFixtures.routes.filter_map do |route, key|
       options = AccessMatrix::MATRIX.dig(key, 1) || {}
       next unless AccessMatrix::MATRIX.key?(key) && route.verb == (options[:post] ? 'POST' : 'GET')
 

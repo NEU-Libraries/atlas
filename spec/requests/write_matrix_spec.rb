@@ -18,7 +18,7 @@ RSpec.describe 'Write matrix', type: :request, default_auth: false do
   # the PATCH is the one probed.
   def route_for(row)
     key = WriteMatrix.key_of(row)
-    routes = MatrixWorld.routes.select { |route, k| k == key && route.verb != 'GET' }.map(&:first)
+    routes = AccessMatrixFixtures.routes.select { |route, k| k == key && route.verb != 'GET' }.map(&:first)
     routes.find { |route| route.verb != 'PUT' } || routes.first
   end
 
@@ -49,7 +49,7 @@ RSpec.describe 'Write matrix', type: :request, default_auth: false do
   end
 
   def build!(state)
-    @world = MatrixWorld.new.build!
+    @world = AccessMatrixFixtures.new.build!
     # Built now, so the first cell that names them does not count their
     # creation as a write it made.
     [world.other_work, world.featured_collection]

@@ -15,7 +15,7 @@ RSpec.shared_examples 'a flat access matrix' do |matrix|
   # A route drawn with `via: [:get, :post]` reports its verb as "GET|POST".
   def flat_route(row)
     key, = row.split('@')
-    routes = MatrixWorld.routes.select { |_, k| k == key }.map(&:first)
+    routes = AccessMatrixFixtures.routes.select { |_, k| k == key }.map(&:first)
     routes.find { |route| route.verb != 'PUT' } || routes.first
   end
 

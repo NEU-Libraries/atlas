@@ -7,7 +7,7 @@ require_relative 'matrices/tree'
 # The fixture tree, the states and the callers that both access matrices run
 # against, so the read matrix and the write matrix describe the same world. See
 # docs/testing.md.
-class MatrixWorld
+class AccessMatrixFixtures
   include MODSFixtureHelper
   include MatrixTree
 
@@ -194,7 +194,7 @@ RSpec.shared_context 'access matrix callers' do
 
   def headers_for(tier)
     signed_auth_headers(nil)
-    MatrixWorld::CREDENTIALS.fetch(tier) { ->(ctx) { ctx.assertion_headers(ctx.users[tier]) } }.call(self)
+    AccessMatrixFixtures::CREDENTIALS.fetch(tier) { ->(ctx) { ctx.assertion_headers(ctx.users[tier]) } }.call(self)
   end
 
   def assertion_headers(user, obo: nil)

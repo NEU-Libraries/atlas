@@ -202,8 +202,8 @@ A successful write changes the world for the next cell. The callers run from
 the least privileged to the most, so most rows refuse until their last cells.
 A row whose success damages its subject, such as `tombstone`, `destroy` or
 `update_parent`, says `fresh: true`. It writes to a throwaway copy of its
-subject, which `MatrixWorld#scratch` builds in the shape the state gives the
-shared one, and it takes a new copy after each success. The shared world is
+subject, which `AccessMatrixFixtures#scratch` builds in the shape the state
+gives the shared one, and it takes a new copy after each success. The shared world is
 built once per state, because rebuilding it costs about four seconds.
 
 A private Work changes no write cell: the Work's editors hold the grant either

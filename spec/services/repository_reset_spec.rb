@@ -235,13 +235,17 @@ RSpec.describe RepositoryReset do
 end
 
 # The reset endpoint is an unauthenticated GET; its only gate against running in
-# production is the env guard. Assert it fires at the HTTP boundary. This raises
-# before any DB/Solr/storage mutation, so it does not pollute the suite's shared
-# storage.
+# production is the env guard. Assert it holds at the HTTP boundary, and answers
+# as an absent route rather than with the guard's error. Nothing is mutated, so
+# it does not pollute the suite's shared storage.
 RSpec.describe 'GET /reset env guard', type: :request do
-  it 'refuses to run in production' do
+  it 'answers 404 in production and wipes nothing' do
     allow(Rails).to receive(:env).and_return(ActiveSupport::StringInquirer.new('production'))
+    allow(RepositoryReset).to receive(:new).and_call_original
 
-    expect { get '/reset' }.to raise_error(/must not be production/)
+    get '/reset'
+
+    expect(response).to have_http_status(:not_found)
+    expect(RepositoryReset).not_to have_received(:new)
   end
 end

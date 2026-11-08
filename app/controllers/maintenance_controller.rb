@@ -41,8 +41,12 @@ class MaintenanceController < ApplicationController
   end
 
   # RepositoryReset holds the env guard and the maintenance check itself, so
-  # `rake reset:clean` reaches the same wipe without this route.
+  # `rake reset:clean` reaches the same wipe without this route. Where the
+  # guard is closed the route answers as absent, not with the guard's error,
+  # because anyone may call it unauthenticated.
   def reset
+    return head(:not_found) unless RepositoryReset.resettable?
+
     RepositoryReset.call
   end
 

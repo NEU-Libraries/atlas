@@ -21,8 +21,10 @@ class RepositoryReset < ApplicationService
     { nuid: '000000004', display_name: 'Admin User' }
   ].freeze
 
+  def self.resettable? = RESETTABLE_ENVS.include?(Rails.env.to_s)
+
   def call
-    raise "Wrong env - #{Rails.env} - must not be production" unless resettable_env?
+    raise "Wrong env - #{Rails.env} - must not be production" unless self.class.resettable?
     # A caller that skips authorize! never meets the maintenance floor, so the
     # most destructive write Atlas has checks it here, for every caller.
     raise Exceptions::ReadOnlyMode if MaintenanceMode.read_only?
@@ -37,9 +39,7 @@ class RepositoryReset < ApplicationService
 
   private
 
-    def resettable_env?
-      RESETTABLE_ENVS.include?(Rails.env.to_s)
-    end
+    def resettable_env? = self.class.resettable?
 
     # NOT database_cleaner: reset is reachable in staging, and that gem sits
     # in the :development, :test bundle group, so the constant is undefined

@@ -512,6 +512,13 @@ unremovable — which would stop a depositor making their own resource private.
 `edit_users` is absent from `GROUP_KEYS`: rule 2 is about group membership and
 says nothing about individual grants.
 
+Rule 2 applies only to the keys a PATCH carries. A key the payload omits keeps
+its stored value, as `Permissions#permissions=` promises, so a PATCH that sends
+only `read` leaves `edit_groups` alone, and the reverse. Applying the rule to an
+omitted key would replace that slot with only its locked groups: a group editor
+changing visibility would strip their own group's edit grant, and a curator
+changing edit groups could drop `public` from a resource's read groups.
+
 Adding grants is unconstrained by rule 2, which only bounds the destructive
 direction, but still bounded by rule 1.
 

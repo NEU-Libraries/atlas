@@ -54,6 +54,10 @@ class PermissionsWriteGuard < ApplicationService
       return payload if exempt_from_removal_rule?
 
       GROUP_KEYS.each do |key, reader|
+        # A key the PATCH omits keeps its stored value in Permissions#permissions=;
+        # writing one here would replace that slot with only its locked groups.
+        next unless payload.key?(key)
+
         incoming = Array(payload[key])
         locked   = (Array(@resource.public_send(reader)) - incoming).reject { |group| removable?(group) }
         payload[key] = incoming + locked if locked.any?

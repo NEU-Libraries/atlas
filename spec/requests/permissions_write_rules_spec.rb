@@ -149,6 +149,24 @@ RSpec.describe 'Permissions write rules', type: :request, default_auth: false do
       expect(saved.edit_groups).to include(marcom)
     end
 
+    # The rule guards the keys a PATCH carries. A key it omits keeps its stored
+    # value, so the caller's own group is not stripped from a slot they never
+    # sent, and a slot they never sent is not rebuilt from the locked groups.
+    it 'keeps the edit groups when the PATCH carries only read' do
+      patch_permissions(collection.noid, curator.nuid, { read: ['public', archives] })
+
+      expect(response).to have_http_status(:ok)
+      expect(Collection.find(collection.noid).edit_groups).to include(archives, marcom)
+    end
+
+    it 'keeps the read groups when the PATCH carries only edit' do
+      patch_permissions(collection.noid, admin.nuid, { read: ['public', archives, marcom] })
+      patch_permissions(collection.noid, curator.nuid, { edit: [archives, marcom] })
+
+      expect(response).to have_http_status(:ok)
+      expect(Collection.find(collection.noid).read_groups).to include('public', archives, marcom)
+    end
+
     it 'lets the caller remove a grant for their own group' do
       patch_permissions(collection.noid, curator.nuid,
                         { read: ['public'], edit: [marcom] })

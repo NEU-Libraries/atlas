@@ -140,9 +140,7 @@ module AccessMatrix
     'users/tokens#show'        => "the caller's own account",
     'users#index'              => 'accounts: spec/requests/users_spec.rb',
     'users#show'               => 'accounts: spec/requests/users_spec.rb',
-    'users#accounts'           => 'accounts: spec/requests/user_accounts_spec.rb',
-    'devise/passwords#new'     => 'a devise default route; Atlas takes no password',
-    'devise/passwords#edit'    => 'a devise default route; Atlas takes no password'
+    'users#accounts'           => 'accounts: spec/requests/user_accounts_spec.rb'
   }.freeze
 
   # The subject a path's first segment names, absent an `on:`.

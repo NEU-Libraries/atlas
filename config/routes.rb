@@ -18,12 +18,13 @@ Rails.application.routes.draw do
   match '/oai', to: 'oai#index', via: %i[get post]
 
   # Human auth is delegated to Cerberus (SSO) — Atlas never takes a password,
-  # so the devise sessions (sign_in/out) and registrations (sign_up) routes are
-  # skipped (F1). The devise modules stay on User and the :user Warden mapping
-  # is still established (warden-jwt's decoder needs it), leaving a door open
-  # for future non-SSO service accounts without exposing public login/signup.
-  # The token endpoints (/nuid, /user) are declared manually below.
-  devise_for :users, skip: %i[sessions registrations]
+  # so the devise sessions (sign_in/out), registrations (sign_up) and passwords
+  # (reset) routes are skipped. The devise modules stay on User and the :user
+  # Warden mapping is still established (warden-jwt's decoder needs it), leaving
+  # a door open for future non-SSO service accounts without exposing public
+  # login, signup or reset. The token endpoints (/nuid, /user) are declared
+  # manually below.
+  devise_for :users, skip: %i[sessions registrations passwords]
 
   defaults format: :json do
     # Reads and create only. Every write that needs no type moved to the

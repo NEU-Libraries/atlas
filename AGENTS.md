@@ -204,8 +204,8 @@ from a non-admin, or an `On-Behalf-Of` header anywhere off the assertion path �
 acting-as is admin-only and lives solely on the signed-assertion path).
 Endpoint authorization beyond this is enforced via `cancancan` `Ability`.
 
-The devise `sessions`/`registrations` (password sign-in/sign-up) routes are
-**skipped** — Atlas never takes a password; human auth is delegated to Cerberus
+The devise `sessions`/`registrations`/`passwords` (sign-in, sign-up, reset)
+routes are **skipped** — Atlas never takes a password; human auth is delegated to Cerberus
 SSO, which mints JWTs via `POST /nuid`. The devise modules stay on `User` (the
 `:user` warden mapping the JWT decoder needs is preserved) for any future
 non-SSO service accounts.

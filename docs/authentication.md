@@ -6,8 +6,9 @@ are [`error-contract.md`](error-contract.md).
 
 Source file: `app/controllers/application_controller.rb`.
 
-Atlas never takes a password. The devise `sessions` and `registrations` routes
-are skipped, and human authentication is delegated to Cerberus SSO. The devise
+Atlas never takes a password. The devise `sessions`, `registrations` and
+`passwords` routes are skipped, and human authentication is delegated to
+Cerberus SSO. The devise
 modules stay on `User` so the `:user` warden mapping the JWT decoder needs is
 preserved, and for any future non-SSO service account.
 

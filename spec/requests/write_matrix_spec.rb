@@ -156,9 +156,7 @@ module WriteMatrix
     'resources#preview'                       => 'renders posted MODS and writes nothing',
     'resources#find_many'                     => 'a POST that reads: a row in the read matrix',
     'oai#index'                               => 'the OAI-PMH POST form of the harvest read: spec/requests/oai_spec.rb',
-    'blobs#find_many_versions'                => 'a POST that reads: spec/requests/binary_versions_spec.rb',
-    'devise/passwords#create'                 => 'a devise default route; Atlas takes no password',
-    'devise/passwords#update'                 => 'a devise default route; Atlas takes no password'
+    'blobs#find_many_versions'                => 'a POST that reads: spec/requests/binary_versions_spec.rb'
   }.freeze
 
   def self.key_of(row) = row.split('@').first

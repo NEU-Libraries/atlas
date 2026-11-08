@@ -738,7 +738,9 @@ components:
             uri:
               type: string
               nullable: true
-              description: Where the asset can be fetched (IIIF URL for image roles)
+              description: Where the asset can be fetched (IIIF URL for image roles).
+                Null for the gated small, medium, large and service roles while an
+                embargo withholds them from the caller.
             mime_type:
               type: string
               nullable: true
@@ -1038,6 +1040,8 @@ components:
             uri:
               type: string
               nullable: true
+              description: The IIIF URL. Null for a gated image role while an embargo
+                withholds it from the caller.
             label:
               type: string
               nullable: true
@@ -1170,6 +1174,8 @@ components:
                   uri:
                     type: string
                     nullable: true
+                    description: The IIIF URL. Null for a gated image role while an
+                      embargo withholds it from the caller.
                   label:
                     type: string
                     nullable: true
@@ -1296,6 +1302,8 @@ components:
             uri:
               type: string
               nullable: true
+              description: The IIIF URL. Null for a gated image role while an embargo
+                withholds it from the caller.
             label:
               type: string
               nullable: true

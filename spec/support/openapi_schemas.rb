@@ -259,7 +259,10 @@ module OpenapiSchemas
               id:                { type: :string, description: 'NOID' },
               valkyrie_id:       { type: :string, description: 'Valkyrie internal id' },
               use:               { type: :string, nullable: true },
-              uri:               { type: :string, nullable: true, description: 'Where the asset can be fetched (IIIF URL for image roles)' },
+              uri:               { type: :string, nullable: true,
+                                 description: 'Where the asset can be fetched (IIIF URL for image roles). Null for the ' \
+                                              'gated small, medium, large and service roles while an embargo withholds them ' \
+                                              'from the caller.' },
               mime_type:         { type: :string, nullable: true },
               original_filename: { type: :string, nullable: true },
               label:             { type: :string, nullable: true },
@@ -504,7 +507,9 @@ module OpenapiSchemas
             file_set:       { type: :string, description: 'NOID of the FileSet the asset is listed under' },
             mime_type:      { type: :string, nullable: true },
             use:            { type: :string, nullable: true, description: 'Human display label for the role (e.g. "Service File"); match on `role` for a stable token' },
-            uri:            { type: :string, nullable: true },
+            uri:            { type: :string, nullable: true,
+                              description: 'The IIIF URL. Null for a gated image role while an embargo withholds it from ' \
+                                           'the caller.' },
             label:          { type: :string, nullable: true },
             role:           { type: :string, nullable: true, description: 'Stable machine token for the asset role — the Role key (e.g. service_file, small_image). Match on this, not the human `use` label' },
             classification: { type: :string, nullable: true,

@@ -242,9 +242,37 @@ end a corrupt parent chain that loops, and such a chain answers nil.
 unattached leaf with nobody to answer for it, and deny is the safe answer for
 both.
 
-**Embargo is not consulted here.** Cerberus does not gate on embargo state at its
-discovery layer and neither does `WorkDigestQuery`, so gating here would put the
-resolutions out of step. Embargo withholds downloads further up, in Cerberus.
+**Embargo is not consulted here.** An embargo withholds a Work's file bytes, not
+its record: metadata stays public under embargo, and neither Cerberus's discovery
+layer nor `WorkDigestQuery` gates on it. The bytes have their own gate, below.
+
+## Withholding file bytes: embargo and tier
+
+No caller below the bypass gets a Work's file bytes by any route while the Work
+is embargoed, or while the file's tier is reserved to an audience the caller is
+not in. The two byte routes, `GET /files/:id/content` and
+`GET /files/:id/versions/:version_id/content`, call `WithheldBytesGate` after the
+read check and the tombstone gate, and answer **403** before anything streams.
+
+- **Embargo.** An active `embargo_release_date` on the Work refuses every caller
+  except an `:admin` and a member of `northeastern:drs:repository:staff`. That
+  pair is Cerberus's `User#can_bypass_embargo?`. The depositor and an editor get
+  no bypass of their own. Change both apps together, or they disagree on who sees
+  embargoed bytes.
+- **Tier.** The caller must be in `Work#derivative_gate_for(blob)`: the audience
+  holds `public`, or one of the caller's groups. Only an `:admin` passes
+  otherwise. An edit grant does not admit an editor outside the reserved group,
+  because Cerberus's download gate projects read groups only.
+
+`:system` gets no carve-out: nothing fetches bytes as `:system`. The fixity
+checker reads bytes from disk, not through these routes. Descriptive-metadata
+Blobs (`Blob#metadata?`) are exempt, because the same XML is public through
+`/mods`.
+
+Refusing before the stream matters to atlas_rb: `Blob.content` hands every chunk
+to its block whatever the status, so a refusal sent after the stream started
+would reach a Cerberus visitor as the file. Cerberus still refuses first, in its
+own download, media and zip paths; this gate is the one a direct API caller meets.
 
 ## Compilations carry their own visibility
 
@@ -485,10 +513,11 @@ The policy is a sparse `{ tier => [read groups] }` map, JSON-encoded on
 tokens (`public`, Grouper group names, `[]` for private) so the same groups apply
 unchanged.
 
-**The gate is advisory, not an Atlas-enforced byte boundary.** Image Delegates
-hold only a IIIF `uri` and Atlas never proxies the pixels, so Cerberus and the
-IIIF auth layer enforce. For Blobs the enforcing point is Cerberus's
-`DownloadsController` `:read` check on the stream. Atlas's read path
+**Atlas enforces the gate on Blob bytes; it cannot on image Delegates.** The two
+byte routes refuse a caller outside the asset's audience (see
+[Withholding file bytes](#withholding-file-bytes-embargo-and-tier)). Image
+Delegates hold only a IIIF `uri` and Atlas never proxies the pixels, so Cerberus
+and the IIIF auth layer enforce those. Atlas's read path
 (`GET /works/:id/assets`, `/file_sets`) surfaces `permission` and `gated` per
 asset so those layers can act.
 

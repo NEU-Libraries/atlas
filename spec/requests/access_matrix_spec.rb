@@ -11,7 +11,8 @@ require 'rails_helper'
 # rubocop:disable Metrics/ModuleLength -- the rows are one table, and splitting
 # it would scatter a single decision across modules.
 module AccessMatrix
-  STATES = %i[live private work_tombstoned file_set_tombstoned collection_tombstoned community_tombstoned].freeze
+  STATES = %i[live private work_tombstoned file_set_tombstoned collection_tombstoned community_tombstoned
+              embargoed tier_gated].freeze
   TIERS     = %i[guest standard editor delegate admin].freeze
   OPERATORS = %i[delegate admin].freeze
 
@@ -23,8 +24,17 @@ module AccessMatrix
     work_tombstoned:       %i[work delegate file_set blob],
     file_set_tombstoned:   %i[file_set blob],
     collection_tombstoned: %i[empty_collection],
-    community_tombstoned:  %i[sub_community]
+    community_tombstoned:  %i[sub_community],
+    embargoed:             [],
+    tier_gated:            []
   }.freeze
+
+  # The states that withhold a Work's file bytes but not its record: metadata
+  # stays public under an embargo and under a tier reservation.
+  BYTES_WITHHELD = %i[embargoed tier_gated].freeze
+
+  # A group no tier here belongs to, so the tier_gated state admits only :admin.
+  RESERVED_GROUP = 'northeastern:drs:matrix:reserved'
 
   # The private state narrows the Work's ACL, which its leaves read through.
   PRIVATE_SUBJECTS = %i[work delegate file_set blob].freeze
@@ -46,6 +56,14 @@ module AccessMatrix
     def operator? = OPERATORS.include?(tier)
     def tombstoned? = WITHHELD.fetch(state).include?(subject)
     def withheld? = tombstoned? && !operator?
+    # No test tier is staff, so only :admin passes the embargo bypass.
+    def bytes_withheld? = BYTES_WITHHELD.include?(state) && subject == :blob && tier != :admin
+
+    def bytes_status
+      return 410 if withheld?
+
+      bytes_withheld? ? 403 : 200
+    end
 
     # The per-resource read gate answers first, so a caller who may not read
     # the resource learns nothing about its tombstone.
@@ -61,6 +79,9 @@ module AccessMatrix
     # The bytes, the file lists and the metadata are withheld below the
     # operator tiers.
     withheld:      ->(c) { c.gated { c.withheld? ? 410 : 200 } },
+    # A Work's file bytes: withheld by a tombstone, then by an embargo or a
+    # tier reservation, in the order the byte routes check them.
+    bytes:         ->(c) { c.gated { c.bytes_status } },
     # A class-wide operator verb makes no per-resource read decision.
     operator:      ->(c) { c.operator? ? 200 : 403 },
     operator_read: ->(c) { c.operator? ? c.gated { 200 } : 403 },
@@ -92,8 +113,8 @@ module AccessMatrix
     'file_sets#mets'             => [:withheld],
     'file_sets#index'            => [:admin],
     'blobs#show'                 => [:record],
-    'blobs#content'              => [:withheld, { bytes: true }],
-    'blobs#version_content'      => [:withheld, { bytes: true }],
+    'blobs#content'              => [:bytes, { bytes: true }],
+    'blobs#version_content'      => [:bytes, { bytes: true }],
     # NOIDs and tombstone flags only: it is how a client learns which ancestor
     # withholds a file.
     'blobs#ancestry'             => [:read],
@@ -240,12 +261,26 @@ RSpec.describe 'Access matrix', type: :request, default_auth: false do
   end
 
   def apply!(state)
+    return withhold_bytes!(state) if AccessMatrix::BYTES_WITHHELD.include?(state)
+
     resource = { private: work, work_tombstoned: work, file_set_tombstoned: file_set,
                  collection_tombstoned: empty_collection, community_tombstoned: sub_community }[state]
     return if resource.nil?
 
     resource = Resource.find(resource.noid)
     state == :private ? resource.privatize : resource.tombstone(by: admin.nuid)
+    Atlas.persister.save(resource: resource)
+  end
+
+  # The embargo and the tier reservation both sit on the Work, which keeps its
+  # public ACL. The fixture file is generic, so the generic tier gates it.
+  def withhold_bytes!(state)
+    resource = Work.find(work.noid)
+    if state == :embargoed
+      resource.embargo_release_date = 1.year.from_now
+    else
+      resource.derivative_permissions = { generic: [AccessMatrix::RESERVED_GROUP] }.to_json
+    end
     Atlas.persister.save(resource: resource)
   end
 

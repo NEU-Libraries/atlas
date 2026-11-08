@@ -30,7 +30,8 @@ json.role Role.find_by(name: asset.use)&.to_s
 json.file_set file_set.noid
 json.classification file_set.type
 
-# Per-asset read gate (advisory — Cerberus / the IIIF auth layer enforce).
+# Per-asset read gate. Atlas enforces it on Blob bytes; Cerberus and the IIIF
+# auth layer enforce it on Delegate tiers.
 # `gated` says this asset must be authorized rather than fetched directly
 # (at the IIIF server for a Delegate tier, at Atlas for a held Blob — the
 # original and any pdf/audio/video rendition). Blobs classify by media

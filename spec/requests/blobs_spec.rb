@@ -277,6 +277,13 @@ RSpec.describe 'Files (Blobs)', type: :request do
         withheld with `410 tombstoned`, which names the tombstoned resource.
         Admins and delegated admins are still served, so they can review a
         removed file before they restore it.
+
+        The bytes are also withheld with `403` while the Work is under
+        embargo, except from admins and repository staff, and when the
+        file's tier (`derivative_permissions`) is reserved to groups the
+        caller is not in, except from admins. The Work's metadata stays
+        readable in both cases, and `GET /works/{id}/assets` reports the
+        tier as `gated`.
       DESC
 
       parameter name: 'Range', in: :header, type: :string, required: false,
@@ -330,6 +337,18 @@ RSpec.describe 'Files (Blobs)', type: :request do
         run_test! do |response|
           expect(JSON.parse(response.body)).to include('error' => 'tombstoned', 'tombstoned_resource_type' => 'Work')
         end
+      end
+
+      response '403', 'content withheld by an embargo or a tier reservation', default_auth: false do
+        let(:community) { public_community! }
+        let(:work) do
+          w = WorkCreator.call(parent_id: collection.noid)
+          w.publicize
+          w.embargo_release_date = 1.year.from_now
+          Atlas.persister.save(resource: w)
+        end
+        before { signed_auth_headers(nil) }
+        run_test!
       end
     end
   end
@@ -570,7 +589,9 @@ RSpec.describe 'Files (Blobs)', type: :request do
         Streams the bytes of a retained version, pinned to its OCFL label.
         Mirrors `GET /files/{id}/content` (same memory-safe send_file path) but
         resolves through the version history, so only listed content revisions
-        are addressable. Unknown id or version → 404.
+        are addressable. Unknown id or version → 404. A tombstone, an embargo
+        and a tier reservation withhold a prior version exactly as they
+        withhold the current one.
       DESC
 
       response '200', 'version content streamed' do
@@ -584,6 +605,21 @@ RSpec.describe 'Files (Blobs)', type: :request do
         let(:blob)       { BlobCreator.call(work_id: work.noid, original_filename: 'example.bin', path: fixture.to_s) }
         let(:id)         { blob.noid }
         let(:version_id) { 'v9999' }
+        run_test!
+      end
+
+      response '403', 'version content withheld by an embargo or a tier reservation', default_auth: false do
+        let(:community) { public_community! }
+        let(:work) do
+          w = WorkCreator.call(parent_id: collection.noid)
+          w.publicize
+          w.derivative_permissions = { generic: ['northeastern:drs:example:reserved'] }.to_json
+          Atlas.persister.save(resource: w)
+        end
+        let(:blob)       { BlobCreator.call(work_id: work.noid, original_filename: 'example.bin', path: fixture.to_s) }
+        let(:id)         { blob.noid }
+        let(:version_id) { seed_version_label(blob) }
+        before { signed_auth_headers(nil) }
         run_test!
       end
     end

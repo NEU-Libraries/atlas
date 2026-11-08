@@ -118,8 +118,9 @@ Three concentric layers in `spec/`:
 
 `spec/requests/access_matrix_spec.rb` asks one question of every read route:
 what does each caller get, in each state a resource can be in? The states are
-live, a private Work, and a tombstone on a Work, a FileSet, a Collection or a
-Community. The callers are a guest, a standard user, an editor of the Work, a
+live, a private Work, a tombstone on a Work, a FileSet, a Collection or a
+Community, an embargoed Work, and a Work whose file tier is reserved to a group.
+The last two withhold the file bytes and nothing else. The callers are a guest, a standard user, an editor of the Work, a
 delegated admin and an admin.
 
 The specs for each endpoint test what that endpoint does. They cannot see a

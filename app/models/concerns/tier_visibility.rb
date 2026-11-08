@@ -5,9 +5,9 @@
 # for any asset. See docs/authorization.md for the policy, the cascade argument
 # and where the gate is actually enforced.
 #
-# The gate is ADVISORY. Atlas never proxies image pixels and does not enforce
-# the Blob stream either; it surfaces `permission` and `gated` per asset and
-# Cerberus and the IIIF auth layer enforce.
+# Atlas enforces the gate on Blob bytes (WithheldBytesGate). It never proxies
+# image pixels, so for Delegates it only surfaces `permission` and `gated` per
+# asset, and Cerberus and the IIIF auth layer enforce.
 module TierVisibility
   extend ActiveSupport::Concern
 

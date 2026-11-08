@@ -7,6 +7,7 @@ class BlobsController < ApplicationController
   include MimeHelper
   include IdempotentCreate
   include Auditable
+  include WithheldBytesGate
 
   # The unfiltered roll of every Blob. :index_all is admin-only (via the
   # manage :all wildcard) for the same reason as WorksController#index — a
@@ -99,6 +100,7 @@ class BlobsController < ApplicationController
     return head(:not_found) if blob.nil?
 
     refuse_tombstoned!(blob)
+    refuse_withheld_bytes!(blob)
     file = BinaryVersionHistory.find_file(blob: blob, version_id: params[:version_id])
     return head(:not_found) if file.nil?
 
@@ -160,6 +162,7 @@ class BlobsController < ApplicationController
     return head(:not_found) if blob.nil?
 
     refuse_tombstoned!(blob)
+    refuse_withheld_bytes!(blob)
     file = blob.file
     return head(:not_found) if file.nil?
 

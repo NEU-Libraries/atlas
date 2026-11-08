@@ -91,11 +91,11 @@ attributes land on different sides of it.
 |---|---|---|
 | `handle` | **Yes**, schema v5 | An external Handle service holds the other half of the binding and the outside world cites it. **Nothing in the repository can re-derive it**, so a rebuild that lost it would break every outside citation. |
 | `full_text` | No | A regenerable search aid, re-sent on any re-ingest. Postgres only, so `FullTextIndexer` re-reads and re-projects it on every reindex. |
-| `derivative_permissions` | No | Derived and advisory — Cerberus and the IIIF layer enforce it. |
+| `derivative_permissions` | No | An access policy: Atlas enforces it on Blob bytes, and Cerberus and the IIIF layer on image tiers. TODO: decide whether an enforced policy belongs in the envelope, as `read` does. |
 | `tombstoned_at`, `tombstoned_by`, `tombstone_reason` | **Yes**, schema v7, as one `tombstone` block | A tombstone is a person's decision that nothing else records. A rebuild that lost it would bring tombstoned objects back into view, and drop the removal note the library's removal policy requires. |
 
-`full_text` and `derivative_permissions` are omitted for the same reason the
-fungible thumbnail derivatives are: **they can be made again.**
+`full_text` is omitted for the same reason the fungible thumbnail derivatives
+are: **it can be made again.**
 
 ### `derivative_permissions` is a JSON string, not a Hash
 

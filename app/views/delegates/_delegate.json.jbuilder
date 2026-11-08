@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 json.delegate do
+  json.kind 'Delegate'
   json.id @delegate.noid
   json.valkyrie_id @delegate.id.to_s
   json.use @delegate.use

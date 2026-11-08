@@ -2,15 +2,18 @@
 
 # Polymorphic: each element is shaped after its underlying model.
 # Blob entries describe a held binary (size + filename); Delegate
-# entries describe a pointer-only asset (URI + use). Clients
-# pattern-match per element. Shared by assets.json (flattened) and
+# entries describe a pointer-only asset (URI + use). `kind` names the
+# model, so a client matches on it rather than on which fields are present:
+# an embargo nulls a Delegate's `uri`. Shared by assets.json (flattened) and
 # file_sets.json (grouped per page) so the two shapes can't drift.
 case asset
 when Blob
+  json.kind 'Blob'
   json.extract! asset, :noid, :mime_type, :original_filename, :size, :language, :track_label
   json.filename asset.filename
   json.label Label.find(asset.label)&.name
 when Delegate
+  json.kind 'Delegate'
   json.extract! asset, :noid, :mime_type, :use
   # An active embargo withholds the gated full-resolution URLs; the open
   # thumbnail and preview copies stay. See docs/authorization.md.

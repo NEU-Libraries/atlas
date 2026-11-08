@@ -27,8 +27,8 @@ module AccessMatrix
   RESERVED_GROUP = MatrixTree::RESERVED_GROUP
 
   # Subjects whose URL a state withholds while the record stays readable: an
-  # embargo keeps the gated full-resolution URL from everyone below the
-  # bypass. The marker check holds it on every route.
+  # embargo keeps the gated full-resolution URL from everyone outside
+  # MatrixTree::URI_AUDIENCE. The marker check holds it on every route.
   URI_WITHHELD = { embargoed: %i[gated_delegate] }.freeze
 
   # The axis values these tiers and states exercise: see ACLAxes.

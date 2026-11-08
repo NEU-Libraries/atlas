@@ -86,10 +86,10 @@ RSpec.describe 'Access matrix', type: :request, default_auth: false do
   end
 
   # A tombstone withholds below the operator tiers; an embargo withholds a
-  # gated URL below the embargo bypass.
+  # gated URL from everyone without an edit grant or the bypass.
   def leaked_markers(state, tier)
     withheld = AccessMatrix::OPERATORS.include?(tier) ? [] : AccessMatrix::WITHHELD.fetch(state)
-    withheld += AccessMatrix::URI_WITHHELD.fetch(state, []) unless MatrixTree::EMBARGO_BYPASS.include?(tier)
+    withheld += AccessMatrix::URI_WITHHELD.fetch(state, []) unless MatrixTree::URI_AUDIENCE.include?(tier)
     body = response.body.b
     withheld.select { |s| markers[s] && body.include?(markers[s]) }
   end

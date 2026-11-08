@@ -71,14 +71,16 @@ invisible until the TTL expires.
 - **The owner need not be a Work.** A Collection's descriptive-metadata FileSet
   evicts the Collection, which is harmless.
 
-### The one axis a cached view varies on
+### The two axes a cached view varies on
 
 `works/_asset.json.jbuilder` withholds the `permission` group list from guests,
-**so public traffic is never told a Grouper group's name.** `asset_audience`
-mirrors that condition exactly.
+**so public traffic is never told a Grouper group's name.** It also withholds
+the gated image URLs from a caller an embargo keeps them from
+(`WithheldBytesGate#uri_withheld?`). `asset_audience` mirrors both conditions
+exactly.
 
-**If the view's condition changes, `asset_audience` must change with it.** The
-paired spec asserts the two buckets stay distinct.
+**If the view's conditions change, `asset_audience` must change with them.** The
+paired specs assert the buckets stay distinct.
 
 ### `format_scope` returns nil for an unenumerated format
 

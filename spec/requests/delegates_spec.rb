@@ -32,7 +32,9 @@ RSpec.describe 'Delegates', type: :request do
         end
         let(:id) { delegate.noid }
         schema '$ref' => '#/components/schemas/Delegate'
-        run_test!
+        run_test! do |response|
+          expect(response.parsed_body['delegate']).to include('kind' => 'Delegate', 'id' => delegate.noid)
+        end
       end
 
       tombstoned_record_responses(full: 'Delegate', withheld: 'Tombstoned') do

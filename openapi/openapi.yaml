@@ -726,6 +726,11 @@ components:
         delegate:
           type: object
           properties:
+            kind:
+              type: string
+              enum:
+              - Delegate
+              description: The asset model, as the asset listings name it
             id:
               type: string
               description: NOID
@@ -738,9 +743,10 @@ components:
             uri:
               type: string
               nullable: true
-              description: Where the asset can be fetched (IIIF URL for image roles).
+              description: 'Where the asset can be fetched (IIIF URL for image roles).
                 Null for the gated small, medium, large and service roles while an
-                embargo withholds them from the caller.
+                embargo withholds them from the caller: below staff, without an edit
+                grant on the Work.'
             mime_type:
               type: string
               nullable: true
@@ -762,6 +768,7 @@ components:
               nullable: true
               description: NUID of the user who tombstoned the resource
           required:
+          - kind
           - id
           - valkyrie_id
           - use
@@ -963,6 +970,11 @@ components:
         oneOf:
         - type: object
           properties:
+            kind:
+              type: string
+              enum:
+              - Blob
+              description: The asset model. Match on this to tell a Blob from a Delegate
             noid:
               type: string
             file_set:
@@ -1020,10 +1032,17 @@ components:
                 groups / [] private); null for guests, to whom group names are not
                 disclosed
           required:
+          - kind
           - noid
           description: Blob asset — held binary
         - type: object
           properties:
+            kind:
+              type: string
+              enum:
+              - Delegate
+              description: 'The asset model. Match on this to tell a Delegate from
+                a Blob: `uri` can be null'
             noid:
               type: string
             file_set:
@@ -1040,8 +1059,9 @@ components:
             uri:
               type: string
               nullable: true
-              description: The IIIF URL. Null for a gated image role while an embargo
-                withholds it from the caller.
+              description: 'The IIIF URL. Null for a gated image role while an embargo
+                withholds it from the caller: below staff, without an edit grant on
+                the Work.'
             label:
               type: string
               nullable: true
@@ -1069,6 +1089,7 @@ components:
                 groups / [] private); null for guests, to whom group names are not
                 disclosed
           required:
+          - kind
           - noid
           description: Delegate asset — external pointer (e.g. IIIF URL)
     WorkFileSets:
@@ -1096,6 +1117,12 @@ components:
               oneOf:
               - type: object
                 properties:
+                  kind:
+                    type: string
+                    enum:
+                    - Blob
+                    description: The asset model. Match on this to tell a Blob from
+                      a Delegate
                   noid:
                     type: string
                   file_set:
@@ -1154,10 +1181,17 @@ components:
                       / Grouper groups / [] private); null for guests, to whom group
                       names are not disclosed
                 required:
+                - kind
                 - noid
                 description: Blob asset — held binary
               - type: object
                 properties:
+                  kind:
+                    type: string
+                    enum:
+                    - Delegate
+                    description: 'The asset model. Match on this to tell a Delegate
+                      from a Blob: `uri` can be null'
                   noid:
                     type: string
                   file_set:
@@ -1174,8 +1208,9 @@ components:
                   uri:
                     type: string
                     nullable: true
-                    description: The IIIF URL. Null for a gated image role while an
-                      embargo withholds it from the caller.
+                    description: 'The IIIF URL. Null for a gated image role while
+                      an embargo withholds it from the caller: below staff, without
+                      an edit grant on the Work.'
                   label:
                     type: string
                     nullable: true
@@ -1203,6 +1238,7 @@ components:
                       / Grouper groups / [] private); null for guests, to whom group
                       names are not disclosed
                 required:
+                - kind
                 - noid
                 description: Delegate asset — external pointer (e.g. IIIF URL)
         required:
@@ -1217,6 +1253,11 @@ components:
         oneOf:
         - type: object
           properties:
+            kind:
+              type: string
+              enum:
+              - Blob
+              description: The asset model. Match on this to tell a Blob from a Delegate
             noid:
               type: string
             file_set:
@@ -1282,10 +1323,17 @@ components:
               nullable: true
               description: NUID of the user who tombstoned the FileSet
           required:
+          - kind
           - noid
           description: Blob asset — held binary
         - type: object
           properties:
+            kind:
+              type: string
+              enum:
+              - Delegate
+              description: 'The asset model. Match on this to tell a Delegate from
+                a Blob: `uri` can be null'
             noid:
               type: string
             file_set:
@@ -1302,8 +1350,9 @@ components:
             uri:
               type: string
               nullable: true
-              description: The IIIF URL. Null for a gated image role while an embargo
-                withholds it from the caller.
+              description: 'The IIIF URL. Null for a gated image role while an embargo
+                withholds it from the caller: below staff, without an edit grant on
+                the Work.'
             label:
               type: string
               nullable: true
@@ -1339,6 +1388,7 @@ components:
               nullable: true
               description: NUID of the user who tombstoned the FileSet
           required:
+          - kind
           - noid
           description: Delegate asset — external pointer (e.g. IIIF URL)
     WorkFileRevisions:
@@ -7144,6 +7194,10 @@ paths:
         use + uri, e.g. IIIF-served sized image variants). Thumbnails
         (Role.thumbnail_image) and metadata roles are excluded by
         Role.downloadable?.
+
+        Each element names its model in `kind`, `Blob` or `Delegate`. Match on
+        `kind`, not on whether `uri` is present: an embargo answers `uri: null`
+        for a gated Delegate.
 
         A tombstoned Work answers `410 tombstoned` to everyone but admins and
         delegated admins, as do `/file_sets` and `/file_revisions`.

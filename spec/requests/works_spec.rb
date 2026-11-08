@@ -426,6 +426,10 @@ RSpec.describe 'Works', type: :request do
         (Role.thumbnail_image) and metadata roles are excluded by
         Role.downloadable?.
 
+        Each element names its model in `kind`, `Blob` or `Delegate`. Match on
+        `kind`, not on whether `uri` is present: an embargo answers `uri: null`
+        for a gated Delegate.
+
         A tombstoned Work answers `410 tombstoned` to everyone but admins and
         delegated admins, as do `/file_sets` and `/file_revisions`.
       DESC
@@ -461,7 +465,7 @@ RSpec.describe 'Works', type: :request do
           # Labeled, consumer-facing name: <Label#prefix><noid>.<ext> —
           # distinct from the deposited original_filename.
           expect(blob['filename']).to match(/\.png\z/)
-          expect(blob['file_set']).to eq(file_set.noid)
+          expect(blob).to include('kind' => 'Blob', 'file_set' => file_set.noid)
         end
       end
 
@@ -492,7 +496,7 @@ RSpec.describe 'Works', type: :request do
           # `role` is the stable token Cerberus matches on — the Role key, not
           # the human `use` label. Its serialization is decoupled from wording.
           service = assets.find { |a| a['use'] == Role.service_file.name }
-          expect(service['role']).to eq('service_file')
+          expect(service).to include('kind' => 'Delegate', 'role' => 'service_file')
         end
       end
 
@@ -936,6 +940,7 @@ RSpec.describe 'Works', type: :request do
           expect(pages.length).to eq(2)
           expect(pages[0]['assets'].pluck('original_filename')).to include('page1.png')
           expect(pages[1]['assets'].pluck('uri')).to include('https://iiif.example/page2.jpg')
+          expect(pages.map { |page| page['assets'].pluck('kind').uniq }).to eq([%w[Blob], %w[Delegate]])
         end
       end
 

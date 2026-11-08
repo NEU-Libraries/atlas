@@ -8,7 +8,7 @@ class DelegatesController < ApplicationController
     return head(:not_found) if @delegate.nil?
 
     refuse_tombstoned!(@delegate)
-    @embargo_withheld = embargo_withholds?(@delegate.read_authority)
+    @embargo_withheld = uri_withheld?(@delegate.read_authority)
     render :show, status: (@delegate.tombstone_source ? :gone : :ok)
   end
 end

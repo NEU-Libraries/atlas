@@ -292,8 +292,8 @@ Blobs (`Blob#metadata?`) are exempt, because the same XML is public through
 
 ### What else an embargo withholds
 
-The bypass is the same pair for everything below: an `:admin` and a member of
-the staff group (`WithheldBytesGate#embargo_withholds?`).
+The byte bypass is an `:admin` and a member of the staff group
+(`WithheldBytesGate#embargo_withholds?`). The URLs below admit one more caller.
 
 - **The gated image URLs.** Every image has two IIIF copies: an `open-` copy
   capped at 500 pixels, which serves the thumbnail and preview, and a `gated-`
@@ -303,8 +303,21 @@ the staff group (`WithheldBytesGate#embargo_withholds?`).
   opens nothing, and withholding it is defence in depth: `/works/:id/assets`,
   `/works/:id/file_sets` and `/delegates/:id` answer `uri: null` for those roles.
   The thumbnail and preview stay, so an embargoed Work still shows its cover.
-  The asset listings are cached, so the cache audience carries the same
-  condition (`asset_audience`, `ResponseCache::AUDIENCES`).
+
+  Anyone with an edit grant on the Work still receives these URLs: an edit user,
+  an edit group or the depositor (`WithheldBytesGate#uri_withheld?`). Cerberus
+  builds a depositor's chosen sizes from the service-file URL after the deposit
+  form saves, and a student who embargoes a thesis is not staff. The grant
+  admits the URL only. The byte gate above still refuses the depositor and the
+  editors, so the two rules are separate predicates and must stay separate.
+
+  Every asset element names its model in `kind`, `Blob` or `Delegate`. A client
+  must match on `kind`, because a withheld Delegate has no `uri` to tell it from
+  a Blob.
+
+  The asset listings are cached, so the cache audience carries the URL
+  condition (`asset_audience`, `ResponseCache::AUDIENCES`). An editor, staff and
+  the admins all receive the URLs, so they share the unwithheld bucket.
 - **The full text.** `FullTextIndexer` leaves `full_text_tesimv` out of the Work's
   Solr document while the embargo holds. A search could otherwise report which
   words an embargoed file contains, one query at a time, and Cerberus builds its

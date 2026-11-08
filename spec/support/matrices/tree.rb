@@ -78,6 +78,8 @@ module MatrixTree
   ADMINS            = %i[admin acting_admin].freeze
   OPERATORS         = (%i[delegate] + ADMINS).freeze
   EMBARGO_BYPASS    = (%i[staff] + ADMINS).freeze
+  # An embargo's gated URLs also reach an edit grant, which its bytes do not.
+  URI_AUDIENCE      = (WORK_EDITORS + ADMINS).freeze
   TIER_AUDIENCE     = (%i[group_reader] + WORK_EDITORS + ADMINS).freeze
   # Refused before any gate: an acting-as claim from a non-admin, and the
   # fixity checker, whose ability holds the fixity endpoints and nothing else.

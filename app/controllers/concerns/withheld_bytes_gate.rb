@@ -4,7 +4,7 @@
 # active embargo withholds them from everyone who may not bypass it, and a
 # per-tier gate (Work#derivative_permissions) reserves them to its audience.
 # Metadata stays readable under both. The embargo also withholds the gated
-# image URLs, which the views read through #embargo_withholds?. See
+# image URLs, which the views read through #uri_withheld?. See
 # docs/authorization.md.
 module WithheldBytesGate
   extend ActiveSupport::Concern
@@ -30,10 +30,18 @@ module WithheldBytesGate
       'the file is reserved to another audience' unless tier_audience?(work, blob)
     end
 
-    # True when an active embargo on the Work withholds its bytes and its gated
-    # image URLs from this caller.
+    # True when an active embargo on the Work withholds its bytes from this
+    # caller.
     def embargo_withholds?(work)
       work.is_a?(Work) && work.embargoed? && !@current_user&.admin? && !embargo_bypass?
+    end
+
+    # The gated image URLs admit an edit grant as well, which the bytes do
+    # not: the URL opens nothing without a signature Cerberus issues, and a
+    # depositor's derivative job needs it. Keep the two rules apart, so that
+    # widening this one never widens the byte gate.
+    def uri_withheld?(work)
+      embargo_withholds?(work) && !can?(:update, work)
     end
 
     # Mirrors Cerberus's User#can_bypass_embargo?; the two apps must agree on

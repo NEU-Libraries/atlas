@@ -42,7 +42,7 @@ module CachedResponses
     # from. IF THE VIEW'S CONDITIONS CHANGE, THIS MUST CHANGE WITH THEM.
     def asset_audience
       audience = @current_user && !@current_user.guest? ? 'authenticated' : 'guest'
-      embargo_withholds?(@work) ? :"#{audience}_withheld" : audience.to_sym
+      uri_withheld?(@work) ? :"#{audience}_withheld" : audience.to_sym
     end
 
     # nil for a format nobody enumerated, which renders without caching: the

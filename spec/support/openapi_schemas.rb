@@ -256,13 +256,14 @@ module OpenapiSchemas
   # FileSet to represent sized image variants and similar derivatives.
   def delegate
     wrapped(:delegate, {
+              kind:              { type: :string, enum: %w[Delegate], description: 'The asset model, as the asset listings name it' },
               id:                { type: :string, description: 'NOID' },
               valkyrie_id:       { type: :string, description: 'Valkyrie internal id' },
               use:               { type: :string, nullable: true },
               uri:               { type: :string, nullable: true,
                                  description: 'Where the asset can be fetched (IIIF URL for image roles). Null for the ' \
                                               'gated small, medium, large and service roles while an embargo withholds them ' \
-                                              'from the caller.' },
+                                              'from the caller: below staff, without an edit grant on the Work.' },
               mime_type:         { type: :string, nullable: true },
               original_filename: { type: :string, nullable: true },
               label:             { type: :string, nullable: true },
@@ -480,6 +481,8 @@ module OpenapiSchemas
         {
           type:        :object,
           properties:  {
+            kind:              { type: :string, enum: %w[Blob],
+                                 description: 'The asset model. Match on this to tell a Blob from a Delegate' },
             noid:              { type: :string },
             file_set:          { type: :string, description: 'NOID of the FileSet the asset is listed under — the id tombstone and restore take' },
             mime_type:         { type: :string, nullable: true },
@@ -497,19 +500,21 @@ module OpenapiSchemas
             permission:        { type: :array, items: { type: :string }, nullable: true,
                                  description: 'Effective read-group set gating this binary (public / Grouper groups / [] private); null for guests, to whom group names are not disclosed' }
           },
-          required:    %w[noid],
+          required:    %w[kind noid],
           description: 'Blob asset — held binary'
         },
         {
           type:        :object,
           properties:  {
+            kind:           { type: :string, enum: %w[Delegate],
+                              description: 'The asset model. Match on this to tell a Delegate from a Blob: `uri` can be null' },
             noid:           { type: :string },
             file_set:       { type: :string, description: 'NOID of the FileSet the asset is listed under' },
             mime_type:      { type: :string, nullable: true },
             use:            { type: :string, nullable: true, description: 'Human display label for the role (e.g. "Service File"); match on `role` for a stable token' },
             uri:            { type: :string, nullable: true,
                               description: 'The IIIF URL. Null for a gated image role while an embargo withholds it from ' \
-                                           'the caller.' },
+                                           'the caller: below staff, without an edit grant on the Work.' },
             label:          { type: :string, nullable: true },
             role:           { type: :string, nullable: true, description: 'Stable machine token for the asset role — the Role key (e.g. service_file, small_image). Match on this, not the human `use` label' },
             classification: { type: :string, nullable: true,
@@ -519,7 +524,7 @@ module OpenapiSchemas
             permission:     { type: :array, items: { type: :string }, nullable: true,
                           description: 'Effective read-group set gating this tier (public / Grouper groups / [] private); null for guests, to whom group names are not disclosed' }
           },
-          required:    %w[noid],
+          required:    %w[kind noid],
           description: 'Delegate asset — external pointer (e.g. IIIF URL)'
         }
       ]

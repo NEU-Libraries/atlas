@@ -281,9 +281,9 @@ RSpec.describe 'Files (Blobs)', type: :request do
         The bytes are also withheld with `403` while the Work is under
         embargo, except from admins and repository staff, and when the
         file's tier (`derivative_permissions`) is reserved to groups the
-        caller is not in, except from admins. The Work's metadata stays
-        readable in both cases, and `GET /works/{id}/assets` reports the
-        tier as `gated`.
+        caller is not in, except from admins and anyone with an edit grant
+        on the Work. The Work's metadata stays readable in both cases, and
+        `GET /works/{id}/assets` reports the tier as `gated`.
       DESC
 
       parameter name: 'Range', in: :header, type: :string, required: false,

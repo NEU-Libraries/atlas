@@ -3,9 +3,10 @@
 require 'rails_helper'
 
 # The byte routes withhold a Work's file bytes under an embargo and under a tier
-# reservation. The access matrix covers the tiers it shares with the other
-# states; this covers the callers it has no tier for: staff, a member of the
-# reserved group, and the descriptive-metadata Blob. See docs/authorization.md.
+# reservation. The access matrix covers every caller in every state; this
+# names the cases one at a time: staff, a member of the reserved group, a
+# reader outside it, the depositor, and the descriptive-metadata Blob. See
+# docs/authorization.md.
 #
 # default_auth: false — the global admin default bypasses both gates.
 RSpec.describe 'Withheld file bytes', type: :request, default_auth: false do
@@ -29,6 +30,16 @@ RSpec.describe 'Withheld file bytes', type: :request, default_auth: false do
     User.create!(email: 'member-withheld@example.invalid', password: SecureRandom.hex(16),
                  nuid: '000000073', name: 'Moe, Member', role: :standard, groups: [reserved])
   end
+  # Signed in and able to read the public Work, but outside the reserved group
+  # and holding no grant on it.
+  let!(:reader) do
+    User.create!(email: 'reader-withheld@example.invalid', password: SecureRandom.hex(16),
+                 nuid: '000000074', name: 'Loe, Reader', role: :standard, groups: [])
+  end
+  let!(:depositor) do
+    User.create!(email: 'depositor-withheld@example.invalid', password: SecureRandom.hex(16),
+                 nuid: '000000075', name: 'Doe, Depositor', role: :standard, groups: [])
+  end
   let!(:system_user) do
     User.create!(email: 'system-withheld@example.invalid', password: SecureRandom.hex(16),
                  nuid: '000000000', name: 'System', role: :system)
@@ -40,6 +51,7 @@ RSpec.describe 'Withheld file bytes', type: :request, default_auth: false do
     work = WorkCreator.call(parent_id: collection.noid)
     work.publicize
     work.edit_users = [editor.nuid]
+    work.depositor  = depositor.nuid
     Atlas.persister.save(resource: work)
   end
   let(:blob) { BlobCreator.call(work_id: work.noid, original_filename: 'example.bin', path: fixture.to_s) }
@@ -108,17 +120,25 @@ RSpec.describe 'Withheld file bytes', type: :request, default_auth: false do
       expect(status_for(member)).to eq(200)
     end
 
-    it 'refuses the editor, whose edit grant does not join the audience' do
-      expect(status_for(editor)).to eq(403)
+    it 'refuses a reader outside the group, which is what the reservation is for' do
+      expect(status_for(reader)).to eq(403)
       expect(response.parsed_body['error']).to include('reserved')
     end
 
-    it 'refuses staff, whose bypass is for embargoes only' do
-      expect(status_for(staff)).to eq(403)
+    # Edit implies read: the grant that lets a caller change the file lets them
+    # fetch it.
+    it 'serves the editor and the depositor, whose edit grant admits them' do
+      expect([status_for(editor), status_for(depositor)]).to eq([200, 200])
     end
 
-    it 'serves the editor of a private Work, whose tier is no narrower than the Work' do
-      withhold!(read_groups: [], derivative_permissions: nil)
+    # Staff hold an edit grant on every Work, so a rollback they make can be
+    # followed by the derivative refresh that reads the bytes back.
+    it 'serves staff, through the edit grant Atlas gives them on every Work' do
+      expect(status_for(staff)).to eq(200)
+    end
+
+    it 'serves the editor of a private Work too' do
+      withhold!(read_groups: [])
       expect(status_for(editor)).to eq(200)
     end
 

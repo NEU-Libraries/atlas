@@ -69,7 +69,7 @@ class Ability
     def apply_role_abilities(user)
       case user.role.to_sym
       when :system
-        can %i[provision mint_token], User
+        can %i[provision mint_token choose_account], User
         # Reads past the per-resource gate. Declared here rather than in the
         # base rule so it comes LAST and wins; moving it earlier re-gates the
         # backend and breaks showcase publishing and the reindexes.
@@ -101,6 +101,9 @@ class Ability
         # differences live in Cerberus's Ability.
         can :read,           User
         can :read_directory, User
+        # A write, so the read-only token and the maintenance window refuse it;
+        # UsersController narrows it to the caller's own accounts.
+        can :choose_account, User
         can :preview,        Resource
 
         # The type half only. Which container the child lands in is decided

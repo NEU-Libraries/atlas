@@ -170,8 +170,12 @@ do not distinguish them. Their role-derived differences — the batch-ingest
 surface, the proxy-upload control — live in Cerberus's `Ability`. Split the case
 out only when an Atlas-side rule actually keys on one of them.
 
-They hold `:read` and `:read_directory` on `User`, `:preview` on `Resource`, and
-`:create` on `Work`, `Community`, `Collection` and `Compilation`. Any signed-in
+They hold `:read`, `:read_directory` and `:choose_account` on `User`, `:preview`
+on `Resource`, and `:create` on `Work`, `Community`, `Collection` and
+`Compilation`. `:choose_account` sets a person's preferred account, and
+`UsersController` narrows it to the caller's own NUID. It is a write verb so
+that a read-only token and the maintenance window refuse it, as they refuse
+every other write. Any signed-in
 human may curate their own Sets; guests may not.
 
 **A `FileSet` or `Blob` write needs an edit grant on the Work.** A leaf's own ACL

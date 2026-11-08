@@ -85,7 +85,7 @@ class UsersController < ApplicationController
   # is named). Same self/admin/system scope as #accounts. Unknown email for
   # this NUID → 404.
   def preferred_account
-    authorize! :read, User
+    authorize! :choose_account, User
     return head(:forbidden) unless account_scope_authorized?(params[:nuid])
 
     @user = User.find_by(nuid: params[:nuid], email: params[:email])

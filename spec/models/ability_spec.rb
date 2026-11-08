@@ -68,6 +68,7 @@ RSpec.describe Ability do
     it { is_expected.not_to be_able_to(:create,  FileSet) }
     it { is_expected.not_to be_able_to(:create,  Blob) }
     it { is_expected.not_to be_able_to(:preview, Resource) }
+    it { is_expected.not_to be_able_to(:choose_account, User) }
     it { is_expected.not_to be_able_to(:provision, User) }
     it { is_expected.not_to be_able_to(:mint_token, User) }
     it { is_expected.not_to be_able_to(:read,    AuditEvent) }
@@ -180,6 +181,7 @@ RSpec.describe Ability do
       it { is_expected.not_to be_able_to(:create,  FileSet) }
       it { is_expected.not_to be_able_to(:create,  Blob) }
       it { is_expected.to     be_able_to(:preview, Resource) }
+      it { is_expected.to     be_able_to(:choose_account, User) }
 
       # A leaf write asks the Work the leaf answers to, never the leaf's own
       # stale ACL copy. Stubs `parent`, as the read-gate leaf examples do.

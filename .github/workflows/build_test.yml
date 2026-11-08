@@ -50,6 +50,10 @@ jobs:
       run: |
         docker compose exec -T web bundle exec rake
 
+    - name: Check access-control coverage
+      run: |
+        docker compose exec -T web bundle exec rake acl:coverage:check
+
     - name: Verify OpenAPI doc is up to date
       run: |
         docker compose exec -T web bundle exec rake rswag:specs:swaggerize

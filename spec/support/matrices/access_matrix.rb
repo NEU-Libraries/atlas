@@ -22,6 +22,11 @@ module AccessMatrix
   PRIVATE_SUBJECTS = MatrixTree::PRIVATE_SUBJECTS
   MARKERS = MatrixTree::MARKERS
 
+  # The axis values these tiers and states exercise: see ACLAxes.
+  AXES = %i[cred_guest cred_assertion grant_public grant_edit_users role_guest role_standard role_delegate role_admin
+            state_live state_private state_work_tomb state_file_set_tomb state_collection_tomb state_community_tomb
+            state_embargoed state_tier_reserved].freeze
+
   # A group no tier here belongs to, so the tier_gated state admits only :admin.
   RESERVED_GROUP = 'northeastern:drs:matrix:reserved'
 

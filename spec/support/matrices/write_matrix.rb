@@ -17,6 +17,11 @@ module WriteMatrix
   # and nobody else could write. So it runs its refusals alone, below.
   STATES = (MatrixTree::STATES - %i[private] + %i[maintenance]).freeze
 
+  # The axis values these tiers and states exercise: see ACLAxes.
+  AXES = %i[cred_guest cred_assertion cred_jwt_read_only cred_system grant_public grant_edit_users role_guest
+            role_standard role_delegate role_system role_admin state_live state_private state_work_tomb
+            state_file_set_tomb state_collection_tomb state_community_tomb state_maintenance].freeze
+
   # The subjects the editor's grant on the Work reaches.
   EDITOR_SUBJECTS = %i[work file_set blob].freeze
 

@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+#
+# Access-control coverage: five numbers from the routes, the controllers'
+# source and the matrix tables, held against spec/acl_coverage_baseline.json.
+#
+#   bin/acl-coverage            print the numbers and any violation
+#   bin/acl-coverage --check    exit non-zero on a violation or a fall
+#   bin/acl-coverage --update   raise the baseline to the current numbers
+#
+# Runs inside the web container against whichever checkout you are standing
+# in, through the same lib/container.sh bin/spec uses. See docs/testing.md.
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/container.sh
+source "$SCRIPT_DIR/lib/container.sh"
+
+case "${1:-}" in
+  -h|--help) sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+  --check)   TASK=acl:coverage:check ;;
+  --update)  TASK=acl:coverage:update ;;
+  '')        TASK=acl:coverage ;;
+  *)         echo "unknown option: $1" >&2; exit 2 ;;
+esac
+
+if container_init 2>/dev/null; then
+  docker exec -w "$CONTAINER_ROOT" "$WEB_CONTAINER" bundle exec rake "$TASK" 2> >(grep -v DEPRECATION >&2)
+else
+  bundle exec rake "$TASK"
+fi

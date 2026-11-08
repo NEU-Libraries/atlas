@@ -11,43 +11,19 @@ require 'rails_helper'
 # rubocop:disable Metrics/ModuleLength -- the rows are one table, and splitting
 # it would scatter a single decision across modules.
 module AccessMatrix
-  STATES = %i[live private work_tombstoned file_set_tombstoned collection_tombstoned community_tombstoned
-              embargoed tier_gated].freeze
-  TIERS     = %i[guest standard editor delegate admin].freeze
-  OPERATORS = %i[delegate admin].freeze
-
-  # The subjects each state withholds. A leaf is withheld by its own tombstone
-  # and by its Work's; the Delegate hangs off the Work.
-  WITHHELD = {
-    live:                  [],
-    private:               [],
-    work_tombstoned:       %i[work delegate file_set blob],
-    file_set_tombstoned:   %i[file_set blob],
-    collection_tombstoned: %i[empty_collection],
-    community_tombstoned:  %i[sub_community],
-    embargoed:             [],
-    tier_gated:            []
-  }.freeze
-
   # The states that withhold a Work's file bytes but not its record: metadata
   # stays public under an embargo and under a tier reservation.
   BYTES_WITHHELD = %i[embargoed tier_gated].freeze
 
+  STATES    = (MatrixWorld::STATES + BYTES_WITHHELD).freeze
+  TIERS     = %i[guest standard editor delegate admin].freeze
+  OPERATORS = MatrixWorld::OPERATORS
+  WITHHELD  = MatrixWorld::WITHHELD.merge(BYTES_WITHHELD.index_with { [] }).freeze
+  PRIVATE_SUBJECTS = MatrixWorld::PRIVATE_SUBJECTS
+  MARKERS = MatrixWorld::MARKERS
+
   # A group no tier here belongs to, so the tier_gated state admits only :admin.
   RESERVED_GROUP = 'northeastern:drs:matrix:reserved'
-
-  # The private state narrows the Work's ACL, which its leaves read through.
-  PRIVATE_SUBJECTS = %i[work delegate file_set blob].freeze
-
-  # A marker string planted in each subject. Below the operator tiers, no
-  # response from any route may carry the marker of a withheld subject.
-  MARKERS = {
-    work:             'zqworkmarker',
-    delegate:         'zqdelegatemarker',
-    blob:             'zqfilemarker',
-    empty_collection: 'zqcollectionmarker',
-    sub_community:    'zqcommunitymarker'
-  }.freeze
 
   # The editor holds an edit grant on the Work, which is what lets it past a
   # private ACL. A tombstone leaves the ACL public.
@@ -175,107 +151,31 @@ module AccessMatrix
     'resources' => :work, 'collections' => :empty_collection, 'communities' => :sub_community
   }.freeze
 
-  # Every route the application draws, framework routes aside, as
-  # [route, 'controller#action'].
-  def self.routes
-    Rails.application.routes.routes.filter_map do |route|
-      controller = route.defaults[:controller]
-      next if controller.nil? || controller.start_with?('rails/', 'active_storage/', 'action_mailbox/')
-
-      [route, "#{controller}##{route.defaults[:action]}"]
-    end
-  end
+  def self.routes = MatrixWorld.routes
 end
 # rubocop:enable Metrics/ModuleLength
 
 # default_auth: false — the global admin default is an operator and would be
 # served everything.
 RSpec.describe 'Access matrix', type: :request, default_auth: false do
-  let!(:guest) do
-    User.find_by(role: :guest) ||
-      User.create!(email: 'guest-matrix@example.invalid', password: SecureRandom.hex(16),
-                   nuid: '000000001', name: 'User, Guest', role: :guest)
-  end
-  let!(:admin) { ensure_default_admin! }
-  let(:users) do
-    {
-      guest:    guest,
-      standard: User.create!(email: 'standard-matrix@example.invalid', password: SecureRandom.hex(16),
-                             nuid: '000000063', name: 'Doe, Standard', role: :standard, groups: []),
-      editor:   User.create!(email: 'editor-matrix@example.invalid', password: SecureRandom.hex(16),
-                             nuid: '000000061', name: 'Roe, Editor', role: :standard, groups: []),
-      delegate: User.create!(email: 'delegate-matrix@example.invalid', password: SecureRandom.hex(16),
-                             nuid: '000000062', name: 'Williams, Delegate', role: :privileged,
-                             groups: [Permissions::ADMIN_GROUP]),
-      admin:    admin
-    }
-  end
+  include_context 'access matrix callers'
 
-  let(:markers)    { AccessMatrix::MARKERS }
-  let(:fixture)    { Rails.root.join('spec/fixtures/files/example.bin') }
-  let(:bytes)      { File.binread(fixture) }
-  let(:community)  { public_community! }
-  let(:collection) { CollectionCreator.call(parent_id: community.noid) }
-  let(:work) do
-    work = WorkCreator.call(parent_id: collection.noid)
-    work.publicize
-    work.edit_users = [users[:editor].nuid]
-    described!(Atlas.persister.save(resource: work), markers[:work])
-  end
-  let(:blob) do
-    BlobCreator.call(work_id: work.noid, original_filename: "#{markers[:blob]}.bin", path: fixture.to_s)
-  end
-  let(:file_set) { blob.parent }
-  let(:delegate) do
-    DelegateCreator.call(resource_id: work.id, use: Role.thumbnail_image.name,
-                         uri: "https://iiif.example/#{markers[:delegate]}.jpg")
-  end
-  let(:empty_collection) do
-    described!(CollectionCreator.call(parent_id: community.noid), markers[:empty_collection])
-  end
-  let(:sub_community) do
-    sub = CommunityCreator.call(parent_id: community.noid)
-    sub.publicize
-    described!(Atlas.persister.save(resource: sub), markers[:sub_community])
-  end
+  let(:markers) { AccessMatrix::MARKERS }
+  let(:bytes)   { File.binread(MatrixWorld::FIXTURE) }
+  let(:world)   { MatrixWorld.new(editor_nuid: users[:editor].nuid) }
 
   after { Atlas.persister.wipe! }
-
-  def described!(resource, marker)
-    set_mods_abstract!(resource, marker)
-    Atlas.persister.save(resource: resource)
-  end
-
-  def headers_for(tier)
-    signed_auth_headers(tier == :guest ? nil : users[tier].nuid)
-  end
-
-  # Every route in the matrix must have something to serve, or a 404 would
-  # pass for a refusal. The METS and Darwin Core records give their routes one.
-  def build_world!
-    [blob, delegate, empty_collection, sub_community]
-    WorkMETSRebuilder.call(work: work)
-    dwc = Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/dwc.xml'), 'application/xml')
-    put "/resources/#{work.noid}/dwc", headers: headers_for(:admin), params: { binary: dwc }
-    expect(response).to have_http_status(:ok)
-  end
 
   def apply!(state)
     return withhold_bytes!(state) if AccessMatrix::BYTES_WITHHELD.include?(state)
 
-    resource = { private: work, work_tombstoned: work, file_set_tombstoned: file_set,
-                 collection_tombstoned: empty_collection, community_tombstoned: sub_community }[state]
-    return if resource.nil?
-
-    resource = Resource.find(resource.noid)
-    state == :private ? resource.privatize : resource.tombstone(by: admin.nuid)
-    Atlas.persister.save(resource: resource)
+    world.apply!(state)
   end
 
   # The embargo and the tier reservation both sit on the Work, which keeps its
   # public ACL. The fixture file is generic, so the generic tier gates it.
   def withhold_bytes!(state)
-    resource = Work.find(work.noid)
+    resource = Work.find(world.work.noid)
     if state == :embargoed
       resource.embargo_release_date = 1.year.from_now
     else
@@ -288,7 +188,7 @@ RSpec.describe 'Access matrix', type: :request, default_auth: false do
   # it, before the state is applied.
   def path_for(route, subject)
     path = route.path.spec.to_s.sub('(.:format)', '')
-    path = path.sub(':id', public_send(subject).noid) if subject
+    path = path.sub(':id', world.public_send(subject).noid) if subject
     return path unless path.include?(':version_id')
 
     get path.sub(%r{/:version_id.*}, ''), headers: headers_for(:admin)
@@ -317,7 +217,7 @@ RSpec.describe 'Access matrix', type: :request, default_auth: false do
     options = AccessMatrix::MATRIX.dig(key, 1) || {}
     return get(path, params: options[:query], headers: headers_for(tier)) unless options[:post]
 
-    ids = %i[work file_set blob delegate empty_collection sub_community].map { |s| public_send(s).noid }
+    ids = %i[work file_set blob delegate empty_collection sub_community].map { |s| world.public_send(s).noid }
     post path, params: { ids: ids }, headers: headers_for(tier)
   end
 
@@ -350,7 +250,7 @@ RSpec.describe 'Access matrix', type: :request, default_auth: false do
 
   AccessMatrix::STATES.each do |state|
     it "answers every route as its row says when #{state.to_s.tr('_', ' ').sub(/\Alive/, 'all is live')}" do
-      build_world!
+      world.build!
       routes = probes
       apply!(state)
 

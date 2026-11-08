@@ -152,5 +152,50 @@ longer drawn fails too.
 
 When you add a state that withholds something, add it to `STATES` and say in
 `WITHHELD` which resources it withholds. Then let the failures show which
-routes disagree. Writes are not in the matrix; their gate is `Ability`, tested in
-`spec/models/ability_spec.rb`.
+routes disagree.
+
+### The write matrix
+
+`spec/requests/write_matrix_spec.rb` asks the same question of every `POST`,
+`PUT`, `PATCH` and `DELETE` route: who may change or delete this resource, in
+each state it can be in? Both matrices run against one fixture tree, one set of
+states and one set of callers, in `spec/support/matrix_world.rb`.
+
+The write matrix adds two callers and one state:
+
+- **`:system`**, because its scoped grants live on writes: it creates
+  containers, reindexes, and links a Work into a featured Collection while
+  acting as the Work's depositor.
+- **`:read_only`**, the admin on a read-only personal token. Every write must
+  answer 403, which proves the token floor holds even for the widest grant.
+- **`maintenance`**, the read-only window. Every write must answer 503 for every
+  caller.
+
+Each row names a policy (`:edit`, `:operator`, `:admin`, `:reindex`,
+`:create_container` or `:link_member`) and the status a permitted write
+answers. A permitted caller then meets the tombstone gate: below the operator
+tiers, a write to a tombstoned resource answers 410. A row that runs no gate,
+such as `restore`, says `gate: false`, and a row whose service refuses a
+tombstoned node or target says so in `refuses:`. A route that needs a second
+row, such as the one `:system` grant on linked members, takes an `@variant`
+suffix.
+
+Two checks go beyond the status:
+
+- **A refused write changes nothing.** Before each cell that should be refused,
+  the spec takes a fingerprint: every resource's last write, the audit rows and
+  the idempotency keys. After the refusal, the fingerprint must match. This
+  catches a write that changes something and then raises, and a refusal that
+  still audits.
+- **The permitted cells must succeed.** The admin's cell in the live state
+  expects the row's success status, so a row with a wrong payload fails instead
+  of passing as a refusal.
+
+A successful write changes the world for the next cell. The callers run from
+the least privileged to the most, so most rows refuse until their last cells.
+A row that changes the world beyond a re-run, such as `tombstone`, `destroy`
+or `update_parent`, says `fresh: true`, and the next cell after its success
+gets a rebuilt world.
+
+The inventory works as it does for reads. A new write route fails the spec until
+it has a row, or a reason in `UNSCOPED`.

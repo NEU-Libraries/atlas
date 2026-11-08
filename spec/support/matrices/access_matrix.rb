@@ -15,30 +15,48 @@ module AccessMatrix
   # stays public under an embargo and under a tier reservation.
   BYTES_WITHHELD = %i[embargoed tier_gated].freeze
 
-  STATES    = (MatrixTree::STATES + BYTES_WITHHELD).freeze
-  TIERS     = %i[guest standard editor delegate admin].freeze
+  # Beyond the shared states: a Work only one group may read, a purged
+  # Collection, and a Blob no FileSet holds.
+  STATES    = (MatrixTree::STATES + BYTES_WITHHELD + %i[group_read purged unattached]).freeze
+  TIERS     = %i[guest standard loader privileged group_reader curator editor group_editor owner jwt_editor staff
+                 delegate obo_refused fixity acting_admin admin].freeze
   OPERATORS = MatrixTree::OPERATORS
-  WITHHELD  = MatrixTree::WITHHELD.merge(BYTES_WITHHELD.index_with { [] }).freeze
+  WITHHELD  = MatrixTree::WITHHELD.merge((STATES - MatrixTree::STATES).index_with { [] }).freeze
   PRIVATE_SUBJECTS = MatrixTree::PRIVATE_SUBJECTS
   MARKERS = MatrixTree::MARKERS
+  RESERVED_GROUP = MatrixTree::RESERVED_GROUP
 
   # The axis values these tiers and states exercise: see ACLAxes.
-  AXES = %i[cred_guest cred_assertion grant_public grant_edit_users role_guest role_standard role_delegate role_admin
-            state_live state_private state_work_tomb state_file_set_tomb state_collection_tomb state_community_tomb
-            state_embargoed state_tier_reserved].freeze
+  AXES = %i[cred_guest cred_assertion cred_obo cred_jwt cred_fixity grant_public grant_read_group grant_edit_users
+            grant_edit_groups grant_depositor role_guest role_standard role_loader role_privileged role_delegate
+            role_staff role_admin state_live state_private state_work_tomb state_file_set_tomb
+            state_collection_tomb state_community_tomb state_embargoed state_tier_reserved state_purged
+            state_unattached].freeze
 
-  # A group no tier here belongs to, so the tier_gated state admits only :admin.
-  RESERVED_GROUP = 'northeastern:drs:matrix:reserved'
+  # Every expected cell comes from what the tier holds (MatrixTree) and what
+  # the state does to the subject. A tombstone leaves the ACL public.
+  Cell = Struct.new(:state, :tier, :subject, :options) do
+    def readable?
+      return MatrixTree::ADMINS.include?(tier) if state == :unattached && subject == :blob
+      return true unless %i[private group_read].include?(state) && PRIVATE_SUBJECTS.include?(subject)
 
-  # The editor holds an edit grant on the Work, which is what lets it past a
-  # private ACL. A tombstone leaves the ACL public.
-  Cell = Struct.new(:state, :tier, :subject) do
-    def readable? = state != :private || PRIVATE_SUBJECTS.exclude?(subject) || %i[editor admin].include?(tier)
+      MatrixTree.work_reader?(tier) || (state == :group_read && tier == :group_reader)
+    end
+
     def operator? = OPERATORS.include?(tier)
+    def admin? = MatrixTree::ADMINS.include?(tier)
     def tombstoned? = WITHHELD.fetch(state).include?(subject)
     def withheld? = tombstoned? && !operator?
-    # No test tier is staff, so only :admin passes the embargo bypass.
-    def bytes_withheld? = BYTES_WITHHELD.include?(state) && subject == :blob && tier != :admin
+
+    def bytes_withheld?
+      return false unless subject == :blob
+
+      case state
+      when :embargoed  then MatrixTree::EMBARGO_BYPASS.exclude?(tier)
+      when :tier_gated then MatrixTree::TIER_AUDIENCE.exclude?(tier)
+      else false
+      end
+    end
 
     def bytes_status
       return 410 if withheld?
@@ -47,8 +65,20 @@ module AccessMatrix
     end
 
     # The per-resource read gate answers first, so a caller who may not read
-    # the resource learns nothing about its tombstone.
-    def gated = readable? ? yield : 403
+    # the resource learns nothing about its tombstone. A purged id resolves to
+    # nothing, so the class check passes and the route answers as removed.
+    def gated
+      return (options || {}).fetch(:purged, 404) if state == :purged && subject == :empty_collection
+
+      readable? ? yield : 403
+    end
+  end
+
+  # The cell's status: a refused caller is turned away before any policy runs.
+  def self.expected(state, tier, subject, policy, options = {})
+    return 403 if MatrixTree::REFUSED.include?(tier)
+
+    POLICIES.fetch(policy).call(Cell.new(state, tier, subject, options))
   end
 
   POLICIES = {
@@ -66,7 +96,7 @@ module AccessMatrix
     # A class-wide operator verb makes no per-resource read decision.
     operator:      ->(c) { c.operator? ? 200 : 403 },
     operator_read: ->(c) { c.operator? ? c.gated { 200 } : 403 },
-    admin:         ->(c) { c.tier == :admin ? 200 : 403 },
+    admin:         ->(c) { c.admin? ? 200 : 403 },
     # A list or a container no state here tombstones: always served, and the
     # marker check alone says whether it leaks a withheld subject.
     open:          ->(_) { 200 }
@@ -115,7 +145,7 @@ module AccessMatrix
     'search#index'               => [:open, { query: { q: MARKERS.values.join(' OR ') } }],
     # A POST that reads: the batch resolver, asked for every subject at once.
     'resources#find_many'        => [:open, { post: :all_subjects }],
-    'collections#show'           => [:record, { on: :empty_collection }],
+    'collections#show'           => [:record, { on: :empty_collection, purged: 410 }],
     'collections#mods'           => [:withheld, { on: :empty_collection }],
     'collections#children'       => [:record, { on: :empty_collection }],
     'communities#show'           => [:record, { on: :sub_community }],

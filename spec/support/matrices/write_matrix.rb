@@ -12,35 +12,46 @@ require_relative 'tree'
 module WriteMatrix
   # Least to most privileged, so most rows refuse until their last cells.
   # :system sits beside the human ladder, so it goes after the delegate.
-  TIERS  = %i[guest read_only standard editor delegate system admin].freeze
-  # A private Work changes no write cell: the editor holds the grant either way
-  # and nobody else could write. So it runs its refusals alone, below.
+  TIERS  = %i[guest read_only obo_refused fixity standard loader privileged group_reader curator editor
+              group_editor owner jwt_editor staff delegate system acting_admin admin].freeze
+  # A private Work changes no write cell: its editors hold the grant either
+  # way and nobody else could write. So it runs its refusals alone, below.
   STATES = (MatrixTree::STATES - %i[private] + %i[maintenance]).freeze
 
   # The axis values these tiers and states exercise: see ACLAxes.
-  AXES = %i[cred_guest cred_assertion cred_jwt_read_only cred_system grant_public grant_edit_users role_guest
-            role_standard role_delegate role_system role_admin state_live state_private state_work_tomb
-            state_file_set_tomb state_collection_tomb state_community_tomb state_maintenance].freeze
+  AXES = %i[cred_guest cred_assertion cred_obo cred_jwt cred_jwt_read_only cred_system cred_fixity grant_public
+            grant_edit_users grant_edit_groups grant_depositor grant_container role_guest role_standard role_loader
+            role_privileged role_delegate role_staff role_system role_admin state_live state_private
+            state_work_tomb state_file_set_tomb state_collection_tomb state_community_tomb
+            state_maintenance].freeze
 
-  # The subjects the editor's grant on the Work reaches.
+  # The subjects a grant on the Work reaches; a grant on a container reaches
+  # the rest.
   EDITOR_SUBJECTS = %i[work file_set blob].freeze
 
   # The tiers each policy admits, before the floors and the tombstone gate.
   POLICIES = {
-    edit:             ->(c) { c.tier == :admin || (c.tier == :editor && EDITOR_SUBJECTS.include?(c.gate_subject)) },
-    operator:         ->(c) { MatrixTree::OPERATORS.include?(c.tier) },
-    admin:            ->(c) { c.tier == :admin },
-    reindex:          ->(c) { %i[system admin].include?(c.tier) },
-    # Only :system and the admin may create in a container nobody else edits.
-    create_container: ->(c) { %i[system admin].include?(c.tier) },
-    link_member:      ->(c) { c.tier == :admin || (c.tier == :system && c.options[:system_scoped]) }
+    edit:             ->(c) { c.admin? || c.editor_of_subject? },
+    operator:         ->(c) { c.operator? },
+    admin:            ->(c) { c.admin? },
+    reindex:          ->(c) { c.admin? || c.tier == :system },
+    # A Work needs an edit grant on its Collection; :system may never create one.
+    create_work:      ->(c) { c.admin? || MatrixTree::CONTAINER_EDITORS.include?(c.tier) },
+    create_container: ->(c) { c.admin? || c.tier == :system || MatrixTree::CONTAINER_EDITORS.include?(c.tier) },
+    link_member:      ->(c) { c.admin? || (c.tier == :system && c.options[:system_scoped]) }
   }.freeze
 
   Cell = Struct.new(:state, :tier, :policy, :options) do
     def gate_subject = options.fetch(:on)
     def allowed? = POLICIES.fetch(policy).call(self)
+    def admin? = MatrixTree::ADMINS.include?(tier)
     def operator? = MatrixTree::OPERATORS.include?(tier)
     def tombstoned?(subject) = MatrixTree::TOMBSTONED[state] == subject
+
+    def editor_of_subject?
+      editors = EDITOR_SUBJECTS.include?(gate_subject) ? MatrixTree::WORK_EDITORS : MatrixTree::CONTAINER_EDITORS
+      editors.include?(tier)
+    end
 
     # A tombstone refuses a write below the operator tiers, after the write's
     # own 403. Rows that run no gate say `gate: false`.
@@ -52,9 +63,12 @@ module WriteMatrix
     # a caller who got past every gate.
     def refused? = Array(options[:refuses]).any? { |subject| tombstoned?(subject) }
 
+    # The acting-as refusal comes before authorization, so even the
+    # maintenance window answers it with 403.
     def expected
+      return 403 if tier == :obo_refused
       return 503 if state == :maintenance
-      return 403 if tier == :read_only || !allowed?
+      return 403 if %i[read_only fixity].include?(tier) || !allowed?
       return 410 if withheld?
       return 422 if refused?
 
@@ -107,9 +121,7 @@ module WriteMatrix
                                                              params: ->(w) { { work_id: w.other_work.noid, type: 'is_figure_for' } } }],
     'works#remove_association'            => [:operator, { on:   :work,
                                                            path: ->(w) { { type: 'is_figure_for', work_id: w.other_work.noid } } }],
-    # No test tier but the admin edits the Collection, and :system may never
-    # create a Work.
-    'works#create'                        => [:admin, { on: :collection, gate: false, params: ->(w) { { collection_id: w.collection.noid } } }],
+    'works#create'                        => [:create_work, { on: :collection, gate: false, params: ->(w) { { collection_id: w.collection.noid } } }],
     'collections#create'                  => [:create_container, { on: :sub_community, gate: false, refuses: %i[sub_community],
                                                                      params: ->(w) { { parent_id: w.sub_community.noid } } }],
     'communities#create'                  => [:create_container, { on: :sub_community, gate: false, refuses: %i[sub_community],

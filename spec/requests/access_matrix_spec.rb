@@ -15,7 +15,7 @@ RSpec.describe 'Access matrix', type: :request, default_auth: false do
 
   let(:markers) { AccessMatrix::MARKERS }
   let(:bytes)   { File.binread(MatrixWorld::FIXTURE) }
-  let(:world)   { MatrixWorld.new(editor_nuid: users[:editor].nuid) }
+  let(:world)   { MatrixWorld.new }
 
   after { Atlas.persister.wipe! }
 
@@ -92,7 +92,7 @@ RSpec.describe 'Access matrix', type: :request, default_auth: false do
   # The cell's miss, or nil when the response is what the row says.
   def check(state, key, subject, tier)
     policy, options = AccessMatrix::MATRIX[key]
-    expected = AccessMatrix::POLICIES.fetch(policy).call(AccessMatrix::Cell.new(state, tier, subject))
+    expected = AccessMatrix.expected(state, tier, subject, policy, options || {})
     faults = [(', bytes wrong' if bytes_wrong?(options || {}))]
     leaks = leaked_markers(state, tier)
     faults << ", carries #{leaks.join(', ')}" if leaks.any?

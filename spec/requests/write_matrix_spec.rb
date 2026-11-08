@@ -49,7 +49,7 @@ RSpec.describe 'Write matrix', type: :request, default_auth: false do
   end
 
   def build!(state)
-    @world = MatrixWorld.new(editor_nuid: users[:editor].nuid).build!
+    @world = MatrixWorld.new.build!
     # Built now, so the first cell that names them does not count their
     # creation as a write it made.
     [world.other_work, world.featured_collection]

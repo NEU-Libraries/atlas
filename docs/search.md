@@ -49,9 +49,12 @@ one names its source there. The one intended difference is the read gate below.
 | `internal_resource_tesim:<type>` | `SearchBuilder#scope_to_resource_type` | only when `type` is given |
 
 Embargoed items are not filtered, because Cerberus does not filter them. A row
-carries `embargoed` so a client can say so. The flag is computed at read time
+carries `embargoed` so a client can say so. An embargoed Work's full text is not
+in the index at all, so a body-text query cannot match it until the embargo
+lapses; see [`authorization.md`](authorization.md#what-else-an-embargo-withholds). The flag is computed at read time
 from `embargo_release_date_dtsi`, not stored in Solr: a stored flag would stay
-`true` after the release date, because nothing re-indexes a Work on that day.
+`true` after the release date, because nothing re-indexes a Work on that day
+except the nightly release sweep, which may run hours later.
 An embargo lifts at the start of its release date in Eastern time, which is how
 Cerberus reads the date.
 

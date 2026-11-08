@@ -26,6 +26,16 @@ RSpec.describe FullTextIndexer do
       expect(described_class.new(resource: saved).to_solr).to eq(full_text_tesimv: 'Running Boston Jon Masters')
     end
 
+    # A search could otherwise report which words an embargoed file contains.
+    it 'leaves the text out while an embargo holds, and keeps it once the embargo has lapsed' do
+      work.full_text = 'Running Boston Jon Masters'
+      work.embargo_release_date = 1.year.from_now
+      expect(described_class.new(resource: work).to_solr).to eq({})
+
+      work.embargo_release_date = 1.year.ago
+      expect(described_class.new(resource: work).to_solr).to eq(full_text_tesimv: 'Running Boston Jon Masters')
+    end
+
     it 'returns an empty hash for non-Work resources' do
       expect(described_class.new(resource: collection).to_solr).to eq({})
       expect(described_class.new(resource: community).to_solr).to eq({})

@@ -214,6 +214,11 @@ The rules the recorder keeps:
 The actor is the calling principal, and `event_source` is `job` when that
 principal is `:system`.
 
+**A released Work is re-projected.** The index left its full text out while the
+embargo held, and a lapse writes nothing that would re-index it, so the
+recorder calls `Atlas.reindex` on each Work it writes a row for. It is a Solr
+write only: no Postgres change and no lock bump.
+
 ## The history surface
 
 `AuditEventsController#index` **deliberately does not load the Valkyrie

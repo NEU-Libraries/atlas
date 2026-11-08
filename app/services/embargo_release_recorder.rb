@@ -53,6 +53,9 @@ class EmbargoReleaseRecorder < ApplicationService
       AuditEventWriter.record(resource: work, actor_nuid: @actor.nuid, action: 'release_embargo',
                               change_type: 'permissions', event_source: @event_source,
                               occurred_at: released_at, payload: { release_date: day })
+      # The index left the Work's full text out while the embargo held, and
+      # nothing else re-projects a Work whose embargo simply lapses.
+      Atlas.reindex(work)
       work
     end
 

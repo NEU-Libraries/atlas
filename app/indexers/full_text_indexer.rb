@@ -42,7 +42,10 @@ class FullTextIndexer
     return {} unless resource.is_a?(Work)
 
     text = resource.full_text
-    return {} if text.blank?
+    # An active embargo keeps the text out of the index, or a search would
+    # report which words an embargoed file contains. The release sweep
+    # reindexes the Work once the embargo lapses.
+    return {} if text.blank? || resource.embargoed?
 
     { full_text_tesimv: text }
   end

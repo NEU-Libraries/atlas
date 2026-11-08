@@ -32,6 +32,8 @@ class DarwinCoreController < ApplicationController
     work = find_work
     authorize! :update, work || Work
     return head(:not_found) if work.nil?
+
+    refuse_tombstoned!(work)
     return head(:unprocessable_content) if params[:binary].blank?
 
     work.darwin_core_xml = File.read(uploaded_path(params[:binary]))
@@ -46,6 +48,8 @@ class DarwinCoreController < ApplicationController
     work = find_work
     authorize! :update, work || Work
     return head(:not_found) unless work&.darwin_core?
+
+    refuse_tombstoned!(work)
 
     work.tombstone_darwin_core!(by: @current_user&.nuid)
     audit!(resource: work, action: 'tombstone', change_type: 'metadata', payload: audit_payload)

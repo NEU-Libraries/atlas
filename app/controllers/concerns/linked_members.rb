@@ -37,6 +37,8 @@ module LinkedMembers
     authorize! :link_member, work
     return head(:not_found) if work.nil?
 
+    refuse_tombstoned!(work)
+
     collection = linked_member_target
     authorize! :link_member, collection
 
@@ -51,6 +53,8 @@ module LinkedMembers
     work = Work.find(params.expect(:id))
     authorize! :link_member, work
     return head(:not_found) if work.nil?
+
+    refuse_tombstoned!(work)
 
     collection = linked_member_target
     authorize! :link_member, collection

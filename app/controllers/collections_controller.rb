@@ -72,6 +72,8 @@ class CollectionsController < ApplicationController
     authorize! :update, resource || Collection
     return head(:not_found) if resource.nil?
 
+    refuse_tombstoned!(resource)
+
     resource.featured = featured_param
     @collection = Atlas.persister.save(resource: resource).decorate
     audit!(resource: @collection, action: 'update', change_type: 'metadata',

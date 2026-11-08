@@ -44,6 +44,8 @@ class FileSetsController < ApplicationController
     end
     return head(:not_found) if work.nil?
 
+    refuse_tombstoned!(work)
+
     @file_set = FileSetCreator.call(
       work_id:        work.noid,
       classification: Classification.find(
@@ -66,11 +68,11 @@ class FileSetsController < ApplicationController
     file_set = FileSet.find(params.expect(:id))
     authorize! :update, file_set || FileSet
 
-    if (record = find_idempotency_record(FileSet))
-      @file_set = FileSet.find(record.resource_noid)
-      return render_idempotent_resource(@file_set, view: :update)
-    end
+    record = find_idempotency_record(FileSet)
+    return render_idempotent_resource(@file_set = FileSet.find(record.resource_noid), view: :update) if record
     return head(:not_found) if file_set.nil?
+
+    refuse_tombstoned!(file_set)
 
     BlobCreator.call(
       path:              uploaded_path(params[:binary]),
@@ -91,6 +93,8 @@ class FileSetsController < ApplicationController
       @file_set = FileSet.find(params.expect(:id))
       authorize! :update_iiif_service, @file_set || FileSet
       return head(:not_found) if @file_set.nil?
+
+      refuse_tombstoned!(@file_set)
 
       apply_iiif_service_uri(resource_id: @file_set.id)
     end

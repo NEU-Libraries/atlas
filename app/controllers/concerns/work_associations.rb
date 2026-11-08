@@ -37,6 +37,8 @@ module WorkAssociations
     authorize! :associate, work
     return head(:not_found) if work.nil?
 
+    refuse_tombstoned!(work)
+
     work = WorkAssociationCreator.call(
       work: work, target: association_target, type: params[:type],
       actor_nuid: @current_user&.nuid, on_behalf_of_nuid: @on_behalf_of
@@ -48,6 +50,8 @@ module WorkAssociations
     work = Work.find(params.expect(:id))
     authorize! :associate, work
     return head(:not_found) if work.nil?
+
+    refuse_tombstoned!(work)
 
     work = WorkAssociationRemover.call(
       work: work, target: association_target, type: params[:type],

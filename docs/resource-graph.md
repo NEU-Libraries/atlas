@@ -439,6 +439,31 @@ Work answers for itself.
 - **`spec/requests/access_matrix_spec.rb` checks the rule on every route.** See
   [`testing.md`](testing.md#the-access-matrix).
 
+#### A tombstone refuses writes below the operator tiers
+
+A write to a tombstoned resource, or to a leaf of a tombstoned Work, answers
+`410 tombstoned` below the operator tiers. The admin and the delegated admin pass,
+because the repair flow is tombstone, repair, restore: requiring a restore first
+would put an unsafe item back in view while it is fixed. Each write calls
+`refuse_tombstoned!` after its own `authorize!` and nil check, so a caller who may
+not write learns nothing about the tombstone. A leaf create checks the Work it
+lands in.
+
+The tombstone grants nothing. An operator still needs whatever the live
+resource's gate asks for, such as the edit grant `PUT /resources/:id/mods`
+needs.
+
+Four writes leave the gate out:
+
+- `POST /resources/:id/restore`, whose target is tombstoned by definition.
+- `DELETE /resources/:id`, which is admin-only.
+- `POST /resources/:id/reindex` and `/reindex_subtree`, so a withheld resource's
+  Solr document can still be rebuilt.
+
+A container create into a tombstoned parent is refused separately, with 422, for
+every caller (`ParentScopedCreate`). `spec/requests/write_matrix_spec.rb` checks
+the rule on every write route.
+
 ### `/mods` renders the typed view
 
 `TYPED_MODS_VIEWS` maps a resolved class to its ivar and template, so the

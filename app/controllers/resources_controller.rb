@@ -115,6 +115,8 @@ class ResourcesController < ApplicationController
     resource = Resource.find(params.expect(:id))
     authorize! :update, resource || Resource
     return head(:not_found) unless resource && TYPED_IVARS.key?(resource.class)
+
+    refuse_tombstoned!(resource)
     return head(:unprocessable_content) if params[:binary].blank?
 
     # Every typed creator makes this FileSet, so its absence is damage, and
@@ -136,6 +138,7 @@ class ResourcesController < ApplicationController
     authorize! :update, resource || Resource
     return head(:not_found) unless resource && TYPED_IVARS.key?(resource.class)
 
+    refuse_tombstoned!(resource)
     render_typed(audited_permissions_update(resource, params[:permissions]), 'show')
   end
 
@@ -146,6 +149,7 @@ class ResourcesController < ApplicationController
       authorize! :update_thumbnails, resource || Resource
       return head(:not_found) unless resource && TYPED_IVARS.key?(resource.class)
 
+      refuse_tombstoned!(resource)
       apply_thumbnail_uris(resource_id: resource.id)
     end
 
@@ -159,6 +163,7 @@ class ResourcesController < ApplicationController
     authorize! :reparent, resource || Resource
     return head(:not_found) unless resource && TYPED_IVARS.key?(resource.class)
 
+    refuse_tombstoned!(resource)
     reparent_resolved(resource)
     render_typed(Resource.find(resource.id), 'show')
   end
@@ -168,6 +173,7 @@ class ResourcesController < ApplicationController
     authorize! :tombstone, resource || Resource
     return head(:not_found) unless resource && LIFECYCLE_IVARS.key?(resource.class)
 
+    refuse_tombstoned!(resource)
     reason  = params[:reason].presence
     refusal = tombstone_refusal(resource, reason)
     return render(json: refusal, status: :unprocessable_content) if refusal

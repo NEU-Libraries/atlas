@@ -174,6 +174,8 @@ class WorksController < ApplicationController
       authorize! :update_image_derivatives, @work
       return head(:not_found) if @work.nil?
 
+      refuse_tombstoned!(@work)
+
       apply_image_derivative_uris(resource_id: @work.id)
     end
 
@@ -193,6 +195,8 @@ class WorksController < ApplicationController
     @work = Work.find(params.expect(:id))
     authorize! :update_derivative_permissions, @work
     return head(:not_found) if @work.nil?
+
+    refuse_tombstoned!(@work)
 
     before = @work.derivative_permissions_map
     @work  = DerivativePermissionsUpdater.call(work: @work, policy: derivative_permissions_body)
@@ -215,6 +219,8 @@ class WorksController < ApplicationController
       authorize! :update_full_text, @work
       return head(:not_found) if @work.nil?
 
+      refuse_tombstoned!(@work)
+
       @work.full_text = params[:text].to_s
       @work = Atlas.persister.save(resource: @work)
     end
@@ -228,6 +234,8 @@ class WorksController < ApplicationController
       @work = Work.find(params.expect(:id))
       authorize! :complete, @work
       return head(:not_found) if @work.nil?
+
+      refuse_tombstoned!(@work)
 
       @work.in_progress = false
       @work = Atlas.persister.save(resource: @work).decorate
@@ -258,6 +266,8 @@ class WorksController < ApplicationController
       authorize! :mark_incomplete, @work
       return head(:not_found) if @work.nil?
 
+      refuse_tombstoned!(@work)
+
       @work.incomplete        = true
       @work.incomplete_reason = params[:reason].presence
       @work = Atlas.persister.save(resource: @work).decorate
@@ -272,6 +282,8 @@ class WorksController < ApplicationController
       @work = Work.find(params.expect(:id))
       authorize! :clear_incomplete, @work
       return head(:not_found) if @work.nil?
+
+      refuse_tombstoned!(@work)
 
       @work.incomplete        = false
       @work.incomplete_reason = nil

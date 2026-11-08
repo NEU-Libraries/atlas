@@ -30,10 +30,11 @@ class BlobsController < ApplicationController
   def create
     work = authorized_leaf_target(params[:work_id])
 
-    if (record = find_idempotency_record(Blob))
-      return render_idempotent_resource(@blob = Blob.find(record.resource_noid))
-    end
+    record = find_idempotency_record(Blob)
+    return render_idempotent_resource(@blob = Blob.find(record.resource_noid)) if record
     return head(:not_found) if work.nil?
+
+    refuse_tombstoned!(work)
 
     @blob = BlobCreator.call(
       work_id:           work.noid,
@@ -60,6 +61,8 @@ class BlobsController < ApplicationController
       return render_idempotent_resource(@blob, view: :update)
     end
     return head(:not_found) if blob.nil?
+
+    refuse_tombstoned!(blob)
 
     path = uploaded_path(params.expect(:binary))
     assign_track_fields(blob)
@@ -120,6 +123,7 @@ class BlobsController < ApplicationController
     authorize! :update, blob || Blob
     return head(:not_found) if blob.nil?
 
+    refuse_tombstoned!(blob)
     file = BinaryVersionHistory.find_file(blob: blob, version_id: params[:version_id])
     return head(:not_found) if file.nil?
 

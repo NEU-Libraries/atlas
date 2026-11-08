@@ -104,7 +104,29 @@ class MatrixWorld
     @featured_collection ||= CollectionCreator.call(parent_id: community.noid, featured: true)
   end
 
+  # A throwaway copy of a subject, in the shape the state gives the shared one,
+  # for a write that would damage the shared one. A leaf hangs off the shared
+  # Work, so a tombstone on that Work withholds it too.
+  def scratch(subject, state)
+    resource = case subject
+               when :work             then public_work! { |w| w.edit_users = [@editor_nuid] }.tap { |w| scratch_dwc!(w) }
+               when :file_set         then FileSetCreator.call(work_id: work.noid, classification: Classification.generic)
+               when :blob             then BlobCreator.call(work_id: work.noid, original_filename: 'scratch.bin',
+                                                            path: FIXTURE.to_s)
+               when :empty_collection then CollectionCreator.call(parent_id: community.noid)
+               end
+    return resource unless TOMBSTONED[state] == subject
+
+    resource.tombstone(by: DefaultAuthHeaders::ADMIN_NUID)
+    Atlas.persister.save(resource: resource)
+  end
+
   private
+
+    # darwin_core#destroy answers 404 for a Work with no record.
+    def scratch_dwc!(work)
+      Work.find(work.noid).darwin_core_xml = File.read(DWC)
+    end
 
     def build_work!
       @work = public_work! do |work|

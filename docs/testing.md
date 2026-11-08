@@ -161,7 +161,8 @@ routes disagree.
 each state it can be in? Both matrices run against one fixture tree, one set of
 states and one set of callers, in `spec/support/matrix_world.rb`.
 
-The write matrix adds two callers and one state:
+The write matrix adds two callers and one state, and runs the private state as
+refusals only (see below):
 
 - **`:system`**, because its scoped grants live on writes: it creates
   containers, reindexes, and links a Work into a featured Collection while
@@ -193,9 +194,16 @@ Two checks go beyond the status:
 
 A successful write changes the world for the next cell. The callers run from
 the least privileged to the most, so most rows refuse until their last cells.
-A row that changes the world beyond a re-run, such as `tombstone`, `destroy`
-or `update_parent`, says `fresh: true`, and the next cell after its success
-gets a rebuilt world.
+A row whose success damages its subject, such as `tombstone`, `destroy` or
+`update_parent`, says `fresh: true`. It writes to a throwaway copy of its
+subject, which `MatrixWorld#scratch` builds in the shape the state gives the
+shared one, and it takes a new copy after each success. The shared world is
+built once per state, because rebuilding it costs about four seconds.
+
+A private Work changes no write cell: the editor holds the grant either way, and
+nobody else could write. So the private state is not a full run. One example
+sends every refused cell against the private Work and expects 403, never a 404
+that would hide whether the Work exists.
 
 The inventory works as it does for reads. A new write route fails the spec until
 it has a row, or a reason in `UNSCOPED`.

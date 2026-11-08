@@ -14,7 +14,9 @@ module WriteMatrix
   # Least to most privileged, so most rows refuse until their last cells.
   # :system sits beside the human ladder, so it goes after the delegate.
   TIERS  = %i[guest read_only standard editor delegate system admin].freeze
-  STATES = (MatrixWorld::STATES + %i[maintenance]).freeze
+  # A private Work changes no write cell: the editor holds the grant either way
+  # and nobody else could write. So it runs its refusals alone, below.
+  STATES = (MatrixWorld::STATES - %i[private] + %i[maintenance]).freeze
 
   # The subjects the editor's grant on the Work reaches.
   EDITOR_SUBJECTS = %i[work file_set blob].freeze
@@ -65,7 +67,7 @@ module WriteMatrix
   # route needs a second row. `on:` names the subject the :id resolves to, which
   # is also the subject the policy and the tombstone gate read.
   # `params:` builds the body from the world, `path:` the other path segments.
-  # `fresh:` rebuilds the world once the row has changed it.
+  # `fresh:` gives the row a throwaway subject, because a success damages it.
   # `refuses:` names the subjects whose own tombstone a service refuses with 422.
   MATRIX = {
     'resources#put_mods'                  => [:edit, { on: :work, params: ->(_) { { binary: upload(MODS, 'application/xml') } } }],
@@ -181,7 +183,7 @@ RSpec.describe 'Write matrix', type: :request, default_auth: false do
 
   def path_for(route, options)
     path = route.path.spec.to_s.sub('(.:format)', '')
-    path = path.sub(':id', world.public_send(options[:on]).noid) if path.include?(':id')
+    path = path.sub(':id', subject_for(options).noid) if path.include?(':id')
     (options[:path]&.call(world) || {}).reduce(path) { |p, (name, value)| p.sub(":#{name}", value.to_s) }
   end
 
@@ -205,14 +207,15 @@ RSpec.describe 'Write matrix', type: :request, default_auth: false do
      Atlas.query.find_all.map { |resource| [resource.id.to_s, resource.updated_at.to_f] }.sort]
   end
 
-  def rebuild!(state)
-    Atlas.persister.wipe!
+  def build!(state)
     @world = MatrixWorld.new(editor_nuid: users[:editor].nuid).build!
     # Built now, so the first cell that names them does not count their
     # creation as a write it made.
     [world.other_work, world.featured_collection]
     world.apply!(state) unless state == :maintenance
   end
+
+  def subject_for(options) = (options[:fresh] && @scratch) || world.public_send(options[:on])
 
   def check(state, row, tier)
     policy, options = WriteMatrix::MATRIX.fetch(row)
@@ -225,18 +228,16 @@ RSpec.describe 'Write matrix', type: :request, default_auth: false do
     "#{row} as #{tier}: expected #{expected}, got #{response.status}#{fault}"
   end
 
-  # A row that changed the world hands the next cell a fresh one, so every cell
-  # meets the world its state describes.
+  # A fresh row writes to a throwaway copy of its subject, in the same state,
+  # and takes a new one after each success. The shared world is never damaged,
+  # so it is built once per state.
   def run_state(state)
-    dirty = false
     WriteMatrix::MATRIX.flat_map do |row, (_, options)|
+      @scratch = nil
       WriteMatrix::TIERS.filter_map do |tier|
-        if dirty
-          rebuild!(state)
-          dirty = false
-        end
+        @scratch ||= world.scratch(options[:on], state) if options[:fresh]
         miss = check(state, row, tier)
-        dirty = true if options[:fresh] && response.status.between?(200, 299)
+        @scratch = nil if response.status.between?(200, 299)
         miss
       end
     end
@@ -244,12 +245,27 @@ RSpec.describe 'Write matrix', type: :request, default_auth: false do
 
   WriteMatrix::STATES.each do |state|
     it "answers every write as its row says when #{state.to_s.tr('_', ' ').sub(/\Alive/, 'all is live')}" do
-      rebuild!(state)
+      build!(state)
       MaintenanceMode.open!(source: 'operator') if state == :maintenance
 
       misses = run_state(state)
       expect(misses).to be_empty, "#{misses.size} cells differ:\n  #{misses.join("\n  ")}"
     end
+  end
+
+  # Every refusal on a private Work must be the write gate's 403, never a 404
+  # that hides whether the Work exists. The permitted cells answer as in the
+  # live state, so only the refusals run here.
+  it 'refuses every write on a private Work with 403' do
+    build!(:private)
+    misses = WriteMatrix::MATRIX.flat_map do |row, (policy, options)|
+      WriteMatrix::TIERS.filter_map do |tier|
+        next if WriteMatrix::Cell.new(:private, tier, policy, options).expected.between?(200, 299)
+
+        check(:private, row, tier)
+      end
+    end
+    expect(misses).to be_empty, "#{misses.size} cells differ:\n  #{misses.join("\n  ")}"
   end
 
   describe 'the route inventory' do

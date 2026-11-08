@@ -36,7 +36,7 @@ RSpec.describe 'Tombstone file access via atlas_rb', :atlas_rb_server do
 
     chunks = []
     expect { AtlasRb::Blob.content(caption.noid, nuid: editor.nuid) { |chunk| chunks << chunk } }
-      .to raise_error(AtlasRb::TombstonedError) { |e| expect(e.work_retracted?).to be(false) }
+      .to raise_error(AtlasRb::TombstonedError) { |e| expect(e.work_suppressed?).to be(false) }
     expect(chunks).to be_empty
 
     result, body = stream(admin)
@@ -52,7 +52,7 @@ RSpec.describe 'Tombstone file access via atlas_rb', :atlas_rb_server do
     expect { AtlasRb::Work.assets(work.noid, nuid: editor.nuid) }
       .to raise_error(AtlasRb::TombstonedError) { |e| expect(e.tombstoned_resource_id).to eq(work.noid) }
     expect { stream(editor.nuid) }
-      .to raise_error(AtlasRb::TombstonedError) { |e| expect(e.work_retracted?).to be(true) }
+      .to raise_error(AtlasRb::TombstonedError) { |e| expect(e.work_suppressed?).to be(true) }
 
     expect(AtlasRb::Work.assets(work.noid, nuid: admin).map(&:noid)).to include(caption.noid)
   end

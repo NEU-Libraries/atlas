@@ -1,0 +1,32 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# The spec files the last whole run saw read nothing from Solr, which can run on
+# Postgres alone. Each worker of a run writes tmp/no_index_candidates<N>.txt.
+#
+#   bin/no-index-candidates           # list them
+#   bin/no-index-candidates --apply   # add them to spec/no_index_files.txt
+#
+# A listed file that later starts reading Solr fails with a message naming the
+# line to remove, so applying blindly is safe. See docs/testing.md.
+
+root = File.expand_path('..', __dir__)
+list = File.join(root, 'spec/no_index_files.txt')
+listed = File.exist?(list) ? File.readlines(list, chomp: true) : []
+entries = listed.reject { |line| line.strip.empty? || line.start_with?('#') }
+
+found = Dir[File.join(root, 'tmp/no_index_candidates*.txt')].flat_map { |path| File.readlines(path, chomp: true) }
+candidates = (found.uniq - entries).select { |path| File.exist?(File.join(root, path)) }.sort
+
+if ARGV.include?('--apply')
+  if candidates.empty?
+    puts 'no new candidates'
+  else
+    header = listed.take_while { |line| line.start_with?('#') }
+    File.write(list, "#{(header + (entries + candidates).uniq.sort).join("\n")}\n")
+    puts "added #{candidates.size} to spec/no_index_files.txt"
+  end
+else
+  puts candidates
+  warn "#{candidates.size} candidate(s); --apply adds them" if candidates.any?
+end

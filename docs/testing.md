@@ -55,6 +55,50 @@ solr loses them — run `bin/parallel-solr-cores 4` again after any stack rebuil
 The databases need no such step; `rake parallel:prepare` creates and migrates
 them, and `rake parallel:spec` calls it.
 
+## Specs that run without a Solr index
+
+Most of a service or request example's time goes on building its fixtures, and
+about a fifth of every creator's time goes on indexing each save into Solr. A
+spec file that never reads Solr gains nothing from that, so the files listed in
+`spec/no_index_files.txt` run on Postgres alone: `spec/support/no_index.rb`
+switches their examples to a `:test_postgres_only` adapter, which keeps the
+response-cache eviction and drops the index. `spec/services` runs in about half
+the time that way.
+
+**A listed example that reads Solr raises.** An empty index would otherwise let
+a spec that checks something is absent from search pass for the wrong reason.
+The error names the line to remove from the list. Writes to Solr, such as an
+explicit `Atlas.reindex`, are allowed, and the Solr core is wiped after any
+listed example that made one, so a later search does not find it.
+
+Every Solr request goes through `RSolr::Client#execute`, so that one point
+decides what counts as a read: any request but an `update`.
+
+**The list keeps itself.** During any run of whole files, the same hook records
+which files read Solr. A run without line or tag filters writes the files that
+ran, passed and read nothing to `tmp/no_index_candidates<N>.txt`, one per
+parallel worker. A file that tags its own examples `:no_index` is left alone.
+
+```bash
+bin/no-index-candidates            # list the candidates
+bin/no-index-candidates --apply    # add them to spec/no_index_files.txt
+```
+
+To see why a file is not a candidate, run it with `NO_INDEX_DEBUG=1`: each Solr
+read it makes is printed with the app frame that sent it.
+
+Applying is safe without review, because the guard catches a wrong entry on the
+next run. Running it after every whole run suits a local hook. Hooks are per
+developer and stay out of the repository; two that work:
+
+- **After `bin/parallel-spec`,** in a shell alias or wrapper:
+  `bin/parallel-spec && bin/no-index-candidates --apply`.
+- **A Claude Code `PostToolUse` hook** on `Bash`, in your own
+  `.claude/settings.json`, that runs `bin/no-index-candidates --apply` when the
+  command was `bin/parallel-spec` and it succeeded.
+
+Commit the change to `spec/no_index_files.txt` with whatever change caused it.
+
 ## The smoke test
 
 ```bash

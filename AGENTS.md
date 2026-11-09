@@ -275,6 +275,10 @@ developer can see the reasoning rather than just the result.
 `Ability`,** and commit a raised baseline (`--update`) with the change. It takes
 seconds; `docs/testing.md` explains the five numbers.
 
+**Run `bin/no-index-candidates --apply` after any whole-suite run,** and commit
+a change to `spec/no_index_files.txt` with your change. `docs/testing.md` says
+why applying it is safe.
+
 **Run the specs covering what you touched, then `rake smoke`.** Choosing them is
 your call: the files you changed, their callers, and anything your change could
 plausibly reach. Do not run the full suite as a matter of routine — CI runs it,

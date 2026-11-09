@@ -1,0 +1,39 @@
+# Spec files that run on Postgres alone, without a Solr index. Maintained by
+# bin/no-index-candidates --apply; a listed file that reads Solr fails with a
+# message naming its line. See docs/testing.md.
+spec/lib/response_cache_spec.rb
+spec/models/concerns/modsable_spec.rb
+spec/services/audit_event_writer_spec.rb
+spec/services/binary_version_history_spec.rb
+spec/services/blob_creator_spec.rb
+spec/services/blob_revision_appender_spec.rb
+spec/services/collection_creator_spec.rb
+spec/services/community_creator_spec.rb
+spec/services/creator_envelope_emission_spec.rb
+spec/services/delegate_creator_spec.rb
+spec/services/delegate_updater_spec.rb
+spec/services/derivative_permissions_updater_spec.rb
+spec/services/file_set_creator_spec.rb
+spec/services/fixity_result_rebuilder_spec.rb
+spec/services/handle_minter_spec.rb
+spec/services/linked_member_creator_spec.rb
+spec/services/linked_member_remover_spec.rb
+spec/services/mets_rebuilder_spec.rb
+spec/services/mods_preloader_spec.rb
+spec/services/mods_version_history_spec.rb
+spec/services/oai/dublin_core_spec.rb
+spec/services/oai/resumption_token_spec.rb
+spec/services/permissions_write_guard_spec.rb
+spec/services/person_creator_spec.rb
+spec/services/personal_root_creator_spec.rb
+spec/services/preservation_envelope_writer_spec.rb
+spec/services/repository_reset_spec.rb
+spec/services/resource_purger_spec.rb
+spec/services/storage_footprint_recorder_spec.rb
+spec/services/storage_root_sealer_spec.rb
+spec/services/substrate_conformance_spec.rb
+spec/services/user_provisioner_spec.rb
+spec/services/work_association_creator_spec.rb
+spec/services/work_association_remover_spec.rb
+spec/services/work_creator_spec.rb
+spec/services/work_mets_rebuilder_spec.rb

@@ -90,6 +90,41 @@ RSpec.describe WorkHealthCheck do
       expect(codes).to include(:blob_metadata_missing)
     end
 
+    def stale_message(result = report)
+      result[:findings].find { |f| f[:code] == :envelope_stale }&.fetch(:message)
+    end
+
+    it 'flags a graph field Postgres changed without rewriting the envelope' do
+      save(reload(work).tap { |w| w.handle = 'DRSDEV/unwritten' })
+      expect(codes).to eq([:envelope_stale])
+      expect(stale_message).to end_with('relationships.json (handle)')
+    end
+
+    it 'flags an ACL Postgres changed without rewriting the envelope' do
+      save(reload(work).tap { |w| w.read_groups = ['northeastern:drs:archives'] })
+      expect(codes).to eq([:envelope_stale])
+      expect(stale_message).to end_with('permissions.json (read)')
+    end
+
+    it 'flags a tier policy Postgres changed without rewriting the envelope' do
+      save(reload(work).tap { |w| w.derivative_permissions = JSON.dump(large: ['northeastern:drs:archives']) })
+      expect(codes).to eq([:envelope_stale])
+      expect(stale_message).to end_with('permissions.json (derivative_permissions)')
+    end
+
+    it 'names both files when both have drifted' do
+      save(reload(work).tap do |w|
+        w.handle = 'DRSDEV/unwritten'
+        w.read_groups = ['northeastern:drs:archives']
+      end)
+      expect(stale_message).to end_with('relationships.json (handle); permissions.json (read)')
+    end
+
+    it 'clears once the envelope is rewritten' do
+      save(reload(work).tap { |w| w.read_groups = ['northeastern:drs:archives'] }).write_preservation_envelope!
+      expect(codes).to be_empty
+    end
+
     it 'flags a Work search cannot find' do
       RSolr.connect(url: SolrCore.url).tap do |solr|
         solr.delete_by_query("alternate_ids_ssim:\"id-#{work.noid}\"")

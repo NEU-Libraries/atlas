@@ -41,6 +41,17 @@ module OcflHealth
       graph&.fetch('type', nil)
     end
 
+    # The keys each file holds differently from the live payloads, by file. Both
+    # files count, because a rebuild restores the ACL and the tier policy from
+    # permissions.json as surely as the graph from the other. A file that is
+    # absent already has its own finding, so it reports no drift here.
+    def drift(graph:, permissions:)
+      { @graph_file => [@graph, graph], PERMISSIONS_FILE => [@permissions, permissions] }.filter_map do |file, (disk, live)|
+        keys = disk.nil? ? [] : (disk.keys | live.keys).reject { |k| same?(disk[k], live[k]) }
+        [file, keys] if keys.any?
+      end.to_h
+    end
+
     def parents
       Array(graph&.fetch('a_member_of', nil))
     end
@@ -56,8 +67,8 @@ module OcflHealth
       end
 
       def read_graph
-        name = GRAPH_FILES.find { |file| @validator.head_logical_paths.include?(file) }
-        return read_json(name) if name
+        @graph_file = GRAPH_FILES.find { |file| @validator.head_logical_paths.include?(file) }
+        return read_json(@graph_file) if @graph_file
 
         repairable(:envelope_missing, 'no relationships.json or properties.json in the head version')
         nil
@@ -78,6 +89,14 @@ module OcflHealth
 
         findings << Finding.new(severity: :fatal, code: :envelope_names_another_object,
                                 message: "#{label} names #{payload['noid'].inspect}", subject: key)
+      end
+
+      # Member order carries no meaning -- page order is `position` -- so an
+      # envelope listing the same members in another order is still current.
+      def same?(disk, live)
+        return disk.sort == live.sort if disk.is_a?(Array) && live.is_a?(Array)
+
+        disk == live
       end
 
       def check_schema

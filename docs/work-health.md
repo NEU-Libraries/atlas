@@ -106,7 +106,7 @@ vocabulary grows with the checks. These are the Work-level codes:
 | `no_content`, `empty_file_set`, `dangling_member`, `blob_unlinked` | repairable | Relink the bytes; the offline check shows whether disk still holds them |
 | `blob_metadata_missing` | repairable | Set the Blob's MIME type and filename |
 | `not_indexed` | repairable | `POST /resources/{id}/reindex` |
-| `envelope_missing`, `envelope_stale` | repairable | Rewrite the envelope (`atlas:preservation:backfill_envelopes`) |
+| `envelope_missing`, `envelope_stale` | repairable | Rewrite the envelope (`atlas:preservation:backfill_envelopes`). `envelope_stale` names each file that lags Postgres, `relationships.json` (or `properties.json`) or `permissions.json`, and the keys in it |
 | `flagged_incomplete` | repairable | Rerun the Cerberus job that set it |
 | `in_progress`, `suppressed`, `private`, `no_handle` | advisory | None; a state, not damage |
 

@@ -148,19 +148,10 @@ class WorkHealthCheck < ApplicationService
       @findings.concat(envelope.findings)
       return if envelope.graph.nil?
 
-      live = resource.graph_payload.as_json
-      drift = (envelope.graph.keys | live.keys).reject { |key| same?(envelope.graph[key], live[key]) }
+      drift = envelope.drift(graph: resource.graph_payload.as_json, permissions: resource.permissions_payload.as_json)
       return if drift.empty?
 
-      add(:repairable, :envelope_stale, "the on-disk envelope differs from Postgres in #{drift.join(', ')}",
-          resource.noid)
-    end
-
-    # Member order carries no meaning -- page order is `position` -- so an
-    # envelope listing the same members in another order is still current.
-    def same?(disk, live)
-      return disk.sort == live.sort if disk.is_a?(Array) && live.is_a?(Array)
-
-      disk == live
+      named = drift.map { |file, keys| "#{file} (#{keys.join(', ')})" }.join('; ')
+      add(:repairable, :envelope_stale, "the on-disk envelope differs from Postgres in #{named}", resource.noid)
     end
 end

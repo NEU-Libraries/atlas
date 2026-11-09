@@ -150,7 +150,9 @@ for `handle`, the reparenter for `a_member_of`, the association services for
 `associations`, tombstone and restore for `tombstone`, and `DerivativePermissionsUpdater` for
 `derivative_permissions`. `GET
 /works/{id}/health_check` reports a Work whose envelope has drifted as
-`envelope_stale`, naming the keys that differ ([`work-health.md`](work-health.md)).
+`envelope_stale`, naming each file and the keys in it that differ: the graph file
+and `permissions.json` both, because a rebuild restores from both
+([`work-health.md`](work-health.md)).
 
 A Derivative FileSet is the exception: it holds regenerable Delegates, so
 `FileSetCreator` writes it no envelope at all (`Classification.preserved?`).

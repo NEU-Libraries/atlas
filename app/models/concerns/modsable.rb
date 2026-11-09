@@ -73,6 +73,8 @@ module Modsable
     ResponseCache.evict(noid)
     return unless is_a?(Collection) || is_a?(Community)
     return if record.main_title&.attributes == previous_title
+    # The descendant lookup is a Solr query; with no cache there is nothing to evict.
+    return unless ResponseCache.enabled?
 
     ResponseCache.evict_many(DescendantNoidsQuery.call(self))
   end

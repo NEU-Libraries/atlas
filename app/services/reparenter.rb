@@ -56,7 +56,7 @@ class Reparenter < ApplicationService
     # left to age out. A Work move needs none of this: it has no descendants.
     def evict_descendant_response_cache!
       ResponseCache.evict(@node.noid)
-      return if @node.is_a?(Work)
+      return if @node.is_a?(Work) || !ResponseCache.enabled?
 
       ResponseCache.evict_many(DescendantNoidsQuery.call(@node))
     end

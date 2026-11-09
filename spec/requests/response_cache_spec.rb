@@ -144,7 +144,7 @@ RSpec.describe 'Response cache', :response_cache, type: :request, default_auth: 
     it 'drops every cached representation when the resource is written' do
       get "/works/#{public_work.noid}"
       get "/works/#{public_work.noid}/mods.json"
-      expect(cached_scopes_for(public_work.noid)).to include('works.show/any', 'works.mods.json/any')
+      expect(cached_scopes_for(public_work.noid)).to include('works.show/guest', 'works.mods.json/any')
 
       Atlas.persister.save(resource: Work.find(public_work.noid))
       expect(cached_scopes_for(public_work.noid)).to be_empty
@@ -286,7 +286,7 @@ RSpec.describe 'Response cache', :response_cache, type: :request, default_auth: 
     it 'drops a descendant Work when its container is renamed' do
       child = public_work
       get "/works/#{child.noid}"
-      expect(cached_scopes_for(child.noid)).to include('works.show/any')
+      expect(cached_scopes_for(child.noid)).to include('works.show/guest')
 
       set_mods_primary_title!(Collection.find(collection.noid), 'A Renamed Collection')
 
@@ -297,7 +297,7 @@ RSpec.describe 'Response cache', :response_cache, type: :request, default_auth: 
       child = public_work
       destination = public_community!
       get "/works/#{child.noid}"
-      expect(cached_scopes_for(child.noid)).to include('works.show/any')
+      expect(cached_scopes_for(child.noid)).to include('works.show/guest')
 
       Reparenter.call(node: Collection.find(collection.noid), destination: destination)
 
@@ -307,7 +307,7 @@ RSpec.describe 'Response cache', :response_cache, type: :request, default_auth: 
     it 'drops a descendant Collection when its Community is renamed' do
       sub = CollectionCreator.call(parent_id: collection.noid)
       get "/collections/#{sub.noid}"
-      expect(cached_scopes_for(sub.noid)).to include('collections.show/any')
+      expect(cached_scopes_for(sub.noid)).to include('collections.show/guest')
 
       set_mods_primary_title!(Community.find(community.noid), 'A Renamed Community')
 
@@ -320,7 +320,7 @@ RSpec.describe 'Response cache', :response_cache, type: :request, default_auth: 
       sub = CollectionCreator.call(parent_id: collection.noid)
       destination = public_community!
       get "/collections/#{sub.noid}"
-      expect(cached_scopes_for(sub.noid)).to include('collections.show/any')
+      expect(cached_scopes_for(sub.noid)).to include('collections.show/guest')
 
       Reparenter.call(node: Collection.find(collection.noid), destination: destination)
 

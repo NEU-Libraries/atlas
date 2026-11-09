@@ -40,7 +40,7 @@ class WorksController < ApplicationController
     return render_absent(Work, root: :work) if work.nil?
     return render_tombstone_stub(work, root: :work) if tombstone_withheld?(work)
 
-    cached_render('works.show', work) do
+    cached_render('works.show', work, audience: caller_audience) do
       @work = work.decorate
       render :show, status: (@work.tombstoned ? :gone : :ok)
     end

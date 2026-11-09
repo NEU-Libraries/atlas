@@ -18,7 +18,7 @@ json.community do
   json.tombstoned_at @community.tombstoned_at&.to_s
   json.tombstoned_by @community.tombstoned_by
   json.tombstone_reason @community.tombstone_reason
-  json.depositor @community.depositor
-  json.proxy_uploader @community.proxy_uploader
+  json.depositor GuestRedaction.nuid(@current_user, @community.depositor)
+  json.proxy_uploader GuestRedaction.nuid(@current_user, @community.proxy_uploader)
   json.system_container @community.system_container
 end

@@ -51,12 +51,11 @@ class ResponseCache
     resources.permissions
   ].freeze
 
-  # Most bodies are identical for every caller the gate admits. The two asset
-  # listings are not: works/_asset.json.jbuilder withholds the `permission`
-  # group list from guests, to avoid naming Grouper groups to public traffic,
-  # and the gated image URLs from a caller an active embargo withholds them
-  # from. Those are the ONLY caller inputs in any cached view, and both are
-  # booleans, so four buckets cover them rather than a key per principal.
+  # Most bodies are identical for every caller the gate admits. Two inputs vary
+  # them, both booleans, so a few buckets cover them rather than a key per
+  # principal: whether the caller is a guest, whom GuestRedaction and the asset
+  # listings tell less, and, for the asset listings only, whether an active
+  # embargo withholds the gated image URLs from the caller.
   AUDIENCES = %i[any guest authenticated guest_withheld authenticated_withheld].freeze
 
   # Eviction is the real mechanism; this is the backstop for a write path that

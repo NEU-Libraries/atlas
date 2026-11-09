@@ -64,7 +64,7 @@ class ResourcesController < ApplicationController
     return head(:not_found) if resource.nil?
 
     refuse_tombstoned!(resource)
-    cached_render('resources.permissions', resource) do
+    cached_render('resources.permissions', resource, audience: caller_audience) do
       @resource = resource
       render :permissions
     end

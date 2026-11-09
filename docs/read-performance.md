@@ -73,14 +73,20 @@ invisible until the TTL expires.
 
 ### The two axes a cached view varies on
 
-`works/_asset.json.jbuilder` withholds the `permission` group list from guests,
-**so public traffic is never told a Grouper group's name.** It also withholds
-the gated image URLs from a caller an embargo keeps them from
+**A guest is told less than a signed-in caller**
+([`authorization.md`](authorization.md#what-a-guest-is-not-told)), so every
+cached view that calls `GuestRedaction` — a Work, Collection or Community show,
+and `/resources/{id}/permissions` — passes `audience: caller_audience`, which
+splits guests from everyone else. `works/_asset.json.jbuilder` withholds the
+`permission` group list from guests on the same reasoning, and also withholds the
+gated image URLs from a caller an embargo keeps them from
 (`WithheldBytesGate#uri_withheld?`). `asset_audience` mirrors both conditions
 exactly.
 
-**If the view's conditions change, `asset_audience` must change with them.** The
-paired specs assert the buckets stay distinct.
+**If a view's conditions change, its audience must change with them.** A cached
+view that starts redacting for guests and keeps `audience: :any` serves the
+first caller's body to everyone. The paired specs assert the buckets stay
+distinct.
 
 ### `format_scope` returns nil for an unenumerated format
 

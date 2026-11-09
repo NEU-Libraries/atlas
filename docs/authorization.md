@@ -342,6 +342,36 @@ or any edit grant.
 rides on. On the write side there is deliberately **no staff default**: owner plus
 explicit grants, with `:admin` covering the rest through the wildcard.
 
+## What a guest is not told
+
+**No guest is told who deposited or may edit a resource, which Grouper groups
+it names, or where its bytes sit in storage, by any route.** The read gate
+decides whether a guest sees a resource at all; this decides how much of it.
+`GuestRedaction` (`app/lib/guest_redaction.rb`) applies one rule in every view
+that renders these fields:
+
+| What | For a guest | Where |
+|---|---|---|
+| `depositor`, `proxy_uploader` | null | Work, Collection, Community, a Set's `depositor`, `/resources/{id}/permissions` |
+| `edit_users` | empty | `/resources/{id}/permissions`, a Set |
+| `read`, `edit`, a Set's `read_groups` and `edit_groups` | only `public` | `/resources/{id}/permissions`, a Set |
+| A Work's `derivative_permissions` | each tier keeps only `public` | Work |
+| A Blob's `file_identifiers` | empty | `/files/{id}` |
+
+A group list keeps `public` rather than going empty, because a guest can hold
+no other group and an anonymous read check needs nothing more. Cerberus's
+`Ability` admits an anonymous visitor through `public` alone, so every answer it
+computes from these responses for a guest is unchanged. The asset listings
+already withheld the `permission` group list from guests on the same reasoning.
+
+A guest never sees a non-null `tombstoned_by`: a tombstoned record answers a
+guest with the stub, which carries no NUID. A Person's `nuid` is not redacted; it
+is the key the people routes and the directory are addressed by.
+
+The read and Set matrices hold this on every route: no guest response may carry
+a fixture account's NUID or any group but `public` (`MatrixTree::GUEST_UNTOLD`).
+`spec/requests/guest_redaction_spec.rb` covers the storage paths and the cache.
+
 ## The devolved-admin tier
 
 `apply_admin_delegate_abilities` keys on `User#admin_delegate?`, which requires

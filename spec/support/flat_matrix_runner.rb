@@ -43,11 +43,26 @@ RSpec.shared_examples 'a flat access matrix' do |matrix|
      Atlas.query.find_all.map { |resource| [resource.id.to_s, resource.updated_at.to_f] }.sort]
   end
 
+  def told_guest(tier)
+    return [] unless tier == :guest
+
+    secrets = MatrixTree::GUEST_UNTOLD + (@matrix.const_defined?(:GUEST_UNTOLD) ? @matrix::GUEST_UNTOLD : [])
+    body = response.body.b
+    secrets.select { |secret| body.include?(secret) }
+  end
+
+  # A refused write that changed the repository, or a guest told too much.
+  def flat_faults(before, tier)
+    told = told_guest(tier)
+    [(', and changed the repository' if before && repository_fingerprint != before),
+     (", tells a guest #{told.join(', ')}" if told.any?)].compact.join.presence
+  end
+
   def flat_check(state, row, tier)
     expected = Array(FlatMatrix.expected(state, tier, matrix_options(row)))
     before = repository_fingerprint unless expected.any? { |status| status.between?(200, 299) }
     flat_request!(row, tier, state)
-    fault = ', and changed the repository' if before && repository_fingerprint != before
+    fault = flat_faults(before, tier)
     return if expected.include?(response.status) && fault.nil?
 
     "#{row} as #{tier}: expected #{expected.join(' or ')}, got #{response.status}#{fault}"

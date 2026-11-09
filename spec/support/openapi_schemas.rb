@@ -177,7 +177,8 @@ module OpenapiSchemas
                                              '[read groups]. Image ladder small/medium/large/service/' \
                                              'original plus independent tiers audio/video/pdf/archive/' \
                                              'spreadsheet/structured_text/presentation/text/generic. Empty ' \
-                                             'when unset (tiers inherit the Work visibility).'
+                                             'when unset (tiers inherit the Work visibility). For a guest each ' \
+                                             'tier keeps only `public`, so a reserved tier reads [].'
                      },
                      metadata_formats:       {
                        type:        :array,
@@ -234,9 +235,10 @@ module OpenapiSchemas
               language:                 { type: :string, nullable: true, description: 'BCP 47 language of a caption or other text track (e.g. en, es-MX)' },
               track_label:              { type: :string, nullable: true, description: 'Display name a player shows for the track (e.g. "Español")' },
               file_identifiers:         {
-                type:  :array,
-                items: { type: :object, additionalProperties: true,
-                 description: 'Valkyrie::ID-shaped reference to the underlying bytes' }
+                type:        :array,
+                items:       { type: :object, additionalProperties: true,
+                               description: 'Valkyrie::ID-shaped reference to the underlying bytes' },
+                description: 'Where the bytes sit in OCFL storage. Empty for a guest.'
               },
               tombstoned:               { type: :boolean, description: 'Tombstoned (suppressed from discovery) flag' },
               tombstoned_at:            { type: :string, nullable: true, description: 'ISO-8601 timestamp set when tombstoned' },
@@ -568,7 +570,7 @@ module OpenapiSchemas
       id:          { type: :string, description: 'NOID (minted; the API-addressable id)' },
       title:       { type: :string },
       description: { type: :string, nullable: true },
-      depositor:   { type: :string, description: 'Curator NUID (owner)' },
+      depositor:   { type: :string, nullable: true, description: 'Curator NUID (owner). Null for a guest.' },
       published:   { type:        :boolean,
                      description: 'OAI-PMH set flag: when true the Set is listed by ' \
                                   'GET /oai?verb=ListSets and harvesters may walk it' }
@@ -590,9 +592,9 @@ module OpenapiSchemas
 
   def compilation_acl_props
     {
-      edit_users:  { type: :array, items: { type: :string } },
-      read_groups: { type: :array, items: { type: :string } },
-      edit_groups: { type: :array, items: { type: :string } },
+      edit_users:  { type: :array, items: { type: :string }, description: 'Empty for a guest' },
+      read_groups: { type: :array, items: { type: :string }, description: 'Only `public` for a guest' },
+      edit_groups: { type: :array, items: { type: :string }, description: 'Only `public` for a guest' },
       created_at:  { type: :string, format: 'date-time' },
       updated_at:  { type: :string, format: 'date-time' }
     }
@@ -852,7 +854,9 @@ module OpenapiSchemas
 
   def permissions
     wrapped(:resource, {}, additional:  true,
-                           description: 'Permission flags merged from Resource#permissions')
+                           description: 'Permission flags merged from Resource#permissions. For a guest ' \
+                                        'depositor and proxy_uploader are null, edit_users is empty, and read ' \
+                                        'and edit keep only `public`.')
   end
 
   # GET /resources/:id can return any of these shapes — the controller
@@ -933,8 +937,8 @@ module OpenapiSchemas
   # split out for Work-specific keys.
   def provenance_props
     {
-      depositor:      { type: :string, nullable: true, description: 'NUID of the intellectual owner (the named depositor; may differ from the hands-on-keyboard actor)' },
-      proxy_uploader: { type: :string, nullable: true, description: 'NUID of the hands-on-keyboard actor for the most-recent create. Equals depositor for self-deposit; differs in the librarian-on-behalf (proxy-deposit) case. Left null under acting-as impersonation (On-Behalf-Of header present) — the operator is recorded only in the AuditEvent, not on the resource.' }
+      depositor:      { type: :string, nullable: true, description: 'NUID of the intellectual owner (the named depositor; may differ from the hands-on-keyboard actor). Null for a guest.' },
+      proxy_uploader: { type: :string, nullable: true, description: 'NUID of the hands-on-keyboard actor for the most-recent create. Equals depositor for self-deposit; differs in the librarian-on-behalf (proxy-deposit) case. Left null under acting-as impersonation (On-Behalf-Of header present) — the operator is recorded only in the AuditEvent, not on the resource. Null for a guest.' }
     }
   end
 

@@ -66,6 +66,12 @@ module MatrixTree
     delegate:     { nuid: '000000062', role: :privileged, groups: [ADMIN_GROUP] }
   }.freeze
 
+  # What a guest is never told, on any route: a fixture account's NUID, which
+  # names a depositor or an editor, and any group but `public`. See
+  # GuestRedaction.
+  GUEST_UNTOLD = (ACCOUNTS.values.pluck(:nuid) +
+                  [READER_GROUP, EDITOR_GROUP, RESERVED_GROUP, STAFF_GROUP, ADMIN_GROUP]).freeze
+
   # What each caller holds in the fixture world. Every expected cell is
   # derived from these sets, so a caller's meaning is stated once.
   #

@@ -26,7 +26,7 @@ class CommunitiesController < ApplicationController
     return render_absent(Community, root: :community) if resource.nil?
     return render_tombstone_stub(resource, root: :community) if tombstone_withheld?(resource)
 
-    cached_render('communities.show', resource) do
+    cached_render('communities.show', resource, audience: caller_audience) do
       @community = resource.decorate
 
       render :show, status: (@community.tombstoned ? :gone : :ok)

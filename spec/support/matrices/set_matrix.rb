@@ -22,6 +22,9 @@ module SetMatrix
     set_editor: { nuid: '000000072', role: :standard, groups: [] }
   }.freeze
 
+  # Beyond MatrixTree::GUEST_UNTOLD: the Set's own reader group and editor.
+  GUEST_UNTOLD = ([READER_GROUP] + ACCOUNTS.values.pluck(:nuid)).freeze
+
   ADMINS  = %i[admin read_only].freeze
   EDITORS = (%i[set_editor owner] + ADMINS).freeze
   HUMANS  = %i[standard set_reader set_editor owner delegate admin].freeze

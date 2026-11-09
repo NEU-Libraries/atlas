@@ -45,6 +45,12 @@ module CachedResponses
       uri_withheld?(@work) ? :"#{audience}_withheld" : audience.to_sym
     end
 
+    # For a view that redacts through GuestRedaction, which tells a guest less
+    # than a signed-in caller.
+    def caller_audience
+      GuestRedaction.guest?(@current_user) ? :guest : :authenticated
+    end
+
     # nil for a format nobody enumerated, which renders without caching: the
     # request's format is a runtime input. A scope string that is simply wrong
     # is programmer error and still raises in ResponseCache.key.

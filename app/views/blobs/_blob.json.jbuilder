@@ -11,7 +11,7 @@ json.blob do
   json.label Label.find(@blob.label)&.name
   json.language @blob.language
   json.track_label @blob.track_label
-  json.file_identifiers @blob.file_identifiers
+  json.file_identifiers GuestRedaction.storage_paths(@current_user, @blob.file_identifiers)
   json.tombstoned @blob.tombstoned
   json.tombstoned_at @blob.tombstoned_at&.to_s
   json.tombstoned_by @blob.tombstoned_by

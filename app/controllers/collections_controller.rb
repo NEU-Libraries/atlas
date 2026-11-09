@@ -27,7 +27,7 @@ class CollectionsController < ApplicationController
     return render_absent(Collection, root: :collection) if resource.nil?
     return render_tombstone_stub(resource, root: :collection) if tombstone_withheld?(resource)
 
-    cached_render('collections.show', resource) do
+    cached_render('collections.show', resource, audience: caller_audience) do
       @collection = resource.decorate
 
       render :show, status: (@collection.tombstoned ? :gone : :ok)

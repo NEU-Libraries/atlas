@@ -1,5 +1,5 @@
 # frozen_string_literal: true
 
 json.resource do
-  json.merge! @resource.permissions
+  json.merge! GuestRedaction.permissions(@current_user, @resource.permissions)
 end

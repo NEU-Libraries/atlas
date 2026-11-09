@@ -15,7 +15,7 @@ json.work do
   # TierVisibility). Keys span the image ladder (small/medium/large/service/
   # original) plus the independent tiers (INDEPENDENT_MEDIA). Echoed for Cerberus's
   # editing UI; the effective per-asset gate is surfaced on /works/:id/assets.
-  json.derivative_permissions @work.derivative_permissions_map
+  json.derivative_permissions GuestRedaction.tier_map(@current_user, @work.derivative_permissions_map)
   json.title @work.plain_title
   json.description @work.plain_description
   json.permanent_url @work.mods&.permanent_url
@@ -24,8 +24,8 @@ json.work do
   json.tombstoned_at @work.tombstoned_at&.to_s
   json.tombstoned_by @work.tombstoned_by
   json.tombstone_reason @work.tombstone_reason
-  json.depositor @work.depositor
-  json.proxy_uploader @work.proxy_uploader
+  json.depositor GuestRedaction.nuid(@current_user, @work.depositor)
+  json.proxy_uploader GuestRedaction.nuid(@current_user, @work.proxy_uploader)
   json.in_progress @work.in_progress
   json.incomplete @work.incomplete
   json.incomplete_reason @work.incomplete_reason

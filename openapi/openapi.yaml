@@ -221,7 +221,7 @@ components:
               type: string
               nullable: true
               description: NUID of the intellectual owner (the named depositor; may
-                differ from the hands-on-keyboard actor)
+                differ from the hands-on-keyboard actor). Null for a guest.
             proxy_uploader:
               type: string
               nullable: true
@@ -229,7 +229,7 @@ components:
                 create. Equals depositor for self-deposit; differs in the librarian-on-behalf
                 (proxy-deposit) case. Left null under acting-as impersonation (On-Behalf-Of
                 header present) — the operator is recorded only in the AuditEvent,
-                not on the resource.
+                not on the resource. Null for a guest.
             in_progress:
               type: boolean
               description: Cerberus-driven workflow flag; true until the bulk-deposit
@@ -259,7 +259,8 @@ components:
               description: 'Per-asset derivative read policy: sparse map of tier =>
                 [read groups]. Image ladder small/medium/large/service/original plus
                 independent tiers audio/video/pdf/archive/spreadsheet/structured_text/presentation/text/generic.
-                Empty when unset (tiers inherit the Work visibility).'
+                Empty when unset (tiers inherit the Work visibility). For a guest
+                each tier keeps only `public`, so a reserved tier reads [].'
             metadata_formats:
               type: array
               items:
@@ -402,7 +403,7 @@ components:
               type: string
               nullable: true
               description: NUID of the intellectual owner (the named depositor; may
-                differ from the hands-on-keyboard actor)
+                differ from the hands-on-keyboard actor). Null for a guest.
             proxy_uploader:
               type: string
               nullable: true
@@ -410,7 +411,7 @@ components:
                 create. Equals depositor for self-deposit; differs in the librarian-on-behalf
                 (proxy-deposit) case. Left null under acting-as impersonation (On-Behalf-Of
                 header present) — the operator is recorded only in the AuditEvent,
-                not on the resource.
+                not on the resource. Null for a guest.
             featured:
               type: boolean
               description: Showcase "Featured" flag (genre-showcase Collection)
@@ -546,7 +547,7 @@ components:
               type: string
               nullable: true
               description: NUID of the intellectual owner (the named depositor; may
-                differ from the hands-on-keyboard actor)
+                differ from the hands-on-keyboard actor). Null for a guest.
             proxy_uploader:
               type: string
               nullable: true
@@ -554,7 +555,7 @@ components:
                 create. Equals depositor for self-deposit; differs in the librarian-on-behalf
                 (proxy-deposit) case. Left null under acting-as impersonation (On-Behalf-Of
                 header present) — the operator is recorded only in the AuditEvent,
-                not on the resource.
+                not on the resource. Null for a guest.
             system_container:
               type: boolean
               description: Auto-provisioned structural-container flag (the singleton
@@ -676,6 +677,7 @@ components:
                 type: object
                 additionalProperties: true
                 description: Valkyrie::ID-shaped reference to the underlying bytes
+              description: Where the bytes sit in OCFL storage. Empty for a guest.
             tombstoned:
               type: boolean
               description: Tombstoned (suppressed from discovery) flag
@@ -1736,7 +1738,9 @@ components:
           properties: {}
           required: []
           additionalProperties: true
-          description: Permission flags merged from Resource#permissions
+          description: Permission flags merged from Resource#permissions. For a guest
+            depositor and proxy_uploader are null, edit_users is empty, and read and
+            edit keep only `public`.
       required:
       - resource
     ResourceRef:
@@ -2819,7 +2823,8 @@ components:
               nullable: true
             depositor:
               type: string
-              description: Curator NUID (owner)
+              nullable: true
+              description: Curator NUID (owner). Null for a guest.
             published:
               type: boolean
               description: 'OAI-PMH set flag: when true the Set is listed by GET /oai?verb=ListSets
@@ -2843,14 +2848,17 @@ components:
               type: array
               items:
                 type: string
+              description: Empty for a guest
             read_groups:
               type: array
               items:
                 type: string
+              description: Only `public` for a guest
             edit_groups:
               type: array
               items:
                 type: string
+              description: Only `public` for a guest
             created_at:
               type: string
               format: date-time
@@ -2886,7 +2894,8 @@ components:
           nullable: true
         depositor:
           type: string
-          description: Curator NUID (owner)
+          nullable: true
+          description: Curator NUID (owner). Null for a guest.
         published:
           type: boolean
           description: 'OAI-PMH set flag: when true the Set is listed by GET /oai?verb=ListSets
@@ -2910,14 +2919,17 @@ components:
           type: array
           items:
             type: string
+          description: Empty for a guest
         read_groups:
           type: array
           items:
             type: string
+          description: Only `public` for a guest
         edit_groups:
           type: array
           items:
             type: string
+          description: Only `public` for a guest
         created_at:
           type: string
           format: date-time

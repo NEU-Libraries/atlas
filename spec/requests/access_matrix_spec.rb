@@ -94,14 +94,27 @@ RSpec.describe 'Access matrix', type: :request, default_auth: false do
     withheld.select { |s| markers[s] && body.include?(markers[s]) }
   end
 
+  def told_guest(tier)
+    return [] unless tier == :guest
+
+    body = response.body.b
+    MatrixTree::GUEST_UNTOLD.select { |secret| body.include?(secret) }
+  end
+
+  # What is wrong with the body, whatever the status.
+  def faults(state, tier, options)
+    leaks = leaked_markers(state, tier)
+    told = told_guest(tier)
+    [(', bytes wrong' if bytes_wrong?(options)), (", carries #{leaks.join(', ')}" if leaks.any?),
+     (", tells a guest #{told.join(', ')}" if told.any?)].compact
+  end
+
   # The cell's miss, or nil when the response is what the row says.
   def check(state, key, subject, tier)
     policy, options = AccessMatrix::MATRIX[key]
     expected = AccessMatrix.expected(state, tier, subject, policy, options || {})
-    faults = [(', bytes wrong' if bytes_wrong?(options || {}))]
-    leaks = leaked_markers(state, tier)
-    faults << ", carries #{leaks.join(', ')}" if leaks.any?
-    return if response.status == expected && faults.compact.empty?
+    faults = faults(state, tier, options || {})
+    return if response.status == expected && faults.empty?
 
     "#{key} as #{tier}: expected #{expected}, got #{response.status}#{faults.join}"
   end

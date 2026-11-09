@@ -18,8 +18,8 @@ json.collection do
   json.tombstoned_at @collection.tombstoned_at&.to_s
   json.tombstoned_by @collection.tombstoned_by
   json.tombstone_reason @collection.tombstone_reason
-  json.depositor @collection.depositor
-  json.proxy_uploader @collection.proxy_uploader
+  json.depositor GuestRedaction.nuid(@current_user, @collection.depositor)
+  json.proxy_uploader GuestRedaction.nuid(@current_user, @collection.proxy_uploader)
   json.featured @collection.featured
   json.personal_root @collection.personal_root
 end

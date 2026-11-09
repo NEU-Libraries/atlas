@@ -87,8 +87,11 @@ module WriteMatrix
   # `refuses:` names the subjects whose own tombstone a service refuses with 422.
   MATRIX = {
     'resources#put_mods'                  => [:edit, { on: :work, params: ->(_) { { binary: upload('work-mods.xml', 'application/xml') } } }],
-    'resources#update_permissions'        => [:edit, { on: :work, json: true,
-                                                         params: ->(w) { { permissions: { read: Resource.find(w.work.noid).read_groups } } } }],
+    # This row and the tier-policy row change a value the envelope carries, so
+    # the envelope check can see whether the write rewrote it.
+    'resources#update_permissions'        => [:edit, { on: :work, json: true, params: lambda { |w|
+      { permissions: { read: (Resource.find(w.work.noid).read_groups + [MatrixTree::READER_GROUP]).uniq } }
+    } }],
     'resources#update_thumbnails'         => [:edit, { on: :work, params: ->(_) { { thumbnail: 'https://iiif.example/matrix.jpg' } } }],
     'resources#update_parent'             => [:operator, { on: :work, fresh: true, refuses: %i[work empty_collection],
                                                              params: ->(w) { { parent_id: w.empty_collection.noid } } }],
@@ -102,7 +105,7 @@ module WriteMatrix
     'darwin_core#update'                  => [:edit, { on: :work, params: ->(_) { { binary: upload('dwc.xml', 'application/xml') } } }],
     'darwin_core#destroy'                 => [:edit, { on: :work, fresh: true, ok: 204 }],
     'works#update_image_derivatives'      => [:edit, { on: :work, params: ->(_) { { small: 'https://iiif.example/small.jpg' } } }],
-    'works#update_derivative_permissions' => [:edit, { on: :work, json: true, params: ->(_) { {} } }],
+    'works#update_derivative_permissions' => [:edit, { on: :work, json: true, params: ->(_) { { service: [MatrixTree::EDITOR_GROUP] } } }],
     'works#update_full_text'              => [:edit, { on: :work, params: ->(_) { { text: 'matrix' } } }],
     'works#complete'                      => [:edit, { on: :work }],
     'works#mark_incomplete'               => [:edit, { on: :work, params: ->(_) { { reason: 'matrix' } } }],

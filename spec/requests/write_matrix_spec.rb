@@ -58,12 +58,26 @@ RSpec.describe 'Write matrix', type: :request, default_auth: false do
 
   def subject_for(options) = (options[:fresh] && @scratch) || world.public_send(options[:on])
 
+  # The fixtures start every state sealed, so any envelope that lags Postgres
+  # after a permitted write is one that write left behind. A refused write
+  # changes nothing (the fingerprint holds it), so it needs no scan.
+  def envelope_fault
+    return nil unless response.status.between?(200, 299)
+
+    lagging = lagging_envelopes(since: world.sealed)
+    world.seal!(lagging)
+    return nil if lagging.empty?
+
+    ", and left the envelope behind: #{lagging.map { |r, lag| "#{r.class.name} #{r.noid} #{lag}" }.join(', ')}"
+  end
+
   def check(state, row, tier)
     policy, options = WriteMatrix::MATRIX.fetch(row)
     expected = WriteMatrix::Cell.new(state, tier, policy, options).expected
     before = fingerprint unless expected.between?(200, 299)
     request!(row, tier)
     fault = ', and changed the repository' if before && fingerprint != before
+    fault = "#{fault}#{envelope_fault}".presence
     return if response.status == expected && fault.nil?
 
     "#{row} as #{tier}: expected #{expected}, got #{response.status}#{fault}"

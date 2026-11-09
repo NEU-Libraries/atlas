@@ -26,7 +26,7 @@ class AccessMatrixFixtures
   DWC     = Rails.root.join('spec/fixtures/files/dwc.xml')
 
   attr_reader :community, :collection, :work, :blob, :file_set, :delegate, :gated_delegate, :empty_collection,
-              :sub_community
+              :sub_community, :sealed
 
   # Every route the application draws, framework routes aside, as
   # [route, 'controller#action'].
@@ -50,11 +50,21 @@ class AccessMatrixFixtures
     [collection, empty_collection, sub_community].each { |container| curate!(container) }
     WorkMETSRebuilder.call(work: work)
     Work.find(work.noid).darwin_core_xml = File.read(DWC)
+    seal!
+  end
+
+  # The fixtures grant and publicize with bare saves, which leave the envelope
+  # behind. Rewriting every lagging one gives each state a world whose disk
+  # agrees with Postgres, so the write matrix can hold every write to that.
+  # `sealed` keeps each resource's last write as of the seal.
+  def seal!(lagging = lagging_envelopes)
+    lagging.each_key(&:write_preservation_envelope!)
+    @sealed = envelope_snapshot
     self
   end
 
   def apply!(state)
-    return send(:"#{state}!") if %i[group_read purged unattached].include?(state)
+    return send(:"#{state}!").then { seal! } if %i[group_read purged unattached].include?(state)
 
     resource = { private: work, work_tombstoned: work, file_set_tombstoned: file_set,
                  collection_tombstoned: empty_collection, community_tombstoned: sub_community }[state]
@@ -63,6 +73,7 @@ class AccessMatrixFixtures
     resource = Resource.find(resource.noid)
     state == :private ? resource.privatize : resource.tombstone(by: DefaultAuthHeaders::ADMIN_NUID)
     Atlas.persister.save(resource: resource)
+    seal!
   end
 
   # A second Work, for the association routes, which need a Work at each end.
@@ -86,10 +97,10 @@ class AccessMatrixFixtures
                                                             path: FIXTURE.to_s)
                when :empty_collection then curate!(CollectionCreator.call(parent_id: community.noid))
                end
-    return resource unless TOMBSTONED[state] == subject
+    return resource.tap { seal! } unless TOMBSTONED[state] == subject
 
     resource.tombstone(by: DefaultAuthHeaders::ADMIN_NUID)
-    Atlas.persister.save(resource: resource)
+    Atlas.persister.save(resource: resource).tap { seal! }
   end
 
   private

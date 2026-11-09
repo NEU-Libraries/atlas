@@ -147,12 +147,16 @@ A persister save changes Postgres and Solr only. **Any write that changes a
 value the envelope carries must call `write_preservation_envelope!` after it,**
 or disk keeps the old value and a rebuild restores it. The minter does this
 for `handle`, the reparenter for `a_member_of`, the association services for
-`associations`, tombstone and restore for `tombstone`, and `DerivativePermissionsUpdater` for
-`derivative_permissions`. `GET
-/works/{id}/health_check` reports a Work whose envelope has drifted as
-`envelope_stale`, naming each file and the keys in it that differ: the graph file
-and `permissions.json` both, because a rebuild restores from both
-([`work-health.md`](work-health.md)).
+`associations`, tombstone and restore for `tombstone`, and
+`DerivativePermissionsUpdater` for `derivative_permissions`.
+
+The write matrix holds this rule for every write route: after each permitted
+write, no envelope may lag Postgres
+([`testing.md`](testing.md#what-the-write-matrix-checks)). In a running
+repository, `GET /works/{id}/health_check` reports a Work whose envelope has
+drifted as `envelope_stale`, naming each file and the keys in it that differ:
+the graph file and `permissions.json` both, because a rebuild restores from
+both ([`work-health.md`](work-health.md)).
 
 A Derivative FileSet is the exception: it holds regenerable Delegates, so
 `FileSetCreator` writes it no envelope at all (`Classification.preserved?`).

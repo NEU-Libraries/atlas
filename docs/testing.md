@@ -187,7 +187,7 @@ refuses a tombstoned node or target says so in `refuses:`. A route that needs a
 second row, such as the one `:system` grant on linked members, takes an
 `@variant` suffix.
 
-Two checks go beyond the status:
+Three checks go beyond the status:
 
 - **A refused write changes nothing.** Before each cell that should be refused,
   the spec takes a fingerprint: every resource's last write, the audit rows and
@@ -197,6 +197,22 @@ Two checks go beyond the status:
 - **The permitted cells must succeed.** The admin's cell in the live state
   expects the row's success status, so a row with a wrong payload fails instead
   of passing as a refusal.
+- **A permitted write rewrites the envelope.** After each cell that succeeds,
+  every resource written since the world was last sealed must have an envelope
+  that agrees with Postgres, in both `relationships.json` (or `properties.json`)
+  and `permissions.json`. The failure names the resource and the keys that lag.
+  The fixtures grant and publicize with bare saves, so
+  `AccessMatrixFixtures#seal!` rewrites every lagging envelope after the world
+  is built, after a state is applied and after each scratch subject, and again
+  after a write the check has failed, so the next cell is not blamed for it. If
+  any resource has gone, the scan covers every resource, because a graph names
+  its members by NOID and a purge does not save the resource that names it.
+
+  A write proves this only if it changes a value the envelope carries. So the
+  `resources#update_permissions` row adds a read group and the
+  `works#update_derivative_permissions` row reserves a tier, rather than
+  sending back what the Work already holds. A new row for a write to an
+  envelope field must do the same.
 
 A successful write changes the world for the next cell. The callers run from
 the least privileged to the most, so most rows refuse until their last cells.

@@ -126,7 +126,7 @@ makes across every route instead.
 | Matrix | Spec | Routes | States |
 |---|---|---|---|
 | Read | `access_matrix_spec.rb` | every read of the resource tree | live, private, the four tombstones, embargoed, tier gated, readable by one group, purged, unattached |
-| Write | `write_matrix_spec.rb` | every write to the resource tree | live, the four tombstones, maintenance; private as refusals only |
+| Write | `write_matrix/<state>_spec.rb` | every write to the resource tree | live, the four tombstones, maintenance; private as refusals only |
 | Sets | `set_matrix_spec.rb` | Compilations | a public Set, a private Set |
 | People | `people_matrix_spec.rb` | Persons | live, maintenance |
 | Accounts | `account_matrix_spec.rb` | the user directory, accounts, tokens | live, maintenance |
@@ -221,6 +221,12 @@ A row whose success damages its subject, such as `tombstone`, `destroy` or
 subject, which `AccessMatrixFixtures#scratch` builds in the shape the state
 gives the shared one, and it takes a new copy after each success. The shared world is
 built once per state, because rebuilding it costs about four seconds.
+
+Each state runs from its own file, `spec/requests/write_matrix/<state>_spec.rb`,
+through the shared examples in `spec/support/write_matrix_runner.rb`. A state
+takes a minute or two, and `parallel_tests` splits the suite by file, so the
+matrix as one file put ten minutes on a single worker. `acl_coverage_spec.rb`
+fails if a state in `WriteMatrix::STATES` has no file.
 
 A private Work changes no write cell: the Work's editors hold the grant either
 way, and nobody else could write. So the private state is not a full run. One

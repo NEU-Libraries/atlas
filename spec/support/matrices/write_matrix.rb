@@ -5,7 +5,7 @@ require_relative 'tree'
 # The write matrix's table: what every write route answers, for each state a
 # resource can be in and each caller tier, on the read matrix's world. It
 # loads without RSpec, so bin/acl-coverage can read it;
-# spec/requests/write_matrix_spec.rb sends the requests. See docs/testing.md.
+# spec/support/write_matrix_runner.rb sends the requests. See docs/testing.md.
 #
 # it would scatter a single decision across modules.
 module WriteMatrix

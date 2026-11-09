@@ -475,8 +475,8 @@ Four writes leave the gate out:
   Solr document can still be rebuilt.
 
 A container create into a tombstoned parent is refused separately, with 422, for
-every caller (`ParentScopedCreate`). `spec/requests/write_matrix_spec.rb` checks
-the rule on every write route.
+every caller (`ParentScopedCreate`). The write matrix (`spec/requests/write_matrix/`)
+checks the rule on every write route.
 
 ### `/mods` renders the typed view
 

@@ -24,6 +24,13 @@ RSpec.describe ACLCoverage do
     it 'holds every number at or above spec/acl_coverage_baseline.json' do
       expect(described_class.regressions(report.metrics, described_class.baseline)).to be_empty
     end
+
+    # Each write-matrix state runs from its own file, so a state without one
+    # would count toward M4 and never be sent.
+    it 'gives every write-matrix state its own spec file' do
+      files = Rails.root.glob('spec/requests/write_matrix/*_spec.rb').map { |path| path.basename('_spec.rb').to_s }
+      expect(files).to match_array((WriteMatrix::STATES + %i[private]).map(&:to_s))
+    end
   end
 
   describe 'the rules' do

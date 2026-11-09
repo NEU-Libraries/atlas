@@ -1,13 +1,12 @@
 # frozen_string_literal: true
 
-require 'rails_helper'
-
 # Sends every row of WriteMatrix (spec/support/matrices/write_matrix.rb) as
-# every tier, in every state. A refused cell must also leave the repository
-# unchanged. See docs/testing.md.
-
-# default_auth: false — the global admin default would be served everything.
-RSpec.describe 'Write matrix', type: :request, default_auth: false do
+# every tier, in one state. A refused cell must also leave the repository
+# unchanged, and a permitted one must rewrite every envelope it changes. Each
+# state is its own file under spec/requests/write_matrix/, so the parallel
+# workers can share them out: one state takes a minute or two, and the matrix as
+# a single file was the slowest worker by far. See docs/testing.md.
+RSpec.shared_examples 'the write matrix' do |state|
   include_context 'access matrix callers'
 
   attr_reader :world
@@ -98,7 +97,22 @@ RSpec.describe 'Write matrix', type: :request, default_auth: false do
     end
   end
 
-  WriteMatrix::STATES.each do |state|
+  if state == :private
+    # Every refusal on a private Work must be the write gate's 403, never a 404
+    # that hides whether the Work exists. The permitted cells answer as in the
+    # live state, so only the refusals run here.
+    it 'refuses every write on a private Work with 403' do
+      build!(:private)
+      misses = WriteMatrix::MATRIX.flat_map do |row, (policy, options)|
+        WriteMatrix::TIERS.filter_map do |tier|
+          next if WriteMatrix::Cell.new(:private, tier, policy, options).expected.between?(200, 299)
+
+          check(:private, row, tier)
+        end
+      end
+      expect(misses).to be_empty, "#{misses.size} cells differ:\n  #{misses.join("\n  ")}"
+    end
+  else
     it "answers every write as its row says when #{state.to_s.tr('_', ' ').sub(/\Alive/, 'all is live')}" do
       build!(state)
       MaintenanceMode.open!(source: 'operator') if state == :maintenance
@@ -106,20 +120,5 @@ RSpec.describe 'Write matrix', type: :request, default_auth: false do
       misses = run_state(state)
       expect(misses).to be_empty, "#{misses.size} cells differ:\n  #{misses.join("\n  ")}"
     end
-  end
-
-  # Every refusal on a private Work must be the write gate's 403, never a 404
-  # that hides whether the Work exists. The permitted cells answer as in the
-  # live state, so only the refusals run here.
-  it 'refuses every write on a private Work with 403' do
-    build!(:private)
-    misses = WriteMatrix::MATRIX.flat_map do |row, (policy, options)|
-      WriteMatrix::TIERS.filter_map do |tier|
-        next if WriteMatrix::Cell.new(:private, tier, policy, options).expected.between?(200, 299)
-
-        check(:private, row, tier)
-      end
-    end
-    expect(misses).to be_empty, "#{misses.size} cells differ:\n  #{misses.join("\n  ")}"
   end
 end

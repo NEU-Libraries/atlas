@@ -91,7 +91,7 @@ attributes land on different sides of it.
 |---|---|---|
 | `handle` | **Yes**, schema v5 | An external Handle service holds the other half of the binding and the outside world cites it. **Nothing in the repository can re-derive it**, so a rebuild that lost it would break every outside citation. |
 | `full_text` | No | A regenerable search aid, re-sent on any re-ingest. Postgres only, so `FullTextIndexer` re-reads and re-projects it on every reindex. |
-| `derivative_permissions` | No | An access policy: Atlas enforces it on Blob bytes, and Cerberus and the IIIF layer on image tiers. TODO: decide whether an enforced policy belongs in the envelope, as `read` does. |
+| `derivative_permissions` | **Yes**, schema v8, in `permissions.json` | An access policy a person sets, which Atlas enforces on Blob bytes and Cerberus and the IIIF layer on image tiers. Nothing else records it, so a rebuild that lost it would serve every reserved original publicly. |
 | `tombstoned_at`, `tombstoned_by`, `tombstone_reason` | **Yes**, schema v7, as one `tombstone` block | A tombstone is a person's decision that nothing else records. A rebuild that lost it would bring tombstoned objects back into view, and drop the removal note the library's removal policy requires. |
 
 `full_text` is omitted for the same reason the fungible thumbnail derivatives
@@ -111,7 +111,7 @@ resource's own NOID-keyed OCFL object. **The bus-factor test: a librarian with
 disk access alone can rebuild the resource graph and the ACLs without Atlas,
 Postgres or Solr.**
 
-`ENVELOPE_SCHEMA_VERSION` is 7, and each bump records one decision:
+`ENVELOPE_SCHEMA_VERSION` is 8, and each bump records one decision:
 
 | Version | Change |
 |---|---|
@@ -121,6 +121,7 @@ Postgres or Solr.**
 | v4 → v5 | Added `handle` |
 | v5 → v6 | Added a Blob's `language`, `track_label` and `revision_filenames` |
 | v6 → v7 | Added `tombstone` — `at`, `by` and `reason` while tombstoned, null while live |
+| v7 → v8 | Added a Work's `derivative_permissions` to `permissions.json` — the tier map, `{}` when nothing is reserved |
 
 **`position` is additive even though the Work-level METS structMap is the
 canonical record of order.** It keeps each FileSet's own OCFL object
@@ -129,6 +130,12 @@ self-describing in isolation.
 **`associations` has to survive on disk** because each edge is a human judgement
 about two objects that nothing else in the repository records and no job can
 derive again.
+
+**`derivative_permissions` rides `permissions.json`, beside `read`,** because it
+is an access decision, not graph structure. It is written as a map of tier to
+groups, not the JSON string Postgres holds. `Preservable#permissions_payload`
+adds it rather than `Permissions#permissions`, which creators copy to each child:
+a Work's tiers are its own. Only a Work carries the key.
 
 **`a_linked_member_of` is deliberately absent.** A linked membership is a
 discovery convenience a Set recipe can express again, not an assertion that
@@ -140,7 +147,8 @@ A persister save changes Postgres and Solr only. **Any write that changes a
 value the envelope carries must call `write_preservation_envelope!` after it,**
 or disk keeps the old value and a rebuild restores it. The minter does this
 for `handle`, the reparenter for `a_member_of`, the association services for
-`associations`, and tombstone and restore for `tombstone`. `GET
+`associations`, tombstone and restore for `tombstone`, and `DerivativePermissionsUpdater` for
+`derivative_permissions`. `GET
 /works/{id}/health_check` reports a Work whose envelope has drifted as
 `envelope_stale`, naming the keys that differ ([`work-health.md`](work-health.md)).
 

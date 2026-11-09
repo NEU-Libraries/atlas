@@ -53,7 +53,8 @@ explain each:
 | XML preserves while JSON serves, and why no read path parses XML | [`mods.md`](mods.md) |
 | The on-disk envelope that makes the graph and the ACLs recoverable | [`resource-graph.md`](resource-graph.md) |
 | `handle` rides the envelope because nothing can re-derive it | [`handles.md`](handles.md) |
-| `full_text` and `derivative_permissions` are omitted because they can be made again | [`resource-graph.md`](resource-graph.md) |
+| `full_text` is omitted because it can be made again | [`resource-graph.md`](resource-graph.md) |
+| A Work's tier policy (`derivative_permissions`) rides the envelope, so a rebuild does not serve a reserved original publicly | [`resource-graph.md`](resource-graph.md) |
 | A tombstone and its removal note ride the envelope, so a rebuild does not bring the object back into view | [`resource-graph.md`](resource-graph.md) |
 | Why a personal root's MODS gets a real title rather than `""` | [`people.md`](people.md) |
 | A fixity check is logged in the object's `logs/`, so its history survives with the bytes | [`fixity.md`](fixity.md) |
@@ -64,12 +65,12 @@ When you add a derived field, ask one question: **can this be regenerated from
 the source of truth?**
 
 - **Yes** — keep it in Postgres and Solr, and leave it out of the OCFL envelope.
-  A thumbnail, an extracted full text, and a per-tier visibility policy are all
-  in this group.
+  A thumbnail and an extracted full text are both in this group.
 - **No** — it belongs in the envelope, and the envelope's schema version has to
   move with it. `handle` is the clearest case: an external Handle service holds
   the other half of the binding and the outside world cites it, so a rebuild
-  that lost it would break every citation.
+  that lost it would break every citation. A person's decision that nothing
+  else records is the other case: a tombstone, or a Work's tier policy.
 
 Getting that answer wrong in the cautious direction costs disk. Getting it wrong
 in the other direction loses something permanently.

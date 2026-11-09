@@ -14,6 +14,26 @@ RSpec.describe DerivativePermissionsUpdater do
     Atlas.persister.save(resource: w)
   end
 
+  describe 'the preservation envelope' do
+    it 'writes the stored policy to permissions.json on disk' do
+      work = work_with(['public'])
+      described_class.call(work: work, policy: { 'large' => ['grp:archives'], 'service' => ['grp:archives'] })
+
+      envelope = on_disk_permissions(work)
+      expect(envelope['derivative_permissions']).to eq('large' => ['grp:archives'], 'service' => ['grp:archives'])
+      expect(envelope['schema_version']).to eq(Preservable::ENVELOPE_SCHEMA_VERSION)
+    end
+
+    it 'leaves the envelope alone when the policy is refused' do
+      work = work_with(['public'])
+      described_class.call(work: work, policy: { 'large' => ['grp:archives'] })
+
+      expect { described_class.call(work: work, policy: { 'small' => ['grp:a'], 'large' => ['public'] }) }
+        .to raise_error(Exceptions::DerivativePermissionsError)
+      expect(on_disk_permissions(work)['derivative_permissions']).to eq('large' => ['grp:archives'])
+    end
+  end
+
   describe 'valid policies' do
     it 'stores a full narrowing policy on a public Work' do
       work = work_with(['public'])

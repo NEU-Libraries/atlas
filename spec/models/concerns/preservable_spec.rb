@@ -15,7 +15,7 @@ RSpec.describe Preservable do
     context 'on a root Community' do
       it 'reports type, empty a_member_of, empty member_ids' do
         payload = community.graph_payload
-        expect(payload[:schema_version]).to eq(7)
+        expect(payload[:schema_version]).to eq(8)
         expect(payload[:noid]).to eq(community.noid)
         expect(payload[:type]).to eq('Community')
         expect(payload[:classification]).to eq('Community')
@@ -129,7 +129,7 @@ RSpec.describe Preservable do
       it 'reports the role-bearing fields needed for preservation' do
         payload = mods_blob.graph_payload
 
-        expect(payload[:schema_version]).to eq(7)
+        expect(payload[:schema_version]).to eq(8)
         expect(payload[:noid]).to eq(mods_blob.noid)
         expect(payload[:type]).to eq('Blob')
         expect(payload[:use]).to eq(Role.descriptive_metadata.name)
@@ -195,7 +195,7 @@ RSpec.describe Preservable do
     it 'mirrors the keys Permissions#permissions= consumes' do
       payload = work.permissions_payload
 
-      expect(payload[:schema_version]).to eq(7)
+      expect(payload[:schema_version]).to eq(8)
       expect(payload[:noid]).to eq(work.noid)
       expect(payload).to have_key(:embargo)
       expect(payload).to have_key(:depositor)
@@ -230,6 +230,25 @@ RSpec.describe Preservable do
     it 'serializes nil embargo as nil (not the empty string)' do
       payload = community.permissions_payload
       expect(payload[:embargo]).to be_nil
+    end
+
+    it "carries a Work's tier policy as a map, empty when nothing is reserved" do
+      expect(work.permissions_payload[:derivative_permissions]).to eq({})
+
+      work.read_groups = ['public']
+      DerivativePermissionsUpdater.call(work: Atlas.persister.save(resource: work), policy: { 'large' => ['grp:archives'] })
+
+      expect(Work.find(work.id).permissions_payload[:derivative_permissions]).to eq(large: ['grp:archives'])
+    end
+
+    it 'carries no tier policy for a resource that has none' do
+      expect(community.permissions_payload).not_to have_key(:derivative_permissions)
+      expect(descriptive_fs.permissions_payload).not_to have_key(:derivative_permissions)
+    end
+
+    # Creators copy #permissions to each child, so the policy must stay out of it.
+    it 'keeps the tier policy out of the inheritable permissions hash' do
+      expect(work.permissions).not_to have_key(:derivative_permissions)
     end
   end
 end

@@ -29,7 +29,7 @@ class DerivativePermissionsUpdater < ApplicationService
   def call
     @work.derivative_permissions = JSON.dump(normalize(@policy))
     validate!
-    Atlas.persister.save(resource: @work)
+    Atlas.persister.save(resource: @work).tap(&:write_preservation_envelope!)
   end
 
   private

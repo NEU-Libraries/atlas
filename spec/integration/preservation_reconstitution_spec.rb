@@ -214,4 +214,25 @@ RSpec.describe 'OCFL preservation reconstitution', type: :integration do
     expect(fresh.read_groups).to eq(['public'])
     expect(fresh.edit_groups).to eq([Permissions::STAFF_EDIT_GROUP, 'northeastern:editors'])
   end
+
+  # Without it a rebuild would serve every reserved original publicly.
+  it "recovers a Work's reserved tiers from disk, and they gate again" do
+    community  = CommunityCreator.call
+    collection = CollectionCreator.call(parent_id: community.noid)
+    work       = WorkCreator.call(parent_id: collection.noid)
+    work.read_groups = ['public']
+    work = Atlas.persister.save(resource: work)
+    DerivativePermissionsUpdater.call(work: work, policy: { 'service' => ['grp:archives'] })
+
+    perms = reconstitute_from_disk[work.noid]['permissions.json']
+    expect(perms[:derivative_permissions]).to eq(service: ['grp:archives'])
+
+    fresh = WorkCreator.call(parent_id: collection.noid)
+    fresh.permissions = perms.slice(:read)
+    fresh = Atlas.persister.save(resource: fresh)
+    fresh = DerivativePermissionsUpdater.call(work: fresh, policy: perms[:derivative_permissions])
+
+    expect(fresh.derivative_gate_for(Blob.new(mime_type: 'image/tiff'))).to eq(['grp:archives'])
+    expect(fresh.derivative_gate_for(Delegate.new(use: Role.small_image.name))).to eq(['public'])
+  end
 end

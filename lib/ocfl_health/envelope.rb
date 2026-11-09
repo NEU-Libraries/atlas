@@ -7,7 +7,7 @@ module OcflHealth
   # repairable only while Postgres still holds the record.
   class Envelope
     # Mirrors Preservable::ENVELOPE_SCHEMA_VERSION; a spec keeps the two equal.
-    SCHEMA_VERSION = 7
+    SCHEMA_VERSION = 8
     GRAPH_FILES = %w[relationships.json properties.json].freeze
     PERMISSIONS_FILE = 'permissions.json'
 

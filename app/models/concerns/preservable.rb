@@ -7,11 +7,11 @@
 #
 # docs/resource-graph.md records what each schema bump added and why. Two
 # absences are deliberate: a_linked_member_of, which a Set recipe can express
-# again, and the fungible derived fields (full_text, derivative_permissions).
+# again, and full_text, which a re-ingest sends again.
 module Preservable
   extend ActiveSupport::Concern
 
-  ENVELOPE_SCHEMA_VERSION = 7
+  ENVELOPE_SCHEMA_VERSION = 8
 
   def graph_payload
     {
@@ -32,8 +32,12 @@ module Preservable
     'relationships.json'
   end
 
+  # The tier policy rides here rather than in #permissions, which creators copy
+  # to each child: a Work's tiers are its own and must not be inherited.
   def permissions_payload
-    permissions.merge(schema_version: ENVELOPE_SCHEMA_VERSION, noid: noid)
+    payload = permissions.merge(schema_version: ENVELOPE_SCHEMA_VERSION, noid: noid)
+    payload[:derivative_permissions] = derivative_permissions_map if respond_to?(:derivative_permissions_map)
+    payload
   end
 
   def write_preservation_envelope!

@@ -15,6 +15,7 @@ spec/controllers/works_controller_spec.rb
 spec/decorators/work_decorator_headers_spec.rb
 spec/decorators/work_decorator_spec.rb
 spec/helpers/decorator_helper_spec.rb
+spec/helpers/file_helper_spec.rb
 spec/helpers/mime_helper_spec.rb
 spec/indexers/ancestry_indexer_spec.rb
 spec/indexers/provenance_indexer_spec.rb
@@ -63,6 +64,7 @@ spec/lib/acl_coverage_spec.rb
 spec/lib/cerberus_signing_keys_spec.rb
 spec/lib/darwin_core_document_spec.rb
 spec/lib/enhanced_text_spec.rb
+spec/lib/example_watchdog_spec.rb
 spec/lib/fixity_check_spec.rb
 spec/lib/fixity_entrypoint_spec.rb
 spec/lib/handle_client_spec.rb
@@ -93,6 +95,7 @@ spec/models/audit_event_spec.rb
 spec/models/blob_spec.rb
 spec/models/compilation_spec.rb
 spec/models/concerns/metadata_records/darwin_core_spec.rb
+spec/models/concerns/metadata_tmp_files_spec.rb
 spec/models/concerns/metsable_spec.rb
 spec/models/concerns/modsable_spec.rb
 spec/models/concerns/permissions_spec.rb

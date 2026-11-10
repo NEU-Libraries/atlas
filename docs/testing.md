@@ -118,8 +118,8 @@ new searcher. Valkyrie soft-commits on every save, and in the suite that is
 almost all wasted: a sample of request and integration specs made over 4,700
 Solr updates for 13 reads, and each commit cost several milliseconds.
 
-So the `:test_solr` adapter is built with `soft_commit: false`, and
-`spec/support/lazy_solr_commit.rb` commits on demand instead. It sits on
+So `spec/support/lazy_solr_commit.rb` turns the `:test_solr` adapter's commit
+on save off, and commits on demand instead. It sits on
 `RSolr::Client#execute`, the same point the no-index guard uses. It notes each
 write once Solr has taken it, and before any read it sends one soft commit if a
 write is pending. Every read therefore sees every write that finished before it,
@@ -130,6 +130,14 @@ Puma server is a thread in the same process, so its reads pass through the same
 hook. Production cannot do this: Cerberus reads the same core directly, and a
 flag in one Atlas process cannot know what another process wrote. Production
 keeps the commit on every save.
+
+**The adapter itself still commits on save.** Both halves of the shortcut live
+in the support file, which only Atlas's own spec run loads. An Atlas server
+started with `RAILS_ENV=test`, such as the one Cerberus's suite drives through
+`atlas_rb`, uses the same `:test_solr` adapter without that file, so it must
+commit every save itself. Otherwise Cerberus would create a fixture and never
+find it. `spec/config/solr_connection_spec.rb` boots a test-environment Atlas
+without the spec support and checks that it commits.
 
 Two things follow in the suite. A failure to open a searcher shows up on the
 next read, not on the save that caused it. And a spec that searches Solr with
@@ -154,6 +162,12 @@ disk.
 the preservation adapter is ever built non-durable. The same file checks that a
 durable adapter syncs each step, using an adapter of its own, so the suite still
 proves the fsyncs happen.
+
+Unlike the lazy Solr commit, this setting is in the initializer, so any Atlas
+started with `RAILS_ENV=test` gets it, including the server Cerberus's suite
+drives. That is deliberate. Skipping fsync changes only what survives a crash,
+never what a reader sees, and a test lane's storage is as disposable as the
+suite's.
 
 ## The smoke test
 

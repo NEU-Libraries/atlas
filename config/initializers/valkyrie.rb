@@ -86,10 +86,10 @@ Rails.application.config.to_prepare do
 
     Valkyrie::MetadataAdapter.register(
       Valkyrie::Persistence::Solr::MetadataAdapter.new(
+        # Commits on save like every other adapter. Atlas's own spec run turns
+        # that off in spec/support/lazy_solr_commit.rb, and only there: a test
+        # Atlas server, such as Cerberus's, must commit every save.
         connection: RSolr.connect(url: SolrCore.test_url, adapter: :net_http_persistent),
-        # Safe only beside spec/support/lazy_solr_commit.rb, which commits
-        # before each read instead. Without it no save ever becomes searchable.
-        soft_commit: false,
         resource_indexer: Valkyrie::Persistence::Solr::CompositeIndexer.new(
           Valkyrie::Indexers::AccessControlsIndexer,
           MODSIndexer,

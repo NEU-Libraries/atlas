@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-# The :test_solr adapter does not soft-commit on save, so this commits instead:
-# once, before the first Solr read after a write. Every read still sees every
-# write that finished before it. See docs/testing.md.
+# Moves the :test_solr adapter's soft commit from every save to the first Solr
+# read after a write. Every read still sees every write that finished before it.
+# See docs/testing.md.
 module LazySolrCommit
   MUTEX = Mutex.new
 
@@ -55,3 +55,6 @@ module LazySolrCommit
 end
 
 RSolr::Client.prepend(LazySolrCommit::Client)
+
+# Both halves live here, so nothing that skips this file loses the commit on save.
+Valkyrie::MetadataAdapter.find(:test_solr).define_singleton_method(:soft_commit?) { false }

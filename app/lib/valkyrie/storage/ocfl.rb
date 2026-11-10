@@ -69,6 +69,9 @@ module Valkyrie
       # `footprint_recorder:` answers add!(key:, bytes:) and forget!(key:). It
       # hears the bytes each version adds to an object, so a byte total never
       # needs a walk of the storage. See docs/binaries.md.
+      #
+      # `durable: false` skips every fsync, and exists for the suite alone: a
+      # preservation root must never be built with it. See docs/testing.md.
       def initialize(storage_root: nil,
                      storage_roots: nil,
                      tag: nil,
@@ -79,9 +82,11 @@ module Valkyrie
                      file_mover: FileUtils.method(:mv),
                      clock: Time.method(:now),
                      footprint_recorder: nil,
+                     durable: true,
                      user_agent: { name:    'Atlas',
                                    address: 'mailto:library-systems@northeastern.edu' })
         @storage_roots = build_roots(storage_root, storage_roots, root_name, tuple_sizes)
+        @durable = durable
         @footprint_recorder = footprint_recorder
         @pool_name = pool_name
         @tag = tag
@@ -89,6 +94,10 @@ module Valkyrie
         @file_mover = file_mover
         @clock = clock
         @user_agent = user_agent.transform_keys(&:to_s)
+      end
+
+      def durable?
+        @durable
       end
 
       # The root a new object lands in when nothing else decides. Placement
@@ -470,7 +479,7 @@ module Valkyrie
             next false if file.each_line.to_a.last == entry
 
             file.write(entry)
-            file.fsync
+            file.fsync if @durable
             true
           end
         end
@@ -848,6 +857,8 @@ module Valkyrie
         # staged tree down before the rename and the parent directory down after
         # it. A substrate that cannot fsync raises rather than pretend.
         def fsync_staged!(dir)
+          return unless @durable
+
           Pathname.glob(dir.join('**', '*')).each do |path|
             path.directory? ? fsync_dir(path) : fsync_file(path)
           end
@@ -855,13 +866,13 @@ module Valkyrie
         end
 
         def fsync_file(path)
-          ::File.open(path.to_s, 'rb', &:fsync)
+          ::File.open(path.to_s, 'rb', &:fsync) if @durable
         end
 
         # Ruby 3.0 carries no Dir#fsync and no File::DIRECTORY, but File.open on
         # a directory yields a descriptor that fsync accepts.
         def fsync_dir(path)
-          ::File.open(path.to_s, &:fsync)
+          ::File.open(path.to_s, &:fsync) if @durable
         end
     end
   end

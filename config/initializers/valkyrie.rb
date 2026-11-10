@@ -37,7 +37,10 @@ Rails.application.config.to_prepare do
       tag: 'testdisk',
       root_name: 'r001',
       file_mover: FileUtils.method(:cp),
-      footprint_recorder: StorageFootprintRecorder
+      footprint_recorder: StorageFootprintRecorder,
+      # A suite's storage is thrown away, so it need not survive a crash.
+      # Never copy this to :disk. See docs/testing.md.
+      durable: false
     ),
     :test_disk
   )

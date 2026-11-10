@@ -124,6 +124,25 @@ next read, not on the save that caused it. And a spec that searches Solr with
 anything but RSolr sees no save that has not yet been read past — see
 `spec/lib/lazy_solr_commit_spec.rb`, which does exactly that on purpose.
 
+## The suite's storage skips fsync
+
+The OCFL adapter fsyncs every staged file, every directory it publishes into and
+every log line, so a crash cannot leave Postgres recording a version the disk
+does not hold ([`preservation.md`](preservation.md)). Each fsync is a wait on
+the disk, and in the suite they added up to most of the time spent writing
+binaries.
+
+The suite's storage is deleted at the start of every run, so it has nothing to
+lose in a crash. The `:test_disk` adapter is therefore built with
+`durable: false`, which skips every fsync and nothing else: the same staging,
+renames and inventories run, so every OCFL spec still sees a real object on
+disk.
+
+**`:disk` must stay durable.** `spec/lib/valkyrie/storage/ocfl_spec.rb` fails if
+the preservation adapter is ever built non-durable. The same file checks that a
+durable adapter syncs each step, using an adapter of its own, so the suite still
+proves the fsyncs happen.
+
 ## The smoke test
 
 ```bash

@@ -544,6 +544,29 @@ RSpec.describe Valkyrie::Storage::OCFL do
       # Once after the version directory is published, once after the head pair.
       expect(synced.count(object_root)).to eq(2)
     end
+
+    context 'when built with durable: false' do
+      let(:storage_adapter) { described_class.new(storage_root: tmpdir, durable: false) }
+
+      it 'writes the same object without one fsync' do
+        synced = []
+        allow_any_instance_of(File).to receive(:fsync) { |handle| synced << handle.path }
+
+        uploaded = upload!.call
+        storage_adapter.append_log(key: 'abcd1234e', name: 'fixity.log', line: 'ok')
+
+        expect(synced).to be_empty
+        expect(storage_adapter.find_by(id: uploaded.id).read)
+          .to eq(Rails.root.join('spec/fixtures/files/example.bin').binread)
+      end
+    end
+
+    # The suite's adapter skips fsync for speed. The preservation adapter must
+    # never inherit that, and this is the line that fails if it does.
+    it 'keeps the preservation adapter durable and only the suite adapter not' do
+      expect(Valkyrie::StorageAdapter.find(:disk)).to be_durable
+      expect(Valkyrie::StorageAdapter.find(:test_disk)).not_to be_durable
+    end
   end
 
   describe '#find_version_metadata_for' do

@@ -75,6 +75,7 @@ spec/lib/name_variants_spec.rb
 spec/lib/noid_in_use_spec.rb
 spec/lib/ocfl_health/fixity_sweep_spec.rb
 spec/lib/ocfl_health_spec.rb
+spec/lib/planner_stats_spec.rb
 spec/lib/preview_image_facts_spec.rb
 spec/lib/request_latency_spec.rb
 spec/lib/request_timing_spec.rb

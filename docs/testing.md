@@ -99,6 +99,31 @@ developer and stay out of the repository; two that work:
 
 Commit the change to `spec/no_index_files.txt` with whatever change caused it.
 
+## Solr commits once per read, not once per save
+
+A Solr add is stored at once but becomes searchable only when a commit opens a
+new searcher. Valkyrie soft-commits on every save, and in the suite that is
+almost all wasted: a sample of request and integration specs made over 4,700
+Solr updates for 13 reads, and each commit cost several milliseconds.
+
+So the `:test_solr` adapter is built with `soft_commit: false`, and
+`spec/support/lazy_solr_commit.rb` commits on demand instead. It sits on
+`RSolr::Client#execute`, the same point the no-index guard uses. It notes each
+write once Solr has taken it, and before any read it sends one soft commit if a
+write is pending. Every read therefore sees every write that finished before it,
+which is all the per-save commit promised.
+
+**It is safe only because the suite is one process.** The integration specs'
+Puma server is a thread in the same process, so its reads pass through the same
+hook. Production cannot do this: Cerberus reads the same core directly, and a
+flag in one Atlas process cannot know what another process wrote. Production
+keeps the commit on every save.
+
+Two things follow in the suite. A failure to open a searcher shows up on the
+next read, not on the save that caused it. And a spec that searches Solr with
+anything but RSolr sees no save that has not yet been read past — see
+`spec/lib/lazy_solr_commit_spec.rb`, which does exactly that on purpose.
+
 ## The smoke test
 
 ```bash

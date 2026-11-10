@@ -84,6 +84,9 @@ Rails.application.config.to_prepare do
     Valkyrie::MetadataAdapter.register(
       Valkyrie::Persistence::Solr::MetadataAdapter.new(
         connection: RSolr.connect(url: SolrCore.test_url, adapter: :net_http_persistent),
+        # Safe only beside spec/support/lazy_solr_commit.rb, which commits
+        # before each read instead. Without it no save ever becomes searchable.
+        soft_commit: false,
         resource_indexer: Valkyrie::Persistence::Solr::CompositeIndexer.new(
           Valkyrie::Indexers::AccessControlsIndexer,
           MODSIndexer,

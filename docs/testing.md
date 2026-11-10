@@ -186,13 +186,43 @@ it off. The slowest healthy example, a write-matrix state under four parallel
 workers, takes under seven minutes. Past the limit the watchdog writes
 `tmp/spec-watchdog-<worker>-<time>.log`: every Ruby thread's backtrace, the test
 database's `pg_stat_activity`, an `EXPLAIN` of each query running longer than 30
-seconds, and the tables with the most dead rows. It then cancels the example's
+seconds, and the tables with the most dead rows, with the row and page counts
+the planner reads for each (see [below](#the-planner-keeps-an-honest-row-count)).
+It then cancels the example's
 query and, if the example is still running ten seconds later, raises into it. An
 example that rescues the cancellation and finishes still fails.
 
 The watchdog reads the database over a connection of its own, outside the pool.
 A transactional test pins one connection and shares it with every thread, so a
 pooled connection would be the example's, waiting on the query that hangs.
+
+## The planner keeps an honest row count
+
+Postgres plans each query from the row and page counts it last recorded for a
+table, `reltuples` and `relpages` in `pg_class`. The suite empties its tables
+constantly, and a vacuum that runs mid-suite can record a state no real table
+has: zero live rows over pages it could not truncate, because an open example
+held a lock. The planner reads that as zero rows per page, so it estimates one
+row for a table a spec is filling.
+
+The footprint query (`StorageFootprintQuery`, see [`binaries.md`](binaries.md))
+turns that estimate into a hang. Planned for one row, its recursion walks every
+row of `orm_resources` at each step and scans the table again for each one. Its
+cost then grows with the square of the rows, and a write-matrix state, one long
+transaction re-indexing its owners hundreds of times, ran past the watchdog's
+900 seconds. With the estimate forced into that state, a single write-matrix
+state made the query about thirty times slower even at 200 rows.
+
+So `spec/support/planner_stats.rb` turns autovacuum off for every table in the
+test database and vacuums each one at the start of a run, while nothing holds a
+lock and every table truncates to nothing. The planner then estimates from each
+table's real size, however a spec fills it. Only the test databases are
+changed: the setting is a table option written by the suite, not by a
+migration, so development and production keep autovacuum.
+
+Without autovacuum, the rows that rolled-back examples leave behind wait for the
+next run's vacuum. Postgres prunes most of them as it reads the pages, and a run
+is short enough that the rest do not matter.
 
 ## What CI owns
 

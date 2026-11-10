@@ -87,10 +87,14 @@ module ExampleWatchdog
         "(no plan: #{e.class}: #{e.message.lines.first})"
       end
 
+      # reltuples and relpages are what the planner reads. Zero rows over kept
+      # pages is the estimate spec/support/planner_stats.rb exists to prevent.
       def dead_rows(session)
         rows = session.exec(<<~SQL.squish).to_a
-          SELECT relname, n_live_tup, n_dead_tup, last_autovacuum, last_autoanalyze
-          FROM pg_stat_user_tables ORDER BY n_dead_tup DESC LIMIT 5
+          SELECT s.relname, s.n_live_tup, s.n_dead_tup, c.reltuples, c.relpages,
+                 s.last_autovacuum, s.last_autoanalyze
+          FROM pg_stat_user_tables s JOIN pg_class c ON c.oid = s.relid
+          ORDER BY s.n_dead_tup DESC LIMIT 5
         SQL
         "--- most dead rows\n#{rows.map(&:inspect).join("\n")}"
       end

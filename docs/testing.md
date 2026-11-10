@@ -115,7 +115,7 @@ killed run.
 It is the cheap gate before a worktree is declared complete. It is not a
 substitute for the specs covering the change.
 
-## Two guards worth recognising
+## Three guards worth recognising
 
 **Only one run at a time.** A run empties the OCFL storage root, wipes Postgres
 and the test Solr core, and deletes every `AuditEvent`. Two overlapping runs
@@ -135,6 +135,20 @@ the development core or the development database would be wiped just as readily.
 `spec/support/spec_preflight.rb` checks the environment, the core name, the
 database name and the core's ping before the wipe. If it fires, read the
 message: it names the fix.
+
+**An example that hangs fails, and says why.** `spec/support/example_watchdog.rb`
+gives every example `ATLAS_SPEC_WATCHDOG` seconds, 900 by default; `0` switches
+it off. The slowest healthy example, a write-matrix state under four parallel
+workers, takes under seven minutes. Past the limit the watchdog writes
+`tmp/spec-watchdog-<worker>-<time>.log`: every Ruby thread's backtrace, the test
+database's `pg_stat_activity`, an `EXPLAIN` of each query running longer than 30
+seconds, and the tables with the most dead rows. It then cancels the example's
+query and, if the example is still running ten seconds later, raises into it. An
+example that rescues the cancellation and finishes still fails.
+
+The watchdog reads the database over a connection of its own, outside the pool.
+A transactional test pins one connection and shares it with every thread, so a
+pooled connection would be the example's, waiting on the query that hangs.
 
 ## What CI owns
 

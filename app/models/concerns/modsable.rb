@@ -32,7 +32,8 @@ module Modsable
 
   def mods_xml=(raw_xml)
     blob = mods_blob || create_mods_blob
-    blob.file_identifiers += [create_file(write_tmp_xml(raw_xml), blob, 'descMetadata.xml').version_id]
+    stored = with_tmp_file(raw_xml, '.xml') { |path| create_file(path, blob, 'descMetadata.xml') }
+    blob.file_identifiers += [stored.version_id]
     Atlas.persister.save(resource: blob)
 
     self.mods_json = raw_xml
@@ -102,11 +103,5 @@ module Modsable
       blob.write_preservation_envelope!
       fs.write_preservation_envelope!
       blob
-    end
-
-    def write_tmp_xml(raw_xml)
-      xml_path = Rails.root.join('tmp', "#{Time.now.to_f.to_s.gsub!('.', '-')}.xml").to_s
-      File.write(xml_path, raw_xml)
-      xml_path
     end
 end

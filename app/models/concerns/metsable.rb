@@ -20,7 +20,8 @@ module Metsable
 
   def mets_xml=(raw_xml)
     blob = mets_blob || create_mets_blob
-    blob.file_identifiers += [create_file(write_tmp_mets_xml(raw_xml), blob, 'mets.xml').version_id]
+    stored = with_tmp_file(raw_xml, '-mets.xml') { |path| create_file(path, blob, 'mets.xml') }
+    blob.file_identifiers += [stored.version_id]
     Atlas.persister.save(resource: blob)
 
     self.mets_json = raw_xml
@@ -52,11 +53,5 @@ module Metsable
       blob.write_preservation_envelope!
       write_preservation_envelope!
       blob
-    end
-
-    def write_tmp_mets_xml(raw_xml)
-      xml_path = Rails.root.join('tmp', "#{Time.now.to_f.to_s.gsub!('.', '-')}-mets.xml").to_s
-      File.write(xml_path, raw_xml)
-      xml_path
     end
 end

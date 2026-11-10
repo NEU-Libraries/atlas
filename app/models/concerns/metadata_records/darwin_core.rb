@@ -39,8 +39,8 @@ module MetadataRecords
     def darwin_core_xml=(raw_xml)
       terms = DarwinCoreDocument.parse(raw_xml).to_h
       blob  = darwin_core_blob || create_darwin_core_blob
-      path  = write_tmp_darwin_core_xml(raw_xml)
-      blob.file_identifiers += [create_file(path, blob, FILENAME).version_id]
+      stored = with_tmp_file(raw_xml, '-dwc.xml') { |path| create_file(path, blob, FILENAME) }
+      blob.file_identifiers += [stored.version_id]
       Atlas.persister.save(resource: blob)
       restore_darwin_core_file_set
 
@@ -48,8 +48,6 @@ module MetadataRecords
       record.update!(json_attributes: terms)
       @darwin_core = record
       reindex_darwin_core
-    ensure
-      FileUtils.rm_f(path) if path
     end
 
     def darwin_core_blob
@@ -113,12 +111,6 @@ module MetadataRecords
 
         file_set.restore
         Atlas.persister.save(resource: file_set).write_preservation_envelope!
-      end
-
-      def write_tmp_darwin_core_xml(raw_xml)
-        xml_path = Rails.root.join('tmp', "#{Time.now.to_f.to_s.gsub!('.', '-')}-dwc.xml").to_s
-        File.write(xml_path, raw_xml)
-        xml_path
       end
   end
 end

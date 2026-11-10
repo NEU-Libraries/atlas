@@ -33,6 +33,18 @@ module FileHelper
     end
   end
 
+  # Writes content to a uniquely named file under tmp/ for the length of the
+  # block, then removes it. The OCFL adapter moves new bytes into the object, but
+  # leaves a file whose digest the object already holds, so the caller owns the
+  # cleanup. The unique name keeps two writes in one instant from sharing a path.
+  def with_tmp_file(content, suffix)
+    Tempfile.create(['atlas-', suffix], Rails.root.join('tmp')) do |file|
+      file.write(content)
+      file.close
+      yield file.path
+    end
+  end
+
   # Commits several files into ONE OCFL version. `entries` is an array of
   # [path, original_filename] pairs. Files written together as a single logical
   # event belong in one version: a version is OCFL's unit of change and holds any

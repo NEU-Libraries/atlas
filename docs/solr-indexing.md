@@ -33,6 +33,29 @@ as `resource.mods`. That holds on the write path as well as the read path — se
 `config/initializers/valkyrie.rb` composes these indexers into the
 `:composite_persister`, so they all fire on every resource save.
 
+## The connection is kept alive
+
+Every save sends Solr one update, so the cost of reaching Solr is paid on every
+write. RSolr hands Faraday no adapter unless it is given one, and Faraday's
+default opens a new TCP connection for each request. Opening that connection
+costs more than the request it carries: measured from the web container, a new
+connection cost 3–11 ms against about 1 ms for a request on a kept-alive one.
+Both Valkyrie Solr adapters therefore connect with
+`adapter: :net_http_persistent`. `spec/config/solr_connection_spec.rb` fails if
+RSolr stops honouring the option, because otherwise the fallback is silent.
+
+One cost comes with it. A kept-alive connection can be stale when Solr has
+restarted since its last use. Net::HTTP retries an idempotent request, such as a
+search, once on a reset connection, but it does not retry a `POST` update. So the
+first save after a Solr restart can fail, and
+[`BackendUnavailable`](error-contract.md) answers it with a 503. The adapter
+drops any connection idle for more than 5 seconds before reuse, so the save
+fails only when Solr restarted within 5 seconds of the last request.
+
+The other RSolr connections open a new connection on purpose. `/health`
+(`app/lib/system_health.rb`) has to prove that a new connection still works,
+and `RepositoryReset` runs too rarely for the cost to matter.
+
 ## Field names are Cerberus's contract
 
 The Solr field names follow what Cerberus's Blacklight config already declares.

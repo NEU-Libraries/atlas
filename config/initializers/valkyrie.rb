@@ -49,7 +49,9 @@ Rails.application.config.to_prepare do
 
   Valkyrie::MetadataAdapter.register(
       Valkyrie::Persistence::Solr::MetadataAdapter.new(
-        connection: RSolr.connect(url: SolrCore::INDEX_URL),
+        # Kept alive: opening a connection costs more than the request it
+        # carries. See docs/solr-indexing.md.
+        connection: RSolr.connect(url: SolrCore::INDEX_URL, adapter: :net_http_persistent),
         resource_indexer: Valkyrie::Persistence::Solr::CompositeIndexer.new(
           Valkyrie::Indexers::AccessControlsIndexer,
           MODSIndexer,
@@ -81,7 +83,7 @@ Rails.application.config.to_prepare do
 
     Valkyrie::MetadataAdapter.register(
       Valkyrie::Persistence::Solr::MetadataAdapter.new(
-        connection: RSolr.connect(url: SolrCore.test_url),
+        connection: RSolr.connect(url: SolrCore.test_url, adapter: :net_http_persistent),
         resource_indexer: Valkyrie::Persistence::Solr::CompositeIndexer.new(
           Valkyrie::Indexers::AccessControlsIndexer,
           MODSIndexer,

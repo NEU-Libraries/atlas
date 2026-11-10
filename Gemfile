@@ -52,6 +52,10 @@ gem 'noid-rails'
 gem 'pagy', '= 6.0.4' # TODO: port LazyPagination to the pagy 9+/43 API
 gem 'rack-cors'
 gem 'rsolr'
+# The kept-alive adapter for Valkyrie's RSolr connections (docs/solr-indexing.md).
+# Listed here, not left to atlas_rb, because atlas_rb is in the :test group
+# alone and production would boot without it.
+gem 'faraday-net_http_persistent'
 # Serves the generated openapi.yaml at /api-docs, which the Scalar page at
 # /docs fetches and bots read. A runtime dependency, not a development one:
 # Bundler.require only loads a gem's group, so with this in :development, :test

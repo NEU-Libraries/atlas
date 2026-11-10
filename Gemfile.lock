@@ -513,6 +513,7 @@ DEPENDENCIES
   devise-jwt
   enumerations
   faker
+  faraday-net_http_persistent
   hamlit
   jbuilder
   marcel

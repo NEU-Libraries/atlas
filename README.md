@@ -154,7 +154,7 @@ on boot, so a fresh checkout is one command away from a working API.
 
 ```bash
 bin/spec spec/requests/works_spec.rb   # the everyday loop
-bin/parallel-spec                      # the whole suite, four workers
+bin/parallel-spec                      # the whole suite, six workers
 rake smoke                             # is this checkout wired up?
 bin/openapi                            # regenerate openapi.yaml
 ```

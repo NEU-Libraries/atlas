@@ -34,9 +34,21 @@ arguments tells those apart. A run that names a *tag* still loads every file, so
 ## The whole suite, sharded
 
 ```bash
-bin/parallel-spec              # four workers
-bin/parallel-spec -n 2         # two
+bin/parallel-spec              # six workers
+bin/parallel-spec -n 8         # eight
 ```
+
+Six is the default because it was measured, not guessed. On a 14-thread laptop
+with two performance cores, the whole suite took 635 seconds with four workers,
+472 with six and 435 with eight. Past six, each added worker runs on a slower
+efficiency core and shares Postgres and Solr with the rest, so the gain falls
+away while the machine gets busier. Memory was not the limit: with eight
+workers, the VM kept 2.8 GiB free. Re-measure on a machine with a different
+core count, and pass `-n` there rather than changing the default.
+
+Each worker is one Ruby process using about one core. The request specs run
+through Rack::Test in that process, and the integration specs run Puma as a
+thread inside it, so no Puma setting changes how many cores the suite uses.
 
 Each worker owns its own database (`atlas_test2`), its own Solr core
 (`blacklight-test-2`) and its own OCFL storage root (`tmp/files2`). A run wipes
@@ -51,7 +63,7 @@ unsharded run has always used, and nothing changes for `bin/spec`.
 That step runs on the host, because creating a core means writing a `conf/`
 directory into the solr container. The cores live on the container filesystem
 rather than in the `solr` named volume, so a `docker compose up` that recreates
-solr loses them — run `bin/parallel-solr-cores 4` again after any stack rebuild.
+solr loses them — run `bin/parallel-solr-cores 6` again after any stack rebuild.
 The databases need no such step; `rake parallel:prepare` creates and migrates
 them, and `rake parallel:spec` calls it.
 
@@ -182,8 +194,8 @@ message: it names the fix.
 
 **An example that hangs fails, and says why.** `spec/support/example_watchdog.rb`
 gives every example `ATLAS_SPEC_WATCHDOG` seconds, 900 by default; `0` switches
-it off. The slowest healthy example, a write-matrix state under four parallel
-workers, takes under seven minutes. Past the limit the watchdog writes
+it off. The slowest healthy example, a write-matrix state under six parallel
+workers, takes about three and a half minutes. Past the limit the watchdog writes
 `tmp/spec-watchdog-<worker>-<time>.log`: every Ruby thread's backtrace, the test
 database's `pg_stat_activity`, an `EXPLAIN` of each query running longer than 30
 seconds, and the tables with the most dead rows, with the row and page counts

@@ -2,7 +2,7 @@
 #
 # Run the whole suite sharded across worker processes.
 #
-#   bin/parallel-spec              # four workers
+#   bin/parallel-spec              # six workers
 #   bin/parallel-spec -n 2         # two
 #
 # Each worker owns its own database, Solr core and OCFL storage root, because a
@@ -16,7 +16,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/container.sh
 source "$SCRIPT_DIR/lib/container.sh"
 
-WORKERS=4
+WORKERS=6
 
 while [[ $# -gt 0 ]]; do
   case "$1" in

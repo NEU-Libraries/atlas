@@ -21,7 +21,8 @@ require 'open3'
 # concentrated in a handful of request and integration files, so an even split
 # of *files* leaves one worker running long after the others have finished.
 namespace :parallel do
-  DEFAULT_WORKERS = 4
+  # Measured against 4 and 8 on a 14-thread laptop; see docs/testing.md.
+  DEFAULT_WORKERS = 6
 
   # Written by the RuntimeLogger formatter in .rspec_parallel. Under tmp/, so it
   # is per-checkout and gitignored: a committed one would be a snapshot of one

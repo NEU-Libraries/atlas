@@ -84,7 +84,7 @@ module SpecPreflight
       "#{TEST_CORE_PREFIX}" ships with the Solr image. The cores do not survive a
       Solr recreate, so provision them again after any stack rebuild:
 
-        bin/parallel-solr-cores 4
+        bin/parallel-solr-cores 6
 
       bin/parallel-spec runs that for you before it starts the workers.
     MSG

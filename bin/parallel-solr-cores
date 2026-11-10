@@ -15,11 +15,11 @@
 # this is idempotent and cheap to re-run: after any stack rebuild, just run it
 # again.
 #
-#   bin/parallel-solr-cores [worker_count]   # default 4
+#   bin/parallel-solr-cores [worker_count]   # default 6
 #
 set -euo pipefail
 
-WORKERS="${1:-4}"
+WORKERS="${1:-6}"
 SOLR_CONTAINER="${SOLR_CONTAINER:-atlas-solr-1}"
 SOLR_URL="${SOLR_HOST_URL:-http://localhost:8983}"
 TEMPLATE="blacklight-test"

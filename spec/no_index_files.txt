@@ -136,10 +136,13 @@ spec/requests/fixity_checks_spec.rb
 spec/requests/maintenance_read_only_spec.rb
 spec/requests/maintenance_spec.rb
 spec/requests/mods_versions_spec.rb
+spec/requests/openapi_contract_spec.rb
+spec/requests/openapi_examples_spec.rb
 spec/requests/people_matrix_spec.rb
 spec/requests/people_spec.rb
 spec/requests/permissions_write_rules_spec.rb
 spec/requests/read_gate_spec.rb
+spec/requests/record_updated_at_spec.rb
 spec/requests/resource_children_spec.rb
 spec/requests/restore_clamp_spec.rb
 spec/requests/set_matrix_spec.rb

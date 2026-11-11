@@ -404,6 +404,11 @@ RSpec.describe 'Works', type: :request do
         end
       end
 
+      # Never completed, so it has no METS: the tombstone still answers first.
+      withheld_by_tombstone do
+        let(:id) { tombstoned_public_work!.noid }
+      end
+
       response '200', 'work mets returned' do
         json_schema :WorkMets
         let(:work) { WorkCreator.call(parent_id: collection.noid) }

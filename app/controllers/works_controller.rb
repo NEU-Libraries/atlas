@@ -91,9 +91,13 @@ class WorksController < ApplicationController
   def mets
     work = Work.find(params.expect(:id))
     authorize! :read, work || Work
-    return head(:not_found) if work.nil? || work.mets.nil?
+    return head(:not_found) if work.nil?
 
+    # The tombstone first, as on FileSet METS: a withdrawn Work answers 410
+    # whether or not it was ever completed.
     refuse_tombstoned!(work)
+    return head(:not_found) if work.mets.nil?
+
     cached_render('works.mets', work) do
       @work = work
       render :mets

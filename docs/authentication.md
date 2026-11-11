@@ -33,6 +33,11 @@ Anything else is a 401.
 A real `User` row with the `:guest` role and no permissions, not a nil user.
 Writes are expected to have been authorized upstream by Cerberus.
 
+Blank means no `Authorization` header, an empty one, or `Bearer ` with nothing
+after it. A header in another scheme, such as `Basic`, is not blank: its sender
+meant to be someone, so `foreign_scheme?` answers it 401 rather than serving the
+guest.
+
 ### `system_token`
 
 A shared secret in `credentials.system_token`, paired with a `User: NUID` header.

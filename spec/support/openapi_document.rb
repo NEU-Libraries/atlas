@@ -150,7 +150,9 @@ module OpenapiDocument
     To read more, or to write, ask the repository operator for a personal
     access token. Send it on every request as `Authorization: Bearer <token>`.
     A token lasts one week, and can be issued read-only. When it expires or
-    is revoked, Atlas answers `401`; ask the operator for a new one.
+    is revoked, Atlas answers `401`; ask the operator for a new one. Atlas
+    accepts no other scheme: an `Authorization` header that is not `Bearer`
+    is a `401` too.
 
     What a token lets you do depends on the permissions of the user it names.
     An operation that needs more than read access says so in its description.

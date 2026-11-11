@@ -67,6 +67,14 @@ before it is written:
   documents state it once, as the `Unauthorized` response.
   `spec/requests/openapi_contract_spec.rb` sends a bad token to every such
   operation and checks the answer.
+- **The shared `403` and `404`.** Every action calls `authorize!`
+  (`check_authorization` enforces it), so any secured operation can refuse,
+  and the documents attach the `Forbidden` response to each. Every path
+  parameter is a lookup, so an operation with one gets `NotFound`. The contract
+  spec sends an unknown identifier to each such operation and checks the 404;
+  the access matrices prove the refusals. Call `no_not_found` in the verb block
+  of an operation whose path parameter is not a lookup, such as a list that is
+  empty for an unknown value.
 - **A description for each identity path parameter** a spec left blank, from
   `OpenapiContract::PATH_PARAMETERS`, so `id` means the same on every route.
 - **Only the schemas it uses.** Both documents start from the whole map in
@@ -100,12 +108,24 @@ one `error_body` makes the documented response carry a body.
 schema names it. Its `error` has no `enum`, because a 400, 401 or 403 puts a
 sentence there, and some 422s put a sentence there with the code in `code`.
 
+### Bodies rswag cannot describe
+
+rswag gives one schema to every media type an operation produces. On a route
+that serves XML or HTML as well as JSON, `json_schema :Name` in the response
+block declares the JSON body's schema alone, and the response hook checks every
+JSON body a spec receives against it. A file's bytes take `binary_body`, which
+documents `application/octet-stream`: a `schema` would make rswag parse the
+bytes as JSON.
+
 ### Paging
 
 Declare a list's paging with `paginated`, or `paginated per_page: true` where
-the action reads `per_page`. A list's `pagination` block has one of two
-shapes: pagy's `Pagination`, from `LazyPagination`, or `SearchPagination`,
-which `SearchQuery` and `WorkDigestQuery` build themselves.
+the action reads `per_page`. Add `shape: :search` on a list that returns
+`SearchPagination`, so its `page` text gives the right stop rule. A list's
+`pagination` block has one of two shapes: pagy's `Pagination`, from
+`LazyPagination`, or `SearchPagination`, which `SearchQuery` and
+`WorkDigestQuery` build themselves. Both read the parameters the same way, and
+`spec/requests/paging_params_spec.rb` holds them to it.
 
 ## Examples
 

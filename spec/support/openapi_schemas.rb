@@ -201,6 +201,14 @@ module OpenapiSchemas
                                              'when unset (tiers inherit the Work visibility). For a guest each ' \
                                              'tier keeps only `public`, so a reserved tier reads [].'
                      },
+                     embargoed:              {
+                       type:        :boolean,
+                       description: 'Whether an active embargo withholds the Work\'s files now. Its record stays readable.'
+                     },
+                     embargo_release_date:   {
+                       type: :string, format: 'date-time', nullable: true,
+                       description: 'When the embargo ends, past or future; null when the Work has none.'
+                     },
                      metadata_formats:       {
                        type:        :array,
                        items:       { type: :string, enum: MetadataRecords::SOURCES },
@@ -712,9 +720,12 @@ module OpenapiSchemas
         noid:      { type: :string, description: 'NOID (same value as id; find_many digest parity)' },
         klass:     { type: :string, description: 'Resolved resource class name (always Work here)' },
         title:     { type: :string, nullable: true, description: 'Plain-text title off the Solr doc' },
-        thumbnail: { type: :string, nullable: true, description: 'IIIF URL of the thumbnail tier, or null' }
+        thumbnail: { type: :string, nullable: true, description: 'IIIF URL of the thumbnail tier, or null' },
+        creators:  { type: :array, items: { type: :string }, description: 'The creators, as search reports them' },
+        year:      { type: :string, nullable: true, description: 'The created date\'s year, as search reports it' },
+        embargoed: { type: :boolean, description: 'Whether an embargo withholds the Work\'s files now' }
       },
-      required:   %w[id noid klass title thumbnail]
+      required:   %w[id noid klass title thumbnail creators year embargoed]
     }
   end
 

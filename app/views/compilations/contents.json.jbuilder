@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-# Lightweight digests, same vocabulary as resources/find_many — CERES and
-# any future consumer parse one shape for both. Tombstoned works are
+# Work digests — find_many's vocabulary plus the citation facts a search row
+# carries, the same shape as resources/descendant_works. Tombstoned works are
 # filtered out by the query, so no flag is carried here.
 json.contents @contents do |digest|
   json.id digest[:noid]
@@ -9,5 +9,8 @@ json.contents @contents do |digest|
   json.klass digest[:klass]
   json.title digest[:title]
   json.thumbnail digest[:thumbnail]
+  json.creators digest[:creators]
+  json.year digest[:year]
+  json.embargoed digest[:embargoed]
 end
 json.pagination @pagination

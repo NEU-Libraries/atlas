@@ -65,7 +65,8 @@ class WorkDigestQuery
         start: (@page - 1) * @per_page,
         rows:  @per_page,
         sort:  'id asc', # stable pagination; fq-only queries have no score
-        fl:    'id,alternate_ids_ssim,internal_resource_tesim,title_tsim,thumbnail_ssi'
+        fl:    'id,alternate_ids_ssim,internal_resource_tesim,title_tsim,thumbnail_ssi,creator_ssim,pub_date_ssim,' \
+               'embargo_release_date_dtsi'
       }
     end
 
@@ -77,16 +78,20 @@ class WorkDigestQuery
       fq
     end
 
-    # Same vocabulary as the find_many digest (resources/find_many.json.jbuilder),
-    # read off the Solr doc instead of a hydrated resource. Tombstoned docs
-    # are filtered out above, so no flag is carried.
+    # The find_many digest's vocabulary plus the citation facts a search row
+    # carries, read off the Solr doc the same way SearchQuery#row reads them, so
+    # a list of a Collection's Works needs no second call. Tombstoned docs are
+    # filtered out above, so no flag is carried.
     def digest(doc)
       noid = Array(doc['alternate_ids_ssim']).first.to_s.delete_prefix('id-')
       {
         noid:      noid,
         klass:     Array(doc['internal_resource_tesim']).first,
         title:     Array(doc['title_tsim']).first,
-        thumbnail: doc['thumbnail_ssi']
+        thumbnail: doc['thumbnail_ssi'],
+        creators:  Array(doc['creator_ssim']),
+        year:      Array(doc['pub_date_ssim']).first,
+        embargoed: Permissions.embargo_active?(Array(doc['embargo_release_date_dtsi']).first)
       }
     end
 

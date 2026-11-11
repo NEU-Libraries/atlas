@@ -26,6 +26,9 @@ json.work do
   json.in_progress @work.in_progress
   json.incomplete @work.incomplete
   json.incomplete_reason @work.incomplete_reason
+  json.embargoed @work.embargoed?
+  # The setter stores "no embargo" as '', so presence first, as #permissions does.
+  json.embargo_release_date @work.embargo_release_date.presence&.to_s
   # The additional records the Work holds, so a caller need not probe each
   # one's endpoint. MODS and METS are never listed: every Work has them.
   json.metadata_formats @work.metadata_formats

@@ -118,7 +118,7 @@ module OpenapiSchemas
   def maintenance_mode
     bare({
            read_only:   { type: :boolean, description: 'Whether writes are currently refused' },
-           source:      { type: :string, nullable: true, enum: %w[operator deploy], description: 'Which door opened the window; null when closed' },
+           source:      { type: :string, nullable: true, enum: ['operator', 'deploy', nil], description: 'Which door opened the window; null when closed' },
            since:       { type: :string, format: :'date-time', nullable: true, description: 'When the window opened; null when closed' },
            message:     { type: :string, nullable: true, description: 'Operator note for the client-side banner' },
            retry_after: { type: :integer, description: 'Seconds a refused caller should wait; mirrored into the 503 Retry-After header' }
@@ -418,7 +418,7 @@ module OpenapiSchemas
     bare({
            last_checked_at: { type: :string, format: 'date-time', nullable: true,
                               description: 'The oldest latest check among the objects; null while any is unchecked' },
-           result:          { type: :string, enum: FixityResult::RESULTS, nullable: true,
+           result:          { type: :string, enum: [*FixityResult::RESULTS, nil], nullable: true,
                               description: 'The worst recorded outcome among the objects, or null when none is recorded' },
            objects:         { type: :integer, description: 'The OCFL objects the Work reaches' },
            never_checked:   { type: :integer, description: 'Objects with no recorded check' }
@@ -984,7 +984,7 @@ module OpenapiSchemas
   # ---- helpers ----
 
   def tombstone_reason_prop
-    { type: :string, nullable: true, enum: Resource::TOMBSTONE_REASONS,
+    { type: :string, nullable: true, enum: [*Resource::TOMBSTONE_REASONS, nil],
       description: 'The policy removal note chosen at tombstoning, or null. The date comes from tombstoned_at.' }
   end
 

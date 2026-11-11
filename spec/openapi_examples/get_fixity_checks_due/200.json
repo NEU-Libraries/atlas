@@ -3,25 +3,25 @@
     {
       "key": "d0000001x",
       "object": "urn:neu-drs:d0000001x",
-      "bytes": 3106,
+      "bytes": 6244,
       "last_checked_at": null
     },
     {
       "key": "d0000002x",
       "object": "urn:neu-drs:d0000002x",
-      "bytes": 6244,
+      "bytes": 3106,
       "last_checked_at": null
     },
     {
       "key": "d0000003x",
       "object": "urn:neu-drs:d0000003x",
-      "bytes": 3041,
+      "bytes": 6889,
       "last_checked_at": null
     },
     {
       "key": "d0000004x",
       "object": "urn:neu-drs:d0000004x",
-      "bytes": 6889,
+      "bytes": 6244,
       "last_checked_at": null
     },
     {
@@ -33,19 +33,19 @@
     {
       "key": "d0000006x",
       "object": "urn:neu-drs:d0000006x",
-      "bytes": 6889,
+      "bytes": 6244,
       "last_checked_at": null
     },
     {
       "key": "d0000007x",
       "object": "urn:neu-drs:d0000007x",
-      "bytes": 6244,
+      "bytes": 3041,
       "last_checked_at": null
     },
     {
       "key": "d0000008x",
       "object": "urn:neu-drs:d0000008x",
-      "bytes": 6244,
+      "bytes": 6889,
       "last_checked_at": null
     },
     {

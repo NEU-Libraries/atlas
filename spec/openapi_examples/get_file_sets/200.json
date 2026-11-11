@@ -2,7 +2,7 @@
   "file_sets": [
     {
       "id": "d0000001x",
-      "type": "File",
+      "type": "Descriptive Metadata",
       "position": null,
       "tombstoned": false,
       "tombstoned_at": null,
@@ -12,7 +12,7 @@
     },
     {
       "id": "d0000002x",
-      "type": "Descriptive Metadata",
+      "type": "File",
       "position": null,
       "tombstoned": false,
       "tombstoned_at": null,

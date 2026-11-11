@@ -39,6 +39,8 @@
     "in_progress": true,
     "incomplete": true,
     "incomplete_reason": "pdf_rendition_gave_up",
+    "embargoed": false,
+    "embargo_release_date": null,
     "metadata_formats": []
   }
 }

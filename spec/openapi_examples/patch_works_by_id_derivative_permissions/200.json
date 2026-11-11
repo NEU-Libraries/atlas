@@ -46,6 +46,8 @@
     "in_progress": true,
     "incomplete": false,
     "incomplete_reason": null,
+    "embargoed": false,
+    "embargo_release_date": null,
     "metadata_formats": []
   }
 }

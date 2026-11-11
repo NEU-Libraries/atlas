@@ -5,7 +5,10 @@
       "noid": "d0000001x",
       "klass": "Work",
       "title": "",
-      "thumbnail": null
+      "thumbnail": null,
+      "creators": [],
+      "year": null,
+      "embargoed": false
     }
   ],
   "pagination": {

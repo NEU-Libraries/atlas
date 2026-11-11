@@ -86,6 +86,21 @@ class WorksController < ApplicationController
     end
   end
 
+  # CSL-JSON, from the access copy and never the XML: an MCP client asks for it
+  # often. See docs/citation.md.
+  def citation
+    work = Work.find(params.expect(:id))
+    authorize! :read, work || Work
+    return head(:not_found) if work.nil?
+
+    refuse_tombstoned!(work)
+    cached_render('works.citation', work) do
+      @work = work
+      @citation = Citation.new(work)
+      render :citation
+    end
+  end
+
   # Work-level METS (physical structMap — the preservation record of page
   # order). Built at /complete; 404 until then.
   def mets

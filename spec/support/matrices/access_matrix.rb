@@ -114,6 +114,7 @@ module AccessMatrix
     'works#show'                 => [:record],
     'works#mods'                 => [:withheld],
     'works#mets'                 => [:withheld],
+    'works#citation'             => [:withheld],
     'works#associations'         => [:withheld],
     'works#linked_members'       => [:withheld],
     'works#assets'               => [:withheld],

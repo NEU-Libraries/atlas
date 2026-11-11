@@ -208,6 +208,8 @@ Rails.application.routes.draw do
     get '/collections/:id/children', to: 'collections#children', as: 'collection_children'
 
     get '/works/:id/mods', to: 'works#mods', as: 'work_mods'
+    # The Work's citation as CSL-JSON, built from the MODS access copy.
+    get '/works/:id/citation', to: 'works#citation', as: 'work_citation'
     # Work-level METS (physical structMap = page order); 404 until the
     # Work has been completed.
     get '/works/:id/mets', to: 'works#mets', as: 'work_mets'

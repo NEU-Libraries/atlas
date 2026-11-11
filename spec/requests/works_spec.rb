@@ -403,6 +403,58 @@ RSpec.describe 'Works', type: :request do
     end
   end
 
+  path '/works/{id}/citation' do
+    parameter name: :id, in: :path, type: :string, description: 'NOID of the Work'
+
+    get 'Cite a work' do
+      tags 'Works'
+      response_texts(
+        '200' => 'The Work as a CSL-JSON item. Facts the record does not give are left out.',
+        '410' => 'The Work is tombstoned, so its citation is withheld from everyone but admins and delegated admins.'
+      )
+      produces 'application/json'
+      description <<~DESC
+        The Work's citation as a CSL-JSON item (Citation Style Language), which
+        reference managers and citation formatters read directly: pass it to a
+        CSL processor for APA, Chicago or any other style. Built from the
+        descriptive metadata. Creators and the year follow the same rules as
+        search's `creators` and `year`. A fact the record does not give is left
+        out rather than sent as null.
+      DESC
+
+      withheld_by_tombstone do
+        let(:id) { tombstoned_public_work!.noid }
+      end
+
+      response '200', 'citation from the full MODS fixture' do
+        json_schema :Citation
+        let(:id) do
+          cited = WorkCreator.call(parent_id: collection.noid)
+          Work.find(cited.noid).mods_xml = file_fixture('work-mods.xml').read
+          cited.noid
+        end
+        run_test! do |response|
+          body = response.parsed_body
+          expect(body['id']).to eq(id)
+          expect(body['type']).to eq('song')
+          expect(body['title']).to start_with("What's New")
+          expect(body['author']).to all(include('literal'))
+          expect(body['issued']).to eq('date-parts' => [[2017, 9, 19]])
+          expect(body['keyword']).to include('Emergency management')
+        end
+      end
+
+      response '200', 'a template Work gives only what it holds' do
+        json_schema :Citation
+        let(:id) { WorkCreator.call(parent_id: collection.noid).noid }
+        run_test! do |response|
+          expect(response.parsed_body.keys).to include('id', 'type', 'title')
+          expect(response.parsed_body).not_to have_key('issued')
+        end
+      end
+    end
+  end
+
   path '/works/{id}/mets' do
     parameter name: :id, in: :path, type: :string, description: 'NOID of the Work'
 

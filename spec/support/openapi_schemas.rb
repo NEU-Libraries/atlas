@@ -47,6 +47,7 @@ module OpenapiSchemas
       ResourceDigests:         resource_digests,
       ModsVersions:            mods_versions,
       WorkMods:                work_mods,
+      Citation:                citation,
       CollectionMods:          container_mods(:collection),
       CommunityMods:           container_mods(:community),
       ResourceMods:            resource_mods,
@@ -1151,6 +1152,42 @@ module OpenapiSchemas
         }
       },
       required:   %w[work]
+    }
+  end
+
+  # GET /works/{id}/citation: CSL-JSON, with an absent fact left out rather than
+  # null, so only id, type and title are required. Mirrors works/citation.json.jbuilder.
+  def citation
+    csl_name = { type: :object, properties: { literal: { type: :string } }, required: %w[literal],
+                 additionalProperties: false }
+    {
+      type:                 :object,
+      description:          'The Work as a CSL-JSON item (Citation Style Language), ready for a reference manager or ' \
+                            'a CSL formatter. Names are literal: the record does not say which are personal.',
+      properties:           {
+        id:          { type: :string, description: 'The Work\'s NOID.' },
+        type:        { type: :string, enum: [*Citation::GENRE_TYPES.values, *Citation::RESOURCE_TYPES.values,
+                                             Citation::DEFAULT_TYPE].uniq.sort,
+                       description: 'The CSL item type, from the genre, then the type of resource.' },
+        title:       { type: :string },
+        author:      { type: :array, items: csl_name, description: 'The creators, in record order.' },
+        contributor: { type: :array, items: csl_name, description: 'The other named contributors.' },
+        issued:      {
+          description: 'The created date, to the precision the record states, or its own words when it ' \
+                       'gives a date it could not encode.',
+          oneOf:       [
+            { type: :object, required: %w[date-parts], additionalProperties: false,
+              properties: { 'date-parts': { type: :array, items: { type: :array, items: { type: :integer } } } } },
+            { type: :object, required: %w[literal], additionalProperties: false,
+              properties: { literal: { type: :string } } }
+          ]
+        },
+        abstract:    { type: :string },
+        keyword:     { type: :string, description: 'The topical subjects, comma-separated.' },
+        URL:         { type: :string, description: 'The Work\'s persistent URL, its handle.' }
+      },
+      required:             %w[id type title],
+      additionalProperties: false
     }
   end
 

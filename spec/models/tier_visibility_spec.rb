@@ -66,6 +66,29 @@ RSpec.describe TierVisibility do
     end
   end
 
+  # An active embargo withholds every held binary and every gated image tier,
+  # so `gated` must say so even on a public Work; thumbnails stay open.
+  describe '#derivative_gated? under an active embargo' do
+    let(:work) do
+      Work.new(read_groups: ['public'], embargo_release_date: 1.year.from_now)
+    end
+
+    it 'gates every held binary and every gated image tier' do
+      expect(work.derivative_gated?(blob('text/plain'))).to be(true)
+      expect(work.derivative_gated?(blob('image/tiff'))).to be(true)
+      expect(work.derivative_gated?(delegate(Role.large_image.name))).to be(true)
+    end
+
+    it 'leaves the thumbnail open' do
+      expect(work.derivative_gated?(delegate(Role.thumbnail_image.name))).to be(false)
+    end
+
+    it 'stops gating once the embargo has passed' do
+      work.embargo_release_date = 1.day.ago
+      expect(work.derivative_gated?(blob('text/plain'))).to be(false)
+    end
+  end
+
   describe '#derivative_gate_for / #derivative_gated? — image ladder' do
     let(:work) do
       Work.new(read_groups:            ['public'],

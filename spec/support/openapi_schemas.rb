@@ -525,7 +525,7 @@ module OpenapiSchemas
         classification:    { type: :string, nullable: true,
                              description: 'Classification name of the containing FileSet (Image/PDF/Structured Text/…; "File" = unidentified). Download consumers key on "File" to zip opaque binaries on the fly' },
         gated:             { type:        :boolean,
-                             description: 'True if this binary must be authorized rather than downloaded directly (its audience is not public). Blobs classify by media type: image original => original, plus pdf/audio/video; other types ride the Work gate' },
+                             description: 'True if this binary must be authorized rather than downloaded directly: its audience is not public, or the Work is under an active embargo. Blobs classify by media type: image original => original, plus pdf/audio/video; other types ride the Work gate' },
         permission:        { type: :array, items: { type: :string }, nullable: true,
                              description: 'Effective read-group set gating this binary (public / Grouper groups / [] private); null for guests, to whom group names are not disclosed' }
       },
@@ -552,7 +552,7 @@ module OpenapiSchemas
         classification: { type: :string, nullable: true,
                           description: 'Classification name of the containing FileSet (e.g. Derivative for IIIF tiers)' },
         gated:          { type:        :boolean,
-                          description: 'True if this derivative tier must be authorized rather than linked directly (its audience is not public)' },
+                          description: 'True if this derivative tier must be authorized rather than linked directly: its audience is not public, or the Work is under an active embargo (thumbnails stay open)' },
         permission:     { type: :array, items: { type: :string }, nullable: true,
                       description: 'Effective read-group set gating this tier (public / Grouper groups / [] private); null for guests, to whom group names are not disclosed' }
       },

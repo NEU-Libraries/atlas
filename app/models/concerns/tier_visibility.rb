@@ -79,8 +79,16 @@ module TierVisibility
     TierVisibility.audience_intersect(resolved_tier_gate(tier), Array(read_groups))
   end
 
+  # Gated means a client must be authorized for the asset rather than fetch it
+  # directly. An active embargo withholds every held binary and every gated
+  # image tier whatever the tier's audience, as WithheldBytesGate and the asset
+  # partial enforce; thumbnails stay open. See docs/authorization.md.
   def derivative_gated?(asset)
-    derivative_gate_for(asset).exclude?('public')
+    embargo_gates?(asset) || derivative_gate_for(asset).exclude?('public')
+  end
+
+  def embargo_gates?(asset)
+    embargoed? && (asset.is_a?(Blob) || TIER_FOR_ROLE.key?(asset.use))
   end
 
   def tier_for_asset(asset)

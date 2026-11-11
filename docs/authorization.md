@@ -616,6 +616,12 @@ and the IIIF auth layer enforce those. Atlas's read path
 (`GET /works/:id/assets`, `/file_sets`) surfaces `permission` and `gated` per
 asset so those layers can act.
 
+`gated` also turns true for every held binary and every gated image tier while the
+Work is under an active embargo, whatever the tier's audience. The embargo
+withholds exactly those assets, so a client that trusts `gated` never offers a
+link that answers 403. `permission` still reports the tier's audience; the
+embargo is not an audience.
+
 ### The image ladder cascades
 
 `IMAGE_LADDER` is `%i[small medium large service original]`, ordered most-visible

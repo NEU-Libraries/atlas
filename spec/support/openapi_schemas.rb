@@ -237,8 +237,16 @@ module OpenapiSchemas
       tombstoned:       { type: :boolean, description: 'Tombstoned (suppressed from discovery) flag' },
       tombstoned_at:    { type: :string, nullable: true, description: 'ISO-8601 timestamp set when tombstoned' },
       tombstoned_by:    { type: :string, nullable: true, description: 'NUID of the user who tombstoned the resource' },
-      tombstone_reason: tombstone_reason_prop
+      tombstone_reason: tombstone_reason_prop,
+      updated_at:       updated_at_prop
     }
+  end
+
+  # When the record itself last changed. docs/openapi.md says what moves it.
+  def updated_at_prop
+    { type: :string, format: 'date-time', nullable: true,
+      description: 'When this record last changed: its metadata, permissions or state. Adding or replacing ' \
+                   'a file changes the file\'s own record, not its Work\'s.' }
   end
 
   def blob
@@ -263,6 +271,7 @@ module OpenapiSchemas
               tombstoned:               { type: :boolean, description: 'Tombstoned (suppressed from discovery) flag' },
               tombstoned_at:            { type: :string, nullable: true, description: 'ISO-8601 timestamp set when tombstoned' },
               tombstoned_by:            { type: :string, nullable: true, description: 'NUID of the user who tombstoned the resource' },
+              updated_at:               updated_at_prop,
               tombstoned_in_effect:     { type:        :boolean,
                                           description: 'True when the Blob, its FileSet or its Work is tombstoned. ' \
                                                        'Its content is then withheld below the operator tiers' },
@@ -291,7 +300,8 @@ module OpenapiSchemas
               label:             { type: :string, nullable: true },
               tombstoned:        { type: :boolean, description: 'Tombstoned (suppressed from discovery) flag' },
               tombstoned_at:     { type: :string, nullable: true, description: 'ISO-8601 timestamp set when tombstoned' },
-              tombstoned_by:     { type: :string, nullable: true, description: 'NUID of the user who tombstoned the resource' }
+              tombstoned_by:     { type: :string, nullable: true, description: 'NUID of the user who tombstoned the resource' },
+              updated_at:        updated_at_prop
             })
   end
 
@@ -1042,7 +1052,8 @@ module OpenapiSchemas
       tombstoned:       { type: :boolean, description: 'Tombstoned (suppressed from discovery) flag' },
       tombstoned_at:    { type: :string, nullable: true, description: 'ISO-8601 timestamp set when tombstoned' },
       tombstoned_by:    { type: :string, nullable: true, description: 'NUID of the user who tombstoned the resource' },
-      tombstone_reason: tombstone_reason_prop
+      tombstone_reason: tombstone_reason_prop,
+      updated_at:       updated_at_prop
     }.merge(provenance_props)
   end
 

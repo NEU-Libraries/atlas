@@ -1,18 +1,23 @@
 # frozen_string_literal: true
 
-# The JSON body of a route that also serves XML or HTML. rswag gives one schema
-# to every media type an operation produces, so such a route declares its JSON
-# schema with `json_schema :Name` instead; the formatter puts it under the JSON
+# The bodies rswag cannot describe. rswag gives one schema to every media type
+# an operation produces, so a route that also serves XML or HTML declares its
+# JSON schema with `json_schema :Name`; the formatter puts it under the JSON
 # media type alone, and every JSON body a spec receives is checked against it.
-# docs/openapi.md explains the rule.
+# A file's bytes are declared with `binary_body`, since a `schema` would be
+# validated as JSON. docs/openapi.md explains both.
 module OpenapiJsonBodies
-  KEY = 'x-atlas-json-schema'
+  KEY    = 'x-atlas-json-schema'
+  BINARY = 'x-atlas-binary'
 
   module_function
 
   def document(response)
     return unless response.is_a?(Hash)
 
+    if response.delete(BINARY)
+      response['content'] = { 'application/octet-stream' => { 'schema' => { 'type' => 'string', 'format' => 'binary' } } }
+    end
     name = response.delete(KEY)
     return unless name
 

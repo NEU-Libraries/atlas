@@ -58,10 +58,38 @@ info:
     descendant Works and a Compilation's contents) return `SearchPagination`:
     stop when `pagination.page` reaches `pagination.pages`.
 
+    ### Detecting changes
+
+    Every successful response but a file's bytes carries a weak `ETag`. Send
+    it back as `If-None-Match`, and Atlas answers `304 Not Modified` with no
+    body when nothing changed. That still costs a request, but not the body.
+
+    A record also carries `updated_at`: when the record itself last changed,
+    its metadata, permissions or state. Adding or replacing a file changes the
+    file's own record, not its Work's. For a file's bytes, compare the Blob's
+    `digest` with the one you hold.
+
+    ### Harvesting
+
+    To mirror the repository's metadata, use the OAI-PMH 2.0 endpoint at
+    `/oai` rather than paging this API. It is a separate protocol, with XML
+    responses, so it is not listed among the operations below.
+
+    - It serves every public, finished Work. A tombstoned Work appears as a
+      deleted record.
+    - Its metadata formats are `mods`, the full MODS record, and `oai_dc`.
+    - `from` and `until` select the records changed in a window, to the
+      second, for an incremental harvest.
+    - Its sets are the published Compilations.
+    - Deletions are `transient`: a purged record leaves no trace, so a full
+      harvest now and then is the only way to catch every removal.
+    - `GET /oai?verb=Identify` reports the identifier scheme and the rest.
+
     ### Terms
 
     | Term | Meaning |
     |---|---|
+    | Cerberus | The Library's own website for the repository, and Atlas's main client. Some descriptions name it as the caller an operation was built for. |
     | NOID | The identifier of a resource in this API: a short, opaque string. Every `id` in a path is a NOID. |
     | NUID | A Northeastern University ID, the 9-digit number that names a person. |
     | Handle | The persistent identifier of a finished Work. It resolves through `https://hdl.handle.net`. |
@@ -277,6 +305,13 @@ components:
               description: NUID of the user who tombstoned the resource
             tombstone_reason:
               "$ref": "#/components/schemas/TombstoneReason"
+            updated_at:
+              type: string
+              format: date-time
+              nullable: true
+              description: 'When this record last changed: its metadata, permissions
+                or state. Adding or replacing a file changes the file''s own record,
+                not its Work''s.'
             depositor:
               type: string
               nullable: true
@@ -347,6 +382,7 @@ components:
           - tombstoned_at
           - tombstoned_by
           - tombstone_reason
+          - updated_at
           - depositor
           - proxy_uploader
           - in_progress
@@ -450,6 +486,13 @@ components:
               description: NUID of the user who tombstoned the resource
             tombstone_reason:
               "$ref": "#/components/schemas/TombstoneReason"
+            updated_at:
+              type: string
+              format: date-time
+              nullable: true
+              description: 'When this record last changed: its metadata, permissions
+                or state. Adding or replacing a file changes the file''s own record,
+                not its Work''s.'
             depositor:
               type: string
               nullable: true
@@ -486,6 +529,7 @@ components:
           - tombstoned_at
           - tombstoned_by
           - tombstone_reason
+          - updated_at
           - depositor
           - proxy_uploader
           - featured
@@ -585,6 +629,13 @@ components:
               description: NUID of the user who tombstoned the resource
             tombstone_reason:
               "$ref": "#/components/schemas/TombstoneReason"
+            updated_at:
+              type: string
+              format: date-time
+              nullable: true
+              description: 'When this record last changed: its metadata, permissions
+                or state. Adding or replacing a file changes the file''s own record,
+                not its Work''s.'
             depositor:
               type: string
               nullable: true
@@ -619,6 +670,7 @@ components:
           - tombstoned_at
           - tombstoned_by
           - tombstone_reason
+          - updated_at
           - depositor
           - proxy_uploader
           - system_container
@@ -653,6 +705,13 @@ components:
               description: NUID of the user who tombstoned the resource
             tombstone_reason:
               "$ref": "#/components/schemas/TombstoneReason"
+            updated_at:
+              type: string
+              format: date-time
+              nullable: true
+              description: 'When this record last changed: its metadata, permissions
+                or state. Adding or replacing a file changes the file''s own record,
+                not its Work''s.'
           required:
           - id
           - type
@@ -661,6 +720,7 @@ components:
           - tombstoned_at
           - tombstoned_by
           - tombstone_reason
+          - updated_at
       required:
       - file_set
     Blob:
@@ -722,6 +782,13 @@ components:
               type: string
               nullable: true
               description: NUID of the user who tombstoned the resource
+            updated_at:
+              type: string
+              format: date-time
+              nullable: true
+              description: 'When this record last changed: its metadata, permissions
+                or state. Adding or replacing a file changes the file''s own record,
+                not its Work''s.'
             tombstoned_in_effect:
               type: boolean
               description: True when the Blob, its FileSet or its Work is tombstoned.
@@ -750,6 +817,7 @@ components:
           - tombstoned
           - tombstoned_at
           - tombstoned_by
+          - updated_at
           - tombstoned_in_effect
           - tombstoned_resource_id
           - tombstoned_resource_type
@@ -802,6 +870,13 @@ components:
               type: string
               nullable: true
               description: NUID of the user who tombstoned the resource
+            updated_at:
+              type: string
+              format: date-time
+              nullable: true
+              description: 'When this record last changed: its metadata, permissions
+                or state. Adding or replacing a file changes the file''s own record,
+                not its Work''s.'
           required:
           - kind
           - id
@@ -814,6 +889,7 @@ components:
           - tombstoned
           - tombstoned_at
           - tombstoned_by
+          - updated_at
       required:
       - delegate
     WorkSummary:
@@ -911,6 +987,13 @@ components:
           description: NUID of the user who tombstoned the resource
         tombstone_reason:
           "$ref": "#/components/schemas/TombstoneReason"
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: 'When this record last changed: its metadata, permissions or
+            state. Adding or replacing a file changes the file''s own record, not
+            its Work''s.'
       required:
       - id
       - type
@@ -919,6 +1002,7 @@ components:
       - tombstoned_at
       - tombstoned_by
       - tombstone_reason
+      - updated_at
     BlobSummary:
       type: object
       properties:
@@ -4487,13 +4571,26 @@ paths:
       responses:
         '200':
           description: content streamed (whole body)
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
         '206':
           description: partial content (byte range)
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
         '416':
           description: range not satisfiable
         '410':
           description: content withheld by a tombstoned Work
-          content: {}
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Tombstoned"
         '403':
           description: content withheld by an embargo or a tier reservation
           content:
@@ -4700,6 +4797,11 @@ paths:
       responses:
         '200':
           description: version content streamed
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
         '404':
           description: unknown version
         '403':
@@ -6855,7 +6957,10 @@ paths:
         '410':
           description: withheld by a tombstone from everyone but admins and delegated
             admins
-          content: {}
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Tombstoned"
         '200':
           description: historical darwin core returned
         '404':
@@ -8269,7 +8374,10 @@ paths:
         '410':
           description: withheld by a tombstone from everyone but admins and delegated
             admins
-          content: {}
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Tombstoned"
         '200':
           description: historical MODS XML returned
         '404':
@@ -9123,10 +9231,10 @@ paths:
       tags:
       - User
       description: |
-        Returns the user resolved from the request auth context. With no
-        valid Bearer/NUID, falls through to the guest user record. An optional
-        `email` selects a specific one of the caller's other accounts under the
-        same NUID (the switch flow); a foreign account is 403.
+        Returns the account the request's token names. With no token, it
+        returns the shared guest account. A person can hold several accounts
+        under one NUID; the optional `email` selects another of the caller's
+        own, and an account that is not theirs is 403.
       parameters:
       - name: email
         in: query

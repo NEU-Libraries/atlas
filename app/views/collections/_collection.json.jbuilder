@@ -16,6 +16,7 @@ json.collection do
   json.permanent_url @collection.mods&.permanent_url
   json.tombstoned @collection.tombstoned
   json.tombstoned_at @collection.tombstoned_at&.to_s
+  json.updated_at @collection.updated_at&.utc&.iso8601
   json.tombstoned_by @collection.tombstoned_by
   json.tombstone_reason @collection.tombstone_reason
   json.depositor GuestRedaction.nuid(@current_user, @collection.depositor)

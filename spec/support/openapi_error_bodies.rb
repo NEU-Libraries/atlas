@@ -43,7 +43,8 @@ module OpenapiErrorBodies
 
   def error_content(code, response, content)
     schemas = content.values.pluck('schema')
-    return content.select { |type, _| type.include?('json') } if schemas.any? { |s| tombstone_record?(code, s) }
+    record = schemas.find { |schema| tombstone_record?(code, schema) }
+    return { 'application/json' => { 'schema' => record } } if record
     return unless error_body?(code, response, schemas.any?)
 
     { 'application/json' => { 'schema' => { '$ref' => OpenapiContract::ERROR_REF } } }

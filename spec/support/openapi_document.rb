@@ -188,10 +188,38 @@ module OpenapiDocument
     descendant Works and a Compilation's contents) return `SearchPagination`:
     stop when `pagination.page` reaches `pagination.pages`.
 
+    ### Detecting changes
+
+    Every successful response but a file's bytes carries a weak `ETag`. Send
+    it back as `If-None-Match`, and Atlas answers `304 Not Modified` with no
+    body when nothing changed. That still costs a request, but not the body.
+
+    A record also carries `updated_at`: when the record itself last changed,
+    its metadata, permissions or state. Adding or replacing a file changes the
+    file's own record, not its Work's. For a file's bytes, compare the Blob's
+    `digest` with the one you hold.
+
+    ### Harvesting
+
+    To mirror the repository's metadata, use the OAI-PMH 2.0 endpoint at
+    `/oai` rather than paging this API. It is a separate protocol, with XML
+    responses, so it is not listed among the operations below.
+
+    - It serves every public, finished Work. A tombstoned Work appears as a
+      deleted record.
+    - Its metadata formats are `mods`, the full MODS record, and `oai_dc`.
+    - `from` and `until` select the records changed in a window, to the
+      second, for an incremental harvest.
+    - Its sets are the published Compilations.
+    - Deletions are `transient`: a purged record leaves no trace, so a full
+      harvest now and then is the only way to catch every removal.
+    - `GET /oai?verb=Identify` reports the identifier scheme and the rest.
+
     ### Terms
 
     | Term | Meaning |
     |---|---|
+    | Cerberus | The Library's own website for the repository, and Atlas's main client. Some descriptions name it as the caller an operation was built for. |
     | NOID | The identifier of a resource in this API: a short, opaque string. Every `id` in a path is a NOID. |
     | NUID | A Northeastern University ID, the 9-digit number that names a person. |
     | Handle | The persistent identifier of a finished Work. It resolves through `https://hdl.handle.net`. |

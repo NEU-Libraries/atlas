@@ -12,4 +12,5 @@ json.delegate do
   json.tombstoned @delegate.tombstoned
   json.tombstoned_at @delegate.tombstoned_at&.to_s
   json.tombstoned_by @delegate.tombstoned_by
+  json.updated_at @delegate.updated_at&.utc&.iso8601
 end

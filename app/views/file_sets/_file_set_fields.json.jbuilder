@@ -9,3 +9,4 @@ json.tombstoned file_set.tombstoned
 json.tombstoned_at file_set.tombstoned_at&.to_s
 json.tombstoned_by file_set.tombstoned_by
 json.tombstone_reason file_set.tombstone_reason
+json.updated_at file_set.updated_at&.utc&.iso8601

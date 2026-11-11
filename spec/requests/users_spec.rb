@@ -16,10 +16,10 @@ RSpec.describe 'User', type: :request, default_auth: false do
       tags 'User'
       produces 'application/json'
       description <<~D
-        Returns the user resolved from the request auth context. With no
-        valid Bearer/NUID, falls through to the guest user record. An optional
-        `email` selects a specific one of the caller's other accounts under the
-        same NUID (the switch flow); a foreign account is 403.
+        Returns the account the request's token names. With no token, it
+        returns the shared guest account. A person can hold several accounts
+        under one NUID; the optional `email` selects another of the caller's
+        own, and an account that is not theirs is 403.
       D
       parameter name: :email, in: :query, type: :string, required: false,
                 description: 'Read a specific account under the caller\'s NUID (must be one of theirs).'

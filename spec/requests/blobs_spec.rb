@@ -308,6 +308,7 @@ RSpec.describe 'Files (Blobs)', type: :request do
       let(:Range) { nil }
 
       response '200', 'content streamed (whole body)' do
+        binary_body
         run_test! do |response|
           expect(response.headers['Accept-Ranges']).to eq('bytes')
           expect(response.body.bytesize).to eq(File.size(fixture))
@@ -315,6 +316,7 @@ RSpec.describe 'Files (Blobs)', type: :request do
       end
 
       response '206', 'partial content (byte range)' do
+        binary_body
         let(:Range) { 'bytes=0-9' }
         run_test! do |response|
           total = File.size(fixture)
@@ -615,6 +617,7 @@ RSpec.describe 'Files (Blobs)', type: :request do
       DESC
 
       response '200', 'version content streamed' do
+        binary_body
         let(:blob)       { BlobCreator.call(work_id: work.noid, original_filename: 'example.bin', path: fixture.to_s) }
         let(:id)         { blob.noid }
         let(:version_id) { seed_version_label(blob) }

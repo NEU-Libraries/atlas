@@ -22,6 +22,7 @@ json.work do
   json.handle @work.handle
   json.tombstoned @work.tombstoned
   json.tombstoned_at @work.tombstoned_at&.to_s
+  json.updated_at @work.updated_at&.utc&.iso8601
   json.tombstoned_by @work.tombstoned_by
   json.tombstone_reason @work.tombstone_reason
   json.depositor GuestRedaction.nuid(@current_user, @work.depositor)

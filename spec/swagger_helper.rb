@@ -66,6 +66,12 @@ module Rswag
         metadata[:response][OpenapiJsonBodies::KEY] = name.to_s
       end
 
+      # Inside a response block: the body is a file's bytes, whatever their
+      # type. Not a `schema`, which rswag would validate as JSON.
+      def binary_body
+        metadata[:response][OpenapiJsonBodies::BINARY] = true
+      end
+
       # Inside a response block: this 4xx answers with no body, against the
       # default that only 404 and 416 are bare. See docs/openapi.md.
       def no_body

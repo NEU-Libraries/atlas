@@ -15,6 +15,7 @@ json.blob do
   json.tombstoned @blob.tombstoned
   json.tombstoned_at @blob.tombstoned_at&.to_s
   json.tombstoned_by @blob.tombstoned_by
+  json.updated_at @blob.updated_at&.utc&.iso8601
   # A tombstone on the FileSet or Work withholds the Blob without setting its
   # own flag, so a client reads these to refuse before it asks for content.
   source = @blob.tombstone_source

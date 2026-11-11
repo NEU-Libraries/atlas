@@ -276,17 +276,7 @@ components:
               nullable: true
               description: NUID of the user who tombstoned the resource
             tombstone_reason:
-              type: string
-              nullable: true
-              enum:
-              - Removed from view by legal order
-              - Removed from view at request of copyright holder
-              - Removed from view at Northeastern University's discretion
-              - Removed from view at Northeastern University Library's discretion
-              - Removed from view at contributor or content curator's discretion
-              -
-              description: The policy removal note chosen at tombstoning, or null.
-                The date comes from tombstoned_at.
+              "$ref": "#/components/schemas/TombstoneReason"
             depositor:
               type: string
               nullable: true
@@ -459,17 +449,7 @@ components:
               nullable: true
               description: NUID of the user who tombstoned the resource
             tombstone_reason:
-              type: string
-              nullable: true
-              enum:
-              - Removed from view by legal order
-              - Removed from view at request of copyright holder
-              - Removed from view at Northeastern University's discretion
-              - Removed from view at Northeastern University Library's discretion
-              - Removed from view at contributor or content curator's discretion
-              -
-              description: The policy removal note chosen at tombstoning, or null.
-                The date comes from tombstoned_at.
+              "$ref": "#/components/schemas/TombstoneReason"
             depositor:
               type: string
               nullable: true
@@ -604,17 +584,7 @@ components:
               nullable: true
               description: NUID of the user who tombstoned the resource
             tombstone_reason:
-              type: string
-              nullable: true
-              enum:
-              - Removed from view by legal order
-              - Removed from view at request of copyright holder
-              - Removed from view at Northeastern University's discretion
-              - Removed from view at Northeastern University Library's discretion
-              - Removed from view at contributor or content curator's discretion
-              -
-              description: The policy removal note chosen at tombstoning, or null.
-                The date comes from tombstoned_at.
+              "$ref": "#/components/schemas/TombstoneReason"
             depositor:
               type: string
               nullable: true
@@ -682,17 +652,7 @@ components:
               nullable: true
               description: NUID of the user who tombstoned the resource
             tombstone_reason:
-              type: string
-              nullable: true
-              enum:
-              - Removed from view by legal order
-              - Removed from view at request of copyright holder
-              - Removed from view at Northeastern University's discretion
-              - Removed from view at Northeastern University Library's discretion
-              - Removed from view at contributor or content curator's discretion
-              -
-              description: The policy removal note chosen at tombstoning, or null.
-                The date comes from tombstoned_at.
+              "$ref": "#/components/schemas/TombstoneReason"
           required:
           - id
           - type
@@ -950,17 +910,7 @@ components:
           nullable: true
           description: NUID of the user who tombstoned the resource
         tombstone_reason:
-          type: string
-          nullable: true
-          enum:
-          - Removed from view by legal order
-          - Removed from view at request of copyright holder
-          - Removed from view at Northeastern University's discretion
-          - Removed from view at Northeastern University Library's discretion
-          - Removed from view at contributor or content curator's discretion
-          -
-          description: The policy removal note chosen at tombstoning, or null. The
-            date comes from tombstoned_at.
+          "$ref": "#/components/schemas/TombstoneReason"
       required:
       - id
       - type
@@ -1044,130 +994,13 @@ components:
       type: array
       items:
         oneOf:
-        - type: object
-          properties:
-            kind:
-              type: string
-              enum:
-              - Blob
-              description: The asset model. Match on this to tell a Blob from a Delegate
-            noid:
-              type: string
-            file_set:
-              type: string
-              description: NOID of the FileSet the asset is listed under — the id
-                tombstone and restore take
-            mime_type:
-              type: string
-              nullable: true
-            original_filename:
-              type: string
-              nullable: true
-            size:
-              type: integer
-              nullable: true
-            filename:
-              type: string
-              nullable: true
-            label:
-              type: string
-              nullable: true
-            language:
-              type: string
-              nullable: true
-              description: BCP 47 language of a caption or other text track; null
-                when unset
-            track_label:
-              type: string
-              nullable: true
-              description: Display name a player shows for the track; null when unset
-            role:
-              type: string
-              nullable: true
-              description: Stable machine token for the asset role — the Role key
-                (e.g. service_file, small_image, original_file). Match on this, not
-                the human `use` label
-            classification:
-              type: string
-              nullable: true
-              description: Classification name of the containing FileSet (Image/PDF/Structured
-                Text/…; "File" = unidentified). Download consumers key on "File" to
-                zip opaque binaries on the fly
-            gated:
-              type: boolean
-              description: 'True if this binary must be authorized rather than downloaded
-                directly (its audience is not public). Blobs classify by media type:
-                image original => original, plus pdf/audio/video; other types ride
-                the Work gate'
-            permission:
-              type: array
-              items:
-                type: string
-              nullable: true
-              description: Effective read-group set gating this binary (public / Grouper
-                groups / [] private); null for guests, to whom group names are not
-                disclosed
-          required:
-          - kind
-          - noid
-          description: Blob asset — held binary
-        - type: object
-          properties:
-            kind:
-              type: string
-              enum:
-              - Delegate
-              description: 'The asset model. Match on this to tell a Delegate from
-                a Blob: `uri` can be null'
-            noid:
-              type: string
-            file_set:
-              type: string
-              description: NOID of the FileSet the asset is listed under
-            mime_type:
-              type: string
-              nullable: true
-            use:
-              type: string
-              nullable: true
-              description: Human display label for the role (e.g. "Service File");
-                match on `role` for a stable token
-            uri:
-              type: string
-              nullable: true
-              description: 'The IIIF URL. Null for a gated image role while an embargo
-                withholds it from the caller: below staff, without an edit grant on
-                the Work.'
-            label:
-              type: string
-              nullable: true
-            role:
-              type: string
-              nullable: true
-              description: Stable machine token for the asset role — the Role key
-                (e.g. service_file, small_image). Match on this, not the human `use`
-                label
-            classification:
-              type: string
-              nullable: true
-              description: Classification name of the containing FileSet (e.g. Derivative
-                for IIIF tiers)
-            gated:
-              type: boolean
-              description: True if this derivative tier must be authorized rather
-                than linked directly (its audience is not public)
-            permission:
-              type: array
-              items:
-                type: string
-              nullable: true
-              description: Effective read-group set gating this tier (public / Grouper
-                groups / [] private); null for guests, to whom group names are not
-                disclosed
-          required:
-          - kind
-          - noid
-          description: Delegate asset — external pointer (e.g. IIIF URL)
+        - "$ref": "#/components/schemas/BlobAsset"
+        - "$ref": "#/components/schemas/DelegateAsset"
+        discriminator:
+          propertyName: kind
+          mapping:
+            Blob: "#/components/schemas/BlobAsset"
+            Delegate: "#/components/schemas/DelegateAsset"
     WorkFileSets:
       type: array
       items:
@@ -1191,132 +1024,13 @@ components:
             type: array
             items:
               oneOf:
-              - type: object
-                properties:
-                  kind:
-                    type: string
-                    enum:
-                    - Blob
-                    description: The asset model. Match on this to tell a Blob from
-                      a Delegate
-                  noid:
-                    type: string
-                  file_set:
-                    type: string
-                    description: NOID of the FileSet the asset is listed under — the
-                      id tombstone and restore take
-                  mime_type:
-                    type: string
-                    nullable: true
-                  original_filename:
-                    type: string
-                    nullable: true
-                  size:
-                    type: integer
-                    nullable: true
-                  filename:
-                    type: string
-                    nullable: true
-                  label:
-                    type: string
-                    nullable: true
-                  language:
-                    type: string
-                    nullable: true
-                    description: BCP 47 language of a caption or other text track;
-                      null when unset
-                  track_label:
-                    type: string
-                    nullable: true
-                    description: Display name a player shows for the track; null when
-                      unset
-                  role:
-                    type: string
-                    nullable: true
-                    description: Stable machine token for the asset role — the Role
-                      key (e.g. service_file, small_image, original_file). Match on
-                      this, not the human `use` label
-                  classification:
-                    type: string
-                    nullable: true
-                    description: Classification name of the containing FileSet (Image/PDF/Structured
-                      Text/…; "File" = unidentified). Download consumers key on "File"
-                      to zip opaque binaries on the fly
-                  gated:
-                    type: boolean
-                    description: 'True if this binary must be authorized rather than
-                      downloaded directly (its audience is not public). Blobs classify
-                      by media type: image original => original, plus pdf/audio/video;
-                      other types ride the Work gate'
-                  permission:
-                    type: array
-                    items:
-                      type: string
-                    nullable: true
-                    description: Effective read-group set gating this binary (public
-                      / Grouper groups / [] private); null for guests, to whom group
-                      names are not disclosed
-                required:
-                - kind
-                - noid
-                description: Blob asset — held binary
-              - type: object
-                properties:
-                  kind:
-                    type: string
-                    enum:
-                    - Delegate
-                    description: 'The asset model. Match on this to tell a Delegate
-                      from a Blob: `uri` can be null'
-                  noid:
-                    type: string
-                  file_set:
-                    type: string
-                    description: NOID of the FileSet the asset is listed under
-                  mime_type:
-                    type: string
-                    nullable: true
-                  use:
-                    type: string
-                    nullable: true
-                    description: Human display label for the role (e.g. "Service File");
-                      match on `role` for a stable token
-                  uri:
-                    type: string
-                    nullable: true
-                    description: 'The IIIF URL. Null for a gated image role while
-                      an embargo withholds it from the caller: below staff, without
-                      an edit grant on the Work.'
-                  label:
-                    type: string
-                    nullable: true
-                  role:
-                    type: string
-                    nullable: true
-                    description: Stable machine token for the asset role — the Role
-                      key (e.g. service_file, small_image). Match on this, not the
-                      human `use` label
-                  classification:
-                    type: string
-                    nullable: true
-                    description: Classification name of the containing FileSet (e.g.
-                      Derivative for IIIF tiers)
-                  gated:
-                    type: boolean
-                    description: True if this derivative tier must be authorized rather
-                      than linked directly (its audience is not public)
-                  permission:
-                    type: array
-                    items:
-                      type: string
-                    nullable: true
-                    description: Effective read-group set gating this tier (public
-                      / Grouper groups / [] private); null for guests, to whom group
-                      names are not disclosed
-                required:
-                - kind
-                - noid
-                description: Delegate asset — external pointer (e.g. IIIF URL)
+              - "$ref": "#/components/schemas/BlobAsset"
+              - "$ref": "#/components/schemas/DelegateAsset"
+              discriminator:
+                propertyName: kind
+                mapping:
+                  Blob: "#/components/schemas/BlobAsset"
+                  Delegate: "#/components/schemas/DelegateAsset"
         required:
         - noid
         - type
@@ -1327,146 +1041,13 @@ components:
       type: array
       items:
         oneOf:
-        - type: object
-          properties:
-            kind:
-              type: string
-              enum:
-              - Blob
-              description: The asset model. Match on this to tell a Blob from a Delegate
-            noid:
-              type: string
-            file_set:
-              type: string
-              description: NOID of the FileSet the asset is listed under — the id
-                tombstone and restore take
-            mime_type:
-              type: string
-              nullable: true
-            original_filename:
-              type: string
-              nullable: true
-            size:
-              type: integer
-              nullable: true
-            filename:
-              type: string
-              nullable: true
-            label:
-              type: string
-              nullable: true
-            language:
-              type: string
-              nullable: true
-              description: BCP 47 language of a caption or other text track; null
-                when unset
-            track_label:
-              type: string
-              nullable: true
-              description: Display name a player shows for the track; null when unset
-            role:
-              type: string
-              nullable: true
-              description: Stable machine token for the asset role — the Role key
-                (e.g. service_file, small_image, original_file). Match on this, not
-                the human `use` label
-            classification:
-              type: string
-              nullable: true
-              description: Classification name of the containing FileSet (Image/PDF/Structured
-                Text/…; "File" = unidentified). Download consumers key on "File" to
-                zip opaque binaries on the fly
-            gated:
-              type: boolean
-              description: 'True if this binary must be authorized rather than downloaded
-                directly (its audience is not public). Blobs classify by media type:
-                image original => original, plus pdf/audio/video; other types ride
-                the Work gate'
-            permission:
-              type: array
-              items:
-                type: string
-              nullable: true
-              description: Effective read-group set gating this binary (public / Grouper
-                groups / [] private); null for guests, to whom group names are not
-                disclosed
-            tombstoned_at:
-              type: string
-              nullable: true
-              description: ISO-8601 timestamp the FileSet was tombstoned
-            tombstoned_by:
-              type: string
-              nullable: true
-              description: NUID of the user who tombstoned the FileSet
-          required:
-          - kind
-          - noid
-          description: Blob asset — held binary
-        - type: object
-          properties:
-            kind:
-              type: string
-              enum:
-              - Delegate
-              description: 'The asset model. Match on this to tell a Delegate from
-                a Blob: `uri` can be null'
-            noid:
-              type: string
-            file_set:
-              type: string
-              description: NOID of the FileSet the asset is listed under
-            mime_type:
-              type: string
-              nullable: true
-            use:
-              type: string
-              nullable: true
-              description: Human display label for the role (e.g. "Service File");
-                match on `role` for a stable token
-            uri:
-              type: string
-              nullable: true
-              description: 'The IIIF URL. Null for a gated image role while an embargo
-                withholds it from the caller: below staff, without an edit grant on
-                the Work.'
-            label:
-              type: string
-              nullable: true
-            role:
-              type: string
-              nullable: true
-              description: Stable machine token for the asset role — the Role key
-                (e.g. service_file, small_image). Match on this, not the human `use`
-                label
-            classification:
-              type: string
-              nullable: true
-              description: Classification name of the containing FileSet (e.g. Derivative
-                for IIIF tiers)
-            gated:
-              type: boolean
-              description: True if this derivative tier must be authorized rather
-                than linked directly (its audience is not public)
-            permission:
-              type: array
-              items:
-                type: string
-              nullable: true
-              description: Effective read-group set gating this tier (public / Grouper
-                groups / [] private); null for guests, to whom group names are not
-                disclosed
-            tombstoned_at:
-              type: string
-              nullable: true
-              description: ISO-8601 timestamp the FileSet was tombstoned
-            tombstoned_by:
-              type: string
-              nullable: true
-              description: NUID of the user who tombstoned the FileSet
-          required:
-          - kind
-          - noid
-          description: Delegate asset — external pointer (e.g. IIIF URL)
+        - "$ref": "#/components/schemas/TombstonedBlobAsset"
+        - "$ref": "#/components/schemas/TombstonedDelegateAsset"
+        discriminator:
+          propertyName: kind
+          mapping:
+            Blob: "#/components/schemas/TombstonedBlobAsset"
+            Delegate: "#/components/schemas/TombstonedDelegateAsset"
     WorkFileRevisions:
       type: array
       items:
@@ -3767,6 +3348,280 @@ components:
       - tombstoned_resource_id
       - tombstoned_resource_type
       - message
+    TombstoneReason:
+      type: string
+      nullable: true
+      enum:
+      - Removed from view by legal order
+      - Removed from view at request of copyright holder
+      - Removed from view at Northeastern University's discretion
+      - Removed from view at Northeastern University Library's discretion
+      - Removed from view at contributor or content curator's discretion
+      -
+      description: The policy removal note chosen at tombstoning, or null. The date
+        comes from tombstoned_at.
+    BlobAsset:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum:
+          - Blob
+          description: The asset model. Match on this to tell a Blob from a Delegate
+        noid:
+          type: string
+        file_set:
+          type: string
+          description: NOID of the FileSet the asset is listed under — the id tombstone
+            and restore take
+        mime_type:
+          type: string
+          nullable: true
+        original_filename:
+          type: string
+          nullable: true
+        size:
+          type: integer
+          nullable: true
+        filename:
+          type: string
+          nullable: true
+        label:
+          type: string
+          nullable: true
+        language:
+          type: string
+          nullable: true
+          description: BCP 47 language of a caption or other text track; null when
+            unset
+        track_label:
+          type: string
+          nullable: true
+          description: Display name a player shows for the track; null when unset
+        role:
+          type: string
+          nullable: true
+          description: Stable machine token for the asset role — the Role key (e.g.
+            service_file, small_image, original_file). Match on this, not the human
+            `use` label
+        classification:
+          type: string
+          nullable: true
+          description: Classification name of the containing FileSet (Image/PDF/Structured
+            Text/…; "File" = unidentified). Download consumers key on "File" to zip
+            opaque binaries on the fly
+        gated:
+          type: boolean
+          description: 'True if this binary must be authorized rather than downloaded
+            directly (its audience is not public). Blobs classify by media type: image
+            original => original, plus pdf/audio/video; other types ride the Work
+            gate'
+        permission:
+          type: array
+          items:
+            type: string
+          nullable: true
+          description: Effective read-group set gating this binary (public / Grouper
+            groups / [] private); null for guests, to whom group names are not disclosed
+      required:
+      - kind
+      - noid
+      description: Blob asset — held binary
+    DelegateAsset:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum:
+          - Delegate
+          description: 'The asset model. Match on this to tell a Delegate from a Blob:
+            `uri` can be null'
+        noid:
+          type: string
+        file_set:
+          type: string
+          description: NOID of the FileSet the asset is listed under
+        mime_type:
+          type: string
+          nullable: true
+        use:
+          type: string
+          nullable: true
+          description: Human display label for the role (e.g. "Service File"); match
+            on `role` for a stable token
+        uri:
+          type: string
+          nullable: true
+          description: 'The IIIF URL. Null for a gated image role while an embargo
+            withholds it from the caller: below staff, without an edit grant on the
+            Work.'
+        label:
+          type: string
+          nullable: true
+        role:
+          type: string
+          nullable: true
+          description: Stable machine token for the asset role — the Role key (e.g.
+            service_file, small_image). Match on this, not the human `use` label
+        classification:
+          type: string
+          nullable: true
+          description: Classification name of the containing FileSet (e.g. Derivative
+            for IIIF tiers)
+        gated:
+          type: boolean
+          description: True if this derivative tier must be authorized rather than
+            linked directly (its audience is not public)
+        permission:
+          type: array
+          items:
+            type: string
+          nullable: true
+          description: Effective read-group set gating this tier (public / Grouper
+            groups / [] private); null for guests, to whom group names are not disclosed
+      required:
+      - kind
+      - noid
+      description: Delegate asset — external pointer (e.g. IIIF URL)
+    TombstonedBlobAsset:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum:
+          - Blob
+          description: The asset model. Match on this to tell a Blob from a Delegate
+        noid:
+          type: string
+        file_set:
+          type: string
+          description: NOID of the FileSet the asset is listed under — the id tombstone
+            and restore take
+        mime_type:
+          type: string
+          nullable: true
+        original_filename:
+          type: string
+          nullable: true
+        size:
+          type: integer
+          nullable: true
+        filename:
+          type: string
+          nullable: true
+        label:
+          type: string
+          nullable: true
+        language:
+          type: string
+          nullable: true
+          description: BCP 47 language of a caption or other text track; null when
+            unset
+        track_label:
+          type: string
+          nullable: true
+          description: Display name a player shows for the track; null when unset
+        role:
+          type: string
+          nullable: true
+          description: Stable machine token for the asset role — the Role key (e.g.
+            service_file, small_image, original_file). Match on this, not the human
+            `use` label
+        classification:
+          type: string
+          nullable: true
+          description: Classification name of the containing FileSet (Image/PDF/Structured
+            Text/…; "File" = unidentified). Download consumers key on "File" to zip
+            opaque binaries on the fly
+        gated:
+          type: boolean
+          description: 'True if this binary must be authorized rather than downloaded
+            directly (its audience is not public). Blobs classify by media type: image
+            original => original, plus pdf/audio/video; other types ride the Work
+            gate'
+        permission:
+          type: array
+          items:
+            type: string
+          nullable: true
+          description: Effective read-group set gating this binary (public / Grouper
+            groups / [] private); null for guests, to whom group names are not disclosed
+        tombstoned_at:
+          type: string
+          nullable: true
+          description: ISO-8601 timestamp the FileSet was tombstoned
+        tombstoned_by:
+          type: string
+          nullable: true
+          description: NUID of the user who tombstoned the FileSet
+      required:
+      - kind
+      - noid
+      description: Blob asset — held binary
+    TombstonedDelegateAsset:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum:
+          - Delegate
+          description: 'The asset model. Match on this to tell a Delegate from a Blob:
+            `uri` can be null'
+        noid:
+          type: string
+        file_set:
+          type: string
+          description: NOID of the FileSet the asset is listed under
+        mime_type:
+          type: string
+          nullable: true
+        use:
+          type: string
+          nullable: true
+          description: Human display label for the role (e.g. "Service File"); match
+            on `role` for a stable token
+        uri:
+          type: string
+          nullable: true
+          description: 'The IIIF URL. Null for a gated image role while an embargo
+            withholds it from the caller: below staff, without an edit grant on the
+            Work.'
+        label:
+          type: string
+          nullable: true
+        role:
+          type: string
+          nullable: true
+          description: Stable machine token for the asset role — the Role key (e.g.
+            service_file, small_image). Match on this, not the human `use` label
+        classification:
+          type: string
+          nullable: true
+          description: Classification name of the containing FileSet (e.g. Derivative
+            for IIIF tiers)
+        gated:
+          type: boolean
+          description: True if this derivative tier must be authorized rather than
+            linked directly (its audience is not public)
+        permission:
+          type: array
+          items:
+            type: string
+          nullable: true
+          description: Effective read-group set gating this tier (public / Grouper
+            groups / [] private); null for guests, to whom group names are not disclosed
+        tombstoned_at:
+          type: string
+          nullable: true
+          description: ISO-8601 timestamp the FileSet was tombstoned
+        tombstoned_by:
+          type: string
+          nullable: true
+          description: NUID of the user who tombstoned the FileSet
+      required:
+      - kind
+      - noid
+      description: Delegate asset — external pointer (e.g. IIIF URL)
     Compilation:
       type: object
       properties:
@@ -4075,6 +3930,7 @@ components:
           - id
           - purged
           - purged_at
+          additionalProperties: false
       required:
       - work
     CollectionPurged:
@@ -4097,6 +3953,7 @@ components:
           - id
           - purged
           - purged_at
+          additionalProperties: false
       required:
       - collection
     CommunityPurged:
@@ -4119,6 +3976,7 @@ components:
           - id
           - purged
           - purged_at
+          additionalProperties: false
       required:
       - community
     WorkTombstone:
@@ -4144,17 +4002,7 @@ components:
               type: string
               nullable: true
             tombstone_reason:
-              type: string
-              nullable: true
-              enum:
-              - Removed from view by legal order
-              - Removed from view at request of copyright holder
-              - Removed from view at Northeastern University's discretion
-              - Removed from view at Northeastern University Library's discretion
-              - Removed from view at contributor or content curator's discretion
-              -
-              description: The policy removal note chosen at tombstoning, or null.
-                The date comes from tombstoned_at.
+              "$ref": "#/components/schemas/TombstoneReason"
           required:
           - id
           - title
@@ -4162,6 +4010,7 @@ components:
           - tombstoned
           - tombstoned_at
           - tombstone_reason
+          additionalProperties: false
       required:
       - work
     CollectionTombstone:
@@ -4187,17 +4036,7 @@ components:
               type: string
               nullable: true
             tombstone_reason:
-              type: string
-              nullable: true
-              enum:
-              - Removed from view by legal order
-              - Removed from view at request of copyright holder
-              - Removed from view at Northeastern University's discretion
-              - Removed from view at Northeastern University Library's discretion
-              - Removed from view at contributor or content curator's discretion
-              -
-              description: The policy removal note chosen at tombstoning, or null.
-                The date comes from tombstoned_at.
+              "$ref": "#/components/schemas/TombstoneReason"
           required:
           - id
           - title
@@ -4205,6 +4044,7 @@ components:
           - tombstoned
           - tombstoned_at
           - tombstone_reason
+          additionalProperties: false
       required:
       - collection
     CommunityTombstone:
@@ -4230,17 +4070,7 @@ components:
               type: string
               nullable: true
             tombstone_reason:
-              type: string
-              nullable: true
-              enum:
-              - Removed from view by legal order
-              - Removed from view at request of copyright holder
-              - Removed from view at Northeastern University's discretion
-              - Removed from view at Northeastern University Library's discretion
-              - Removed from view at contributor or content curator's discretion
-              -
-              description: The policy removal note chosen at tombstoning, or null.
-                The date comes from tombstoned_at.
+              "$ref": "#/components/schemas/TombstoneReason"
           required:
           - id
           - title
@@ -4248,6 +4078,7 @@ components:
           - tombstoned
           - tombstoned_at
           - tombstone_reason
+          additionalProperties: false
       required:
       - community
 paths:

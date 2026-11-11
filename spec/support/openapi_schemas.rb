@@ -11,61 +11,66 @@ module OpenapiSchemas
   # call per schema; splitting it further hurts readability more than it helps.
   def all
     {
-      Work:               work,
-      Collection:         collection,
-      Community:          community,
-      FileSet:            file_set,
-      Blob:               blob,
-      Delegate:           delegate,
-      WorkSummary:        work_summary,
-      CollectionSummary:  collection_summary,
-      CommunitySummary:   community_summary,
-      FileSetSummary:     file_set_summary,
-      BlobSummary:        blob_summary,
-      WorksIndex:         works_index,
-      CollectionsIndex:   collections_index,
-      CommunitiesIndex:   communities_index,
-      FileSetsIndex:      file_sets_index,
-      BlobsIndex:         blobs_index,
-      WorkAssets:         work_assets,
-      WorkFileSets:       work_file_sets,
-      TombstonedAssets:   work_tombstoned_assets,
-      WorkFileRevisions:  work_file_revisions,
-      WorkHealthCheck:    work_health_check,
-      FixityCheck:        fixity_check,
-      FixityDue:          fixity_due,
-      Error:              error,
-      Pagination:         pagination,
-      SearchPagination:   search_pagination,
-      User:               user,
-      ProvisionedUser:    provisioned_user,
-      UserDirectoryEntry: user_directory_entry,
-      UserDirectory:      user_directory,
-      UserAccounts:       user_accounts,
-      Permissions:        permissions,
-      ResourceRef:        resource_ref,
-      ResourceDigests:    resource_digests,
-      ModsVersions:       mods_versions,
-      WorkMods:           work_mods,
-      CollectionMods:     container_mods(:collection),
-      CommunityMods:      container_mods(:community),
-      ResourceMods:       resource_mods,
-      WorkMets:           mets(:work),
-      FileSetMets:        mets(:file_set),
-      WorkDarwinCore:     work_darwin_core,
-      BlobVersions:       blob_versions,
-      BlobVersionsBatch:  blob_versions_batch,
-      BlobAncestry:       blob_ancestry,
-      DescendantWorks:    descendant_works,
-      SearchResults:      search_results,
-      IndexDocument:      index_document,
-      SearchExplanation:  search_explanation,
-      WorkAssociations:   work_associations,
-      MaintenanceMode:    maintenance_mode,
-      Health:             health,
-      Latency:            latency,
-      EmbargoRelease:     embargo_release,
-      Tombstoned:         tombstoned_error
+      Work:                    work,
+      Collection:              collection,
+      Community:               community,
+      FileSet:                 file_set,
+      Blob:                    blob,
+      Delegate:                delegate,
+      WorkSummary:             work_summary,
+      CollectionSummary:       collection_summary,
+      CommunitySummary:        community_summary,
+      FileSetSummary:          file_set_summary,
+      BlobSummary:             blob_summary,
+      WorksIndex:              works_index,
+      CollectionsIndex:        collections_index,
+      CommunitiesIndex:        communities_index,
+      FileSetsIndex:           file_sets_index,
+      BlobsIndex:              blobs_index,
+      WorkAssets:              work_assets,
+      WorkFileSets:            work_file_sets,
+      TombstonedAssets:        work_tombstoned_assets,
+      WorkFileRevisions:       work_file_revisions,
+      WorkHealthCheck:         work_health_check,
+      FixityCheck:             fixity_check,
+      FixityDue:               fixity_due,
+      Error:                   error,
+      Pagination:              pagination,
+      SearchPagination:        search_pagination,
+      User:                    user,
+      ProvisionedUser:         provisioned_user,
+      UserDirectoryEntry:      user_directory_entry,
+      UserDirectory:           user_directory,
+      UserAccounts:            user_accounts,
+      Permissions:             permissions,
+      ResourceRef:             resource_ref,
+      ResourceDigests:         resource_digests,
+      ModsVersions:            mods_versions,
+      WorkMods:                work_mods,
+      CollectionMods:          container_mods(:collection),
+      CommunityMods:           container_mods(:community),
+      ResourceMods:            resource_mods,
+      WorkMets:                mets(:work),
+      FileSetMets:             mets(:file_set),
+      WorkDarwinCore:          work_darwin_core,
+      BlobVersions:            blob_versions,
+      BlobVersionsBatch:       blob_versions_batch,
+      BlobAncestry:            blob_ancestry,
+      DescendantWorks:         descendant_works,
+      SearchResults:           search_results,
+      IndexDocument:           index_document,
+      SearchExplanation:       search_explanation,
+      WorkAssociations:        work_associations,
+      MaintenanceMode:         maintenance_mode,
+      Health:                  health,
+      Latency:                 latency,
+      EmbargoRelease:          embargo_release,
+      Tombstoned:              tombstoned_error,
+      TombstoneReason:         tombstone_reason,
+      BlobAsset:               blob_asset,
+      DelegateAsset:           delegate_asset,
+      TombstonedBlobAsset:     tombstoned_asset(blob_asset),
+      TombstonedDelegateAsset: tombstoned_asset(delegate_asset)
     }.merge(compilation_schemas).merge(person_schemas).merge(tombstone_stub_schemas)
   end
   # rubocop:enable Metrics/AbcSize
@@ -85,6 +90,7 @@ module OpenapiSchemas
                                                   purged:    { type: :boolean, enum: [true] },
                                                   purged_at: { type: :string, format: 'date-time' }
                                                 })]
+        .then { |name, schema| [name, close_stub(schema, key)] }
     end
   end
 
@@ -98,7 +104,14 @@ module OpenapiSchemas
                                                      tombstoned_at:    { type: :string, nullable: true },
                                                      tombstone_reason: tombstone_reason_prop
                                                    })]
+        .then { |name, schema| [name, close_stub(schema, key)] }
     end
+  end
+
+  # A stub carries only its own keys, so it cannot also match the full record:
+  # the three 410 shapes of a resource are then mutually exclusive.
+  def close_stub(schema, key)
+    schema.deep_merge(properties: { key => { additionalProperties: false } })
   end
 
   def person_schemas
@@ -386,17 +399,17 @@ module OpenapiSchemas
   # FileSet, plus the FileSet's tombstone stamp. Mirrors
   # app/views/works/tombstoned_assets.json.jbuilder.
   def work_tombstoned_assets
-    stamp = {
+    { type: :array, items: asset_item('Tombstoned') }
+  end
+
+  def tombstoned_asset(branch)
+    branch.merge(properties: branch[:properties].merge(tombstone_stamp))
+  end
+
+  def tombstone_stamp
+    {
       tombstoned_at: { type: :string, nullable: true, description: 'ISO-8601 timestamp the FileSet was tombstoned' },
       tombstoned_by: { type: :string, nullable: true, description: 'NUID of the user who tombstoned the FileSet' }
-    }
-    {
-      type:  :array,
-      items: {
-        oneOf: asset_item[:oneOf].map do |branch|
-          branch.merge(properties: branch[:properties].merge(stamp))
-        end
-      }
     }
   end
 
@@ -481,62 +494,77 @@ module OpenapiSchemas
     }
   end
 
+  # The two branches of the polymorphic asset item, as components so a
+  # discriminator on `kind` can name them.
+  def blob_asset
+    {
+      type:        :object,
+      properties:  {
+        kind:              { type: :string, enum: %w[Blob],
+                             description: 'The asset model. Match on this to tell a Blob from a Delegate' },
+        noid:              { type: :string },
+        file_set:          { type: :string, description: 'NOID of the FileSet the asset is listed under — the id tombstone and restore take' },
+        mime_type:         { type: :string, nullable: true },
+        original_filename: { type: :string, nullable: true },
+        size:              { type: :integer, nullable: true },
+        filename:          { type: :string, nullable: true },
+        label:             { type: :string, nullable: true },
+        language:          { type: :string, nullable: true, description: 'BCP 47 language of a caption or other text track; null when unset' },
+        track_label:       { type: :string, nullable: true, description: 'Display name a player shows for the track; null when unset' },
+        role:              { type: :string, nullable: true, description: 'Stable machine token for the asset role — the Role key (e.g. service_file, small_image, original_file). Match on this, not the human `use` label' },
+        classification:    { type: :string, nullable: true,
+                             description: 'Classification name of the containing FileSet (Image/PDF/Structured Text/…; "File" = unidentified). Download consumers key on "File" to zip opaque binaries on the fly' },
+        gated:             { type:        :boolean,
+                             description: 'True if this binary must be authorized rather than downloaded directly (its audience is not public). Blobs classify by media type: image original => original, plus pdf/audio/video; other types ride the Work gate' },
+        permission:        { type: :array, items: { type: :string }, nullable: true,
+                             description: 'Effective read-group set gating this binary (public / Grouper groups / [] private); null for guests, to whom group names are not disclosed' }
+      },
+      required:    %w[kind noid],
+      description: 'Blob asset — held binary'
+    }
+  end
+
+  def delegate_asset
+    {
+      type:        :object,
+      properties:  {
+        kind:           { type: :string, enum: %w[Delegate],
+                          description: 'The asset model. Match on this to tell a Delegate from a Blob: `uri` can be null' },
+        noid:           { type: :string },
+        file_set:       { type: :string, description: 'NOID of the FileSet the asset is listed under' },
+        mime_type:      { type: :string, nullable: true },
+        use:            { type: :string, nullable: true, description: 'Human display label for the role (e.g. "Service File"); match on `role` for a stable token' },
+        uri:            { type: :string, nullable: true,
+                          description: 'The IIIF URL. Null for a gated image role while an embargo withholds it from ' \
+                                       'the caller: below staff, without an edit grant on the Work.' },
+        label:          { type: :string, nullable: true },
+        role:           { type: :string, nullable: true, description: 'Stable machine token for the asset role — the Role key (e.g. service_file, small_image). Match on this, not the human `use` label' },
+        classification: { type: :string, nullable: true,
+                          description: 'Classification name of the containing FileSet (e.g. Derivative for IIIF tiers)' },
+        gated:          { type:        :boolean,
+                          description: 'True if this derivative tier must be authorized rather than linked directly (its audience is not public)' },
+        permission:     { type: :array, items: { type: :string }, nullable: true,
+                      description: 'Effective read-group set gating this tier (public / Grouper groups / [] private); null for guests, to whom group names are not disclosed' }
+      },
+      required:    %w[kind noid],
+      description: 'Delegate asset — external pointer (e.g. IIIF URL)'
+    }
+  end
+
   # Polymorphic per-asset item shared by WorkAssets (flattened),
   # WorkFileSets (grouped per page) and TombstonedAssets — mirrors the
-  # shared works/_asset.json.jbuilder partial.
-  def asset_item
+  # shared works/_asset.json.jbuilder partial. `stamp` names the tombstoned
+  # variants of the branches.
+  def asset_item(prefix = '')
     {
-      oneOf: [
-        {
-          type:        :object,
-          properties:  {
-            kind:              { type: :string, enum: %w[Blob],
-                                 description: 'The asset model. Match on this to tell a Blob from a Delegate' },
-            noid:              { type: :string },
-            file_set:          { type: :string, description: 'NOID of the FileSet the asset is listed under — the id tombstone and restore take' },
-            mime_type:         { type: :string, nullable: true },
-            original_filename: { type: :string, nullable: true },
-            size:              { type: :integer, nullable: true },
-            filename:          { type: :string, nullable: true },
-            label:             { type: :string, nullable: true },
-            language:          { type: :string, nullable: true, description: 'BCP 47 language of a caption or other text track; null when unset' },
-            track_label:       { type: :string, nullable: true, description: 'Display name a player shows for the track; null when unset' },
-            role:              { type: :string, nullable: true, description: 'Stable machine token for the asset role — the Role key (e.g. service_file, small_image, original_file). Match on this, not the human `use` label' },
-            classification:    { type: :string, nullable: true,
-                                 description: 'Classification name of the containing FileSet (Image/PDF/Structured Text/…; "File" = unidentified). Download consumers key on "File" to zip opaque binaries on the fly' },
-            gated:             { type:        :boolean,
-                                 description: 'True if this binary must be authorized rather than downloaded directly (its audience is not public). Blobs classify by media type: image original => original, plus pdf/audio/video; other types ride the Work gate' },
-            permission:        { type: :array, items: { type: :string }, nullable: true,
-                                 description: 'Effective read-group set gating this binary (public / Grouper groups / [] private); null for guests, to whom group names are not disclosed' }
-          },
-          required:    %w[kind noid],
-          description: 'Blob asset — held binary'
-        },
-        {
-          type:        :object,
-          properties:  {
-            kind:           { type: :string, enum: %w[Delegate],
-                              description: 'The asset model. Match on this to tell a Delegate from a Blob: `uri` can be null' },
-            noid:           { type: :string },
-            file_set:       { type: :string, description: 'NOID of the FileSet the asset is listed under' },
-            mime_type:      { type: :string, nullable: true },
-            use:            { type: :string, nullable: true, description: 'Human display label for the role (e.g. "Service File"); match on `role` for a stable token' },
-            uri:            { type: :string, nullable: true,
-                              description: 'The IIIF URL. Null for a gated image role while an embargo withholds it from ' \
-                                           'the caller: below staff, without an edit grant on the Work.' },
-            label:          { type: :string, nullable: true },
-            role:           { type: :string, nullable: true, description: 'Stable machine token for the asset role — the Role key (e.g. service_file, small_image). Match on this, not the human `use` label' },
-            classification: { type: :string, nullable: true,
-                              description: 'Classification name of the containing FileSet (e.g. Derivative for IIIF tiers)' },
-            gated:          { type:        :boolean,
-                              description: 'True if this derivative tier must be authorized rather than linked directly (its audience is not public)' },
-            permission:     { type: :array, items: { type: :string }, nullable: true,
-                          description: 'Effective read-group set gating this tier (public / Grouper groups / [] private); null for guests, to whom group names are not disclosed' }
-          },
-          required:    %w[kind noid],
-          description: 'Delegate asset — external pointer (e.g. IIIF URL)'
+      oneOf:         %w[BlobAsset DelegateAsset].map { |name| { '$ref' => "#/components/schemas/#{prefix}#{name}" } },
+      discriminator: {
+        propertyName: 'kind',
+        mapping:      {
+          'Blob'     => "#/components/schemas/#{prefix}BlobAsset",
+          'Delegate' => "#/components/schemas/#{prefix}DelegateAsset"
         }
-      ]
+      }
     }
   end
 
@@ -989,6 +1017,12 @@ module OpenapiSchemas
   # ---- helpers ----
 
   def tombstone_reason_prop
+    { '$ref' => '#/components/schemas/TombstoneReason' }
+  end
+
+  # One component rather than an inline enum on every record, so a generated
+  # client gets one type for it.
+  def tombstone_reason
     { type: :string, nullable: true, enum: [*Resource::TOMBSTONE_REASONS, nil],
       description: 'The policy removal note chosen at tombstoning, or null. The date comes from tombstoned_at.' }
   end

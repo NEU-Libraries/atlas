@@ -31,7 +31,7 @@ RSpec.describe 'User', type: :request, default_auth: false do
     end
   end
 
-  path '/nuid' do
+  path '/nuid', openapi_spec: OpenapiDocument::INTERNAL do
     # Shared system-principal auth for the success cases below.
     let!(:system_user) do
       User.create!(email: 'system@example.com', password: SecureRandom.hex(16),
@@ -67,10 +67,6 @@ RSpec.describe 'User', type: :request, default_auth: false do
         shape to hand to a non-human caller (e.g. an MCP client) that must
         never be able to mutate the repository.
       D
-      security [{ BearerAuth: [] }]
-      parameter name: :Authorization, in: :header, type: :string, required: false
-      parameter name: :User, in: :header, type: :string, required: false,
-                description: 'Acting principal, e.g. "NUID 000000000" for the system user'
       parameter name: :body, in: :body, schema: {
         type:       :object,
         properties: {
@@ -118,10 +114,6 @@ RSpec.describe 'User', type: :request, default_auth: false do
         system Bearer token; non-system callers receive 403. An unknown NUID
         returns 404. Emits a revoke_token audit row.
       D
-      security [{ BearerAuth: [] }]
-      parameter name: :Authorization, in: :header, type: :string, required: false
-      parameter name: :User, in: :header, type: :string, required: false,
-                description: 'Acting principal, e.g. "NUID 000000000" for the system user'
       parameter name: :body, in: :body, schema: {
         type:       :object,
         properties: {
@@ -148,7 +140,7 @@ RSpec.describe 'User', type: :request, default_auth: false do
     end
   end
 
-  path '/users/by_nuid/{nuid}' do
+  path '/users/by_nuid/{nuid}', openapi_spec: OpenapiDocument::INTERNAL do
     put 'Find-or-create a user and replace their groups (system-only)' do
       tags 'User'
       consumes 'application/json'
@@ -159,11 +151,7 @@ RSpec.describe 'User', type: :request, default_auth: false do
         Requires the system Bearer token (no `User:` header); non-system
         callers receive 403.
       D
-      security [{ BearerAuth: [] }]
       parameter name: :nuid, in: :path, type: :string
-      parameter name: :Authorization, in: :header, type: :string, required: false
-      parameter name: :User, in: :header, type: :string, required: false,
-                description: 'Acting principal, e.g. "NUID 000000000" for the system user'
       parameter name: :body, in: :body, schema: {
         type:       :object,
         properties: {
@@ -216,7 +204,7 @@ RSpec.describe 'User', type: :request, default_auth: false do
     end
   end
 
-  path '/users/by_email/{email}' do
+  path '/users/by_email/{email}', openapi_spec: OpenapiDocument::INTERNAL do
     put 'Find-or-create a user by email and replace their groups (system-only)' do
       tags 'User'
       consumes 'application/json'
@@ -228,11 +216,7 @@ RSpec.describe 'User', type: :request, default_auth: false do
         on NUID. Idempotent on email; replaces (not merges) the supplied groups.
         Requires the system Bearer token; non-system callers receive 403.
       D
-      security [{ BearerAuth: [] }]
       parameter name: :email, in: :path, type: :string, description: 'The account key (email).'
-      parameter name: :Authorization, in: :header, type: :string, required: false
-      parameter name: :User, in: :header, type: :string, required: false,
-                description: 'Acting principal, e.g. "NUID 000000000" for the system user'
       parameter name: :body, in: :body, schema: {
         type:       :object,
         properties: {

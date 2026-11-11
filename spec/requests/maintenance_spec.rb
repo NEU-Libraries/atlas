@@ -26,6 +26,7 @@ RSpec.describe 'Maintenance', type: :request do
     end
 
     put 'Open or close the repository-wide read-only window' do
+      internal_operation!
       tags 'Maintenance'
       operationId 'maintenance_update'
       consumes 'application/json'
@@ -67,10 +68,11 @@ RSpec.describe 'Maintenance', type: :request do
     end
   end
 
-  path '/reset' do
+  path '/reset', openapi_spec: OpenapiDocument::INTERNAL do
     get 'Reset development/test state' do
       tags 'Maintenance'
       operationId 'maintenance_reset'
+      security []
       description <<~D
         Wipes the database, the Solr index, the OCFL storage roots and the
         response cache, then seeds the fixture users and a Person, with a

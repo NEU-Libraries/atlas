@@ -27,6 +27,7 @@ RSpec.describe 'Works', type: :request do
     get 'List works' do
       tags 'Works'
       produces 'application/json'
+      paginated
       description <<~DESC
         Paginated list of all works.
 
@@ -167,7 +168,6 @@ RSpec.describe 'Works', type: :request do
       }
       parameter name: :'Idempotency-Key', in: :header, type: :string, required: false,
                 description: 'Client-supplied UUID; repeats return the existing resource.'
-      parameter name: :Authorization, in: :header, type: :string, required: false
 
       response '200', 'work created' do
         let(:body) { { collection_id: collection.noid } }
@@ -247,6 +247,14 @@ RSpec.describe 'Works', type: :request do
     get 'Retrieve a work' do
       tags 'Works'
       produces 'application/json'
+      description <<~DESC
+        Returns a Work's record: its title and description, its ancestors, its
+        thumbnails and its state. List its files with `GET /works/{id}/assets`.
+
+        A tombstoned Work answers `410`: an admin or delegated admin gets the full
+        record, and everyone else gets a stub. A purged NOID answers `410` with a
+        stub that names the Work as purged, to every caller.
+      DESC
 
       response '200', 'work found' do
         let(:work) { WorkCreator.call(parent_id: collection.noid) }

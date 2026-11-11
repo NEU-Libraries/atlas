@@ -14,7 +14,7 @@ Rails.application.routes.draw do
   # baseURL, and dispatches on the `verb` argument rather than the path, so one
   # route covers all six verbs. Harvesters (Digital Commonwealth via Boston
   # Public Library) call it directly; there is no Ruby client and it is
-  # deliberately absent from openapi/openapi.yaml.
+  # deliberately absent from the OpenAPI documents.
   match '/oai', to: 'oai#index', via: %i[get post]
 
   # Human auth is delegated to Cerberus (SSO) — Atlas never takes a password,

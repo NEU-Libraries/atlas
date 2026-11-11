@@ -21,7 +21,7 @@ RSpec.describe 'Fixity checks', type: :request do
       .merge(overrides)
   end
 
-  path '/fixity_checks' do
+  path '/fixity_checks', openapi_spec: OpenapiDocument::INTERNAL do
     post 'Record one fixity check result for an OCFL object (fixity checker and admin only)' do
       tags 'Resources'
       consumes 'application/json'
@@ -48,10 +48,6 @@ RSpec.describe 'Fixity checks', type: :request do
         unknown version, or a resource with no OCFL object, is a 422 that
         writes nothing.
       DESC
-      security [{ BearerAuth: [] }]
-      parameter name: :Authorization, in: :header, type: :string, required: false
-      parameter name: :User, in: :header, type: :string, required: false,
-                description: 'The checker fixture, "NUID 000000098"'
       parameter name: :body, in: :body, schema: {
         type:       :object,
         required:   %w[object checked_at version algorithm files result checker],
@@ -129,7 +125,7 @@ RSpec.describe 'Fixity checks', type: :request do
       'Content-Type' => 'application/json' }
   end
 
-  path '/fixity_checks/due' do
+  path '/fixity_checks/due', openapi_spec: OpenapiDocument::INTERNAL do
     get 'List the OCFL objects most in need of a fixity check (fixity checker and admin only)' do
       tags 'Resources'
       produces 'application/json'
@@ -147,12 +143,9 @@ RSpec.describe 'Fixity checks', type: :request do
         Refused during a maintenance window, so a sweep stops before it hashes
         anything it could not record.
       DESC
-      security [{ BearerAuth: [] }]
-      parameter name: :Authorization, in: :header, type: :string, required: false
-      parameter name: :User, in: :header, type: :string, required: false,
-                description: 'The checker fixture, "NUID 000000098"'
       parameter name: :limit, in: :query, required: false,
-                schema: { type: :integer, minimum: 1, maximum: FixityDueQuery::MAX_LIMIT, default: 100 }
+                schema:      { type: :integer, minimum: 1, maximum: FixityDueQuery::MAX_LIMIT, default: 100 },
+                description: "The most objects to list, at most #{FixityDueQuery::MAX_LIMIT}."
       parameter name: :checked_before, in: :query, required: false, schema: { type: :string, format: 'date-time' },
                 description: 'List only objects not checked since this time'
 

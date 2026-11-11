@@ -34,7 +34,9 @@ module OpenapiSchemas
       WorkHealthCheck:    work_health_check,
       FixityCheck:        fixity_check,
       FixityDue:          fixity_due,
+      Error:              error,
       Pagination:         pagination,
+      SearchPagination:   search_pagination,
       User:               user,
       ProvisionedUser:    provisioned_user,
       UserDirectoryEntry: user_directory_entry,
@@ -612,7 +614,7 @@ module OpenapiSchemas
       type:       :object,
       properties: {
         contents:   { type: :array, items: work_digest },
-        pagination: { '$ref' => '#/components/schemas/Pagination' }
+        pagination: { '$ref' => '#/components/schemas/SearchPagination' }
       },
       required:   %w[contents pagination]
     }
@@ -626,7 +628,7 @@ module OpenapiSchemas
       type:       :object,
       properties: {
         works:      { type: :array, items: work_digest },
-        pagination: { '$ref' => '#/components/schemas/Pagination' }
+        pagination: { '$ref' => '#/components/schemas/SearchPagination' }
       },
       required:   %w[works pagination]
     }
@@ -679,7 +681,7 @@ module OpenapiSchemas
       type:       :object,
       properties: {
         results:    { type: :array, items: search_result },
-        pagination: { '$ref' => '#/components/schemas/Pagination' }
+        pagination: { '$ref' => '#/components/schemas/SearchPagination' }
       },
       required:   %w[results pagination]
     }
@@ -689,8 +691,8 @@ module OpenapiSchemas
     {
       type:       :object,
       properties: {
-        id:          { type: :string, description: 'PID' },
-        noid:        { type: :string, description: 'PID (same value as id; find_many digest parity)' },
+        id:          { type: :string, description: 'NOID' },
+        noid:        { type: :string, description: 'NOID (the same value as id)' },
         klass:       { type: :string, enum: SearchQuery::TYPES, description: 'Resource type' },
         title:       { type: :string, nullable: true },
         creators:    { type: :array, items: { type: :string } },
@@ -752,32 +754,110 @@ module OpenapiSchemas
          })
   end
 
-  def pagination
+  # Every 4xx and 5xx body that has one. `error` is the discriminator a client
+  # branches on; docs/error-contract.md owns the codes and when each fires.
+  # OpenapiContract checks every 4xx body a request spec receives against this.
+  def error
     {
       type:                 :object,
-      description:          'pagy pagination block',
-      additionalProperties: true
+      description:          'The body of every error that has one. Branch on `error`, never on `message`.',
+      properties:           {
+        error:                    {
+          type:        :string,
+          description: <<~TEXT.squish
+            What went wrong. A code such as `stale_resource` (409), `tombstoned` (410), `invalid_record`
+            (422), `read_only_mode` (503) or `backend_unavailable` (503), or the code of a rejected
+            write such as `invalid_parent_type` (422). On a 400, 401 or 403 it is a sentence for a person,
+            not a code: branch on the status instead.
+          TEXT
+        },
+        code:                     { type:        :string,
+                                    description: 'On some 422s, such as `has_children` or `tombstoned_parent`: the code, ' \
+                                                 'while `error` carries a sentence.' },
+        message:                  { type: :string, description: 'Detail for a person. Never parse it.' },
+        resource_id:              { type: :string, nullable: true, description: 'The NOID the request named.' },
+        action:                   { type: :string, description: 'On a 403: the verb that was refused.' },
+        subject:                  { type: :string, description: 'On a 403: the type of the resource the verb was refused on.' },
+        dependency:               { type: :string, enum: %w[database index storage cache],
+                                    description: 'On `backend_unavailable`: the dependency Atlas could not reach.' },
+        tombstoned_resource_id:   { type: :string, description: 'On `tombstoned`: the NOID of the tombstoned resource, which can be an ancestor of the one requested.' },
+        tombstoned_resource_type: { type: :string, description: 'On `tombstoned`: the type of the tombstoned resource.' }
+      },
+      required:             %w[error],
+      additionalProperties: false
     }
   end
 
-  # GET /user uses `render :json => current_user.to_json` so the response is
-  # the AR record's default JSON serialization (id, email, name, role, …),
-  # *not* the jbuilder envelope. Permissive schema documents the shape
-  # without pinning every Devise/AR field.
+  # pagy's metadata block, every key of Pagy::DEFAULT[:metadata]. `vars` is
+  # pagy's own state and is documented as such rather than pinned.
+  def pagination
+    {
+      type:        :object,
+      description: 'Where this page sits in the list. Follow `next` until it is null.',
+      properties:  {
+        count:        { type: :integer, description: 'Items in the whole list.' },
+        page:         { type: :integer, description: 'This page\'s number, from 1.' },
+        items:        { type: :integer, description: 'The page size.' },
+        pages:        { type: :integer, description: 'Pages in the whole list.' },
+        last:         { type: :integer, description: 'The last page\'s number.' },
+        in:           { type: :integer, description: 'Items on this page.' },
+        from:         { type: :integer, description: 'The position of this page\'s first item, from 1; 0 on an empty list.' },
+        to:           { type: :integer, description: 'The position of this page\'s last item.' },
+        prev:         { type: :integer, nullable: true, description: 'The previous page\'s number, or null on the first page.' },
+        next:         { type: :integer, nullable: true, description: 'The next page\'s number, or null on the last page.' },
+        series:       { type: :array, items: { oneOf: [{ type: :integer }, { type: :string }] },
+                        description: 'Pages to show in a pager: a number for another page, this page\'s ' \
+                                     'number as a string, and `gap` for elided pages.' },
+        scaffold_url: { type: :string, description: 'This request\'s path with `__pagy_page__` in place of the page number.' },
+        first_url:    { type: :string, description: 'The path of the first page.' },
+        prev_url:     { type: :string, description: 'The path of the previous page. On the first page it ends `page=` with no number.' },
+        page_url:     { type: :string, description: 'The path of this page.' },
+        next_url:     { type: :string, description: 'The path of the next page. On the last page it ends `page=` with no number.' },
+        last_url:     { type: :string, description: 'The path of the last page.' },
+        vars:         { type: :object, additionalProperties: true,
+                        description: 'The paginator\'s internal settings. Not part of the contract.' }
+      },
+      required:    %w[count page items pages last in from to prev next series
+                      scaffold_url first_url prev_url page_url next_url last_url vars]
+    }
+  end
+
+  # The block a Solr-backed list builds itself (SearchQuery, WorkDigestQuery)
+  # instead of pagy's.
+  def search_pagination
+    {
+      type:        :object,
+      description: 'Where this page sits in a search-backed list. Stop when `page` reaches `pages`.',
+      properties:  {
+        total:    { type: :integer, description: 'Items in the whole list.' },
+        page:     { type: :integer, description: 'This page\'s number, from 1.' },
+        per_page: { type: :integer, description: 'The page size.' },
+        pages:    { type: :integer, description: 'Pages in the whole list; 0 when it is empty.' }
+      },
+      required:    %w[total page per_page pages]
+    }
+  end
+
+  # GET /user renders the record's own to_json, so this is every column of
+  # `users` less Devise's serialization blacklist.
   def user
     {
-      type:                 :object,
-      description:          'Devise/AR User record serialized via to_json. Fields vary; commonly includes id, nuid, email, name, role, groups, affiliation, preferred.',
-      properties:           {
+      type:        :object,
+      description: 'The calling user\'s account. A guest gets the shared guest account, with no NUID.',
+      properties:  {
         id:          { type: :integer },
-        nuid:        { type: :string, nullable: true },
-        email:       { type: :string, nullable: true },
-        name:        { type: :string, nullable: true },
-        role:        { type: :string, nullable: true },
-        affiliation: { type: :string, nullable: true, description: 'This login\'s unscoped-affiliation, a human label for the account' },
-        preferred:   { type: :boolean, description: 'Whether this is the default account for its NUID' }
+        nuid:        { type: :string, nullable: true, description: 'The NUID; null for the guest.' },
+        email:       { type: :string, description: 'The account\'s email, which tells one account of a NUID from another.' },
+        name:        { type: :string, nullable: true, description: '`Family, Given`.' },
+        role:        { type: :string, enum: %w[admin privileged standard loader system guest anonymous fixity_checker] },
+        groups:      { type: :array, nullable: true, items: { type: :string }, description: 'The account\'s Grouper groups.' },
+        affiliation: { type: :string, nullable: true, description: 'A label a person reads for this account.' },
+        preferred:   { type: :boolean, description: 'Whether this is the default account for its NUID.' },
+        jti:         { type: :string, description: 'The token revocation id. Rotating it revokes every token the account holds.' },
+        created_at:  { type: :string, format: 'date-time' },
+        updated_at:  { type: :string, format: 'date-time' }
       },
-      additionalProperties: true
+      required:    %w[id nuid email name role groups affiliation preferred jti created_at updated_at]
     }
   end
 
@@ -853,10 +933,16 @@ module OpenapiSchemas
   end
 
   def permissions
-    wrapped(:resource, {}, additional:  true,
-                           description: 'Permission flags merged from Resource#permissions. For a guest ' \
-                                        'depositor and proxy_uploader are null, edit_users is empty, and read ' \
-                                        'and edit keep only `public`.')
+    wrapped(:resource, {
+              embargo:        { type: :string, nullable: true, description: 'The embargo release date, or null.' },
+              depositor:      { type: :string, nullable: true, description: 'The depositor\'s NUID.' },
+              proxy_uploader: { type: :string, nullable: true, description: 'The NUID of whoever deposited for the depositor.' },
+              edit_users:     { type: :array, items: { type: :string }, description: 'NUIDs granted edit.' },
+              read:           { type: :array, items: { type: :string }, description: 'Groups granted read; `public` for everyone.' },
+              edit:           { type: :array, items: { type: :string }, description: 'Groups granted edit.' },
+              type:           { type: :string, description: 'The resource\'s type.' }
+            }, description: 'The resource\'s access-control envelope. For a guest, depositor and proxy_uploader ' \
+                            'are null, edit_users is empty, and read and edit keep only `public`.')
   end
 
   # GET /resources/:id can return any of these shapes — the controller

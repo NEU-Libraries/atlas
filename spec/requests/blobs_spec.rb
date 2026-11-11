@@ -18,6 +18,11 @@ RSpec.describe 'Files (Blobs)', type: :request do
     get 'List files' do
       tags 'Files'
       produces 'application/json'
+      description <<~DESC
+        Lists every Blob, one page at a time. A row is a file's metadata, not its
+        bytes; read the bytes from `GET /files/{id}/content`.
+      DESC
+      paginated
 
       response '200', 'files listed' do
         schema '$ref' => '#/components/schemas/BlobsIndex'
@@ -143,6 +148,13 @@ RSpec.describe 'Files (Blobs)', type: :request do
     get 'Retrieve file metadata' do
       tags 'Files'
       produces 'application/json'
+      description <<~DESC
+        Returns a Blob's metadata: its name, type, size and digest. Read the bytes
+        from `GET /files/{id}/content`.
+
+        A tombstoned Blob answers `410`: an admin or delegated admin gets the full
+        record, and everyone else gets the `Tombstoned` body.
+      DESC
 
       response '200', 'file found' do
         let(:blob) { BlobCreator.call(work_id: work.noid, original_filename: 'example.bin', path: fixture.to_s) }

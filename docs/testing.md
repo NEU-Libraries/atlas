@@ -253,7 +253,7 @@ is short enough that the rest do not matter.
 ## What CI owns
 
 CI runs the full suite unsharded on every push and pull request, with the
-coverage floor, and then regenerates `openapi/openapi.yaml` and fails if the
+coverage floor, and then regenerates the OpenAPI documents and fails if the
 committed file differs. Do not run the full suite as a matter of routine. Do run
 it when a change is broad enough to warrant it — a bootstrap file, a shared
 concern, a model everything touches — and say so when you do.
@@ -263,7 +263,7 @@ concern, a model everything touches — and say so when you do.
 Three concentric layers in `spec/`:
 
 1. `spec/controllers/` — fast per-action specs.
-2. `spec/requests/` — rswag DSL, and the source `openapi/openapi.yaml` is
+2. `spec/requests/` — rswag DSL, and the source the OpenAPI documents are
    generated from. Strict schema validation flags response drift, so a field
    added to a jbuilder partial must also be added to
    `spec/support/openapi_schemas.rb`.

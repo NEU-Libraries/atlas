@@ -4,7 +4,7 @@ require 'rails_helper'
 
 # /oai is a protocol endpoint, not an API operation, so this is a plain
 # request spec rather than an rswag one — the same reasoning that keeps
-# spec/requests/docs_spec.rb out of openapi/openapi.yaml. Every response is
+# spec/requests/docs_spec.rb out of the OpenAPI documents. Every response is
 # validated against the real OAI-PMH, oai_dc, oai-identifier and MODS schemas
 # (see OAISchemaHelper), which is a far stronger check than shape assertions.
 #

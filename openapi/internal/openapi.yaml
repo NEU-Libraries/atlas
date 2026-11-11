@@ -1,0 +1,1416 @@
+---
+openapi: 3.0.3
+info:
+  title: Atlas internal API
+  version: '1'
+  description: |
+    The operator and backend operations of Atlas. This document is not served:
+    it is generated beside the public one so the `atlas_rb` maintainers keep a
+    reference, and CI checks it for drift like the public one.
+
+    Every operation here needs the system token, the fixity token or an admin
+    credential. The system token and the fixity token each pair with a
+    `User: NUID <nuid>` header that names their fixture; see
+    [authentication.md](https://github.com/NEU-Libraries/atlas/blob/develop/docs/authentication.md).
+
+    The error contract, paging and terms are the public document's.
+servers:
+- url: "{scheme}://{host}"
+  variables:
+    scheme:
+      default: https
+      enum:
+      - https
+      - http
+    host:
+      default: atlas.library.northeastern.edu
+security:
+- BearerAuth: []
+  NuidHeader: []
+- BearerAuth: []
+tags:
+- name: Maintenance
+  description: |-
+    Opening and closing the maintenance window, and the development reset.
+
+    Background: [availability.md](https://github.com/NEU-Libraries/atlas/blob/develop/docs/availability.md).
+- name: User
+  description: |-
+    Provisioning users and minting their tokens.
+
+    Background: [authentication.md](https://github.com/NEU-Libraries/atlas/blob/develop/docs/authentication.md).
+- name: People
+  description: |-
+    Creating People and editing their affiliations.
+
+    Background: [people.md](https://github.com/NEU-Libraries/atlas/blob/develop/docs/people.md).
+- name: Resources
+  description: |-
+    Reindexing, embargo release, fixity and the Solr debug views.
+
+    Background: [solr-indexing.md](https://github.com/NEU-Libraries/atlas/blob/develop/docs/solr-indexing.md).
+- name: Metrics
+  description: |-
+    Atlas's own request latency figures.
+
+    Background: [read-performance.md](https://github.com/NEU-Libraries/atlas/blob/develop/docs/read-performance.md).
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: A personal access token issued by the repository operator. Omit
+        the header to call as a guest, who sees public items only.
+    NuidHeader:
+      type: apiKey
+      in: header
+      name: User
+      description: The principal, in the form `NUID <nuid>`. Required with the system
+        token and the fixity token, and ignored with any other credential.
+    OnBehalfOfHeader:
+      type: apiKey
+      in: header
+      name: On-Behalf-Of
+      description: The user a system-token write is attributed to, in the form `NUID
+        <nuid>`. On a create, the resource reads as a deposit by that user, and the
+        operator is recorded only in the audit event. Sent with any other credential,
+        it is a 403.
+  responses:
+    Unauthorized:
+      description: 'The credential was not recognised: an unknown, expired or revoked
+        token. Send no `Authorization` header to call as a guest instead.'
+      content:
+        application/json:
+          schema:
+            "$ref": "#/components/schemas/Error"
+    ServerError:
+      description: Atlas, or a proxy in front of it, failed to serve the request.
+        Applies to every operation. Atlas's own 5xx carries an `Error` body; a proxy's
+        502 or 504 can carry HTML or plain text, so read the status before you parse
+        the body.
+      content:
+        application/json:
+          schema:
+            "$ref": "#/components/schemas/Error"
+  schemas:
+    FixityCheck:
+      type: object
+      properties:
+        fixity_check:
+          type: object
+          properties:
+            resource_id:
+              type: string
+              description: NOID of the resource that owns the object
+            object:
+              type: string
+              description: The OCFL inventory id, urn:neu-drs:<noid>
+            checked_at:
+              type: string
+              format: date-time
+              description: When the check ran, to the second
+            version:
+              type: string
+              description: The object version checked, e.g. v3
+            algorithm:
+              type: string
+              enum:
+              - sha512
+              - sha256
+              - sha1
+              - md5
+              - blake2b-512
+              - blake2b-160
+              - blake2b-256
+              - blake2b-384
+              - sha512/256
+            files:
+              type: integer
+              description: Files re-hashed
+            result:
+              type: string
+              enum:
+              - pass
+              - fail
+            findings:
+              type: array
+              items:
+                type: object
+                required:
+                - code
+                properties:
+                  code:
+                    type: string
+                  severity:
+                    type: string
+                  subject:
+                    type: string
+                  message:
+                    type: string
+                  path:
+                    type: string
+            checker:
+              type: string
+              description: The tool that ran the check
+            recorded_by:
+              type: string
+              nullable: true
+              description: NUID of the principal that posted it
+            latest:
+              type: boolean
+              description: Whether this is now the object's latest check
+          required:
+          - resource_id
+          - object
+          - checked_at
+          - version
+          - algorithm
+          - files
+          - result
+          - findings
+          - checker
+          - recorded_by
+          - latest
+      required:
+      - fixity_check
+    FixityDue:
+      type: object
+      properties:
+        due:
+          type: array
+          items:
+            type: object
+            properties:
+              key:
+                type: string
+                description: The object key (the NOID)
+              object:
+                type: string
+                description: urn:neu-drs:<noid>
+              bytes:
+                type: integer
+                description: Bytes on disk, from the storage ledger
+              last_checked_at:
+                type: string
+                format: date-time
+                nullable: true
+                description: The latest recorded check, or null
+            required:
+            - key
+            - object
+            - bytes
+            - last_checked_at
+      required:
+      - due
+    Error:
+      type: object
+      description: The body of every error that has one. Branch on `error`, never
+        on `message`.
+      properties:
+        error:
+          type: string
+          description: 'What went wrong. A code such as `stale_resource` (409), `tombstoned`
+            (410), `invalid_record` (422), `read_only_mode` (503) or `backend_unavailable`
+            (503), or the code of a rejected write such as `invalid_parent_type` (422).
+            On a 400, 401 or 403 it is a sentence for a person, not a code: branch
+            on the status instead.'
+        code:
+          type: string
+          description: 'On some 422s, such as `has_children` or `tombstoned_parent`:
+            the code, while `error` carries a sentence.'
+        message:
+          type: string
+          description: Detail for a person. Never parse it.
+        resource_id:
+          type: string
+          nullable: true
+          description: The NOID the request named.
+        action:
+          type: string
+          description: 'On a 403: the verb that was refused.'
+        subject:
+          type: string
+          description: 'On a 403: the type of the resource the verb was refused on.'
+        dependency:
+          type: string
+          enum:
+          - database
+          - index
+          - storage
+          - cache
+          description: 'On `backend_unavailable`: the dependency Atlas could not reach.'
+        tombstoned_resource_id:
+          type: string
+          description: 'On `tombstoned`: the NOID of the tombstoned resource, which
+            can be an ancestor of the one requested.'
+        tombstoned_resource_type:
+          type: string
+          description: 'On `tombstoned`: the type of the tombstoned resource.'
+      required:
+      - error
+      additionalProperties: false
+    ProvisionedUser:
+      type: object
+      properties:
+        user:
+          type: object
+          properties:
+            id:
+              type: integer
+            nuid:
+              type: string
+              nullable: true
+            name:
+              type: string
+              nullable: true
+            email:
+              type: string
+              nullable: true
+            role:
+              type: string
+            groups:
+              type: array
+              items:
+                type: string
+            affiliation:
+              type: string
+              nullable: true
+            preferred:
+              type: boolean
+          required:
+          - id
+          - nuid
+          - name
+          - email
+          - role
+          - groups
+          - affiliation
+          - preferred
+      required:
+      - user
+    IndexDocument:
+      type: object
+      properties:
+        noid:
+          type: string
+        document:
+          type: object
+          additionalProperties: true
+          description: The Solr document exactly as Solr stores it
+      required:
+      - noid
+      - document
+    SearchExplanation:
+      type: object
+      properties:
+        noid:
+          type: string
+        q:
+          type: string
+        matched:
+          type: boolean
+        score:
+          type: number
+        hidden_by:
+          type: array
+          items:
+            type: string
+            enum:
+            - types
+            - tombstoned
+            - featured
+            - personal_root
+            - system_container
+          description: Catalog filters that hide the object whatever it matches
+        parsed_query:
+          type: string
+          description: Solr's parsedquery_toString
+        handler:
+          type: object
+          properties:
+            qf:
+              type: object
+              additionalProperties:
+                type: number
+              description: Field to boost
+            pf:
+              type: object
+              additionalProperties:
+                type: number
+              description: Field to boost
+            mm:
+              type: string
+              nullable: true
+            tie:
+              type: number
+              nullable: true
+            boost:
+              type: string
+              nullable: true
+          required:
+          - qf
+          - pf
+          - mm
+          - tie
+          - boost
+        explanation:
+          type: object
+          additionalProperties: true
+          description: Solr's structured explainOther tree, unchanged
+        fields:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              stored:
+                type: boolean
+              query_tokens:
+                type: object
+                properties:
+                  typed:
+                    type: array
+                    items:
+                      type: string
+                  analysed:
+                    type: array
+                    items:
+                      type: string
+                required:
+                - typed
+                - analysed
+                nullable: true
+              values:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    source:
+                      type: string
+                    text:
+                      type: string
+                    tokens:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          text:
+                            type: string
+                          start:
+                            type: integer
+                          end:
+                            type: integer
+                          position:
+                            type: integer
+                          match:
+                            type: boolean
+                        required:
+                        - text
+                        - start
+                        - end
+                        - position
+                        - match
+                  required:
+                  - source
+                  - text
+                  - tokens
+              truncated:
+                type: boolean
+                description: A source had more values than were analysed
+              reason:
+                type: string
+                nullable: true
+                description: not_in_schema, full_text, not_stored or analysis_failed;
+                  null otherwise
+              highlights:
+                type: array
+                items:
+                  type: string
+                description: Full-text passages, for full_text_tesimv only
+            required:
+            - field
+            - stored
+            - query_tokens
+            - values
+            - truncated
+            - reason
+            - highlights
+      required:
+      - noid
+      - q
+      - matched
+      - score
+      - hidden_by
+      - parsed_query
+      - handler
+      - explanation
+      - fields
+    MaintenanceMode:
+      type: object
+      properties:
+        read_only:
+          type: boolean
+          description: Whether writes are currently refused
+        source:
+          type: string
+          nullable: true
+          enum:
+          - operator
+          - deploy
+          description: Which door opened the window; null when closed
+        since:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the window opened; null when closed
+        message:
+          type: string
+          nullable: true
+          description: Operator note for the client-side banner
+        retry_after:
+          type: integer
+          description: Seconds a refused caller should wait; mirrored into the 503
+            Retry-After header
+      required:
+      - read_only
+      - source
+      - since
+      - message
+      - retry_after
+    Latency:
+      type: object
+      properties:
+        window_minutes:
+          type: integer
+          description: The minutes the figures cover, up to 120
+        calls:
+          type: integer
+          description: Requests Atlas served in the window
+        server_errors:
+          type: integer
+          description: Of those, the ones answered 5xx
+        mean_ms:
+          type: integer
+          nullable: true
+          description: Mean duration; null when there were no calls
+        p50_ms:
+          type: integer
+          nullable: true
+          description: Approximate median, interpolated from the histogram
+        p95_ms:
+          type: integer
+          nullable: true
+          description: Approximate 95th percentile
+        p99_ms:
+          type: integer
+          nullable: true
+          description: Approximate 99th percentile
+        slowest_actions:
+          type: array
+          description: Up to ten controller actions, slowest p95 first
+          items:
+            type: object
+            properties:
+              action:
+                type: string
+                description: "`controller#action`"
+              calls:
+                type: integer
+              p95_ms:
+                type: integer
+            required:
+            - action
+            - calls
+            - p95_ms
+      required:
+      - window_minutes
+      - calls
+      - server_errors
+      - mean_ms
+      - p50_ms
+      - p95_ms
+      - p99_ms
+      - slowest_actions
+    EmbargoRelease:
+      type: object
+      properties:
+        released:
+          type: array
+          items:
+            type: string
+          description: NOIDs of the Works that gained an Embargo released row on this
+            call
+      required:
+      - released
+    Person:
+      type: object
+      properties:
+        person:
+          type: object
+          properties:
+            id:
+              type: string
+              description: NOID
+            valkyrie_id:
+              type: string
+              description: Valkyrie internal id
+            nuid:
+              type: string
+              description: Correlation key + public address
+            display_name:
+              type: string
+              description: Authoritative, librarian-editable name
+            bio:
+              type: string
+              nullable: true
+            orcid:
+              type: string
+              nullable: true
+            affiliated_community_ids:
+              type: array
+              items:
+                type: string
+              description: NOIDs of affiliated communities
+            personal_root_id:
+              type: string
+              nullable: true
+              description: NOID of the Person's personal-root Collection (the publish
+                conduit's structural parent)
+          required:
+          - id
+          - valkyrie_id
+          - nuid
+          - display_name
+          - bio
+          - orcid
+          - affiliated_community_ids
+          - personal_root_id
+      required:
+      - person
+paths:
+  "/embargoes/release":
+    post:
+      summary: Record the embargoes that have lapsed (system-only)
+      tags:
+      - Resources
+      description: |
+        Writes one `release_embargo` audit row for each Work whose embargo has
+        lapsed and has none for that release date. The row is dated to the
+        start of the release day in Eastern time, not to the call, so a late
+        call does not misdate the history. Cerberus calls it nightly; Atlas
+        runs no scheduler.
+
+        Safe to repeat. A Work whose embargo was set after its own release
+        moment gets no row. By default it looks back seven days, so a missed
+        night catches up on the next; `since` (an ISO 8601 date) widens that.
+        Returns the NOIDs that gained a row. Non-system, non-admin callers → 403.
+      parameters:
+      - name: since
+        in: query
+        schema:
+          type: string
+          format: date
+        required: false
+        description: Earliest release date to consider. Defaults to seven days ago.
+      responses:
+        '200':
+          description: lapsed embargoes recorded
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/EmbargoRelease"
+        '400':
+          description: since is not an ISO 8601 date
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: embargoes_release
+  "/fixity_checks":
+    post:
+      summary: Record one fixity check result for an OCFL object (fixity checker and
+        admin only)
+      tags:
+      - Resources
+      description: |
+        Records that a checker re-hashed one OCFL object: when, which version,
+        with which algorithm, over how many files, the outcome and its
+        findings. Atlas hashes nothing here; the checker did that work.
+
+        The result is appended as one JSON line to the object's
+        `logs/fixity.jsonl`, outside its versioned content, so recording a
+        check never creates a version. That log is the record. The newest
+        check per object is also kept as a derived row, projected onto the
+        owning resource's Solr doc as `fixity_checked_at_dtsi` and
+        `fixity_result_ssi`, and summarized by `GET /works/{id}/health_check`.
+
+        A check older than the object's latest is logged but does not replace
+        it, and `latest` is false. Posting the same check again adds no line
+        and answers 200 instead of 201, so a retry is safe. A `fail` must
+        carry at least one finding.
+
+        The `:fixity_checker` principal (its own `fixity_token`) and admins
+        only. Anyone else gets 403. An object no resource holds is a 404; an
+        unknown version, or a resource with no OCFL object, is a 422 that
+        writes nothing.
+      parameters: []
+      responses:
+        '201':
+          description: check recorded
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/FixityCheck"
+        '200':
+          description: the same check posted again; nothing added
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/FixityCheck"
+        '422':
+          description: malformed, or names a version the object does not have; nothing
+            written
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        '404':
+          description: no resource holds the object
+        '403':
+          description: not the fixity checker or an admin
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - object
+              - checked_at
+              - version
+              - algorithm
+              - files
+              - result
+              - checker
+              properties:
+                object:
+                  type: string
+                  description: The OCFL inventory id, urn:neu-drs:<noid>
+                checked_at:
+                  type: string
+                  format: date-time
+                  description: When the check ran. Kept to the second.
+                version:
+                  type: string
+                  description: The object version checked, e.g. v3
+                algorithm:
+                  type: string
+                  enum:
+                  - sha512
+                  - sha256
+                  - sha1
+                  - md5
+                  - blake2b-512
+                  - blake2b-160
+                  - blake2b-256
+                  - blake2b-384
+                  - sha512/256
+                files:
+                  type: integer
+                  minimum: 0
+                  description: Files re-hashed
+                result:
+                  type: string
+                  enum:
+                  - pass
+                  - fail
+                findings:
+                  type: array
+                  maxItems: 1000
+                  items:
+                    type: object
+                    required:
+                    - code
+                    properties:
+                      code:
+                        type: string
+                      severity:
+                        type: string
+                      subject:
+                        type: string
+                      message:
+                        type: string
+                      path:
+                        type: string
+                checker:
+                  type: string
+                  maxLength: 64
+                  description: The tool that ran the check
+      operationId: fixity_checks_create
+  "/fixity_checks/due":
+    get:
+      summary: List the OCFL objects most in need of a fixity check (fixity checker
+        and admin only)
+      tags:
+      - Resources
+      description: |
+        The objects to check next: never checked first, then oldest check
+        first. Read off the storage ledger, so it lists every object the
+        storage adapter has written, checked or not. `bytes` is the object's
+        size on disk, for planning; the sweep holds its budget by counting what
+        it actually hashes.
+
+        `checked_before` limits the list to objects not checked since that
+        time. A sweep passes its own start, so each object it records drops
+        out and the next page needs no cursor. It defaults to now.
+
+        Refused during a maintenance window, so a sweep stops before it hashes
+        anything it could not record.
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 1000
+          default: 100
+        description: The most objects to list, at most 1000.
+      - name: checked_before
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+        description: List only objects not checked since this time
+      responses:
+        '200':
+          description: objects due, never checked first
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/FixityDue"
+        '400':
+          description: checked_before is not a timestamp
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        '403':
+          description: not the fixity checker or an admin
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: fixity_checks_due
+  "/resources/{id}/solr":
+    get:
+      summary: An object's Solr document
+      tags:
+      - Resources
+      description: |
+        The object's Solr document exactly as Solr stores it, for debugging the
+        index. Admins and delegated admins only; a delegated admin must also be
+        able to read the object.
+
+        Fields that are searched but not stored never appear:
+        `descriptive_keywords_tesim`, `title_stem_tesim`,
+        `description_stem_tesim` and `name_variant_teim`, among others. Their
+        absence is not a fault. `GET /resources/{id}/search_explanation` shows
+        what they match.
+
+        404 for an unknown NOID and for a Set, which Atlas does not index. 404
+        with `error: not_indexed` when the object exists but Solr holds no
+        document for it; `POST /resources/{id}/reindex` is the fix.
+      parameters:
+      - name: id
+        in: path
+        description: NOID
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: the Solr document
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/IndexDocument"
+        '404':
+          description: the object has no Solr document
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: index_documents_show
+  "/maintenance":
+    put:
+      summary: Open or close the repository-wide read-only window
+      tags:
+      - Maintenance
+      operationId: maintenance_update
+      description: |
+        Open (`read_only: true`) or close (`read_only: false`) the window.
+        Restricted to the system principal and admins.
+
+        `source` names which door is acting. A `deploy` close is refused —
+        silently, leaving the window standing and reporting the unchanged state —
+        when an `operator` opened the window, so a deploy that finishes cannot
+        close a window a human opened by hand. An `operator` close clears either.
+
+        This is the one action the read-only floor exempts; an open window has to
+        stay closable.
+      parameters: []
+      responses:
+        '200':
+          description: window opened
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/MaintenanceMode"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                read_only:
+                  type: boolean
+                source:
+                  type: string
+                  enum:
+                  - operator
+                  - deploy
+                message:
+                  type: string
+                retry_after:
+                  type: integer
+              required:
+              - read_only
+  "/reset":
+    get:
+      summary: Reset development/test state
+      tags:
+      - Maintenance
+      operationId: maintenance_reset
+      security: []
+      description: |
+        Wipes the database, the Solr index, the OCFL storage roots and the
+        response cache, then seeds the fixture users and a Person, with a
+        personal root, for the staff (000000002) and admin (000000004)
+        fixtures. Refuses to run in
+        production, and during a maintenance window. `rake reset:clean` runs
+        the same wipe without this route.
+
+        **Internal endpoint — do not call from clients.** Used by test
+        harnesses and developer-environment seeders.
+      responses:
+        '204':
+          description: state reset
+  "/metrics/latency":
+    get:
+      summary: Report Atlas's own request latency
+      tags:
+      - Metrics
+      operationId: metrics_latency
+      parameters:
+      - name: minutes
+        in: query
+        required: false
+        description: Window in minutes, 1 to 120. Default 60.
+        schema:
+          type: integer
+      description: |
+        How long Atlas took to serve its own requests over a recent window,
+        measured from when a request enters Atlas's Rack stack until the app
+        returns its response — the same span as the `x-runtime` header. It
+        does not include time a request spent queued before Puma handed it to
+        Rack, nor the network, nor sending a streamed body. A client that also
+        times its calls can subtract to see how much of its wait was its own.
+
+        Restricted to admins and the system principal.
+
+        The percentiles are interpolated from a histogram with edges at 5, 10,
+        25, 50, 100, 250, 500, 1000, 2500, 5000 and 10000 ms, so they are
+        approximate. GET /up, GET /health and this endpoint are not counted.
+
+        Answers `503` with `error: "backend_unavailable"` and
+        `dependency: "cache"` when Redis, which holds the figures, does not
+        answer.
+      responses:
+        '200':
+          description: latency for the window
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Latency"
+        '503':
+          description: Redis, which holds the figures, does not answer
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+  "/people":
+    post:
+      summary: Create a person (system/admin)
+      tags:
+      - People
+      description: |
+        Creates a neutral curatorial identity. One Person per NUID — a duplicate
+        NUID is a 409. System/admin only; a non-privileged caller receives 403.
+      parameters: []
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Person"
+        '409':
+          description: duplicate nuid
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        '403':
+          description: non-system/admin caller is rejected
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nuid:
+                  type: string
+                display_name:
+                  type: string
+                bio:
+                  type: string
+                orcid:
+                  type: string
+              required:
+              - nuid
+              - display_name
+      operationId: people_create
+  "/people/{id}/affiliations":
+    parameters:
+    - name: id
+      in: path
+      description: NOID of the person
+      required: true
+      schema:
+        type: string
+    post:
+      summary: Add a community affiliation (audited, system/admin)
+      tags:
+      - People
+      description: Idempotent. Emits an add_affiliation audit event.
+      parameters: []
+      responses:
+        '200':
+          description: affiliation added
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Person"
+        '422':
+          description: unknown community
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                community_id:
+                  type: string
+                  description: NOID of the community
+              required:
+              - community_id
+      operationId: people_add_affiliation
+  "/people/{id}/affiliations/{community_id}":
+    parameters:
+    - name: id
+      in: path
+      description: NOID of the person
+      required: true
+      schema:
+        type: string
+    - name: community_id
+      in: path
+      required: true
+      schema:
+        type: string
+      description: The NOID of the Community.
+    delete:
+      summary: Remove a community affiliation (audited, system/admin)
+      tags:
+      - People
+      description: Tolerant — removing an absent affiliation is a no-op. Emits a remove_affiliation
+        audit event.
+      responses:
+        '200':
+          description: affiliation removed
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Person"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: people_remove_affiliation
+  "/resources/{id}/reindex":
+    parameters:
+    - name: id
+      in: path
+      description: NOID of any resource
+      required: true
+      schema:
+        type: string
+    post:
+      summary: Re-project a resource's Solr doc (system-only)
+      tags:
+      - Resources
+      description: |
+        Operational, **system-gated** Solr re-projection. Re-derives the
+        resource's Solr doc from the current Postgres/OCFL source of truth — no
+        lifecycle transition, no audit event, no optimistic-lock bump. This is
+        the supported lever after an indexer ships or changes (e.g.
+        `classification_ssim`) and an already-finalized resource carries a
+        stale/empty projection; previously the only option was to abuse a
+        lifecycle transition (`POST /works/{id}/complete`). Idempotent.
+
+        Requires the system bearer token paired with the system `User:` NUID
+        header; any non-system caller is rejected (401/403). Unknown id → 404.
+      responses:
+        '204':
+          description: resource re-projected from current state
+        '404':
+          description: unknown id
+        '403':
+          description: non-system caller is rejected
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: resources_reindex
+  "/resources/{id}/reindex_subtree":
+    parameters:
+    - name: id
+      in: path
+      description: NOID of any resource (subtree root)
+      required: true
+      schema:
+        type: string
+    post:
+      summary: Re-project a resource and its full descendant subtree (system-only)
+      tags:
+      - Resources
+      description: |
+        Operational, **system-gated** subtree Solr re-projection. Gathers the
+        resource plus its full descendant subtree — descendant containers
+        (Collection/Community) **and the Works beneath them**, a deliberate
+        superset of the re-parent cascade so Work-level projections like
+        `classification_ssim` refresh too — and re-derives each doc from the
+        current Postgres/OCFL source of truth (no lifecycle/audit/lock bump).
+
+        Rooted at a Collection it refreshes that Collection's contents; rooted
+        at the top Community it backfills the whole repository. **Synchronous**
+        by design — for a pathologically large subtree the caller roots lower or
+        drives the cascade in chunks. Idempotent. Returns the count re-projected.
+        Non-system callers are rejected (401/403); unknown id → 404.
+      responses:
+        '200':
+          description: subtree re-projected; descendant Works refreshed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reindexed:
+                    type: integer
+                required:
+                - reindexed
+        '404':
+          description: unknown id
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: resources_reindex_subtree
+  "/resources/{id}/search_explanation":
+    get:
+      summary: How the catalog search scores one object
+      tags:
+      - Resources
+      description: |
+        Solr's own account of how the catalog search scores one Work, Collection
+        or Community for `q`, whether it matches or not, for debugging search.
+        Admins and delegated admins only; a delegated admin must also be able to
+        read the object.
+
+        `explanation` is Solr's structured `explainOther` tree, unchanged.
+        `handler` is the search handler's `qf`, `pf`, `mm`, `tie` and `boost`,
+        read from Solr. `hidden_by` names the always-on catalog filters that
+        hide the object whatever it matches.
+
+        `fields` has one entry per `qf` field. Each stored value that feeds the
+        field is analysed against `q`, and its index tokens carry `match`.
+        Offsets count UTF-16 code units, as Solr reports them. A field with no
+        stored text says why in `reason`: `not_stored`, or `full_text`, whose
+        matching passages are in `highlights`. A failed analysis is
+        `analysis_failed`; the other fields are still returned.
+
+        400 for a blank `q`. 404 for an unknown NOID, a Set or any other type;
+        404 with `error: not_indexed` when Solr holds no document for the
+        object. 502 when Solr does not answer.
+      parameters:
+      - name: id
+        in: path
+        description: NOID
+        required: true
+        schema:
+          type: string
+      - name: q
+        in: query
+        required: true
+        description: The search words
+        schema:
+          type: string
+      responses:
+        '200':
+          description: the object does not match
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/SearchExplanation"
+        '400':
+          description: blank q
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        '404':
+          description: the object has no Solr document
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: search_explanations_show
+  "/nuid":
+    post:
+      summary: Mint a JWT for a NUID (system-only)
+      tags:
+      - User
+      description: |
+        System-only endpoint used by Cerberus (post-SSO) to mint a personal-
+        access JWT for a user. The librarian then uses the token directly
+        against Atlas (Authorization: Bearer …) from scripts. Tokens carry a
+        1-week TTL. Requires the system Bearer token; non-system callers
+        receive 403. An unknown NUID returns 404. Emits a mint_token audit row.
+        An optional `read_only: true` mints a token that can only reach the
+        read-shaped actions in `ApplicationController::READ_ONLY_TOKEN_ACTIONS`,
+        however much more the underlying user may do. Within that list the
+        user's own tier still applies, so an operator read such as
+        `GET /works/{id}/health_check` answers only an admin's token. It is the
+        shape to hand to a non-human caller (e.g. an MCP client) that must
+        never be able to mutate the repository.
+      parameters: []
+      responses:
+        '200':
+          description: read-only token minted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                required:
+                - token
+        '403':
+          description: caller is not the system user
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nuid:
+                  type: string
+                email:
+                  type: string
+                  description: Optional — disambiguate which account under the NUID
+                    when it holds several.
+                read_only:
+                  type: boolean
+                  description: Optional — mint a token restricted to read-shaped actions
+                    only.
+              required:
+              - nuid
+      operationId: users_tokens_nuid
+    delete:
+      summary: Revoke all of a user's tokens (system-only)
+      tags:
+      - User
+      description: |
+        System-only endpoint that revokes every outstanding token for a user
+        by rotating its jti (single-token model → all-or-nothing). Cerberus's
+        "regenerate token" is a revoke followed by a fresh mint. Requires the
+        system Bearer token; non-system callers receive 403. An unknown NUID
+        returns 404. Emits a revoke_token audit row.
+      parameters: []
+      responses:
+        '204':
+          description: tokens revoked
+        '403':
+          description: caller is not the system user
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nuid:
+                  type: string
+                email:
+                  type: string
+                  description: Optional — disambiguate which account under the NUID
+                    when it holds several.
+              required:
+              - nuid
+      operationId: users_tokens_revoke
+  "/users/by_nuid/{nuid}":
+    put:
+      summary: Find-or-create a user and replace their groups (system-only)
+      tags:
+      - User
+      description: |
+        System-only endpoint used by Cerberus on SSO callback. Idempotent
+        on NUID; replaces (not merges) the supplied groups onto the user.
+        Requires the system Bearer token (no `User:` header); non-system
+        callers receive 403.
+      parameters:
+      - name: nuid
+        in: path
+        required: true
+        schema:
+          type: string
+        description: The person's NUID.
+      responses:
+        '200':
+          description: user upserted
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProvisionedUser"
+        '403':
+          description: caller is not the system user
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                groups:
+                  type: array
+                  items:
+                    type: string
+                email:
+                  type: string
+                name:
+                  type: string
+      operationId: users_update
+  "/users/by_email/{email}":
+    put:
+      summary: Find-or-create a user by email and replace their groups (system-only)
+      tags:
+      - User
+      description: |
+        System-only endpoint used by Cerberus on SSO callback. Email is the
+        account key, so a person's staff and student logins (same NUID,
+        different email) provision as distinct accounts instead of collapsing
+        on NUID. Idempotent on email; replaces (not merges) the supplied groups.
+        Requires the system Bearer token; non-system callers receive 403.
+      parameters:
+      - name: email
+        in: path
+        description: The account key (email).
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: user upserted
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProvisionedUser"
+        '403':
+          description: caller is not the system user
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nuid:
+                  type: string
+                groups:
+                  type: array
+                  items:
+                    type: string
+                name:
+                  type: string
+                affiliation:
+                  type: string
+                  description: unscoped-affiliation, a human account label
+      operationId: users_update_by_email

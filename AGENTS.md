@@ -74,7 +74,7 @@ docker compose exec web bundle exec rake                          # full test su
 docker compose exec web bundle exec rspec spec/requests/works_spec.rb       # one file
 docker compose exec web bundle exec rspec spec/requests/works_spec.rb:42    # one example
 docker compose exec web bundle exec rubocop                       # lint
-bin/openapi                                                       # regenerate openapi/openapi.yaml
+bin/openapi                                                       # regenerate the OpenAPI documents
 bin/openapi-lint --check                                          # the OpenAPI gate (host, Node)
 ```
 
@@ -82,7 +82,7 @@ bin/openapi-lint --check                                          # the OpenAPI 
 inside the container if web is up, otherwise on the host. It is worktree-aware
 through the same `bin/lib/container.sh` `bin/spec` uses, so it regenerates the
 checkout you are standing in. CI runs the same generator and fails the build if
-the committed `openapi/openapi.yaml` differs from what the specs produce, so any
+a committed document under `openapi/` differs from what the specs produce, so any
 change to a request spec or jbuilder partial requires a regenerate-and-commit.
 
 The web container's entrypoint runs `db:create` + `db:migrate` on boot
@@ -223,8 +223,11 @@ Strict schema validation is on (`config.openapi_strict_schema_validation =
 true` in `spec/swagger_helper.rb`), so any field added to a partial must
 also be added to the schema map (or vice versa) — request specs fail
 otherwise. This is the project's primary drift detector. When you change a
-partial, expect to update both the schema and `openapi/openapi.yaml`
-(via `bin/openapi`) in the same commit.
+partial, expect to update both the schema and the OpenAPI documents
+(via `bin/openapi`) in the same commit, then run `bin/openapi-lint` and commit
+any baseline change. A new operator- or backend-only endpoint goes in the
+internal document: read [`docs/openapi.md`](docs/openapi.md) before adding a
+request spec.
 
 ### Test layers
 
@@ -232,7 +235,7 @@ Three concentric layers in `spec/`:
 
 1. `spec/controllers/` — fast per-action specs.
 2. `spec/requests/` — rswag DSL; **doubles as the OpenAPI source**. These
-   are the ones that drive `openapi/openapi.yaml` generation. Multipart
+   are the ones that drive OpenAPI generation. Multipart
    bodies use the custom `multipart_request_body` helper in
    `spec/swagger_helper.rb` (rswag's auto-generated multipart body is buggy
    when several `parameter in: :formData` lines appear — use this helper to

@@ -10,7 +10,7 @@ RSpec.describe 'Solr documents', type: :request do
 
   after { Atlas.persister.wipe! }
 
-  path '/resources/{id}/solr' do
+  path '/resources/{id}/solr', openapi_spec: OpenapiDocument::INTERNAL do
     get "An object's Solr document" do
       tags 'Resources'
       produces 'application/json'
@@ -58,6 +58,7 @@ RSpec.describe 'Solr documents', type: :request do
       end
 
       response '404', 'the object has no Solr document' do
+        error_body
         let(:work) { WorkCreator.call(parent_id: collection.noid) }
         let(:id)   { work.noid }
 

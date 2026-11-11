@@ -24,7 +24,7 @@ Source files:
 
 ## Atlas records checks; it does not run them
 
-[`POST /fixity_checks`](../openapi/openapi.yaml) takes one result per OCFL
+[`POST /fixity_checks`](../openapi/internal/openapi.yaml) takes one result per OCFL
 object from a checker that already did the hashing. Re-hashing a large file
 would hold a Puma worker for minutes, so the request hashes nothing. Only the
 `:fixity_checker` principal and admins may post. The devolved-admin tier reads
@@ -122,7 +122,7 @@ for `POST /works/{id}/complete`, which indexes it.
 
 ## The Work summary
 
-[`GET /works/{id}/health_check`](../openapi/openapi.yaml) returns `fixity`, a
+[`GET /works/{id}/health_check`](../openapi/public/openapi.yaml) returns `fixity`, a
 summary over the objects the Work reaches (`Work#preserved_resources`). A Work
 is only as verified as its least recently checked object, so:
 
@@ -152,7 +152,7 @@ and talks to Atlas over HTTP like any other client.
 The entrypoint wakes every `FIXITY_INTERVAL` seconds. On the first wake inside
 the window it runs `bin/ocfl-fixity-sweep`, which:
 
-1. asks [`GET /fixity_checks/due`](../openapi/openapi.yaml) for the objects
+1. asks [`GET /fixity_checks/due`](../openapi/internal/openapi.yaml) for the objects
    most in need of a check, passing a `checked_before` one re-check cycle
    before its own start;
 2. re-hashes each one with `OcflHealth::ObjectValidator`, the validator

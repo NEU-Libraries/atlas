@@ -14,6 +14,7 @@ RSpec.describe 'Health', type: :request do
     get 'Report whether Atlas can reach its dependencies' do
       tags 'Health'
       operationId 'health_show'
+      security []
       produces 'application/json'
       description <<~D
         Readiness. Probes Postgres, Solr, the OCFL storage roots and the Redis

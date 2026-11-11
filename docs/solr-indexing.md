@@ -573,7 +573,7 @@ rest. A point needs both halves.
 
 Returns one object's Solr document exactly as Solr stores it, so an API client
 such as Hyperion can debug the index without a Solr query from inside the Docker
-network. The shape is in [`openapi.yaml`](../openapi/openapi.yaml). Atlas passes
+network. The shape is in [`openapi.yaml`](../openapi/internal/openapi.yaml). Atlas passes
 the document through and does not shape it; the client formats it.
 
 **A missing document is itself the fault.** The endpoint answers 404 with

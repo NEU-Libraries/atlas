@@ -20,7 +20,7 @@ RSpec.describe 'Embargoes', type: :request do
     Atlas.persister.save(resource: work)
   end
 
-  path '/embargoes/release' do
+  path '/embargoes/release', openapi_spec: OpenapiDocument::INTERNAL do
     post 'Record the embargoes that have lapsed (system-only)' do
       tags 'Resources'
       produces 'application/json'
@@ -36,10 +36,6 @@ RSpec.describe 'Embargoes', type: :request do
         night catches up on the next; `since` (an ISO 8601 date) widens that.
         Returns the NOIDs that gained a row. Non-system, non-admin callers → 403.
       DESC
-      security [{ BearerAuth: [] }]
-      parameter name: :Authorization, in: :header, type: :string, required: false
-      parameter name: :User, in: :header, type: :string, required: false,
-                description: 'System principal, e.g. "NUID 000000000"'
       parameter name: :since, in: :query, schema: { type: :string, format: :date }, required: false,
                 description: 'Earliest release date to consider. Defaults to seven days ago.'
 

@@ -38,7 +38,7 @@ metadata serialization or persistence.
   a controller or with `render json:`.
 - Change the partial and its schema in `spec/support/openapi_schemas.rb`
   together. Strict schema validation fails the request specs when they differ.
-- Regenerate `openapi/openapi.yaml` with `bin/openapi`, and commit it with the
+- Regenerate the OpenAPI documents with `bin/openapi`, and commit them with the
   change. CI fails when the committed file differs from what the specs
   generate.
 - Run `bin/openapi-lint` after you regenerate, and commit a changed
@@ -84,7 +84,7 @@ to it. [`README.md`](README.md) covers when to add a page and the comment
 density target.
 
 Never restate a response shape on a page. The request specs generate
-`openapi/openapi.yaml`, so it cannot drift; a page links to the endpoint and
+OpenAPI documents, so they cannot drift; a page links to the endpoint and
 explains what the schema cannot express.
 
 Prefer a spec to prose whenever the claim is testable. A spec fails when

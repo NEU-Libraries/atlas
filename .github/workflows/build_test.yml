@@ -57,8 +57,10 @@ jobs:
     - name: Verify OpenAPI doc is up to date
       run: |
         docker compose exec -T web bundle exec rake rswag:specs:swaggerize
-        if ! git diff --exit-code -- openapi/; then
-          echo "::error::openapi/openapi.yaml is stale. Run 'bin/openapi' locally and commit the result."
+        if [ -n "$(git status --porcelain -- openapi/)" ]; then
+          git status --short -- openapi/
+          git diff -- openapi/
+          echo "::error::An OpenAPI document under openapi/ is stale. Run 'bin/openapi' locally and commit the result."
           exit 1
         fi
 

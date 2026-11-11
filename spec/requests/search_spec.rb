@@ -40,10 +40,9 @@ RSpec.describe 'Search', type: :request do
       DESC
       parameter name: :q, in: :query, type: :string, required: false,
                 description: 'Search text. Omit to browse.'
-      parameter name: :type, in: :query, type: :string, required: false,
-                enum: SearchQuery::TYPES, description: 'Narrow to one type. Omit to search all four.'
-      parameter name: :page, in: :query, type: :integer, required: false
-      parameter name: :per_page, in: :query, type: :integer, required: false
+      parameter name: :type, in: :query, required: false, schema: { type: :string, enum: SearchQuery::TYPES },
+                description: 'Narrow to one type. Omit to search all four.'
+      paginated per_page: true
 
       let(:q)        { nil }
       let(:type)     { nil }

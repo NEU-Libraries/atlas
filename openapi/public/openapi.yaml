@@ -4,55 +4,75 @@ info:
   title: Atlas API
   version: '1'
   description: |
-    Atlas is the Northeastern University Library digital repository API.
+    Atlas is the API for the Northeastern University Library digital
+    repository (the DRS). It holds the repository's content: the tree of
+    Communities, Collections and Works, their descriptive metadata, and their
+    files.
 
-    Two consumption surfaces of this document:
+    This document is served at `/api-docs/openapi.yaml`, and rendered for
+    people at `/docs`.
 
-    - Humans: Scalar UI at `/docs`
-    - Machines (clients, agents, codegen): the canonical OpenAPI
-      document is served at `/api-docs/openapi.yaml`.
+    ### Getting access
 
-    ### Authentication
+    Without a credential, you are a **guest**. A guest can read public items
+    only, and cannot write.
 
-    Every request resolves its principal from the bearer token. Four
-    credentials are recognised:
+    To read more, or to write, ask the repository operator for a personal
+    access token. Send it on every request as `Authorization: Bearer <token>`.
+    A token lasts one week, and can be issued read-only. When it expires or
+    is revoked, Atlas answers `401`; ask the operator for a new one.
 
-    - **No token** — the guest principal. Most reads fall through here.
-    - **A Cerberus signed assertion** (ES256, `iss=cerberus`,
-      `aud=atlas`) — the relay path. Identity is the proven `sub`;
-      acting-as rides a signed `obo` claim, never a header.
-    - **A devise-JWT** minted by `POST /nuid` — the standalone path, for
-      a librarian's own scripts. Identity is the token's, so the `User`
-      header is ignored.
-    - **The system token** plus a `User: NUID <system>` header — the
-      backend-to-backend path, valid only as the system principal.
-
-    Anything else is a `401`. Endpoints that need more than the read
-    floor declare it explicitly below.
+    What a token lets you do depends on the permissions of the user it names.
+    An operation that needs more than read access says so in its description.
 
     ### Errors
 
-    Failures carry a JSON body with an `error` key, and several are
-    machine-readable discriminators a client is expected to branch on —
-    `read_only_mode` on the maintenance window, `stale_resource` on an
-    optimistic-lock conflict, `fixity_mismatch` on a rejected upload.
+    Read the status code first. Every `4xx` and `5xx` that has a body uses
+    the `Error` schema, and a client branches on its `error` key, never on
+    `message`. Most `404` responses have no body at all.
 
-    Three shapes are not documented per operation, because they apply
-    to all of them. **Any endpoint can answer `5xx`**, and a proxy in
-    front of Atlas can answer `502` / `504` with a body that is not JSON
-    at all — see the `ServerError` response below. **Any write can
-    answer `503` with `error: "read_only_mode"` and a `Retry-After`
-    header** while the repository-wide read-only window is open. A
-    client must consult the status before it reads the body; the
-    `Retry-After` on that `503` is measured in minutes, so it is a
-    "come back later", not a "try again now".
+    Two exceptions are documented where they occur. On some `422` responses,
+    `error` is a sentence and the code is in `code`. And a tombstoned
+    resource's own record answers `410` with the record, or a stub of it,
+    rather than an `Error`.
 
-    And **any endpoint can answer `503` with `error:
-    "backend_unavailable"`** when Atlas cannot reach a dependency. Its
-    `dependency` key names which one — `database`, `index` or
-    `storage`, or `cache` on `GET /metrics/latency` — and `Retry-After`
-    is a short fixed wait. `GET /health` reports every dependency at
-    once.
+    Three statuses apply to every operation, so they are not repeated on each
+    one:
+
+    - **`503` with `error: "backend_unavailable"`.** Atlas cannot reach a
+      dependency. The `dependency` key names it. Wait for the `Retry-After`
+      seconds, then retry.
+    - **`503` with `error: "read_only_mode"`** on any write. The repository
+      is in a maintenance window. `Retry-After` is the expected wait in
+      seconds, and can be long; `GET /maintenance` reports the window.
+    - **Any `5xx`** (see the `ServerError` response). A proxy in front of
+      Atlas can answer `502` or `504` with a body that is not JSON.
+
+    ### Paging
+
+    A list returns one page and a `pagination` block. Ask for another page
+    with `?page=<n>`. Lists that take `per_page` cap it at 100.
+
+    The block has one of two shapes. Most lists return `Pagination`: stop
+    when `pagination.next` is null. The search-backed lists (search,
+    descendant Works and a Compilation's contents) return `SearchPagination`:
+    stop when `pagination.page` reaches `pagination.pages`.
+
+    ### Terms
+
+    | Term | Meaning |
+    |---|---|
+    | NOID | The identifier of a resource in this API: a short, opaque string. Every `id` in a path is a NOID. |
+    | NUID | A Northeastern University ID, the 9-digit number that names a person. |
+    | Handle | The persistent identifier of a finished Work. It resolves through `https://hdl.handle.net`. |
+    | MODS | The library XML standard for descriptive metadata. Atlas keeps each resource's MODS as the preservation copy and serves a JSON reading of it. |
+    | METS | The XML standard that describes a Work's files and their structure. |
+    | Darwin Core | A metadata standard for biological specimens. A Work can hold one Darwin Core record beside its MODS. |
+    | IIIF | The International Image Interoperability Framework. An image FileSet can name a IIIF image service. |
+    | Grouper | Northeastern's group directory. A read or edit grant can name a Grouper group as well as a user. |
+    | Tombstone | A resource withdrawn from view. Its record stays, but its content is withheld, and reads answer `410`. |
+    | Embargo | A date before which a Work's files are withheld from everyone but administrators and repository staff. The Work's record stays readable. |
+    | Delegated admin | A user who holds the privileged role and belongs to the admin group. They can restore, reparent and audit, but do not have the full admin role. |
 servers:
 - url: "{scheme}://{host}"
   variables:
@@ -63,57 +83,94 @@ servers:
       - http
     host:
       default: atlas.library.northeastern.edu
+security:
+- BearerAuth: []
+- {}
 tags:
 - name: Communities
+  description: |-
+    The top level of the tree. A Community holds Collections and other Communities.
+
+    Background: [resource-graph.md](https://github.com/NEU-Libraries/atlas/blob/develop/docs/resource-graph.md).
 - name: Collections
+  description: |-
+    A Collection holds Works and other Collections.
+
+    Background: [resource-graph.md](https://github.com/NEU-Libraries/atlas/blob/develop/docs/resource-graph.md).
 - name: Works
+  description: |-
+    A Work is one deposited item: its metadata, its files and its state.
+
+    Background: [mods.md](https://github.com/NEU-Libraries/atlas/blob/develop/docs/mods.md).
 - name: FileSets
+  description: |-
+    A FileSet groups the files of one asset of a Work, such as a page image and its derivatives.
+
+    Background: [binaries.md](https://github.com/NEU-Libraries/atlas/blob/develop/docs/binaries.md).
 - name: Files
+  description: |-
+    A file is a Blob: one versioned binary in preservation storage.
+
+    Background: [binaries.md](https://github.com/NEU-Libraries/atlas/blob/develop/docs/binaries.md).
 - name: Resources
+  description: |-
+    Operations that apply to any resource in the tree, whatever its type.
+
+    Background: [resource-graph.md](https://github.com/NEU-Libraries/atlas/blob/develop/docs/resource-graph.md).
+- name: Delegates
+  description: |-
+    A Delegate points at a derivative that Atlas does not store, such as an image size served by a IIIF server.
+
+    Background: [binaries.md](https://github.com/NEU-Libraries/atlas/blob/develop/docs/binaries.md).
 - name: Compilations
+  description: |-
+    A Compilation is a personal Set of Works and Collections.
+
+    Background: [compilations.md](https://github.com/NEU-Libraries/atlas/blob/develop/docs/compilations.md).
+- name: People
+  description: |-
+    A Person is a curatorial identity: a name, a profile and affiliations.
+
+    Background: [people.md](https://github.com/NEU-Libraries/atlas/blob/develop/docs/people.md).
 - name: User
+  description: |-
+    The calling user, their accounts and the user directory.
+
+    Background: [authentication.md](https://github.com/NEU-Libraries/atlas/blob/develop/docs/authentication.md).
 - name: Maintenance
+  description: |-
+    Whether the repository is in a read-only maintenance window.
+
+    Background: [availability.md](https://github.com/NEU-Libraries/atlas/blob/develop/docs/availability.md).
 - name: Health
-- name: Metrics
+  description: |-
+    Whether Atlas can reach its dependencies.
+
+    Background: [availability.md](https://github.com/NEU-Libraries/atlas/blob/develop/docs/availability.md).
 components:
   securitySchemes:
     BearerAuth:
       type: http
       scheme: bearer
-      description: A Cerberus signed assertion, a devise-jwt user token, or the Cerberus
-        system token. All three are accepted; see the Authentication note above for
-        which identity each one proves.
-    NuidHeader:
-      type: apiKey
-      in: header
-      name: User
-      description: NUID identity asserted by Cerberus, in the form `NUID <nuid>`.
-        Required when calling with the system token to act as a user.
-    OnBehalfOfHeader:
-      type: apiKey
-      in: header
-      name: On-Behalf-Of
-      description: 'Acting-as attribution target, in the form `NUID <nuid>`. Honoured
-        only on the system-token path, which is backend-to-backend; human acting-as
-        rides a signed `obo` claim inside the Cerberus assertion instead, so the target
-        cannot be forged onto a stolen credential. The header names the user a write
-        is attributed to: on a create the resulting resource reads as a pure deposit
-        by the target — `depositor` = target, `proxy_uploader` left null — with the
-        operator recorded only in the AuditEvent. Presented on any other path it is
-        rejected (403), admin or not.'
+      description: A personal access token issued by the repository operator. Omit
+        the header to call as a guest, who sees public items only.
   responses:
-    ServerError:
-      description: 'Atlas, or a proxy in front of it, failed to serve the request.
-        Applies to every operation. Atlas''s own 5xx carries a JSON `{ "error": …
-        }` body; a proxy''s 502/504 may carry HTML or plain text, so a client must
-        key on the status rather than parsing the body first.'
+    Unauthorized:
+      description: 'The credential was not recognised: an unknown, expired or revoked
+        token. Send no `Authorization` header to call as a guest instead.'
       content:
         application/json:
           schema:
-            type: object
-            properties:
-              error:
-                type: string
+            "$ref": "#/components/schemas/Error"
+    ServerError:
+      description: Atlas, or a proxy in front of it, failed to serve the request.
+        Applies to every operation. Atlas's own 5xx carries an `Error` body; a proxy's
+        502 or 504 can carry HTML or plain text, so read the status before you parse
+        the body.
+      content:
+        application/json:
+          schema:
+            "$ref": "#/components/schemas/Error"
   schemas:
     Work:
       type: object
@@ -1493,146 +1550,229 @@ components:
                 description: NOID of the object the finding is about
               message:
                 type: string
-    FixityCheck:
+    Error:
       type: object
+      description: The body of every error that has one. Branch on `error`, never
+        on `message`.
       properties:
-        fixity_check:
-          type: object
-          properties:
-            resource_id:
-              type: string
-              description: NOID of the resource that owns the object
-            object:
-              type: string
-              description: The OCFL inventory id, urn:neu-drs:<noid>
-            checked_at:
-              type: string
-              format: date-time
-              description: When the check ran, to the second
-            version:
-              type: string
-              description: The object version checked, e.g. v3
-            algorithm:
-              type: string
-              enum:
-              - sha512
-              - sha256
-              - sha1
-              - md5
-              - blake2b-512
-              - blake2b-160
-              - blake2b-256
-              - blake2b-384
-              - sha512/256
-            files:
-              type: integer
-              description: Files re-hashed
-            result:
-              type: string
-              enum:
-              - pass
-              - fail
-            findings:
-              type: array
-              items:
-                type: object
-                required:
-                - code
-                properties:
-                  code:
-                    type: string
-                  severity:
-                    type: string
-                  subject:
-                    type: string
-                  message:
-                    type: string
-                  path:
-                    type: string
-            checker:
-              type: string
-              description: The tool that ran the check
-            recorded_by:
-              type: string
-              nullable: true
-              description: NUID of the principal that posted it
-            latest:
-              type: boolean
-              description: Whether this is now the object's latest check
-          required:
-          - resource_id
-          - object
-          - checked_at
-          - version
-          - algorithm
-          - files
-          - result
-          - findings
-          - checker
-          - recorded_by
-          - latest
+        error:
+          type: string
+          description: 'What went wrong. A code such as `stale_resource` (409), `tombstoned`
+            (410), `invalid_record` (422), `read_only_mode` (503) or `backend_unavailable`
+            (503), or the code of a rejected write such as `invalid_parent_type` (422).
+            On a 400, 401 or 403 it is a sentence for a person, not a code: branch
+            on the status instead.'
+        code:
+          type: string
+          description: 'On some 422s, such as `has_children` or `tombstoned_parent`:
+            the code, while `error` carries a sentence.'
+        message:
+          type: string
+          description: Detail for a person. Never parse it.
+        resource_id:
+          type: string
+          nullable: true
+          description: The NOID the request named.
+        action:
+          type: string
+          description: 'On a 403: the verb that was refused.'
+        subject:
+          type: string
+          description: 'On a 403: the type of the resource the verb was refused on.'
+        dependency:
+          type: string
+          enum:
+          - database
+          - index
+          - storage
+          - cache
+          description: 'On `backend_unavailable`: the dependency Atlas could not reach.'
+        tombstoned_resource_id:
+          type: string
+          description: 'On `tombstoned`: the NOID of the tombstoned resource, which
+            can be an ancestor of the one requested.'
+        tombstoned_resource_type:
+          type: string
+          description: 'On `tombstoned`: the type of the tombstoned resource.'
       required:
-      - fixity_check
-    FixityDue:
-      type: object
-      properties:
-        due:
-          type: array
-          items:
-            type: object
-            properties:
-              key:
-                type: string
-                description: The object key (the NOID)
-              object:
-                type: string
-                description: urn:neu-drs:<noid>
-              bytes:
-                type: integer
-                description: Bytes on disk, from the storage ledger
-              last_checked_at:
-                type: string
-                format: date-time
-                nullable: true
-                description: The latest recorded check, or null
-            required:
-            - key
-            - object
-            - bytes
-            - last_checked_at
-      required:
-      - due
+      - error
+      additionalProperties: false
     Pagination:
       type: object
-      description: pagy pagination block
-      additionalProperties: true
+      description: Where this page sits in the list. Follow `next` until it is null.
+      properties:
+        count:
+          type: integer
+          description: Items in the whole list.
+        page:
+          type: integer
+          description: This page's number, from 1.
+        items:
+          type: integer
+          description: The page size.
+        pages:
+          type: integer
+          description: Pages in the whole list.
+        last:
+          type: integer
+          description: The last page's number.
+        in:
+          type: integer
+          description: Items on this page.
+        from:
+          type: integer
+          description: The position of this page's first item, from 1; 0 on an empty
+            list.
+        to:
+          type: integer
+          description: The position of this page's last item.
+        prev:
+          type: integer
+          nullable: true
+          description: The previous page's number, or null on the first page.
+        next:
+          type: integer
+          nullable: true
+          description: The next page's number, or null on the last page.
+        series:
+          type: array
+          items:
+            oneOf:
+            - type: integer
+            - type: string
+          description: 'Pages to show in a pager: a number for another page, this
+            page''s number as a string, and `gap` for elided pages.'
+        scaffold_url:
+          type: string
+          description: This request's path with `__pagy_page__` in place of the page
+            number.
+        first_url:
+          type: string
+          description: The path of the first page.
+        prev_url:
+          type: string
+          description: The path of the previous page. On the first page it ends `page=`
+            with no number.
+        page_url:
+          type: string
+          description: The path of this page.
+        next_url:
+          type: string
+          description: The path of the next page. On the last page it ends `page=`
+            with no number.
+        last_url:
+          type: string
+          description: The path of the last page.
+        vars:
+          type: object
+          additionalProperties: true
+          description: The paginator's internal settings. Not part of the contract.
+      required:
+      - count
+      - page
+      - items
+      - pages
+      - last
+      - in
+      - from
+      - to
+      - prev
+      - next
+      - series
+      - scaffold_url
+      - first_url
+      - prev_url
+      - page_url
+      - next_url
+      - last_url
+      - vars
+    SearchPagination:
+      type: object
+      description: Where this page sits in a search-backed list. Stop when `page`
+        reaches `pages`.
+      properties:
+        total:
+          type: integer
+          description: Items in the whole list.
+        page:
+          type: integer
+          description: This page's number, from 1.
+        per_page:
+          type: integer
+          description: The page size.
+        pages:
+          type: integer
+          description: Pages in the whole list; 0 when it is empty.
+      required:
+      - total
+      - page
+      - per_page
+      - pages
     User:
       type: object
-      description: Devise/AR User record serialized via to_json. Fields vary; commonly
-        includes id, nuid, email, name, role, groups, affiliation, preferred.
+      description: The calling user's account. A guest gets the shared guest account,
+        with no NUID.
       properties:
         id:
           type: integer
         nuid:
           type: string
           nullable: true
+          description: The NUID; null for the guest.
         email:
           type: string
-          nullable: true
+          description: The account's email, which tells one account of a NUID from
+            another.
         name:
           type: string
           nullable: true
+          description: "`Family, Given`."
         role:
           type: string
+          enum:
+          - admin
+          - privileged
+          - standard
+          - loader
+          - system
+          - guest
+          - anonymous
+          - fixity_checker
+        groups:
+          type: array
           nullable: true
+          items:
+            type: string
+          description: The account's Grouper groups.
         affiliation:
           type: string
           nullable: true
-          description: This login's unscoped-affiliation, a human label for the account
+          description: A label a person reads for this account.
         preferred:
           type: boolean
-          description: Whether this is the default account for its NUID
-      additionalProperties: true
+          description: Whether this is the default account for its NUID.
+        jti:
+          type: string
+          description: The token revocation id. Rotating it revokes every token the
+            account holds.
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+      - id
+      - nuid
+      - email
+      - name
+      - role
+      - groups
+      - affiliation
+      - preferred
+      - jti
+      - created_at
+      - updated_at
     ProvisionedUser:
       type: object
       properties:
@@ -1735,21 +1875,50 @@ components:
       properties:
         resource:
           type: object
-          properties: {}
-          required: []
-          additionalProperties: true
-          description: Permission flags merged from Resource#permissions. For a guest
-            depositor and proxy_uploader are null, edit_users is empty, and read and
-            edit keep only `public`.
+          properties:
+            embargo:
+              type: string
+              nullable: true
+              description: The embargo release date, or null.
+            depositor:
+              type: string
+              nullable: true
+              description: The depositor's NUID.
+            proxy_uploader:
+              type: string
+              nullable: true
+              description: The NUID of whoever deposited for the depositor.
+            edit_users:
+              type: array
+              items:
+                type: string
+              description: NUIDs granted edit.
+            read:
+              type: array
+              items:
+                type: string
+              description: Groups granted read; `public` for everyone.
+            edit:
+              type: array
+              items:
+                type: string
+              description: Groups granted edit.
+            type:
+              type: string
+              description: The resource's type.
+          required:
+          - embargo
+          - depositor
+          - proxy_uploader
+          - edit_users
+          - read
+          - edit
+          - type
+          description: The resource's access-control envelope. For a guest, depositor
+            and proxy_uploader are null, edit_users is empty, and read and edit keep
+            only `public`.
       required:
       - resource
-    ResourceRef:
-      oneOf:
-      - "$ref": "#/components/schemas/Work"
-      - "$ref": "#/components/schemas/Collection"
-      - "$ref": "#/components/schemas/Community"
-      - "$ref": "#/components/schemas/FileSet"
-      - "$ref": "#/components/schemas/Delegate"
     ResourceDigests:
       type: array
       items:
@@ -1831,432 +2000,6 @@ components:
       required:
       - resource_id
       - versions
-    WorkMods:
-      type: object
-      properties:
-        work:
-          type: object
-          properties:
-            id:
-              type: string
-              description: NOID of the work
-            mods:
-              type: object
-              properties:
-                main_title:
-                  type: object
-                  nullable: true
-                main_title_display_label:
-                  type: string
-                  nullable: true
-                alternative_title:
-                  type: array
-                  items:
-                    type: object
-                uniform_title:
-                  type: array
-                  items:
-                    type: object
-                translated_title:
-                  type: array
-                  items:
-                    type: object
-                abbreviated_title:
-                  type: array
-                  items:
-                    type: object
-                names:
-                  type: array
-                  items:
-                    type: object
-                languages:
-                  type: array
-                  items:
-                    type: object
-                abstract:
-                  type: string
-                  nullable: true
-                abstract_display_label:
-                  type: string
-                  nullable: true
-                abstract_href:
-                  type: string
-                  nullable: true
-                publication_information:
-                  type: array
-                  items:
-                    type: object
-                place_of_publication:
-                  type: array
-                  items:
-                    type: object
-                origin_agents:
-                  type: array
-                  items:
-                    type: object
-                edition:
-                  type: array
-                  items:
-                    type: object
-                issuance:
-                  type: array
-                  items:
-                    type: object
-                frequency:
-                  type: array
-                  items:
-                    type: object
-                date_created:
-                  type: string
-                  format: date-time
-                  nullable: true
-                date_created_precision:
-                  type: string
-                  nullable: true
-                date_created_end:
-                  type: string
-                  format: date-time
-                  nullable: true
-                date_created_end_precision:
-                  type: string
-                  nullable: true
-                date_created_qualifier:
-                  type: string
-                  nullable: true
-                date_created_key_date:
-                  type: boolean
-                  nullable: true
-                date_created_text:
-                  type: string
-                  nullable: true
-                date_created_display_label:
-                  type: string
-                  nullable: true
-                date_created_event_type:
-                  type: string
-                  nullable: true
-                date_issued:
-                  type: string
-                  format: date-time
-                  nullable: true
-                date_issued_precision:
-                  type: string
-                  nullable: true
-                date_issued_end:
-                  type: string
-                  format: date-time
-                  nullable: true
-                date_issued_end_precision:
-                  type: string
-                  nullable: true
-                date_issued_qualifier:
-                  type: string
-                  nullable: true
-                date_issued_key_date:
-                  type: boolean
-                  nullable: true
-                date_issued_text:
-                  type: string
-                  nullable: true
-                date_issued_display_label:
-                  type: string
-                  nullable: true
-                date_issued_event_type:
-                  type: string
-                  nullable: true
-                copyright_date:
-                  type: string
-                  format: date-time
-                  nullable: true
-                copyright_date_precision:
-                  type: string
-                  nullable: true
-                copyright_date_end:
-                  type: string
-                  format: date-time
-                  nullable: true
-                copyright_date_end_precision:
-                  type: string
-                  nullable: true
-                copyright_date_qualifier:
-                  type: string
-                  nullable: true
-                copyright_date_key_date:
-                  type: boolean
-                  nullable: true
-                copyright_date_text:
-                  type: string
-                  nullable: true
-                copyright_date_display_label:
-                  type: string
-                  nullable: true
-                copyright_date_event_type:
-                  type: string
-                  nullable: true
-                date_captured:
-                  type: string
-                  format: date-time
-                  nullable: true
-                date_captured_precision:
-                  type: string
-                  nullable: true
-                date_captured_end:
-                  type: string
-                  format: date-time
-                  nullable: true
-                date_captured_end_precision:
-                  type: string
-                  nullable: true
-                date_captured_qualifier:
-                  type: string
-                  nullable: true
-                date_captured_key_date:
-                  type: boolean
-                  nullable: true
-                date_captured_text:
-                  type: string
-                  nullable: true
-                date_captured_display_label:
-                  type: string
-                  nullable: true
-                date_captured_event_type:
-                  type: string
-                  nullable: true
-                date_valid:
-                  type: string
-                  format: date-time
-                  nullable: true
-                date_valid_precision:
-                  type: string
-                  nullable: true
-                date_valid_end:
-                  type: string
-                  format: date-time
-                  nullable: true
-                date_valid_end_precision:
-                  type: string
-                  nullable: true
-                date_valid_qualifier:
-                  type: string
-                  nullable: true
-                date_valid_key_date:
-                  type: boolean
-                  nullable: true
-                date_valid_text:
-                  type: string
-                  nullable: true
-                date_valid_display_label:
-                  type: string
-                  nullable: true
-                date_valid_event_type:
-                  type: string
-                  nullable: true
-                date_other:
-                  type: string
-                  format: date-time
-                  nullable: true
-                date_other_precision:
-                  type: string
-                  nullable: true
-                date_other_end:
-                  type: string
-                  format: date-time
-                  nullable: true
-                date_other_end_precision:
-                  type: string
-                  nullable: true
-                date_other_qualifier:
-                  type: string
-                  nullable: true
-                date_other_key_date:
-                  type: boolean
-                  nullable: true
-                date_other_text:
-                  type: string
-                  nullable: true
-                date_other_display_label:
-                  type: string
-                  nullable: true
-                date_other_event_type:
-                  type: string
-                  nullable: true
-                date_modified:
-                  type: string
-                  format: date-time
-                  nullable: true
-                date_modified_precision:
-                  type: string
-                  nullable: true
-                date_modified_end:
-                  type: string
-                  format: date-time
-                  nullable: true
-                date_modified_end_precision:
-                  type: string
-                  nullable: true
-                date_modified_qualifier:
-                  type: string
-                  nullable: true
-                date_modified_key_date:
-                  type: boolean
-                  nullable: true
-                date_modified_text:
-                  type: string
-                  nullable: true
-                date_modified_display_label:
-                  type: string
-                  nullable: true
-                date_modified_event_type:
-                  type: string
-                  nullable: true
-                resource_type:
-                  type: array
-                  items:
-                    type: object
-                target_audience:
-                  type: array
-                  items:
-                    type: object
-                genres:
-                  type: array
-                  items:
-                    type: object
-                format:
-                  type: array
-                  items:
-                    type: object
-                extent:
-                  type: array
-                  items:
-                    type: object
-                digital_origin:
-                  type: array
-                  items:
-                    type: object
-                reformatting_quality:
-                  type: array
-                  items:
-                    type: object
-                physical_description_notes:
-                  type: array
-                  items:
-                    type: object
-                notes:
-                  type: array
-                  items:
-                    type: object
-                table_of_contents:
-                  type: array
-                  items:
-                    type: object
-                subject_headings:
-                  type: array
-                  items:
-                    type: object
-                topical_subjects:
-                  type: array
-                  items:
-                    type: string
-                geographic_subjects:
-                  type: array
-                  items:
-                    type: string
-                temporal_subjects:
-                  type: array
-                  items:
-                    type: string
-                personal_name_subjects:
-                  type: array
-                  items:
-                    type: string
-                corporate_name_subjects:
-                  type: array
-                  items:
-                    type: string
-                occupation_subjects:
-                  type: array
-                  items:
-                    type: string
-                genre_subjects:
-                  type: array
-                  items:
-                    type: string
-                geographic_code_subjects:
-                  type: array
-                  items:
-                    type: string
-                title_subjects:
-                  type: array
-                  items:
-                    type: string
-                hierarchical_geographic_subjects:
-                  type: array
-                  items:
-                    type: object
-                map_data:
-                  type: array
-                  items:
-                    type: object
-                related_series:
-                  type: array
-                  items:
-                    type: object
-                host_collections:
-                  type: array
-                  items:
-                    type: object
-                related_items:
-                  type: array
-                  items:
-                    type: object
-                identifiers:
-                  type: array
-                  items:
-                    type: object
-                classification:
-                  type: array
-                  items:
-                    type: object
-                permanent_url:
-                  type: string
-                  nullable: true
-                permanent_url_display_label:
-                  type: string
-                  nullable: true
-                record_info:
-                  type: object
-                  nullable: true
-                location:
-                  type: array
-                  items:
-                    type: object
-                access_condition:
-                  type: string
-                  nullable: true
-                access_condition_display_label:
-                  type: string
-                  nullable: true
-                access_condition_href:
-                  type: string
-                  nullable: true
-                use_and_reproduction:
-                  type: string
-                  nullable: true
-                use_and_reproduction_display_label:
-                  type: string
-                  nullable: true
-                use_and_reproduction_href:
-                  type: string
-                  nullable: true
-                restriction_on_access:
-                  type: string
-                  nullable: true
-                restriction_on_access_display_label:
-                  type: string
-                  nullable: true
-                restriction_on_access_href:
-                  type: string
-                  nullable: true
     WorkDarwinCore:
       type: object
       properties:
@@ -2400,7 +2143,7 @@ components:
             - title
             - thumbnail
         pagination:
-          "$ref": "#/components/schemas/Pagination"
+          "$ref": "#/components/schemas/SearchPagination"
       required:
       - works
       - pagination
@@ -2414,10 +2157,10 @@ components:
             properties:
               id:
                 type: string
-                description: PID
+                description: NOID
               noid:
                 type: string
-                description: PID (same value as id; find_many digest parity)
+                description: NOID (the same value as id)
               klass:
                 type: string
                 enum:
@@ -2460,168 +2203,10 @@ components:
             - embargoed
             - incomplete
         pagination:
-          "$ref": "#/components/schemas/Pagination"
+          "$ref": "#/components/schemas/SearchPagination"
       required:
       - results
       - pagination
-    IndexDocument:
-      type: object
-      properties:
-        noid:
-          type: string
-        document:
-          type: object
-          additionalProperties: true
-          description: The Solr document exactly as Solr stores it
-      required:
-      - noid
-      - document
-    SearchExplanation:
-      type: object
-      properties:
-        noid:
-          type: string
-        q:
-          type: string
-        matched:
-          type: boolean
-        score:
-          type: number
-        hidden_by:
-          type: array
-          items:
-            type: string
-            enum:
-            - types
-            - tombstoned
-            - featured
-            - personal_root
-            - system_container
-          description: Catalog filters that hide the object whatever it matches
-        parsed_query:
-          type: string
-          description: Solr's parsedquery_toString
-        handler:
-          type: object
-          properties:
-            qf:
-              type: object
-              additionalProperties:
-                type: number
-              description: Field to boost
-            pf:
-              type: object
-              additionalProperties:
-                type: number
-              description: Field to boost
-            mm:
-              type: string
-              nullable: true
-            tie:
-              type: number
-              nullable: true
-            boost:
-              type: string
-              nullable: true
-          required:
-          - qf
-          - pf
-          - mm
-          - tie
-          - boost
-        explanation:
-          type: object
-          additionalProperties: true
-          description: Solr's structured explainOther tree, unchanged
-        fields:
-          type: array
-          items:
-            type: object
-            properties:
-              field:
-                type: string
-              stored:
-                type: boolean
-              query_tokens:
-                type: object
-                properties:
-                  typed:
-                    type: array
-                    items:
-                      type: string
-                  analysed:
-                    type: array
-                    items:
-                      type: string
-                required:
-                - typed
-                - analysed
-                nullable: true
-              values:
-                type: array
-                items:
-                  type: object
-                  properties:
-                    source:
-                      type: string
-                    text:
-                      type: string
-                    tokens:
-                      type: array
-                      items:
-                        type: object
-                        properties:
-                          text:
-                            type: string
-                          start:
-                            type: integer
-                          end:
-                            type: integer
-                          position:
-                            type: integer
-                          match:
-                            type: boolean
-                        required:
-                        - text
-                        - start
-                        - end
-                        - position
-                        - match
-                  required:
-                  - source
-                  - text
-                  - tokens
-              truncated:
-                type: boolean
-                description: A source had more values than were analysed
-              reason:
-                type: string
-                nullable: true
-                description: not_in_schema, full_text, not_stored or analysis_failed;
-                  null otherwise
-              highlights:
-                type: array
-                items:
-                  type: string
-                description: Full-text passages, for full_text_tesimv only
-            required:
-            - field
-            - stored
-            - query_tokens
-            - values
-            - truncated
-            - reason
-            - highlights
-      required:
-      - noid
-      - q
-      - matched
-      - score
-      - hidden_by
-      - parsed_query
-      - handler
-      - explanation
-      - fields
     WorkAssociations:
       type: object
       properties:
@@ -2718,71 +2303,6 @@ components:
       - index
       - storage
       - cache
-    Latency:
-      type: object
-      properties:
-        window_minutes:
-          type: integer
-          description: The minutes the figures cover, up to 120
-        calls:
-          type: integer
-          description: Requests Atlas served in the window
-        server_errors:
-          type: integer
-          description: Of those, the ones answered 5xx
-        mean_ms:
-          type: integer
-          nullable: true
-          description: Mean duration; null when there were no calls
-        p50_ms:
-          type: integer
-          nullable: true
-          description: Approximate median, interpolated from the histogram
-        p95_ms:
-          type: integer
-          nullable: true
-          description: Approximate 95th percentile
-        p99_ms:
-          type: integer
-          nullable: true
-          description: Approximate 99th percentile
-        slowest_actions:
-          type: array
-          description: Up to ten controller actions, slowest p95 first
-          items:
-            type: object
-            properties:
-              action:
-                type: string
-                description: "`controller#action`"
-              calls:
-                type: integer
-              p95_ms:
-                type: integer
-            required:
-            - action
-            - calls
-            - p95_ms
-      required:
-      - window_minutes
-      - calls
-      - server_errors
-      - mean_ms
-      - p50_ms
-      - p95_ms
-      - p99_ms
-      - slowest_actions
-    EmbargoRelease:
-      type: object
-      properties:
-        released:
-          type: array
-          items:
-            type: string
-          description: NOIDs of the Works that gained an Embargo released row on this
-            call
-      required:
-      - released
     Tombstoned:
       type: object
       properties:
@@ -2994,7 +2514,7 @@ components:
             - title
             - thumbnail
         pagination:
-          "$ref": "#/components/schemas/Pagination"
+          "$ref": "#/components/schemas/SearchPagination"
       required:
       - contents
       - pagination
@@ -3293,6 +2813,18 @@ paths:
       summary: List files
       tags:
       - Files
+      description: |
+        Lists every Blob, one page at a time. A row is a file's metadata, not its
+        bytes; read the bytes from `GET /files/{id}/content`.
+      parameters:
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+        description: The page to return, from 1. Follow `pagination.next` until it
+          is null.
       responses:
         '200':
           description: files listed
@@ -3300,6 +2832,9 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/BlobsIndex"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: blobs_index
     post:
       summary: Upload a file
       tags:
@@ -3363,12 +2898,19 @@ paths:
                 "$ref": "#/components/schemas/Blob"
         '422':
           description: verify-on-ingest rejects a digest mismatch (nothing persisted)
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
         '410':
           description: idempotent replay on a tombstoned blob
           content:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Blob"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: blobs_create
   "/files/{id}":
     parameters:
     - name: id
@@ -3381,6 +2923,12 @@ paths:
       summary: Retrieve file metadata
       tags:
       - Files
+      description: |
+        Returns a Blob's metadata: its name, type, size and digest. Read the bytes
+        from `GET /files/{id}/content`.
+
+        A tombstoned Blob answers `410`: an admin or delegated admin gets the full
+        record, and everyone else gets the `Tombstoned` body.
       responses:
         '200':
           description: file found
@@ -3397,6 +2945,9 @@ paths:
                 oneOf:
                 - "$ref": "#/components/schemas/Blob"
                 - "$ref": "#/components/schemas/Tombstoned"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: blobs_show
     patch:
       summary: Append a new revision to a file
       tags:
@@ -3465,6 +3016,9 @@ paths:
                 "$ref": "#/components/schemas/Blob"
         '404':
           description: file not found
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: blobs_update
     delete:
       summary: Destroy a file
       tags:
@@ -3479,6 +3033,9 @@ paths:
       responses:
         '204':
           description: file destroyed
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: blobs_destroy
   "/files/{id}/content":
     parameters:
     - name: id
@@ -3528,12 +3085,16 @@ paths:
           description: range not satisfiable
         '410':
           description: content withheld by a tombstoned Work
-          content:
-            application/octet-stream:
-              schema:
-                "$ref": "#/components/schemas/Tombstoned"
+          content: {}
         '403':
           description: content withheld by an embargo or a tier reservation
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: blobs_content
   "/files/{id}/ancestry":
     parameters:
     - name: id
@@ -3563,6 +3124,9 @@ paths:
                 "$ref": "#/components/schemas/BlobAncestry"
         '404':
           description: unknown blob
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: blobs_ancestry
   "/files/{id}/versions":
     parameters:
     - name: id
@@ -3598,6 +3162,9 @@ paths:
                 "$ref": "#/components/schemas/BlobVersions"
         '404':
           description: unknown blob
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: blobs_versions
   "/files/find_many_versions":
     post:
       summary: List binary version history for many files in one round-trip
@@ -3627,6 +3194,8 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/BlobVersionsBatch"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
       requestBody:
         content:
           application/json:
@@ -3640,6 +3209,7 @@ paths:
                   description: Blob NOIDs
               required:
               - ids
+      operationId: blobs_find_many_versions
   "/files/{id}/versions/{version_id}/content":
     parameters:
     - name: id
@@ -3672,6 +3242,13 @@ paths:
           description: unknown version
         '403':
           description: version content withheld by an embargo or a tier reservation
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: blobs_version_content
   "/files/{id}/rollback":
     parameters:
     - name: id
@@ -3699,6 +3276,8 @@ paths:
                 "$ref": "#/components/schemas/Blob"
         '404':
           description: unknown version
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
       requestBody:
         content:
           application/json:
@@ -3710,11 +3289,24 @@ paths:
                   description: OCFL version label to reinstate, e.g. v1
               required:
               - version_id
+      operationId: blobs_rollback
   "/collections":
     get:
       summary: List collections
       tags:
       - Collections
+      description: 'Lists every Collection, one page at a time.
+
+        '
+      parameters:
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+        description: The page to return, from 1. Follow `pagination.next` until it
+          is null.
       responses:
         '200':
           description: collections listed
@@ -3722,6 +3314,9 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/CollectionsIndex"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: collections_index
     post:
       summary: Create a collection
       tags:
@@ -3739,12 +3334,7 @@ paths:
         owner — the same anonymous-batch configuration shape that
         `WorksController#create` supports for inheriting Work-level
         depositors.
-      parameters:
-      - name: Authorization
-        in: header
-        required: false
-        schema:
-          type: string
+      parameters: []
       responses:
         '200':
           description: create with explicit depositor stamps the resource
@@ -3754,10 +3344,20 @@ paths:
                 "$ref": "#/components/schemas/Collection"
         '403':
           description: caller holds no edit rights on the parent
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
         '404':
           description: parent_id missing or unresolvable
         '422':
           description: the parent is tombstoned
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
       requestBody:
         content:
           application/json:
@@ -3775,6 +3375,7 @@ paths:
                   description: Mark as a genre-showcase ("Featured") Collection (optional)
               required:
               - parent_id
+      operationId: collections_create
   "/collections/{id}":
     parameters:
     - name: id
@@ -3787,6 +3388,13 @@ paths:
       summary: Retrieve a collection
       tags:
       - Collections
+      description: |
+        Returns a Collection's record: its title and description, its ancestors,
+        its thumbnails and its state.
+
+        A tombstoned Collection answers `410`: an admin or delegated admin gets the
+        full record, and everyone else gets a stub. A purged NOID answers `410` with
+        a stub that names the Collection as purged, to every caller.
       responses:
         '200':
           description: collection found
@@ -3804,6 +3412,9 @@ paths:
                 - "$ref": "#/components/schemas/Collection"
                 - "$ref": "#/components/schemas/CollectionTombstone"
                 - "$ref": "#/components/schemas/CollectionPurged"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: collections_show
   "/collections/{id}/mods":
     parameters:
     - name: id
@@ -3811,23 +3422,31 @@ paths:
       required: true
       schema:
         type: string
+      description: The NOID of the resource.
     get:
       summary: Retrieve MODS metadata for a collection
       tags:
       - Collections
+      description: |
+        Returns the Collection's descriptive metadata. Send `Accept:
+        application/xml` for the MODS XML, which is the preservation copy, or
+        `Accept: application/json` for the JSON access copy.
+
+        A tombstoned Collection's metadata answers `410` with the `Tombstoned` body
+        to everyone but admins and delegated admins.
       responses:
         '410':
           description: withheld by a tombstone from everyone but admins and delegated
             admins
           content:
-            application/xml:
-              schema:
-                "$ref": "#/components/schemas/Tombstoned"
             application/json:
               schema:
                 "$ref": "#/components/schemas/Tombstoned"
         '200':
           description: mods returned
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: collections_mods
   "/collections/{id}/featured":
     parameters:
     - name: id
@@ -3856,6 +3475,8 @@ paths:
                 "$ref": "#/components/schemas/Collection"
         '404':
           description: unknown id
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
       requestBody:
         content:
           application/json:
@@ -3866,6 +3487,7 @@ paths:
               properties:
                 featured:
                   type: boolean
+      operationId: collections_update_featured
   "/collections/{id}/children":
     parameters:
     - name: id
@@ -3873,10 +3495,17 @@ paths:
       required: true
       schema:
         type: string
+      description: The NOID of the resource.
     get:
       summary: List child noids of a collection
       tags:
       - Collections
+      description: |
+        Returns the NOIDs of the Collection's direct children, Works and
+        Collections. Fetch each one by its NOID.
+
+        A tombstoned Collection answers `410`: an admin or delegated admin gets the
+        full record, and everyone else gets a stub.
       responses:
         '200':
           description: children listed
@@ -3895,11 +3524,26 @@ paths:
                 oneOf:
                 - "$ref": "#/components/schemas/Collection"
                 - "$ref": "#/components/schemas/CollectionTombstone"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: collections_children
   "/communities":
     get:
       summary: List communities
       tags:
       - Communities
+      description: 'Lists every Community, one page at a time.
+
+        '
+      parameters:
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+        description: The page to return, from 1. Follow `pagination.next` until it
+          is null.
       responses:
         '200':
           description: communities listed
@@ -3907,6 +3551,9 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/CommunitiesIndex"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: communities_index
     post:
       summary: Create a community
       tags:
@@ -3922,12 +3569,7 @@ paths:
 
         Optional `depositor` is the NUID to stamp as the intellectual
         owner (mirrors the same surface on Collection/Work creates).
-      parameters:
-      - name: Authorization
-        in: header
-        required: false
-        schema:
-          type: string
+      parameters: []
       responses:
         '200':
           description: create with explicit depositor stamps the resource
@@ -3937,10 +3579,20 @@ paths:
                 "$ref": "#/components/schemas/Community"
         '403':
           description: caller holds no edit rights on the parent Community
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
         '404':
           description: parent_id given but unresolvable
         '422':
           description: the parent Community is tombstoned
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
       requestBody:
         content:
           application/json:
@@ -3953,6 +3605,7 @@ paths:
                 depositor:
                   type: string
                   description: NUID to stamp as the Community depositor (optional)
+      operationId: communities_create
   "/communities/{id}":
     parameters:
     - name: id
@@ -3965,6 +3618,12 @@ paths:
       summary: Retrieve a community
       tags:
       - Communities
+      description: |
+        Returns a Community's record: its metadata, its ancestors and its state.
+
+        A tombstoned Community answers `410`: an admin or delegated admin gets the
+        full record, and everyone else gets a stub. A purged NOID answers `410` with
+        a stub that names the Community as purged, to every caller.
       responses:
         '200':
           description: community found
@@ -3982,6 +3641,9 @@ paths:
                 - "$ref": "#/components/schemas/Community"
                 - "$ref": "#/components/schemas/CommunityTombstone"
                 - "$ref": "#/components/schemas/CommunityPurged"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: communities_show
   "/communities/{id}/mods":
     parameters:
     - name: id
@@ -3989,23 +3651,31 @@ paths:
       required: true
       schema:
         type: string
+      description: The NOID of the resource.
     get:
       summary: Retrieve MODS metadata for a community
       tags:
       - Communities
+      description: |
+        Returns the Community's descriptive metadata. Send `Accept: application/xml`
+        for the MODS XML, which is the preservation copy, or `Accept:
+        application/json` for the JSON access copy.
+
+        A tombstoned Community's metadata answers `410` with the `Tombstoned` body
+        to everyone but admins and delegated admins.
       responses:
         '410':
           description: withheld by a tombstone from everyone but admins and delegated
             admins
           content:
-            application/xml:
-              schema:
-                "$ref": "#/components/schemas/Tombstoned"
             application/json:
               schema:
                 "$ref": "#/components/schemas/Tombstoned"
         '200':
           description: mods returned
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: communities_mods
   "/communities/{id}/children":
     parameters:
     - name: id
@@ -4013,10 +3683,17 @@ paths:
       required: true
       schema:
         type: string
+      description: The NOID of the resource.
     get:
       summary: List child noids of a community
       tags:
       - Communities
+      description: |
+        Returns the NOIDs of the Community's direct children, Collections and
+        Communities. Fetch each one by its NOID.
+
+        A tombstoned Community answers `410`: an admin or delegated admin gets the
+        full record, and everyone else gets a stub.
       responses:
         '200':
           description: children listed
@@ -4035,11 +3712,46 @@ paths:
                 oneOf:
                 - "$ref": "#/components/schemas/Community"
                 - "$ref": "#/components/schemas/CommunityTombstone"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: communities_children
   "/compilations":
     get:
       summary: List compilations (owner- or grant-scoped)
       tags:
       - Compilations
+      parameters:
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+        description: The page to return, from 1. Follow `pagination.next` until it
+          is null.
+      - name: owner
+        in: query
+        required: false
+        description: NUID whose Sets to list (admin-only); defaults to the caller.
+          Ignored when scope is given.
+        schema:
+          type: string
+      - name: scope
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - editable
+          - shared
+        description: 'grant-scoped mode: editable (edit grants) or shared (read+edit
+          grants), both excluding owned Sets'
+      - name: q
+        in: query
+        required: false
+        description: case-insensitive title substring filter
+        schema:
+          type: string
       description: |
         Paginated listing of Compilations, ordered by title A to Z, ignoring
         case. Three modes:
@@ -4056,43 +3768,6 @@ paths:
         `?q=<term>` to narrow by case-insensitive title substring in any mode;
         the filter and the order apply before pagination, so the pagination
         block describes the filtered, ordered result.
-      security:
-      - BearerAuth: []
-        NuidHeader: []
-      parameters:
-      - name: Authorization
-        in: header
-        required: false
-        schema:
-          type: string
-      - name: User
-        in: header
-        required: false
-        schema:
-          type: string
-      - name: owner
-        in: query
-        required: false
-        description: NUID whose Sets to list (admin-only); defaults to the caller.
-          Ignored when scope is given.
-        schema:
-          type: string
-      - name: scope
-        in: query
-        required: false
-        enum:
-        - editable
-        - shared
-        description: "grant-scoped mode: editable (edit grants) or shared (read+edit
-          grants), both excluding owned Sets:\n * `editable` \n * `shared` \n "
-        schema:
-          type: string
-      - name: q
-        in: query
-        required: false
-        description: case-insensitive title substring filter
-        schema:
-          type: string
       responses:
         '200':
           description: editable-by-me listing (edit grants, owned excluded)
@@ -4102,28 +3777,26 @@ paths:
                 "$ref": "#/components/schemas/CompilationsIndex"
         '400':
           description: unknown scope value
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
         '403':
           description: cross-owner listing as a non-admin
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: compilations_index
     post:
       summary: Create a compilation
       tags:
       - Compilations
       description: 'Creates a personal Set owned by the acting user (depositor is
         stamped from the authenticated NUID). Born private: empty ACLs, no staff default.'
-      security:
-      - BearerAuth: []
-        NuidHeader: []
-      parameters:
-      - name: Authorization
-        in: header
-        required: false
-        schema:
-          type: string
-      - name: User
-        in: header
-        required: false
-        schema:
-          type: string
+      parameters: []
       responses:
         '201':
           description: compilation created
@@ -4133,8 +3806,18 @@ paths:
                 "$ref": "#/components/schemas/Compilation"
         '403':
           description: guest cannot create
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
         '422':
           description: missing title
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
       requestBody:
         content:
           application/json:
@@ -4147,6 +3830,7 @@ paths:
                   type: string
               required:
               - title
+      operationId: compilations_create
   "/compilations/{id}":
     parameters:
     - name: id
@@ -4161,20 +3845,6 @@ paths:
       - Compilations
       description: 'Per-row visibility: owner, explicit read/edit grants, or public.
         Public Sets are readable by unauthenticated (guest) callers — the CERES case.'
-      security:
-      - BearerAuth: []
-        NuidHeader: []
-      parameters:
-      - name: Authorization
-        in: header
-        required: false
-        schema:
-          type: string
-      - name: User
-        in: header
-        required: false
-        schema:
-          type: string
       responses:
         '200':
           description: guest reads a public set
@@ -4184,8 +3854,15 @@ paths:
                 "$ref": "#/components/schemas/Compilation"
         '403':
           description: guest cannot read a private set
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
         '404':
           description: unknown noid
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: compilations_show
     patch:
       summary: Update a compilation
       tags:
@@ -4195,20 +3872,7 @@ paths:
         (read/edit groups + edit_users — replaces all three lists; the
         depositor is never writable). ACL changes emit a `permissions`
         audit event with before/after; no-op ACL writes are suppressed.
-      security:
-      - BearerAuth: []
-        NuidHeader: []
-      parameters:
-      - name: Authorization
-        in: header
-        required: false
-        schema:
-          type: string
-      - name: User
-        in: header
-        required: false
-        schema:
-          type: string
+      parameters: []
       responses:
         '200':
           description: edit_users grant lets a non-owner update
@@ -4218,6 +3882,12 @@ paths:
                 "$ref": "#/components/schemas/Compilation"
         '403':
           description: non-owner without a grant
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
       requestBody:
         content:
           application/json:
@@ -4243,32 +3913,26 @@ paths:
                       type: array
                       items:
                         type: string
+      operationId: compilations_update
     delete:
       summary: Destroy a compilation
       tags:
       - Compilations
       description: Owner (or edit-grantee / admin) only. Join rows cascade.
-      security:
-      - BearerAuth: []
-        NuidHeader: []
-      parameters:
-      - name: Authorization
-        in: header
-        required: false
-        schema:
-          type: string
-      - name: User
-        in: header
-        required: false
-        schema:
-          type: string
       responses:
         '204':
           description: compilation destroyed
         '403':
           description: non-owner cannot destroy
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
         '404':
           description: unknown noid
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: compilations_destroy
   "/compilations/{id}/included_collections":
     parameters:
     - name: id
@@ -4284,20 +3948,7 @@ paths:
       description: Adds an include-collection recipe line. The noid must resolve to
         a Collection (Communities and unknown noids are 422). Idempotent. No audit
         row — recipe churn is personal curation.
-      security:
-      - BearerAuth: []
-        NuidHeader: []
-      parameters:
-      - name: Authorization
-        in: header
-        required: false
-        schema:
-          type: string
-      - name: User
-        in: header
-        required: false
-        schema:
-          type: string
+      parameters: []
       responses:
         '200':
           description: collection included (idempotent)
@@ -4307,8 +3958,18 @@ paths:
                 "$ref": "#/components/schemas/Compilation"
         '422':
           description: community noid rejected (no top-node includes)
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
         '403':
           description: non-owner cannot mutate the recipe
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
       requestBody:
         content:
           application/json:
@@ -4320,6 +3981,7 @@ paths:
                   description: Collection NOID
               required:
               - collection_id
+      operationId: compilations_add_included_collection
   "/compilations/{id}/included_collections/{collection_id}":
     parameters:
     - name: id
@@ -4339,20 +4001,6 @@ paths:
       tags:
       - Compilations
       description: 'Idempotent: removing an absent inclusion is a 200 no-op.'
-      security:
-      - BearerAuth: []
-        NuidHeader: []
-      parameters:
-      - name: Authorization
-        in: header
-        required: false
-        schema:
-          type: string
-      - name: User
-        in: header
-        required: false
-        schema:
-          type: string
       responses:
         '200':
           description: inclusion removed (or was already absent)
@@ -4360,6 +4008,9 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Compilation"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: compilations_remove_included_collection
   "/compilations/{id}/included_works":
     parameters:
     - name: id
@@ -4374,20 +4025,7 @@ paths:
       - Compilations
       description: Adds an include-work recipe line. The noid must resolve to a Work.
         Idempotent.
-      security:
-      - BearerAuth: []
-        NuidHeader: []
-      parameters:
-      - name: Authorization
-        in: header
-        required: false
-        schema:
-          type: string
-      - name: User
-        in: header
-        required: false
-        schema:
-          type: string
+      parameters: []
       responses:
         '200':
           description: work included
@@ -4397,8 +4035,18 @@ paths:
                 "$ref": "#/components/schemas/Compilation"
         '422':
           description: collection noid rejected where a Work is expected
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
         '403':
           description: guest cannot mutate the recipe
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
       requestBody:
         content:
           application/json:
@@ -4410,6 +4058,7 @@ paths:
                   description: Work NOID
               required:
               - work_id
+      operationId: compilations_add_included_work
   "/compilations/{id}/included_works/{work_id}":
     parameters:
     - name: id
@@ -4429,20 +4078,6 @@ paths:
       tags:
       - Compilations
       description: 'Idempotent: removing an absent inclusion is a 200 no-op.'
-      security:
-      - BearerAuth: []
-        NuidHeader: []
-      parameters:
-      - name: Authorization
-        in: header
-        required: false
-        schema:
-          type: string
-      - name: User
-        in: header
-        required: false
-        schema:
-          type: string
       responses:
         '200':
           description: inclusion removed
@@ -4450,6 +4085,9 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Compilation"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: compilations_remove_included_work
   "/compilations/{id}/exclusions":
     parameters:
     - name: id
@@ -4464,20 +4102,7 @@ paths:
       - Compilations
       description: 'Adds a set-aside recipe line: the Work is subtracted from the
         resolved union at read time. The noid must resolve to a Work. Idempotent.'
-      security:
-      - BearerAuth: []
-        NuidHeader: []
-      parameters:
-      - name: Authorization
-        in: header
-        required: false
-        schema:
-          type: string
-      - name: User
-        in: header
-        required: false
-        schema:
-          type: string
+      parameters: []
       responses:
         '200':
           description: work set aside
@@ -4485,6 +4110,8 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Compilation"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
       requestBody:
         content:
           application/json:
@@ -4496,6 +4123,7 @@ paths:
                   description: Work NOID
               required:
               - work_id
+      operationId: compilations_add_exclusion
   "/compilations/{id}/exclusions/{work_id}":
     parameters:
     - name: id
@@ -4515,20 +4143,6 @@ paths:
       tags:
       - Compilations
       description: 'Idempotent: clearing an absent set-aside is a 200 no-op.'
-      security:
-      - BearerAuth: []
-        NuidHeader: []
-      parameters:
-      - name: Authorization
-        in: header
-        required: false
-        schema:
-          type: string
-      - name: User
-        in: header
-        required: false
-        schema:
-          type: string
       responses:
         '200':
           description: set-aside cleared
@@ -4536,6 +4150,9 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Compilation"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: compilations_remove_exclusion
   "/compilations/{id}/published":
     parameters:
     - name: id
@@ -4556,20 +4173,6 @@ paths:
 
         Once published, the recipe routes start emitting `structural` audit rows,
         because a Work entering or leaving the feed is a curatorial act.
-      security:
-      - BearerAuth: []
-        NuidHeader: []
-      parameters:
-      - name: Authorization
-        in: header
-        required: false
-        schema:
-          type: string
-      - name: User
-        in: header
-        required: false
-        schema:
-          type: string
       responses:
         '200':
           description: set published
@@ -4579,6 +4182,13 @@ paths:
                 "$ref": "#/components/schemas/Compilation"
         '403':
           description: owner without admin is refused
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: compilations_publish
     delete:
       summary: Remove the Set from OAI-PMH
       tags:
@@ -4586,20 +4196,6 @@ paths:
       description: Clears the flag; ListSets stops advertising it. Admin-only. Harvesters
         that already copied the Set are NOT told — OAI deletion is per record, and
         this removes the set, not its Works.
-      security:
-      - BearerAuth: []
-        NuidHeader: []
-      parameters:
-      - name: Authorization
-        in: header
-        required: false
-        schema:
-          type: string
-      - name: User
-        in: header
-        required: false
-        schema:
-          type: string
       responses:
         '200':
           description: set removed
@@ -4607,6 +4203,9 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Compilation"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: compilations_unpublish
   "/compilations/{id}/contents":
     parameters:
     - name: id
@@ -4628,30 +4227,23 @@ paths:
         caller as the depositor; admins see everything). Solr-side
         pagination via `page` /
         `per_page` (default 25, capped at 100).
-      security:
-      - BearerAuth: []
-        NuidHeader: []
       parameters:
-      - name: Authorization
-        in: header
-        required: false
-        schema:
-          type: string
-      - name: User
-        in: header
-        required: false
-        schema:
-          type: string
       - name: page
         in: query
         required: false
         schema:
           type: integer
+          minimum: 1
+        description: The page to return, from 1. Follow `pagination.next` until it
+          is null.
       - name: per_page
         in: query
         required: false
         schema:
           type: integer
+          minimum: 1
+          maximum: 100
+        description: Items per page, at most 100.
       responses:
         '200':
           description: pagination envelope (Solr-side start/rows)
@@ -4661,8 +4253,15 @@ paths:
                 "$ref": "#/components/schemas/CompilationContents"
         '403':
           description: guest cannot resolve a private set
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
         '404':
           description: unknown noid
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: compilations_contents
   "/works/{id}/dwc":
     parameters:
     - name: id
@@ -4698,12 +4297,6 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Tombstoned"
-            application/xml:
-              schema:
-                "$ref": "#/components/schemas/Tombstoned"
-            text/html:
-              schema:
-                "$ref": "#/components/schemas/Tombstoned"
         '200':
           description: darwin core returned
           content:
@@ -4718,6 +4311,9 @@ paths:
                 "$ref": "#/components/schemas/WorkDarwinCore"
         '404':
           description: the work holds no record, or the id is not a work
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: darwin_core_show
   "/resources/{id}/dwc":
     parameters:
     - name: id
@@ -4776,6 +4372,13 @@ paths:
           description: unknown id, or not a work
         '422':
           description: the document breaks a shape rule
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: darwin_core_update
     delete:
       summary: Tombstone a work's Darwin Core record
       tags:
@@ -4791,6 +4394,9 @@ paths:
           description: record tombstoned
         '404':
           description: nothing to tombstone
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: darwin_core_destroy
   "/resources/{id}/dwc/versions":
     parameters:
     - name: id
@@ -4816,6 +4422,9 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/ModsVersions"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: darwin_core_versions
   "/resources/{id}/dwc/versions/{version_id}":
     parameters:
     - name: id
@@ -4842,14 +4451,14 @@ paths:
         '410':
           description: withheld by a tombstone from everyone but admins and delegated
             admins
-          content:
-            application/xml:
-              schema:
-                "$ref": "#/components/schemas/Tombstoned"
+          content: {}
         '200':
           description: historical darwin core returned
         '404':
           description: unknown version
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: darwin_core_version
   "/delegates/{id}":
     parameters:
     - name: id
@@ -4883,57 +4492,26 @@ paths:
                 oneOf:
                 - "$ref": "#/components/schemas/Delegate"
                 - "$ref": "#/components/schemas/Tombstoned"
-  "/embargoes/release":
-    post:
-      summary: Record the embargoes that have lapsed (system-only)
-      tags:
-      - Resources
-      description: |
-        Writes one `release_embargo` audit row for each Work whose embargo has
-        lapsed and has none for that release date. The row is dated to the
-        start of the release day in Eastern time, not to the call, so a late
-        call does not misdate the history. Cerberus calls it nightly; Atlas
-        runs no scheduler.
-
-        Safe to repeat. A Work whose embargo was set after its own release
-        moment gets no row. By default it looks back seven days, so a missed
-        night catches up on the next; `since` (an ISO 8601 date) widens that.
-        Returns the NOIDs that gained a row. Non-system, non-admin callers → 403.
-      security:
-      - BearerAuth: []
-      parameters:
-      - name: Authorization
-        in: header
-        required: false
-        schema:
-          type: string
-      - name: User
-        in: header
-        required: false
-        description: System principal, e.g. "NUID 000000000"
-        schema:
-          type: string
-      - name: since
-        in: query
-        schema:
-          type: string
-          format: date
-        required: false
-        description: Earliest release date to consider. Defaults to seven days ago.
-      responses:
-        '200':
-          description: lapsed embargoes recorded
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/EmbargoRelease"
-        '400':
-          description: since is not an ISO 8601 date
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: delegates_show
   "/file_sets":
     get:
       summary: List file sets
       tags:
       - FileSets
+      description: 'Lists every FileSet, one page at a time.
+
+        '
+      parameters:
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+        description: The page to return, from 1. Follow `pagination.next` until it
+          is null.
       responses:
         '200':
           description: file sets listed
@@ -4941,6 +4519,9 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/FileSetsIndex"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: file_sets_index
     post:
       summary: Create a file set
       tags:
@@ -4972,6 +4553,8 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/FileSet"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
       requestBody:
         content:
           application/json:
@@ -4991,6 +4574,7 @@ paths:
               required:
               - work_id
               - classification
+      operationId: file_sets_create
   "/file_sets/{id}":
     parameters:
     - name: id
@@ -5003,6 +4587,12 @@ paths:
       summary: Retrieve a file set
       tags:
       - FileSets
+      description: |
+        Returns a FileSet's record: its type, its position in the Work, and its
+        state.
+
+        A tombstoned FileSet answers `410`: an admin or delegated admin gets the
+        full record, and everyone else gets the `Tombstoned` body.
       responses:
         '200':
           description: file set found
@@ -5019,6 +4609,9 @@ paths:
                 oneOf:
                 - "$ref": "#/components/schemas/FileSet"
                 - "$ref": "#/components/schemas/Tombstoned"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: file_sets_show
     patch:
       summary: Append binary content to a file set
       tags:
@@ -5071,8 +4664,15 @@ paths:
                 "$ref": "#/components/schemas/FileSet"
         '422':
           description: verify-on-ingest rejects a digest mismatch
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
         '404':
           description: file set not found
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: file_sets_update
     delete:
       summary: Destroy a file set
       tags:
@@ -5087,6 +4687,9 @@ paths:
       responses:
         '204':
           description: file set destroyed
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: file_sets_destroy
   "/file_sets/{id}/iiif_service":
     parameters:
     - name: id
@@ -5123,6 +4726,12 @@ paths:
           description: unknown file set
         '409':
           description: optimistic-lock conflict survived the internal retry budget
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
       requestBody:
         content:
           application/json:
@@ -5134,6 +4743,7 @@ paths:
                 uri:
                   type: string
                   description: IIIF image-service base URI for the page's JP2
+      operationId: file_sets_update_iiif_service
   "/file_sets/{id}/mets":
     parameters:
     - name: id
@@ -5157,199 +4767,16 @@ paths:
                 "$ref": "#/components/schemas/Tombstoned"
         '200':
           description: mets returned
-  "/fixity_checks":
-    post:
-      summary: Record one fixity check result for an OCFL object (fixity checker and
-        admin only)
-      tags:
-      - Resources
-      description: |
-        Records that a checker re-hashed one OCFL object: when, which version,
-        with which algorithm, over how many files, the outcome and its
-        findings. Atlas hashes nothing here; the checker did that work.
-
-        The result is appended as one JSON line to the object's
-        `logs/fixity.jsonl`, outside its versioned content, so recording a
-        check never creates a version. That log is the record. The newest
-        check per object is also kept as a derived row, projected onto the
-        owning resource's Solr doc as `fixity_checked_at_dtsi` and
-        `fixity_result_ssi`, and summarized by `GET /works/{id}/health_check`.
-
-        A check older than the object's latest is logged but does not replace
-        it, and `latest` is false. Posting the same check again adds no line
-        and answers 200 instead of 201, so a retry is safe. A `fail` must
-        carry at least one finding.
-
-        The `:fixity_checker` principal (its own `fixity_token`) and admins
-        only. Anyone else gets 403. An object no resource holds is a 404; an
-        unknown version, or a resource with no OCFL object, is a 422 that
-        writes nothing.
-      security:
-      - BearerAuth: []
-      parameters:
-      - name: Authorization
-        in: header
-        required: false
-        schema:
-          type: string
-      - name: User
-        in: header
-        required: false
-        description: The checker fixture, "NUID 000000098"
-        schema:
-          type: string
-      responses:
-        '201':
-          description: check recorded
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/FixityCheck"
-        '200':
-          description: the same check posted again; nothing added
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/FixityCheck"
-        '422':
-          description: malformed, or names a version the object does not have; nothing
-            written
-        '404':
-          description: no resource holds the object
-        '403':
-          description: not the fixity checker or an admin
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-              - object
-              - checked_at
-              - version
-              - algorithm
-              - files
-              - result
-              - checker
-              properties:
-                object:
-                  type: string
-                  description: The OCFL inventory id, urn:neu-drs:<noid>
-                checked_at:
-                  type: string
-                  format: date-time
-                  description: When the check ran. Kept to the second.
-                version:
-                  type: string
-                  description: The object version checked, e.g. v3
-                algorithm:
-                  type: string
-                  enum:
-                  - sha512
-                  - sha256
-                  - sha1
-                  - md5
-                  - blake2b-512
-                  - blake2b-160
-                  - blake2b-256
-                  - blake2b-384
-                  - sha512/256
-                files:
-                  type: integer
-                  minimum: 0
-                  description: Files re-hashed
-                result:
-                  type: string
-                  enum:
-                  - pass
-                  - fail
-                findings:
-                  type: array
-                  maxItems: 1000
-                  items:
-                    type: object
-                    required:
-                    - code
-                    properties:
-                      code:
-                        type: string
-                      severity:
-                        type: string
-                      subject:
-                        type: string
-                      message:
-                        type: string
-                      path:
-                        type: string
-                checker:
-                  type: string
-                  maxLength: 64
-                  description: The tool that ran the check
-  "/fixity_checks/due":
-    get:
-      summary: List the OCFL objects most in need of a fixity check (fixity checker
-        and admin only)
-      tags:
-      - Resources
-      description: |
-        The objects to check next: never checked first, then oldest check
-        first. Read off the storage ledger, so it lists every object the
-        storage adapter has written, checked or not. `bytes` is the object's
-        size on disk, for planning; the sweep holds its budget by counting what
-        it actually hashes.
-
-        `checked_before` limits the list to objects not checked since that
-        time. A sweep passes its own start, so each object it records drops
-        out and the next page needs no cursor. It defaults to now.
-
-        Refused during a maintenance window, so a sweep stops before it hashes
-        anything it could not record.
-      security:
-      - BearerAuth: []
-      parameters:
-      - name: Authorization
-        in: header
-        required: false
-        schema:
-          type: string
-      - name: User
-        in: header
-        required: false
-        description: The checker fixture, "NUID 000000098"
-        schema:
-          type: string
-      - name: limit
-        in: query
-        required: false
-        schema:
-          type: integer
-          minimum: 1
-          maximum: 1000
-          default: 100
-      - name: checked_before
-        in: query
-        required: false
-        schema:
-          type: string
-          format: date-time
-        description: List only objects not checked since this time
-      responses:
-        '200':
-          description: objects due, never checked first
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/FixityDue"
-        '400':
-          description: checked_before is not a timestamp
-        '403':
-          description: not the fixity checker or an admin
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: file_sets_mets
   "/health":
     get:
       summary: Report whether Atlas can reach its dependencies
       tags:
       - Health
       operationId: health_show
+      security: []
       description: |
         Readiness. Probes Postgres, Solr, the OCFL storage roots and the Redis
         cache, and names each one `ok` or `unavailable`. Unauthenticated, so the
@@ -5377,41 +4804,6 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Health"
-  "/resources/{id}/solr":
-    get:
-      summary: An object's Solr document
-      tags:
-      - Resources
-      description: |
-        The object's Solr document exactly as Solr stores it, for debugging the
-        index. Admins and delegated admins only; a delegated admin must also be
-        able to read the object.
-
-        Fields that are searched but not stored never appear:
-        `descriptive_keywords_tesim`, `title_stem_tesim`,
-        `description_stem_tesim` and `name_variant_teim`, among others. Their
-        absence is not a fault. `GET /resources/{id}/search_explanation` shows
-        what they match.
-
-        404 for an unknown NOID and for a Set, which Atlas does not index. 404
-        with `error: not_indexed` when the object exists but Solr holds no
-        document for it; `POST /resources/{id}/reindex` is the fix.
-      parameters:
-      - name: id
-        in: path
-        description: NOID
-        required: true
-        schema:
-          type: string
-      responses:
-        '200':
-          description: the Solr document
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/IndexDocument"
-        '404':
-          description: the object has no Solr document
   "/maintenance":
     get:
       summary: Read the repository-wide read-only window
@@ -5432,107 +4824,8 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/MaintenanceMode"
-    put:
-      summary: Open or close the repository-wide read-only window
-      tags:
-      - Maintenance
-      operationId: maintenance_update
-      description: |
-        Open (`read_only: true`) or close (`read_only: false`) the window.
-        Restricted to the system principal and admins.
-
-        `source` names which door is acting. A `deploy` close is refused —
-        silently, leaving the window standing and reporting the unchanged state —
-        when an `operator` opened the window, so a deploy that finishes cannot
-        close a window a human opened by hand. An `operator` close clears either.
-
-        This is the one action the read-only floor exempts; an open window has to
-        stay closable.
-      parameters: []
-      responses:
-        '200':
-          description: window opened
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/MaintenanceMode"
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                read_only:
-                  type: boolean
-                source:
-                  type: string
-                  enum:
-                  - operator
-                  - deploy
-                message:
-                  type: string
-                retry_after:
-                  type: integer
-              required:
-              - read_only
-  "/reset":
-    get:
-      summary: Reset development/test state
-      tags:
-      - Maintenance
-      operationId: maintenance_reset
-      description: |
-        Wipes the database, the Solr index, the OCFL storage roots and the
-        response cache, then seeds the fixture users and a Person, with a
-        personal root, for the staff (000000002) and admin (000000004)
-        fixtures. Refuses to run in
-        production, and during a maintenance window. `rake reset:clean` runs
-        the same wipe without this route.
-
-        **Internal endpoint — do not call from clients.** Used by test
-        harnesses and developer-environment seeders.
-      responses:
-        '204':
-          description: state reset
-  "/metrics/latency":
-    get:
-      summary: Report Atlas's own request latency
-      tags:
-      - Metrics
-      operationId: metrics_latency
-      parameters:
-      - name: minutes
-        in: query
-        required: false
-        description: Window in minutes, 1 to 120. Default 60.
-        schema:
-          type: integer
-      description: |
-        How long Atlas took to serve its own requests over a recent window,
-        measured from when a request enters Atlas's Rack stack until the app
-        returns its response — the same span as the `x-runtime` header. It
-        does not include time a request spent queued before Puma handed it to
-        Rack, nor the network, nor sending a streamed body. A client that also
-        times its calls can subtract to see how much of its wait was its own.
-
-        Restricted to admins and the system principal.
-
-        The percentiles are interpolated from a histogram with edges at 5, 10,
-        25, 50, 100, 250, 500, 1000, 2500, 5000 and 10000 ms, so they are
-        approximate. GET /up, GET /health and this endpoint are not counted.
-
-        Answers `503` with `error: "backend_unavailable"` and
-        `dependency: "cache"` when Redis, which holds the figures, does not
-        answer.
-      responses:
-        '200':
-          description: latency for the window
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/Latency"
-        '503':
-          description: Redis, which holds the figures, does not answer
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
   "/people":
     get:
       summary: List or batch-resolve people
@@ -5567,12 +4860,17 @@ paths:
         required: false
         schema:
           type: integer
+          minimum: 1
+        description: The page to return, from 1. Follow `pagination.next` until it
+          is null.
       - name: per_page
         in: query
         required: false
-        description: Page size (capped at 100)
         schema:
           type: integer
+          minimum: 1
+          maximum: 100
+        description: Items per page, at most 100.
       responses:
         '200':
           description: search by q, paginated over the matches
@@ -5580,47 +4878,9 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/PeopleIndex"
-    post:
-      summary: Create a person (system/admin)
-      tags:
-      - People
-      description: |
-        Creates a neutral curatorial identity. One Person per NUID — a duplicate
-        NUID is a 409. System/admin only; a non-privileged caller receives 403.
-      parameters:
-      - name: Authorization
-        in: header
-        required: false
-        schema:
-          type: string
-      responses:
-        '201':
-          description: created
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/Person"
-        '409':
-          description: duplicate nuid
-        '403':
-          description: non-system/admin caller is rejected
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                nuid:
-                  type: string
-                display_name:
-                  type: string
-                bio:
-                  type: string
-                orcid:
-                  type: string
-              required:
-              - nuid
-              - display_name
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: people_index
   "/people/{id}":
     parameters:
     - name: id
@@ -5633,6 +4893,10 @@ paths:
       summary: Fetch a person by NOID
       tags:
       - People
+      description: 'Returns a Person''s record. An unknown NOID answers `404` with
+        no body.
+
+        '
       responses:
         '200':
           description: person found
@@ -5642,6 +4906,9 @@ paths:
                 "$ref": "#/components/schemas/Person"
         '404':
           description: unknown noid
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: people_show
     patch:
       summary: Edit profile fields (system/admin, or the person themself)
       tags:
@@ -5654,12 +4921,7 @@ paths:
         (`blank_display_name`), as are a bio over 4,000 characters
         (`invalid_bio`) and an orcid that is not a valid bare ORCID iD
         (`invalid_orcid`); a blank bio or orcid clears it.
-      parameters:
-      - name: Authorization
-        in: header
-        required: false
-        schema:
-          type: string
+      parameters: []
       responses:
         '200':
           description: a person edits their own profile
@@ -5669,10 +4931,20 @@ paths:
                 "$ref": "#/components/schemas/Person"
         '403':
           description: a person cannot edit someone else's profile
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
         '422':
           description: an orcid that fails its checksum is refused
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
         '404':
           description: unknown noid
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
       requestBody:
         content:
           application/json:
@@ -5685,66 +4957,7 @@ paths:
                   type: string
                 orcid:
                   type: string
-  "/people/{id}/affiliations":
-    parameters:
-    - name: id
-      in: path
-      description: NOID of the person
-      required: true
-      schema:
-        type: string
-    post:
-      summary: Add a community affiliation (audited, system/admin)
-      tags:
-      - People
-      description: Idempotent. Emits an add_affiliation audit event.
-      parameters: []
-      responses:
-        '200':
-          description: affiliation added
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/Person"
-        '422':
-          description: unknown community
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                community_id:
-                  type: string
-                  description: NOID of the community
-              required:
-              - community_id
-  "/people/{id}/affiliations/{community_id}":
-    parameters:
-    - name: id
-      in: path
-      description: NOID of the person
-      required: true
-      schema:
-        type: string
-    - name: community_id
-      in: path
-      required: true
-      schema:
-        type: string
-    delete:
-      summary: Remove a community affiliation (audited, system/admin)
-      tags:
-      - People
-      description: Tolerant — removing an absent affiliation is a no-op. Emits a remove_affiliation
-        audit event.
-      responses:
-        '200':
-          description: affiliation removed
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/Person"
+      operationId: people_update
   "/resources/{id}/children":
     get:
       summary: A container's children, tombstoned ones included
@@ -5780,6 +4993,9 @@ paths:
                 "$ref": "#/components/schemas/ResourceDigests"
         '404':
           description: a Work, which is not a container
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: resource_children_show
   "/resources/{id}":
     parameters:
     - name: id
@@ -5801,6 +5017,9 @@ paths:
       responses:
         '302':
           description: redirect to typed resource
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: resources_show
     delete:
       summary: Purge a resource
       tags:
@@ -5830,8 +5049,15 @@ paths:
           description: resource purged
         '422':
           description: top-level community
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
         '404':
           description: unknown id
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: resources_destroy
   "/resources/{id}/permissions":
     parameters:
     - name: id
@@ -5839,6 +5065,7 @@ paths:
       required: true
       schema:
         type: string
+      description: The NOID of the resource.
     get:
       summary: Permission flags for a resource
       tags:
@@ -5855,14 +5082,6 @@ paths:
         **404**. The two are distinct at the wire, and a client is expected to
         keep them distinct: "may not see it" is a sign-in prompt, "is not
         there" is a dead link.
-      security:
-      - BearerAuth: []
-      parameters:
-      - name: Authorization
-        in: header
-        required: false
-        schema:
-          type: string
       responses:
         '200':
           description: permissions returned
@@ -5879,8 +5098,15 @@ paths:
                 "$ref": "#/components/schemas/Tombstoned"
         '403':
           description: caller may not read the resource
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
         '404':
           description: unknown id
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: resources_permissions
     patch:
       summary: Adjust a resource's ACL
       tags:
@@ -5912,6 +5138,8 @@ paths:
                 "$ref": "#/components/schemas/Work"
         '404':
           description: unknown id
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
       requestBody:
         content:
           application/json:
@@ -5943,6 +5171,7 @@ paths:
               required:
               - permissions
         required: true
+      operationId: resources_update_permissions
   "/resources/{id}/mods":
     parameters:
     - name: id
@@ -5968,9 +5197,6 @@ paths:
           description: withheld by a tombstone from everyone but admins and delegated
             admins
           content:
-            application/xml:
-              schema:
-                "$ref": "#/components/schemas/Tombstoned"
             application/json:
               schema:
                 "$ref": "#/components/schemas/Tombstoned"
@@ -5978,6 +5204,9 @@ paths:
           description: current mods returned
         '404':
           description: unknown id / non-Modsable / no MODS
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: resources_mods
     put:
       summary: Replace a resource's MODS document
       tags:
@@ -6028,6 +5257,13 @@ paths:
           description: no document attached
         '409':
           description: optimistic-lock conflict (surfaced immediately, not retried)
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: resources_put_mods
   "/resources/{id}/mods/versions":
     parameters:
     - name: id
@@ -6035,6 +5271,7 @@ paths:
       required: true
       schema:
         type: string
+      description: The NOID of the resource.
     get:
       summary: List MODS version history for a resource
       tags:
@@ -6057,6 +5294,9 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/ModsVersions"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: resources_mods_versions
   "/resources/{id}/mods/versions/{version_id}":
     parameters:
     - name: id
@@ -6064,6 +5304,7 @@ paths:
       required: true
       schema:
         type: string
+      description: The NOID of the resource.
     - name: version_id
       in: path
       description: OCFL version label, e.g. v1
@@ -6082,14 +5323,14 @@ paths:
         '410':
           description: withheld by a tombstone from everyone but admins and delegated
             admins
-          content:
-            application/xml:
-              schema:
-                "$ref": "#/components/schemas/Tombstoned"
+          content: {}
         '200':
           description: historical MODS XML returned
         '404':
           description: unknown version
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: resources_mods_version
   "/resources/{id}/thumbnails":
     parameters:
     - name: id
@@ -6131,8 +5372,14 @@ paths:
         '422':
           description: preview size or placeholder malformed, or sent without the
             preview
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
         '404':
           description: unknown id
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
       requestBody:
         content:
           application/json:
@@ -6161,6 +5408,7 @@ paths:
                   format: byte
                   maxLength: 2048
                   description: Base64 of a ~16px-wide JPEG of the preview image
+      operationId: resources_update_thumbnails
   "/resources/{id}/parent":
     parameters:
     - name: id
@@ -6201,6 +5449,12 @@ paths:
           description: unknown id
         '422':
           description: no parent given
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
       requestBody:
         content:
           application/json:
@@ -6210,6 +5464,7 @@ paths:
                 parent_id:
                   type: string
                   description: NOID of the destination
+      operationId: resources_update_parent
   "/resources/{id}/tombstone":
     parameters:
     - name: id
@@ -6260,8 +5515,14 @@ paths:
                 "$ref": "#/components/schemas/Work"
         '422':
           description: reason is not a policy removal note
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
         '404':
           description: unknown id
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
       requestBody:
         content:
           application/json:
@@ -6276,6 +5537,7 @@ paths:
                   - Removed from view at Northeastern University's discretion
                   - Removed from view at Northeastern University Library's discretion
                   - Removed from view at contributor or content curator's discretion
+      operationId: resources_tombstone
   "/resources/{id}/restore":
     parameters:
     - name: id
@@ -6311,8 +5573,15 @@ paths:
                 "$ref": "#/components/schemas/Work"
         '422':
           description: parent is still tombstoned
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
         '404':
           description: unknown id
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: resources_restore
   "/resources/preview":
     post:
       summary: Render a temporary resource preview
@@ -6337,6 +5606,9 @@ paths:
       responses:
         '200':
           description: preview rendered
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: resources_preview
   "/resources/find_many":
     post:
       summary: Resolve many resources by id in one round-trip
@@ -6359,6 +5631,8 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/ResourceDigests"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
       requestBody:
         content:
           application/json:
@@ -6372,103 +5646,7 @@ paths:
                   description: NOIDs to resolve
               required:
               - ids
-  "/resources/{id}/reindex":
-    parameters:
-    - name: id
-      in: path
-      description: NOID of any resource
-      required: true
-      schema:
-        type: string
-    post:
-      summary: Re-project a resource's Solr doc (system-only)
-      tags:
-      - Resources
-      description: |
-        Operational, **system-gated** Solr re-projection. Re-derives the
-        resource's Solr doc from the current Postgres/OCFL source of truth — no
-        lifecycle transition, no audit event, no optimistic-lock bump. This is
-        the supported lever after an indexer ships or changes (e.g.
-        `classification_ssim`) and an already-finalized resource carries a
-        stale/empty projection; previously the only option was to abuse a
-        lifecycle transition (`POST /works/{id}/complete`). Idempotent.
-
-        Requires the system bearer token paired with the system `User:` NUID
-        header; any non-system caller is rejected (401/403). Unknown id → 404.
-      security:
-      - BearerAuth: []
-      parameters:
-      - name: Authorization
-        in: header
-        required: false
-        schema:
-          type: string
-      - name: User
-        in: header
-        required: false
-        description: System principal, e.g. "NUID 000000000"
-        schema:
-          type: string
-      responses:
-        '204':
-          description: resource re-projected from current state
-        '404':
-          description: unknown id
-        '403':
-          description: non-system caller is rejected
-  "/resources/{id}/reindex_subtree":
-    parameters:
-    - name: id
-      in: path
-      description: NOID of any resource (subtree root)
-      required: true
-      schema:
-        type: string
-    post:
-      summary: Re-project a resource and its full descendant subtree (system-only)
-      tags:
-      - Resources
-      description: |
-        Operational, **system-gated** subtree Solr re-projection. Gathers the
-        resource plus its full descendant subtree — descendant containers
-        (Collection/Community) **and the Works beneath them**, a deliberate
-        superset of the re-parent cascade so Work-level projections like
-        `classification_ssim` refresh too — and re-derives each doc from the
-        current Postgres/OCFL source of truth (no lifecycle/audit/lock bump).
-
-        Rooted at a Collection it refreshes that Collection's contents; rooted
-        at the top Community it backfills the whole repository. **Synchronous**
-        by design — for a pathologically large subtree the caller roots lower or
-        drives the cascade in chunks. Idempotent. Returns the count re-projected.
-        Non-system callers are rejected (401/403); unknown id → 404.
-      security:
-      - BearerAuth: []
-      parameters:
-      - name: Authorization
-        in: header
-        required: false
-        schema:
-          type: string
-      - name: User
-        in: header
-        required: false
-        description: System principal, e.g. "NUID 000000000"
-        schema:
-          type: string
-      responses:
-        '200':
-          description: subtree re-projected; descendant Works refreshed
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  reindexed:
-                    type: integer
-                required:
-                - reindexed
-        '404':
-          description: unknown id
+      operationId: resources_find_many
   "/resources/{id}/descendant_works":
     parameters:
     - name: id
@@ -6502,11 +5680,17 @@ paths:
         required: false
         schema:
           type: integer
+          minimum: 1
+        description: The page to return, from 1. Follow `pagination.next` until it
+          is null.
       - name: per_page
         in: query
         required: false
         schema:
           type: integer
+          minimum: 1
+          maximum: 100
+        description: Items per page, at most 100.
       - name: include_linked
         in: query
         required: false
@@ -6523,56 +5707,9 @@ paths:
                 "$ref": "#/components/schemas/DescendantWorks"
         '404':
           description: unknown id
-  "/resources/{id}/search_explanation":
-    get:
-      summary: How the catalog search scores one object
-      tags:
-      - Resources
-      description: |
-        Solr's own account of how the catalog search scores one Work, Collection
-        or Community for `q`, whether it matches or not, for debugging search.
-        Admins and delegated admins only; a delegated admin must also be able to
-        read the object.
-
-        `explanation` is Solr's structured `explainOther` tree, unchanged.
-        `handler` is the search handler's `qf`, `pf`, `mm`, `tie` and `boost`,
-        read from Solr. `hidden_by` names the always-on catalog filters that
-        hide the object whatever it matches.
-
-        `fields` has one entry per `qf` field. Each stored value that feeds the
-        field is analysed against `q`, and its index tokens carry `match`.
-        Offsets count UTF-16 code units, as Solr reports them. A field with no
-        stored text says why in `reason`: `not_stored`, or `full_text`, whose
-        matching passages are in `highlights`. A failed analysis is
-        `analysis_failed`; the other fields are still returned.
-
-        400 for a blank `q`. 404 for an unknown NOID, a Set or any other type;
-        404 with `error: not_indexed` when Solr holds no document for the
-        object. 502 when Solr does not answer.
-      parameters:
-      - name: id
-        in: path
-        description: NOID
-        required: true
-        schema:
-          type: string
-      - name: q
-        in: query
-        required: true
-        description: The search words
-        schema:
-          type: string
-      responses:
-        '200':
-          description: the object does not match
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/SearchExplanation"
-        '400':
-          description: blank q
-        '404':
-          description: the object has no Solr document
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: resources_descendant_works
   "/resources/search":
     get:
       summary: Search the catalog
@@ -6603,25 +5740,30 @@ paths:
       - name: type
         in: query
         required: false
-        enum:
-        - Work
-        - Collection
-        - Community
-        - Person
-        description: "Narrow to one type. Omit to search all four.:\n * `Work` \n
-          * `Collection` \n * `Community` \n * `Person` \n "
         schema:
           type: string
+          enum:
+          - Work
+          - Collection
+          - Community
+          - Person
+        description: Narrow to one type. Omit to search all four.
       - name: page
         in: query
         required: false
         schema:
           type: integer
+          minimum: 1
+        description: The page to return, from 1. Follow `pagination.next` until it
+          is null.
       - name: per_page
         in: query
         required: false
         schema:
           type: integer
+          minimum: 1
+          maximum: 100
+        description: Items per page, at most 100.
       responses:
         '200':
           description: narrowed to one type
@@ -6631,6 +5773,13 @@ paths:
                 "$ref": "#/components/schemas/SearchResults"
         '400':
           description: unknown type
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: search_index
   "/users/by_nuid/{nuid}/accounts":
     get:
       summary: List the accounts sharing a NUID
@@ -6647,6 +5796,7 @@ paths:
         required: true
         schema:
           type: string
+        description: The person's NUID.
       responses:
         '200':
           description: accounts listed
@@ -6654,6 +5804,9 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/UserAccounts"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: users_accounts
   "/users/by_nuid/{nuid}/preferred_account":
     put:
       summary: Set the preferred (default) account for a NUID
@@ -6669,6 +5822,7 @@ paths:
         required: true
         schema:
           type: string
+        description: The person's NUID.
       responses:
         '200':
           description: preferred account set
@@ -6678,6 +5832,8 @@ paths:
                 "$ref": "#/components/schemas/ProvisionedUser"
         '404':
           description: email is not one of this NUID's accounts
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
       requestBody:
         content:
           application/json:
@@ -6688,6 +5844,7 @@ paths:
                   type: string
               required:
               - email
+      operationId: users_preferred_account
   "/users":
     get:
       summary: Search the user directory
@@ -6728,6 +5885,9 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/UserDirectory"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: users_index
   "/users/by_nuid/{nuid}":
     get:
       summary: Resolve a NUID to a directory entry
@@ -6742,6 +5902,7 @@ paths:
         required: true
         schema:
           type: string
+        description: The person's NUID.
       responses:
         '200':
           description: directory entry found
@@ -6751,57 +5912,9 @@ paths:
                 "$ref": "#/components/schemas/UserDirectoryEntry"
         '404':
           description: unknown or excluded NUID
-    put:
-      summary: Find-or-create a user and replace their groups (system-only)
-      tags:
-      - User
-      description: |
-        System-only endpoint used by Cerberus on SSO callback. Idempotent
-        on NUID; replaces (not merges) the supplied groups onto the user.
-        Requires the system Bearer token (no `User:` header); non-system
-        callers receive 403.
-      security:
-      - BearerAuth: []
-      parameters:
-      - name: nuid
-        in: path
-        required: true
-        schema:
-          type: string
-      - name: Authorization
-        in: header
-        required: false
-        schema:
-          type: string
-      - name: User
-        in: header
-        required: false
-        description: Acting principal, e.g. "NUID 000000000" for the system user
-        schema:
-          type: string
-      responses:
-        '200':
-          description: user upserted
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/ProvisionedUser"
-        '403':
-          description: caller is not the system user
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                groups:
-                  type: array
-                  items:
-                    type: string
-                email:
-                  type: string
-                name:
-                  type: string
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: users_show
   "/user":
     get:
       summary: Current user details
@@ -6827,188 +5940,23 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/User"
-  "/nuid":
-    post:
-      summary: Mint a JWT for a NUID (system-only)
-      tags:
-      - User
-      description: |
-        System-only endpoint used by Cerberus (post-SSO) to mint a personal-
-        access JWT for a user. The librarian then uses the token directly
-        against Atlas (Authorization: Bearer …) from scripts. Tokens carry a
-        1-week TTL. Requires the system Bearer token; non-system callers
-        receive 403. An unknown NUID returns 404. Emits a mint_token audit row.
-        An optional `read_only: true` mints a token that can only reach the
-        read-shaped actions in `ApplicationController::READ_ONLY_TOKEN_ACTIONS`,
-        however much more the underlying user may do. Within that list the
-        user's own tier still applies, so an operator read such as
-        `GET /works/{id}/health_check` answers only an admin's token. It is the
-        shape to hand to a non-human caller (e.g. an MCP client) that must
-        never be able to mutate the repository.
-      security:
-      - BearerAuth: []
-      parameters:
-      - name: Authorization
-        in: header
-        required: false
-        schema:
-          type: string
-      - name: User
-        in: header
-        required: false
-        description: Acting principal, e.g. "NUID 000000000" for the system user
-        schema:
-          type: string
-      responses:
-        '200':
-          description: read-only token minted
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  token:
-                    type: string
-                required:
-                - token
-        '403':
-          description: caller is not the system user
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                nuid:
-                  type: string
-                email:
-                  type: string
-                  description: Optional — disambiguate which account under the NUID
-                    when it holds several.
-                read_only:
-                  type: boolean
-                  description: Optional — mint a token restricted to read-shaped actions
-                    only.
-              required:
-              - nuid
-    delete:
-      summary: Revoke all of a user's tokens (system-only)
-      tags:
-      - User
-      description: |
-        System-only endpoint that revokes every outstanding token for a user
-        by rotating its jti (single-token model → all-or-nothing). Cerberus's
-        "regenerate token" is a revoke followed by a fresh mint. Requires the
-        system Bearer token; non-system callers receive 403. An unknown NUID
-        returns 404. Emits a revoke_token audit row.
-      security:
-      - BearerAuth: []
-      parameters:
-      - name: Authorization
-        in: header
-        required: false
-        schema:
-          type: string
-      - name: User
-        in: header
-        required: false
-        description: Acting principal, e.g. "NUID 000000000" for the system user
-        schema:
-          type: string
-      responses:
-        '204':
-          description: tokens revoked
-        '403':
-          description: caller is not the system user
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                nuid:
-                  type: string
-                email:
-                  type: string
-                  description: Optional — disambiguate which account under the NUID
-                    when it holds several.
-              required:
-              - nuid
-  "/users/by_email/{email}":
-    put:
-      summary: Find-or-create a user by email and replace their groups (system-only)
-      tags:
-      - User
-      description: |
-        System-only endpoint used by Cerberus on SSO callback. Email is the
-        account key, so a person's staff and student logins (same NUID,
-        different email) provision as distinct accounts instead of collapsing
-        on NUID. Idempotent on email; replaces (not merges) the supplied groups.
-        Requires the system Bearer token; non-system callers receive 403.
-      security:
-      - BearerAuth: []
-      parameters:
-      - name: email
-        in: path
-        description: The account key (email).
-        required: true
-        schema:
-          type: string
-      - name: Authorization
-        in: header
-        required: false
-        schema:
-          type: string
-      - name: User
-        in: header
-        required: false
-        description: Acting principal, e.g. "NUID 000000000" for the system user
-        schema:
-          type: string
-      responses:
-        '200':
-          description: user upserted
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/ProvisionedUser"
-        '403':
-          description: caller is not the system user
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                nuid:
-                  type: string
-                groups:
-                  type: array
-                  items:
-                    type: string
-                name:
-                  type: string
-                affiliation:
-                  type: string
-                  description: unscoped-affiliation, a human account label
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: users_tokens_show
   "/works":
     get:
       summary: List works
       tags:
       - Works
-      description: |
-        Paginated list of all works.
-
-        Pass `?in_progress=true` to see only Works that Cerberus has not
-        yet marked complete (operator-friendly "what's stuck?" view).
-        Pass `?in_progress=false` to see only completed Works.
-
-        Pass `?incomplete=true` for the other operator list: Works whose
-        enrichment pipeline gave up after its retries (see
-        `POST /works/{id}/incomplete`). The two filters are independent and
-        combine, so `?in_progress=false&incomplete=true` reads as "finished,
-        but degraded".
       parameters:
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+        description: The page to return, from 1. Follow `pagination.next` until it
+          is null.
       - name: in_progress
         in: query
         required: false
@@ -7021,6 +5969,18 @@ paths:
         description: Filter by incomplete state. Omit for no filtering.
         schema:
           type: boolean
+      description: |
+        Paginated list of all works.
+
+        Pass `?in_progress=true` to see only Works that Cerberus has not
+        yet marked complete (operator-friendly "what's stuck?" view).
+        Pass `?in_progress=false` to see only completed Works.
+
+        Pass `?incomplete=true` for the other operator list: Works whose
+        enrichment pipeline gave up after its retries (see
+        `POST /works/{id}/incomplete`). The two filters are independent and
+        combine, so `?in_progress=false&incomplete=true` reads as "finished,
+        but degraded".
       responses:
         '200':
           description: the two filters combine — finished but degraded
@@ -7028,6 +5988,9 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/WorksIndex"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: works_index
     post:
       summary: Create a work
       tags:
@@ -7054,11 +6017,6 @@ paths:
         description: Client-supplied UUID; repeats return the existing resource.
         schema:
           type: string
-      - name: Authorization
-        in: header
-        required: false
-        schema:
-          type: string
       responses:
         '200':
           description: idempotent replay returns existing work
@@ -7074,10 +6032,20 @@ paths:
                 "$ref": "#/components/schemas/Work"
         '403':
           description: caller holds no edit rights on the parent Collection
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
         '404':
           description: collection_id missing or unresolvable
         '422':
           description: the parent Collection is tombstoned
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
       requestBody:
         content:
           application/json:
@@ -7092,6 +6060,7 @@ paths:
                   description: NUID to stamp as the Work depositor (optional)
               required:
               - collection_id
+      operationId: works_create
   "/works/{id}":
     parameters:
     - name: id
@@ -7104,6 +6073,13 @@ paths:
       summary: Retrieve a work
       tags:
       - Works
+      description: |
+        Returns a Work's record: its title and description, its ancestors, its
+        thumbnails and its state. List its files with `GET /works/{id}/assets`.
+
+        A tombstoned Work answers `410`: an admin or delegated admin gets the full
+        record, and everyone else gets a stub. A purged NOID answers `410` with a
+        stub that names the Work as purged, to every caller.
       responses:
         '200':
           description: ancestors flag the People Community and the personal root
@@ -7121,6 +6097,9 @@ paths:
                 - "$ref": "#/components/schemas/Work"
                 - "$ref": "#/components/schemas/WorkTombstone"
                 - "$ref": "#/components/schemas/WorkPurged"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: works_show
   "/works/{id}/mods":
     parameters:
     - name: id
@@ -7151,12 +6130,12 @@ paths:
           description: withheld by a tombstone from everyone but admins and delegated
             admins
           content:
-            application/xml:
-              schema:
-                "$ref": "#/components/schemas/Tombstoned"
             application/json:
               schema:
                 "$ref": "#/components/schemas/Tombstoned"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: works_mods
   "/works/{id}/mets":
     parameters:
     - name: id
@@ -7187,6 +6166,9 @@ paths:
           description: work mets returned
         '404':
           description: work never completed — no METS yet
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: works_mets
   "/works/{id}/assets":
     parameters:
     - name: id
@@ -7226,6 +6208,9 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/WorkAssets"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: works_assets
   "/works/{id}/tombstoned_assets":
     parameters:
     - name: id
@@ -7256,6 +6241,9 @@ paths:
                 "$ref": "#/components/schemas/TombstonedAssets"
         '404':
           description: work not found
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: works_tombstoned_assets
   "/works/{id}/file_revisions":
     parameters:
     - name: id
@@ -7288,6 +6276,9 @@ paths:
                 "$ref": "#/components/schemas/WorkFileRevisions"
         '404':
           description: work not found
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: works_file_revisions
   "/works/{id}/health_check":
     parameters:
     - name: id
@@ -7331,6 +6322,9 @@ paths:
                 "$ref": "#/components/schemas/WorkHealthCheck"
         '404':
           description: work not found
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: works_health_check
   "/works/{id}/file_sets":
     parameters:
     - name: id
@@ -7360,6 +6354,9 @@ paths:
                 "$ref": "#/components/schemas/WorkFileSets"
         '404':
           description: work not found
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: works_file_sets
   "/works/{id}/image_derivatives":
     parameters:
     - name: id
@@ -7392,6 +6389,12 @@ paths:
                 "$ref": "#/components/schemas/Work"
         '409':
           description: optimistic-lock conflict survived the internal retry budget
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
       requestBody:
         content:
           application/json:
@@ -7407,6 +6410,7 @@ paths:
                 large:
                   type: string
                   description: IIIF URL for the large image tier
+      operationId: works_update_image_derivatives
   "/works/{id}/derivative_permissions":
     parameters:
     - name: id
@@ -7453,9 +6457,19 @@ paths:
                 "$ref": "#/components/schemas/Work"
         '422':
           description: an unknown tier key is rejected
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
         '409':
           description: optimistic-lock conflict surfaces (permission edits are not
             retried)
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
       requestBody:
         content:
           application/json:
@@ -7535,6 +6549,7 @@ paths:
                     type: string
                   description: Read groups for any other file (independent). Captions
                     are never tiered; they follow the Work
+      operationId: works_update_derivative_permissions
   "/works/{id}/full_text":
     parameters:
     - name: id
@@ -7567,6 +6582,12 @@ paths:
                 "$ref": "#/components/schemas/Work"
         '409':
           description: optimistic-lock conflict survived the internal retry budget
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
       requestBody:
         content:
           application/json:
@@ -7579,6 +6600,7 @@ paths:
                     FileSets)
               required:
               - text
+      operationId: works_update_full_text
   "/works/{id}/linked_members":
     parameters:
     - name: id
@@ -7612,6 +6634,9 @@ paths:
                 type: array
                 items:
                   type: string
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: works_linked_members
     post:
       summary: Link a work into an additional collection
       tags:
@@ -7639,6 +6664,12 @@ paths:
                   type: string
         '422':
           description: rejects a non-Collection target
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
       requestBody:
         content:
           application/json:
@@ -7650,6 +6681,7 @@ paths:
                 collection_id:
                   type: string
                   description: NOID of the Collection to link into
+      operationId: works_add_linked_member
   "/works/{id}/linked_members/{collection_id}":
     parameters:
     - name: id
@@ -7682,6 +6714,9 @@ paths:
                 type: array
                 items:
                   type: string
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: works_remove_linked_member
   "/works/{id}/associations":
     parameters:
     - name: id
@@ -7724,6 +6759,9 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/WorkAssociations"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: works_associations
     post:
       summary: Associate a work with another work
       tags:
@@ -7756,6 +6794,12 @@ paths:
                 "$ref": "#/components/schemas/WorkAssociations"
         '422':
           description: rejects an unknown relationship type
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
       requestBody:
         content:
           application/json:
@@ -7777,6 +6821,7 @@ paths:
                   - is_instructional_material_for
                   - is_supplemental_material_for
                   - is_transcription_of
+      operationId: works_add_association
   "/works/{id}/associations/{type}/{work_id}":
     parameters:
     - name: id
@@ -7818,6 +6863,9 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/WorkAssociations"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: works_remove_association
   "/works/{id}/complete":
     parameters:
     - name: id
@@ -7825,6 +6873,7 @@ paths:
       required: true
       schema:
         type: string
+      description: The NOID of the resource.
     post:
       summary: Mark a work complete
       tags:
@@ -7843,6 +6892,13 @@ paths:
                 "$ref": "#/components/schemas/Work"
         '409':
           description: optimistic-lock conflict survived the internal retry budget
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: works_complete
   "/works/{id}/incomplete":
     parameters:
     - name: id
@@ -7888,6 +6944,12 @@ paths:
           description: no such work
         '409':
           description: optimistic-lock conflict survived the internal retry budget
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
       requestBody:
         content:
           application/json:
@@ -7897,6 +6959,7 @@ paths:
                 reason:
                   type: string
                   description: Machine token naming the cause (e.g. pdf_rendition_gave_up)
+      operationId: works_mark_incomplete
     delete:
       summary: Clear the incomplete flag
       tags:
@@ -7916,3 +6979,6 @@ paths:
                 "$ref": "#/components/schemas/Work"
         '404':
           description: no such work
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+      operationId: works_clear_incomplete

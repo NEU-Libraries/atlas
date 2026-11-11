@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Regenerate openapi/openapi.yaml from spec/requests/*_spec.rb.
+# Regenerate the OpenAPI documents under openapi/ from spec/requests/*_spec.rb.
 #
 #   bin/openapi
 #
@@ -31,4 +31,4 @@ else
 fi
 
 echo
-echo "Wrote openapi/openapi.yaml. Review with 'git diff openapi/' and commit if expected."
+echo "Wrote openapi/public/openapi.yaml and openapi/internal/openapi.yaml. Review with 'git diff openapi/' and commit if expected."

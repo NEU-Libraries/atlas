@@ -11,6 +11,10 @@ RSpec.describe 'Collections', type: :request do
     get 'List collections' do
       tags 'Collections'
       produces 'application/json'
+      description <<~DESC
+        Lists every Collection, one page at a time.
+      DESC
+      paginated
 
       response '200', 'collections listed' do
         before { 2.times { CollectionCreator.call(parent_id: community.noid) } }
@@ -46,7 +50,6 @@ RSpec.describe 'Collections', type: :request do
         },
         required:   %w[parent_id]
       }
-      parameter name: :Authorization, in: :header, type: :string, required: false
 
       response '200', 'collection created' do
         let(:body) { { parent_id: community.noid } }
@@ -110,6 +113,14 @@ RSpec.describe 'Collections', type: :request do
     get 'Retrieve a collection' do
       tags 'Collections'
       produces 'application/json'
+      description <<~DESC
+        Returns a Collection's record: its title and description, its ancestors,
+        its thumbnails and its state.
+
+        A tombstoned Collection answers `410`: an admin or delegated admin gets the
+        full record, and everyone else gets a stub. A purged NOID answers `410` with
+        a stub that names the Collection as purged, to every caller.
+      DESC
 
       response '200', 'collection found' do
         let(:collection) { CollectionCreator.call(parent_id: community.noid) }
@@ -130,6 +141,14 @@ RSpec.describe 'Collections', type: :request do
     get 'Retrieve MODS metadata for a collection' do
       tags 'Collections'
       produces 'application/xml', 'application/json'
+      description <<~DESC
+        Returns the Collection's descriptive metadata. Send `Accept:
+        application/xml` for the MODS XML, which is the preservation copy, or
+        `Accept: application/json` for the JSON access copy.
+
+        A tombstoned Collection's metadata answers `410` with the `Tombstoned` body
+        to everyone but admins and delegated admins.
+      DESC
 
       withheld_by_tombstone do
         let(:id) { tombstoned_public_container!(Collection).noid }
@@ -189,6 +208,13 @@ RSpec.describe 'Collections', type: :request do
     get 'List child noids of a collection' do
       tags 'Collections'
       produces 'application/json'
+      description <<~DESC
+        Returns the NOIDs of the Collection's direct children, Works and
+        Collections. Fetch each one by its NOID.
+
+        A tombstoned Collection answers `410`: an admin or delegated admin gets the
+        full record, and everyone else gets a stub.
+      DESC
 
       response '200', 'children listed' do
         let(:collection) { CollectionCreator.call(parent_id: community.noid) }

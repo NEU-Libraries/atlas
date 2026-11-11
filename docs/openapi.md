@@ -1,29 +1,109 @@
-# The OpenAPI document
+# The OpenAPI documents
 
-The OpenAPI document is Atlas's contract with every client it will ever have,
+The public OpenAPI document is Atlas's contract with every client it will ever have,
 including the ones nobody has built yet. The test it must pass: a developer who
 has only the published document can build a client that works.
 
 Source files:
 
-- `spec/swagger_helper.rb` — the document's frame: `info`, security, tags,
-  shared responses
+- `spec/support/openapi_document.rb` — each document's frame: `info`,
+  security, tags, shared responses
+- `spec/support/openapi_contract.rb` — the rules applied to every operation
+- `spec/support/openapi_error_bodies.rb` — which 4xx responses carry an `Error`
+  body, and the hook that checks it
+- `spec/swagger_helper.rb` — the rswag configuration and the spec helpers
 - `spec/support/openapi_schemas.rb` — the component schemas
+- `config/initializers/rswag_api.rb` — the directory `/api-docs` serves
 - `spec/requests/*_spec.rb` — the operations, through the rswag DSL
 - `openapi-lint/` and `bin/openapi-lint` — the mechanical gate
 
 ## The document is generated
 
 `bin/openapi` runs `rake rswag:specs:swaggerize` over the request specs and
-writes `openapi/openapi.yaml`. CI regenerates it and fails when the committed
-file differs. So fix the document in the specs and in `swagger_helper.rb`,
-never in the YAML: a hand edit is overwritten on the next regenerate.
+writes two documents. CI regenerates both and fails when a committed file
+differs. So fix a document in the specs and the support files, never in the
+YAML: a hand edit is overwritten on the next regenerate.
+
+The generator runs RSpec with `--dry-run`. No example executes and no hook
+fires, so anything the documents carry must come from spec metadata or from
+the formatter, never from a response a spec received.
 
 The same design explains the document's typical faults. The string in
 `response '200', '<text>'` is both the example group's name and the published
 description, so a scenario name such as "the two filters combine" becomes what
 a client author reads. And a schema exists only where a spec author wrote one,
 so a shape that no spec pins down stays loose.
+
+## Two documents
+
+| Document | Served | Holds |
+|---|---|---|
+| `openapi/public/openapi.yaml` | at `/api-docs/openapi.yaml`, rendered at `/docs` | every operation a third-party client can use |
+| `openapi/internal/openapi.yaml` | never | the operator and backend operations |
+
+An operation is internal when only the system token, the fixity token or an
+admin can call it, or when it is a debug view of the Solr index. Tag one with
+`openapi_spec: OpenapiDocument::INTERNAL` on its `path` or on its verb. Leaving
+an operation out of the public document does not protect it: its gate must
+hold on its own, and the access matrices test that it does.
+
+**The internal document must stay outside `openapi/public`.** The Rswag
+middleware serves every file under its root, so a file inside the served
+directory is public whatever its name. `spec/requests/docs_spec.rb` fails if
+`/api-docs` ever serves it.
+
+## What every operation gets
+
+`OpenapiContract.finish` runs in the formatter, on each whole document, just
+before it is written:
+
+- **An `operationId`,** named from the controller action that serves the
+  route: `works#show` becomes `works_show`. When one action serves two routes,
+  both take a name built from the path instead. A spec can still set its own.
+- **The shared `401`,** on every operation whose security names a scheme.
+  `require_auth` answers a bad credential the same way on every route, so the
+  documents state it once, as the `Unauthorized` response.
+  `spec/requests/openapi_contract_spec.rb` sends a bad token to every such
+  operation and checks the answer.
+- **A description for each identity path parameter** a spec left blank, from
+  `OpenapiContract::PATH_PARAMETERS`, so `id` means the same on every route.
+- **Only the schemas it uses.** Both documents start from the whole map in
+  `openapi_schemas.rb`, and each keeps the schemas its own operations reach.
+  Otherwise the public document would publish the shapes of the operations
+  it leaves out.
+
+Each document sets its security once, at the top. The public one accepts a
+bearer token or nothing, which is the guest. The internal one accepts the
+system or fixity token with a `User` header, or an admin's bearer token. An
+operation that skips `require_auth` declares `security []`. Do not declare
+`Authorization` or `User` as a header parameter: rswag sends the header from a
+`let` of the same name through the security scheme, and the gate counts a
+hand-written one.
+
+### Error bodies
+
+Every 4xx body is the `Error` schema, with two exceptions the documents state:
+a 404 or 416 has no body by default, and a 410 that declares its own schema,
+such as a tombstoned resource's record, keeps it. The formatter applies that
+rule to each document (`OpenapiErrorBodies`). While the request specs run, an `after` hook checks
+every 4xx response a spec receives against the same rule, and fails the
+example when the two disagree.
+
+Inside a response block, `no_body` marks a 4xx that answers bare, and
+`error_body` marks a 404 or 416 that carries an `Error`. When one status has
+several response blocks, rswag merges them into one documented response, so
+one `error_body` makes the documented response carry a body.
+
+`Error` is closed: a key Atlas adds to an error body fails the specs until the
+schema names it. Its `error` has no `enum`, because a 400, 401 or 403 puts a
+sentence there, and some 422s put a sentence there with the code in `code`.
+
+### Paging
+
+Declare a list's paging with `paginated`, or `paginated per_page: true` where
+the action reads `per_page`. A list's `pagination` block has one of two
+shapes: pagy's `Pagination`, from `LazyPagination`, or `SearchPagination`,
+which `SearchQuery` and `WorkDigestQuery` build themselves.
 
 ## The gate
 

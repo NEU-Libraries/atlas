@@ -16,7 +16,7 @@ Source files:
 ## `GET /resources/search`
 
 A text search for API clients such as Hyperion, the librarians' terminal client.
-The response shape is in [`openapi.yaml`](../openapi/openapi.yaml). What the
+The response shape is in [`openapi.yaml`](../openapi/public/openapi.yaml). What the
 schema cannot say follows.
 
 **It is Cerberus's search bar without the Blacklight parts.** There are no facets,
@@ -71,7 +71,7 @@ come back is the read gate's decision, per document, inside the query.**
 Solr's own account of how the catalog search scores one Work, Collection or
 Community for some words, whether it matches or not. It answers "why does this
 record not come up for these words?" and "why does it rank where it does?". The
-response shape is in [`openapi.yaml`](../openapi/openapi.yaml).
+response shape is in [`openapi.yaml`](../openapi/internal/openapi.yaml).
 
 **Atlas gathers; the client interprets.** Atlas chooses the Solr requests and
 groups what they return. It does not label fields, total points or write

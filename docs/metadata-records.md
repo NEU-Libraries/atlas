@@ -17,7 +17,7 @@ Source files:
 - `app/services/darwin_core_version_history.rb` — the version history
 - `app/indexers/darwin_core_indexer.rb` — the Solr projection
 
-The endpoints are documented in `openapi/openapi.yaml` under
+The endpoints are documented in `openapi/public/openapi.yaml` under
 `/works/{id}/dwc` and `/resources/{id}/dwc`.
 
 ## One format, one concern

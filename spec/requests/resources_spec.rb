@@ -111,8 +111,6 @@ RSpec.describe 'Resources', type: :request do
         keep them distinct: "may not see it" is a sign-in prompt, "is not
         there" is a dead link.
       DESC
-      security [{ BearerAuth: [] }]
-      parameter name: :Authorization, in: :header, type: :string, required: false
       # Declaring the header makes it a required `let` for every example here,
       # and an rswag-sent value wins over the suite default — so restate the
       # default admin assertion and let the 403 example override it.
@@ -284,6 +282,7 @@ RSpec.describe 'Resources', type: :request do
       end
 
       response '422', 'no document attached' do
+        no_body
         let(:id)     { work.noid }
         let(:binary) { nil }
         run_test!
@@ -863,7 +862,7 @@ RSpec.describe 'Resources', type: :request do
     end
   end
 
-  path '/resources/{id}/reindex' do
+  path '/resources/{id}/reindex', openapi_spec: OpenapiDocument::INTERNAL do
     parameter name: :id, in: :path, type: :string, description: 'NOID of any resource'
 
     post 'Re-project a resource\'s Solr doc (system-only)' do
@@ -881,10 +880,6 @@ RSpec.describe 'Resources', type: :request do
         Requires the system bearer token paired with the system `User:` NUID
         header; any non-system caller is rejected (401/403). Unknown id → 404.
       DESC
-      security [{ BearerAuth: [] }]
-      parameter name: :Authorization, in: :header, type: :string, required: false
-      parameter name: :User, in: :header, type: :string, required: false,
-                description: 'System principal, e.g. "NUID 000000000"'
 
       let!(:system_user) do
         User.create!(email: 'system@example.com', password: SecureRandom.hex(16),
@@ -934,7 +929,7 @@ RSpec.describe 'Resources', type: :request do
     end
   end
 
-  path '/resources/{id}/reindex_subtree' do
+  path '/resources/{id}/reindex_subtree', openapi_spec: OpenapiDocument::INTERNAL do
     parameter name: :id, in: :path, type: :string, description: 'NOID of any resource (subtree root)'
 
     post 'Re-project a resource and its full descendant subtree (system-only)' do
@@ -954,10 +949,6 @@ RSpec.describe 'Resources', type: :request do
         drives the cascade in chunks. Idempotent. Returns the count re-projected.
         Non-system callers are rejected (401/403); unknown id → 404.
       DESC
-      security [{ BearerAuth: [] }]
-      parameter name: :Authorization, in: :header, type: :string, required: false
-      parameter name: :User, in: :header, type: :string, required: false,
-                description: 'System principal, e.g. "NUID 000000000"'
 
       let!(:system_user) do
         User.create!(email: 'system@example.com', password: SecureRandom.hex(16),
@@ -1021,8 +1012,7 @@ RSpec.describe 'Resources', type: :request do
         (`a_linked_member_of`). Solr-side pagination via `page` / `per_page`
         (default 25, capped at 100). Unknown id → 404.
       DESC
-      parameter name: :page, in: :query, type: :integer, required: false
-      parameter name: :per_page, in: :query, type: :integer, required: false
+      paginated per_page: true
       parameter name: :include_linked, in: :query, type: :boolean, required: false,
                 description: 'Include linked members (a_linked_member_of); structural-only by default'
 

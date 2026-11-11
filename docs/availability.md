@@ -104,7 +104,7 @@ applies to it.
 ### `GET /health`
 
 It answers each dependency as `ok` or `unavailable`, and the cache can also be
-`disabled`. The response schema is in `openapi/openapi.yaml`.
+`disabled`. The response schema is in `openapi/public/openapi.yaml`.
 
 | `status` | When | HTTP |
 |---|---|---|

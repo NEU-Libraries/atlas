@@ -51,7 +51,7 @@ because a developer needs it before any of the other pages make sense.
 
 | Audience or need | Home |
 |---|---|
-| The HTTP surface — paths, parameters, response shapes, status codes | `openapi/openapi.yaml`, rendered at `/docs` |
+| The HTTP surface — paths, parameters, response shapes, status codes | `openapi/public/openapi.yaml`, rendered at `/docs`; the operator surface is in `openapi/internal/openapi.yaml` ([`openapi.md`](openapi.md)) |
 | A rule that code can check | a spec, not prose |
 | Browser sessions, SSO, or anything a person sees in a browser | Cerberus's `docs/` |
 

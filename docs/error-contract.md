@@ -11,7 +11,7 @@ Source files:
 - `app/lib/exceptions/*.rb` — the exception classes and their codes
 
 Response *bodies* for successful reads are not documented here. They live in the
-jbuilder partials and the generated `openapi/openapi.yaml`.
+jbuilder partials and the generated OpenAPI documents ([`openapi.md`](openapi.md)).
 
 ## The discriminator is `error`
 

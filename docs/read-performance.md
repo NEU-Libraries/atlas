@@ -201,7 +201,7 @@ the queries above, clear the response cache first, or you are measuring
 A client that times its Atlas calls measures its own waiting too. Under load,
 that hides whether Atlas is slow or the client is busy, so Atlas reports the
 figure only it can see. The endpoint is admin- or `:system`-gated; the response
-schema is in `openapi/openapi.yaml`.
+schema is in `openapi/internal/openapi.yaml`.
 
 ### What is measured
 

@@ -17,6 +17,10 @@ RSpec.describe 'FileSets', type: :request do
     get 'List file sets' do
       tags 'FileSets'
       produces 'application/json'
+      description <<~DESC
+        Lists every FileSet, one page at a time.
+      DESC
+      paginated
 
       response '200', 'file sets listed' do
         before { FileSetCreator.call(work_id: work.noid, classification: Classification.generic) }
@@ -108,6 +112,13 @@ RSpec.describe 'FileSets', type: :request do
     get 'Retrieve a file set' do
       tags 'FileSets'
       produces 'application/json'
+      description <<~DESC
+        Returns a FileSet's record: its type, its position in the Work, and its
+        state.
+
+        A tombstoned FileSet answers `410`: an admin or delegated admin gets the
+        full record, and everyone else gets the `Tombstoned` body.
+      DESC
 
       response '200', 'file set found' do
         let(:file_set) { FileSetCreator.call(work_id: work.noid, classification: Classification.generic) }

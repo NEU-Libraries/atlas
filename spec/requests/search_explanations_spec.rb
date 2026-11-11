@@ -17,7 +17,7 @@ RSpec.describe 'Search explanations', type: :request do
 
   after { Atlas.persister.wipe! }
 
-  path '/resources/{id}/search_explanation' do
+  path '/resources/{id}/search_explanation', openapi_spec: OpenapiDocument::INTERNAL do
     get 'How the catalog search scores one object' do
       tags 'Resources'
       produces 'application/json'
@@ -92,6 +92,7 @@ RSpec.describe 'Search explanations', type: :request do
       end
 
       response '404', 'the object has no Solr document' do
+        error_body
         let(:q) { 'coastal' }
 
         before { Atlas.index_adapter.persister.delete(resource: work) }

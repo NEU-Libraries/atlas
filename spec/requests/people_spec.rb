@@ -31,9 +31,7 @@ RSpec.describe 'People', type: :request do
                 description: 'Comma-separated NUIDs to batch-resolve'
       parameter name: :q, in: :query, type: :string, required: false,
                 description: 'Typeahead fragment: display_name or email infix, NUID prefix (admin only)'
-      parameter name: :page, in: :query, type: :integer, required: false
-      parameter name: :per_page, in: :query, type: :integer, required: false,
-                description: "Page size (capped at #{LazyPagination::MAX_PER_PAGE})"
+      paginated per_page: true
 
       response '200', 'paginated list' do
         let(:nuids) { nil }
@@ -94,6 +92,7 @@ RSpec.describe 'People', type: :request do
     end
 
     post 'Create a person (system/admin)' do
+      internal_operation!
       tags 'People'
       consumes 'application/json'
       produces 'application/json'
@@ -101,7 +100,6 @@ RSpec.describe 'People', type: :request do
         Creates a neutral curatorial identity. One Person per NUID — a duplicate
         NUID is a 409. System/admin only; a non-privileged caller receives 403.
       DESC
-      parameter name: :Authorization, in: :header, type: :string, required: false
       parameter name: :body, in: :body, schema: {
         type:       :object,
         properties: {
@@ -191,6 +189,9 @@ RSpec.describe 'People', type: :request do
     get 'Fetch a person by NOID' do
       tags 'People'
       produces 'application/json'
+      description <<~DESC
+        Returns a Person's record. An unknown NOID answers `404` with no body.
+      DESC
 
       response '200', 'person found' do
         let(:id) { jane.noid }
@@ -223,7 +224,6 @@ RSpec.describe 'People', type: :request do
         (`invalid_bio`) and an orcid that is not a valid bare ORCID iD
         (`invalid_orcid`); a blank bio or orcid clears it.
       DESC
-      parameter name: :Authorization, in: :header, type: :string, required: false
       let(:Authorization) { "Bearer #{DefaultAuthHeaders.admin_assertion}" }
       let!(:self_user) do
         User.create!(email: 'jane@example.edu', password: SecureRandom.hex(16), nuid: jane.nuid, role: :standard)
@@ -296,7 +296,7 @@ RSpec.describe 'People', type: :request do
     end
   end
 
-  path '/people/{id}/affiliations' do
+  path '/people/{id}/affiliations', openapi_spec: OpenapiDocument::INTERNAL do
     parameter name: :id, in: :path, type: :string, description: 'NOID of the person'
 
     post 'Add a community affiliation (audited, system/admin)' do
@@ -330,7 +330,7 @@ RSpec.describe 'People', type: :request do
     end
   end
 
-  path '/people/{id}/affiliations/{community_id}' do
+  path '/people/{id}/affiliations/{community_id}', openapi_spec: OpenapiDocument::INTERNAL do
     parameter name: :id, in: :path, type: :string, description: 'NOID of the person'
     parameter name: :community_id, in: :path, type: :string
 

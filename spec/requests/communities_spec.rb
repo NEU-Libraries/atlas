@@ -9,6 +9,10 @@ RSpec.describe 'Communities', type: :request do
     get 'List communities' do
       tags 'Communities'
       produces 'application/json'
+      description <<~DESC
+        Lists every Community, one page at a time.
+      DESC
+      paginated
 
       response '200', 'communities listed' do
         before { 2.times { CommunityCreator.call } }
@@ -40,7 +44,6 @@ RSpec.describe 'Communities', type: :request do
           depositor: { type: :string, description: 'NUID to stamp as the Community depositor (optional)' }
         }
       }
-      parameter name: :Authorization, in: :header, type: :string, required: false
 
       response '200', 'community created' do
         let(:body) { {} }
@@ -95,6 +98,13 @@ RSpec.describe 'Communities', type: :request do
     get 'Retrieve a community' do
       tags 'Communities'
       produces 'application/json'
+      description <<~DESC
+        Returns a Community's record: its metadata, its ancestors and its state.
+
+        A tombstoned Community answers `410`: an admin or delegated admin gets the
+        full record, and everyone else gets a stub. A purged NOID answers `410` with
+        a stub that names the Community as purged, to every caller.
+      DESC
 
       response '200', 'community found' do
         let(:community) { CommunityCreator.call }
@@ -115,6 +125,14 @@ RSpec.describe 'Communities', type: :request do
     get 'Retrieve MODS metadata for a community' do
       tags 'Communities'
       produces 'application/xml', 'application/json'
+      description <<~DESC
+        Returns the Community's descriptive metadata. Send `Accept: application/xml`
+        for the MODS XML, which is the preservation copy, or `Accept:
+        application/json` for the JSON access copy.
+
+        A tombstoned Community's metadata answers `410` with the `Tombstoned` body
+        to everyone but admins and delegated admins.
+      DESC
 
       withheld_by_tombstone do
         let(:id) { tombstoned_public_container!(Community).noid }
@@ -135,6 +153,13 @@ RSpec.describe 'Communities', type: :request do
     get 'List child noids of a community' do
       tags 'Communities'
       produces 'application/json'
+      description <<~DESC
+        Returns the NOIDs of the Community's direct children, Collections and
+        Communities. Fetch each one by its NOID.
+
+        A tombstoned Community answers `410`: an admin or delegated admin gets the
+        full record, and everyone else gets a stub.
+      DESC
 
       response '200', 'children listed' do
         let(:community) { CommunityCreator.call }

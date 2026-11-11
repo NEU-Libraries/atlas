@@ -47,6 +47,7 @@ RSpec.describe 'Compilations', type: :request, default_auth: false do
     get 'List compilations (owner- or grant-scoped)' do
       tags 'Compilations'
       produces 'application/json'
+      paginated
       description <<~D
         Paginated listing of Compilations, ordered by title A to Z, ignoring
         case. Three modes:
@@ -64,14 +65,11 @@ RSpec.describe 'Compilations', type: :request, default_auth: false do
         the filter and the order apply before pagination, so the pagination
         block describes the filtered, ordered result.
       D
-      security [{ BearerAuth: [], NuidHeader: [] }]
-      parameter name: :Authorization, in: :header, type: :string, required: false
-      parameter name: :User, in: :header, type: :string, required: false
       parameter name: :owner, in: :query, type: :string, required: false,
                 description: 'NUID whose Sets to list (admin-only); defaults to the caller. ' \
                              'Ignored when scope is given.'
-      parameter name: :scope, in: :query, type: :string, required: false,
-                enum: %w[editable shared],
+      parameter name: :scope, in: :query, required: false,
+                schema:      { type: :string, enum: %w[editable shared] },
                 description: 'grant-scoped mode: editable (edit grants) or shared (read+edit grants), ' \
                              'both excluding owned Sets'
       parameter name: :q, in: :query, type: :string, required: false,
@@ -207,9 +205,6 @@ RSpec.describe 'Compilations', type: :request, default_auth: false do
       produces 'application/json'
       description 'Creates a personal Set owned by the acting user (depositor is stamped ' \
                   'from the authenticated NUID). Born private: empty ACLs, no staff default.'
-      security [{ BearerAuth: [], NuidHeader: [] }]
-      parameter name: :Authorization, in: :header, type: :string, required: false
-      parameter name: :User, in: :header, type: :string, required: false
       parameter name: :body, in: :body, schema: {
         type:       :object,
         properties: {
@@ -275,9 +270,6 @@ RSpec.describe 'Compilations', type: :request, default_auth: false do
       produces 'application/json'
       description 'Per-row visibility: owner, explicit read/edit grants, or public. ' \
                   'Public Sets are readable by unauthenticated (guest) callers — the CERES case.'
-      security [{ BearerAuth: [], NuidHeader: [] }]
-      parameter name: :Authorization, in: :header, type: :string, required: false
-      parameter name: :User, in: :header, type: :string, required: false
 
       response '200', 'owner reads their set' do
         schema '$ref' => '#/components/schemas/Compilation'
@@ -326,9 +318,6 @@ RSpec.describe 'Compilations', type: :request, default_auth: false do
         depositor is never writable). ACL changes emit a `permissions`
         audit event with before/after; no-op ACL writes are suppressed.
       D
-      security [{ BearerAuth: [], NuidHeader: [] }]
-      parameter name: :Authorization, in: :header, type: :string, required: false
-      parameter name: :User, in: :header, type: :string, required: false
       parameter name: :body, in: :body, schema: {
         type:       :object,
         properties: {
@@ -399,9 +388,6 @@ RSpec.describe 'Compilations', type: :request, default_auth: false do
     delete 'Destroy a compilation' do
       tags 'Compilations'
       description 'Owner (or edit-grantee / admin) only. Join rows cascade.'
-      security [{ BearerAuth: [], NuidHeader: [] }]
-      parameter name: :Authorization, in: :header, type: :string, required: false
-      parameter name: :User, in: :header, type: :string, required: false
 
       response '204', 'compilation destroyed' do
         let(:id) { create_compilation(curator).noid }
@@ -451,9 +437,6 @@ RSpec.describe 'Compilations', type: :request, default_auth: false do
         description 'Adds an include-collection recipe line. The noid must resolve to a ' \
                     'Collection (Communities and unknown noids are 422). Idempotent. ' \
                     'No audit row — recipe churn is personal curation.'
-        security [{ BearerAuth: [], NuidHeader: [] }]
-        parameter name: :Authorization, in: :header, type: :string, required: false
-        parameter name: :User, in: :header, type: :string, required: false
         parameter name: :body, in: :body, schema: {
           type:       :object,
           properties: { collection_id: { type: :string, description: 'Collection NOID' } },
@@ -506,9 +489,6 @@ RSpec.describe 'Compilations', type: :request, default_auth: false do
         tags 'Compilations'
         produces 'application/json'
         description 'Idempotent: removing an absent inclusion is a 200 no-op.'
-        security [{ BearerAuth: [], NuidHeader: [] }]
-        parameter name: :Authorization, in: :header, type: :string, required: false
-        parameter name: :User, in: :header, type: :string, required: false
 
         response '200', 'inclusion removed (or was already absent)' do
           schema '$ref' => '#/components/schemas/Compilation'
@@ -536,9 +516,6 @@ RSpec.describe 'Compilations', type: :request, default_auth: false do
         consumes 'application/json'
         produces 'application/json'
         description 'Adds an include-work recipe line. The noid must resolve to a Work. Idempotent.'
-        security [{ BearerAuth: [], NuidHeader: [] }]
-        parameter name: :Authorization, in: :header, type: :string, required: false
-        parameter name: :User, in: :header, type: :string, required: false
         parameter name: :body, in: :body, schema: {
           type:       :object,
           properties: { work_id: { type: :string, description: 'Work NOID' } },
@@ -580,9 +557,6 @@ RSpec.describe 'Compilations', type: :request, default_auth: false do
         tags 'Compilations'
         produces 'application/json'
         description 'Idempotent: removing an absent inclusion is a 200 no-op.'
-        security [{ BearerAuth: [], NuidHeader: [] }]
-        parameter name: :Authorization, in: :header, type: :string, required: false
-        parameter name: :User, in: :header, type: :string, required: false
 
         response '200', 'inclusion removed' do
           schema '$ref' => '#/components/schemas/Compilation'
@@ -606,9 +580,6 @@ RSpec.describe 'Compilations', type: :request, default_auth: false do
         produces 'application/json'
         description 'Adds a set-aside recipe line: the Work is subtracted from the resolved ' \
                     'union at read time. The noid must resolve to a Work. Idempotent.'
-        security [{ BearerAuth: [], NuidHeader: [] }]
-        parameter name: :Authorization, in: :header, type: :string, required: false
-        parameter name: :User, in: :header, type: :string, required: false
         parameter name: :body, in: :body, schema: {
           type:       :object,
           properties: { work_id: { type: :string, description: 'Work NOID' } },
@@ -636,9 +607,6 @@ RSpec.describe 'Compilations', type: :request, default_auth: false do
         tags 'Compilations'
         produces 'application/json'
         description 'Idempotent: clearing an absent set-aside is a 200 no-op.'
-        security [{ BearerAuth: [], NuidHeader: [] }]
-        parameter name: :Authorization, in: :header, type: :string, required: false
-        parameter name: :User, in: :header, type: :string, required: false
 
         response '200', 'set-aside cleared' do
           schema '$ref' => '#/components/schemas/Compilation'
@@ -668,9 +636,6 @@ RSpec.describe 'Compilations', type: :request, default_auth: false do
           Once published, the recipe routes start emitting `structural` audit rows,
           because a Work entering or leaving the feed is a curatorial act.
         D
-        security [{ BearerAuth: [], NuidHeader: [] }]
-        parameter name: :Authorization, in: :header, type: :string, required: false
-        parameter name: :User, in: :header, type: :string, required: false
 
         response '200', 'set published' do
           schema '$ref' => '#/components/schemas/Compilation'
@@ -698,9 +663,6 @@ RSpec.describe 'Compilations', type: :request, default_auth: false do
         description 'Clears the flag; ListSets stops advertising it. Admin-only. ' \
                     'Harvesters that already copied the Set are NOT told — OAI ' \
                     'deletion is per record, and this removes the set, not its Works.'
-        security [{ BearerAuth: [], NuidHeader: [] }]
-        parameter name: :Authorization, in: :header, type: :string, required: false
-        parameter name: :User, in: :header, type: :string, required: false
 
         response '200', 'set removed' do
           schema '$ref' => '#/components/schemas/Compilation'
@@ -844,11 +806,7 @@ RSpec.describe 'Compilations', type: :request, default_auth: false do
           pagination via `page` /
           `per_page` (default 25, capped at 100).
         D
-        security [{ BearerAuth: [], NuidHeader: [] }]
-        parameter name: :Authorization, in: :header, type: :string, required: false
-        parameter name: :User, in: :header, type: :string, required: false
-        parameter name: :page, in: :query, type: :integer, required: false
-        parameter name: :per_page, in: :query, type: :integer, required: false
+        paginated per_page: true
 
         response '200', 'union minus exclusions, ACL-gated (owner with read group)' do
           schema '$ref' => '#/components/schemas/CompilationContents'

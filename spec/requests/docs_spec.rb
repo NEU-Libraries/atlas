@@ -10,7 +10,7 @@ require 'rails_helper'
 # path prefix of a reverse proxy. These examples pin both.
 #
 # This is a plain request spec, not an rswag one: /docs is a browser page, not
-# an API operation, so it does not belong in openapi/openapi.yaml.
+# an API operation, so it does not belong in the OpenAPI documents.
 RSpec.describe 'GET /docs' do
   it 'renders the Scalar reference page' do
     get '/docs'
@@ -47,5 +47,19 @@ RSpec.describe 'GET /docs' do
 
     expect(response).to have_http_status(:ok)
     expect(response.body).to include('openapi:')
+  end
+
+  # The internal document sits beside the served root, not inside it, because
+  # the Rswag middleware serves any file under its root. A change to that root
+  # would publish the operator surface without a word.
+  it 'never serves the internal document' do
+    expect(Rails.root.join('openapi/internal/openapi.yaml')).to exist
+
+    ['/api-docs/internal/openapi.yaml', '/api-docs/../internal/openapi.yaml',
+     '/api-docs/%2e%2e/internal/openapi.yaml'].each do |path|
+      # Unserved, the request falls through to routing, which raises here and
+      # answers 404 in production.
+      expect { get path }.to raise_error(ActionController::RoutingError), "#{path} was served"
+    end
   end
 end

@@ -72,7 +72,7 @@ reads the ACL directly for that reason.
 
 ### Over HTTP
 
-[`GET /works/{id}/health_check`](../openapi/openapi.yaml) runs the same check
+[`GET /works/{id}/health_check`](../openapi/public/openapi.yaml) runs the same check
 for Cerberus's Work edit screen. Three things differ from the rake task:
 
 - **It never re-hashes the bytes,** so `fixity_checked` is always `false`. A

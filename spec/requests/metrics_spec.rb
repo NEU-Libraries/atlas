@@ -10,7 +10,7 @@ RSpec.describe 'Metrics', type: :request do
 
   after { RequestLatency.clear! }
 
-  path '/metrics/latency' do
+  path '/metrics/latency', openapi_spec: OpenapiDocument::INTERNAL do
     get "Report Atlas's own request latency" do
       tags 'Metrics'
       operationId 'metrics_latency'

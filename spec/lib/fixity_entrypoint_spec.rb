@@ -62,12 +62,14 @@ RSpec.describe 'bin/fixity-entrypoint.sh' do
   end
 
   # A window that crosses midnight belongs to the date it opened on, so its
-  # small hours do not count as a new night.
+  # small hours do not count as a new night. At hour 22 the usual 23-to-next-hour
+  # window would start and end at 23, which the entrypoint reads as empty.
   it 'dates a window that crosses midnight by the day it opened' do
     hour = Time.now.utc.hour
-    run_entrypoint({ 'FIXITY_WINDOW_START' => '23', 'FIXITY_WINDOW_END' => ((hour + 1) % 24).to_s })
+    start, finish = hour == 22 ? [22, 4] : [23, (hour + 1) % 24]
+    run_entrypoint({ 'FIXITY_WINDOW_START' => start.to_s, 'FIXITY_WINDOW_END' => finish.to_s })
 
-    expect(marker.read.strip).to eq((hour < 23 ? today - 1 : today).iso8601)
+    expect(marker.read.strip).to eq((hour >= start ? today : today - 1).iso8601)
   end
 
   it 'passes the budget and the cycle through to the sweep' do

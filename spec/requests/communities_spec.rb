@@ -126,9 +126,10 @@ RSpec.describe 'Communities', type: :request do
       tags 'Communities'
       produces 'application/xml', 'application/json'
       description <<~DESC
-        Returns the Community's descriptive metadata. Send `Accept: application/xml`
-        for the MODS XML, which is the preservation copy, or `Accept:
-        application/json` for the JSON access copy.
+        Returns the Community's descriptive metadata. By default the body is the
+        JSON access copy. Append `.xml` (`/communities/{id}/mods.xml`) for the MODS
+        XML, which is the preservation copy, or `.html` for the rendered
+        display. The `Accept` header does not change the format.
 
         A tombstoned Community's metadata answers `410` with the `Tombstoned` body
         to everyone but admins and delegated admins.
@@ -139,6 +140,7 @@ RSpec.describe 'Communities', type: :request do
       end
 
       response '200', 'mods returned' do
+        json_schema :CommunityMods
         let(:community) { CommunityCreator.call }
         let(:id)        { community.noid }
         let(:Accept)    { 'application/xml' }

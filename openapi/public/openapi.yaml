@@ -2006,6 +2006,1427 @@ components:
       required:
       - resource_id
       - versions
+    WorkMods:
+      type: object
+      properties:
+        work:
+          type: object
+          properties:
+            id:
+              type: string
+              description: NOID of the work
+            mods:
+              type: object
+              properties:
+                main_title:
+                  type: object
+                  nullable: true
+                main_title_display_label:
+                  type: string
+                  nullable: true
+                alternative_title:
+                  type: array
+                  items:
+                    type: object
+                uniform_title:
+                  type: array
+                  items:
+                    type: object
+                translated_title:
+                  type: array
+                  items:
+                    type: object
+                abbreviated_title:
+                  type: array
+                  items:
+                    type: object
+                names:
+                  type: array
+                  items:
+                    type: object
+                languages:
+                  type: array
+                  items:
+                    type: object
+                abstract:
+                  type: string
+                  nullable: true
+                abstract_display_label:
+                  type: string
+                  nullable: true
+                abstract_href:
+                  type: string
+                  nullable: true
+                publication_information:
+                  type: array
+                  items:
+                    type: object
+                place_of_publication:
+                  type: array
+                  items:
+                    type: object
+                origin_agents:
+                  type: array
+                  items:
+                    type: object
+                edition:
+                  type: array
+                  items:
+                    type: object
+                issuance:
+                  type: array
+                  items:
+                    type: object
+                frequency:
+                  type: array
+                  items:
+                    type: object
+                date_created:
+                  type: string
+                  format: date-time
+                  nullable: true
+                date_created_precision:
+                  type: string
+                  nullable: true
+                date_created_end:
+                  type: string
+                  format: date-time
+                  nullable: true
+                date_created_end_precision:
+                  type: string
+                  nullable: true
+                date_created_qualifier:
+                  type: string
+                  nullable: true
+                date_created_key_date:
+                  type: boolean
+                  nullable: true
+                date_created_text:
+                  type: string
+                  nullable: true
+                date_created_display_label:
+                  type: string
+                  nullable: true
+                date_created_event_type:
+                  type: string
+                  nullable: true
+                date_issued:
+                  type: string
+                  format: date-time
+                  nullable: true
+                date_issued_precision:
+                  type: string
+                  nullable: true
+                date_issued_end:
+                  type: string
+                  format: date-time
+                  nullable: true
+                date_issued_end_precision:
+                  type: string
+                  nullable: true
+                date_issued_qualifier:
+                  type: string
+                  nullable: true
+                date_issued_key_date:
+                  type: boolean
+                  nullable: true
+                date_issued_text:
+                  type: string
+                  nullable: true
+                date_issued_display_label:
+                  type: string
+                  nullable: true
+                date_issued_event_type:
+                  type: string
+                  nullable: true
+                copyright_date:
+                  type: string
+                  format: date-time
+                  nullable: true
+                copyright_date_precision:
+                  type: string
+                  nullable: true
+                copyright_date_end:
+                  type: string
+                  format: date-time
+                  nullable: true
+                copyright_date_end_precision:
+                  type: string
+                  nullable: true
+                copyright_date_qualifier:
+                  type: string
+                  nullable: true
+                copyright_date_key_date:
+                  type: boolean
+                  nullable: true
+                copyright_date_text:
+                  type: string
+                  nullable: true
+                copyright_date_display_label:
+                  type: string
+                  nullable: true
+                copyright_date_event_type:
+                  type: string
+                  nullable: true
+                date_captured:
+                  type: string
+                  format: date-time
+                  nullable: true
+                date_captured_precision:
+                  type: string
+                  nullable: true
+                date_captured_end:
+                  type: string
+                  format: date-time
+                  nullable: true
+                date_captured_end_precision:
+                  type: string
+                  nullable: true
+                date_captured_qualifier:
+                  type: string
+                  nullable: true
+                date_captured_key_date:
+                  type: boolean
+                  nullable: true
+                date_captured_text:
+                  type: string
+                  nullable: true
+                date_captured_display_label:
+                  type: string
+                  nullable: true
+                date_captured_event_type:
+                  type: string
+                  nullable: true
+                date_valid:
+                  type: string
+                  format: date-time
+                  nullable: true
+                date_valid_precision:
+                  type: string
+                  nullable: true
+                date_valid_end:
+                  type: string
+                  format: date-time
+                  nullable: true
+                date_valid_end_precision:
+                  type: string
+                  nullable: true
+                date_valid_qualifier:
+                  type: string
+                  nullable: true
+                date_valid_key_date:
+                  type: boolean
+                  nullable: true
+                date_valid_text:
+                  type: string
+                  nullable: true
+                date_valid_display_label:
+                  type: string
+                  nullable: true
+                date_valid_event_type:
+                  type: string
+                  nullable: true
+                date_other:
+                  type: string
+                  format: date-time
+                  nullable: true
+                date_other_precision:
+                  type: string
+                  nullable: true
+                date_other_end:
+                  type: string
+                  format: date-time
+                  nullable: true
+                date_other_end_precision:
+                  type: string
+                  nullable: true
+                date_other_qualifier:
+                  type: string
+                  nullable: true
+                date_other_key_date:
+                  type: boolean
+                  nullable: true
+                date_other_text:
+                  type: string
+                  nullable: true
+                date_other_display_label:
+                  type: string
+                  nullable: true
+                date_other_event_type:
+                  type: string
+                  nullable: true
+                date_modified:
+                  type: string
+                  format: date-time
+                  nullable: true
+                date_modified_precision:
+                  type: string
+                  nullable: true
+                date_modified_end:
+                  type: string
+                  format: date-time
+                  nullable: true
+                date_modified_end_precision:
+                  type: string
+                  nullable: true
+                date_modified_qualifier:
+                  type: string
+                  nullable: true
+                date_modified_key_date:
+                  type: boolean
+                  nullable: true
+                date_modified_text:
+                  type: string
+                  nullable: true
+                date_modified_display_label:
+                  type: string
+                  nullable: true
+                date_modified_event_type:
+                  type: string
+                  nullable: true
+                resource_type:
+                  type: array
+                  items:
+                    type: object
+                target_audience:
+                  type: array
+                  items:
+                    type: object
+                genres:
+                  type: array
+                  items:
+                    type: object
+                format:
+                  type: array
+                  items:
+                    type: object
+                extent:
+                  type: array
+                  items:
+                    type: object
+                digital_origin:
+                  type: array
+                  items:
+                    type: object
+                reformatting_quality:
+                  type: array
+                  items:
+                    type: object
+                physical_description_notes:
+                  type: array
+                  items:
+                    type: object
+                notes:
+                  type: array
+                  items:
+                    type: object
+                table_of_contents:
+                  type: array
+                  items:
+                    type: object
+                subject_headings:
+                  type: array
+                  items:
+                    type: object
+                topical_subjects:
+                  type: array
+                  items:
+                    type: string
+                geographic_subjects:
+                  type: array
+                  items:
+                    type: string
+                temporal_subjects:
+                  type: array
+                  items:
+                    type: string
+                personal_name_subjects:
+                  type: array
+                  items:
+                    type: string
+                corporate_name_subjects:
+                  type: array
+                  items:
+                    type: string
+                occupation_subjects:
+                  type: array
+                  items:
+                    type: string
+                genre_subjects:
+                  type: array
+                  items:
+                    type: string
+                geographic_code_subjects:
+                  type: array
+                  items:
+                    type: string
+                title_subjects:
+                  type: array
+                  items:
+                    type: string
+                hierarchical_geographic_subjects:
+                  type: array
+                  items:
+                    type: object
+                map_data:
+                  type: array
+                  items:
+                    type: object
+                related_series:
+                  type: array
+                  items:
+                    type: object
+                host_collections:
+                  type: array
+                  items:
+                    type: object
+                related_items:
+                  type: array
+                  items:
+                    type: object
+                identifiers:
+                  type: array
+                  items:
+                    type: object
+                classification:
+                  type: array
+                  items:
+                    type: object
+                permanent_url:
+                  type: string
+                  nullable: true
+                permanent_url_display_label:
+                  type: string
+                  nullable: true
+                record_info:
+                  type: object
+                  nullable: true
+                location:
+                  type: array
+                  items:
+                    type: object
+                access_condition:
+                  type: string
+                  nullable: true
+                access_condition_display_label:
+                  type: string
+                  nullable: true
+                access_condition_href:
+                  type: string
+                  nullable: true
+                use_and_reproduction:
+                  type: string
+                  nullable: true
+                use_and_reproduction_display_label:
+                  type: string
+                  nullable: true
+                use_and_reproduction_href:
+                  type: string
+                  nullable: true
+                restriction_on_access:
+                  type: string
+                  nullable: true
+                restriction_on_access_display_label:
+                  type: string
+                  nullable: true
+                restriction_on_access_href:
+                  type: string
+                  nullable: true
+      required:
+      - work
+    CollectionMods:
+      type: object
+      properties:
+        collection:
+          type: object
+          properties:
+            id:
+              type: string
+              description: NOID of the collection
+            mods:
+              type: object
+              properties:
+                main_title:
+                  type: object
+                  nullable: true
+                main_title_display_label:
+                  type: string
+                  nullable: true
+                alternative_title:
+                  type: array
+                  items:
+                    type: object
+                uniform_title:
+                  type: array
+                  items:
+                    type: object
+                translated_title:
+                  type: array
+                  items:
+                    type: object
+                abbreviated_title:
+                  type: array
+                  items:
+                    type: object
+                names:
+                  type: array
+                  items:
+                    type: object
+                languages:
+                  type: array
+                  items:
+                    type: object
+                abstract:
+                  type: string
+                  nullable: true
+                abstract_display_label:
+                  type: string
+                  nullable: true
+                abstract_href:
+                  type: string
+                  nullable: true
+                publication_information:
+                  type: array
+                  items:
+                    type: object
+                place_of_publication:
+                  type: array
+                  items:
+                    type: object
+                origin_agents:
+                  type: array
+                  items:
+                    type: object
+                edition:
+                  type: array
+                  items:
+                    type: object
+                issuance:
+                  type: array
+                  items:
+                    type: object
+                frequency:
+                  type: array
+                  items:
+                    type: object
+                date_created:
+                  type: string
+                  format: date-time
+                  nullable: true
+                date_created_precision:
+                  type: string
+                  nullable: true
+                date_created_end:
+                  type: string
+                  format: date-time
+                  nullable: true
+                date_created_end_precision:
+                  type: string
+                  nullable: true
+                date_created_qualifier:
+                  type: string
+                  nullable: true
+                date_created_key_date:
+                  type: boolean
+                  nullable: true
+                date_created_text:
+                  type: string
+                  nullable: true
+                date_created_display_label:
+                  type: string
+                  nullable: true
+                date_created_event_type:
+                  type: string
+                  nullable: true
+                date_issued:
+                  type: string
+                  format: date-time
+                  nullable: true
+                date_issued_precision:
+                  type: string
+                  nullable: true
+                date_issued_end:
+                  type: string
+                  format: date-time
+                  nullable: true
+                date_issued_end_precision:
+                  type: string
+                  nullable: true
+                date_issued_qualifier:
+                  type: string
+                  nullable: true
+                date_issued_key_date:
+                  type: boolean
+                  nullable: true
+                date_issued_text:
+                  type: string
+                  nullable: true
+                date_issued_display_label:
+                  type: string
+                  nullable: true
+                date_issued_event_type:
+                  type: string
+                  nullable: true
+                copyright_date:
+                  type: string
+                  format: date-time
+                  nullable: true
+                copyright_date_precision:
+                  type: string
+                  nullable: true
+                copyright_date_end:
+                  type: string
+                  format: date-time
+                  nullable: true
+                copyright_date_end_precision:
+                  type: string
+                  nullable: true
+                copyright_date_qualifier:
+                  type: string
+                  nullable: true
+                copyright_date_key_date:
+                  type: boolean
+                  nullable: true
+                copyright_date_text:
+                  type: string
+                  nullable: true
+                copyright_date_display_label:
+                  type: string
+                  nullable: true
+                copyright_date_event_type:
+                  type: string
+                  nullable: true
+                date_captured:
+                  type: string
+                  format: date-time
+                  nullable: true
+                date_captured_precision:
+                  type: string
+                  nullable: true
+                date_captured_end:
+                  type: string
+                  format: date-time
+                  nullable: true
+                date_captured_end_precision:
+                  type: string
+                  nullable: true
+                date_captured_qualifier:
+                  type: string
+                  nullable: true
+                date_captured_key_date:
+                  type: boolean
+                  nullable: true
+                date_captured_text:
+                  type: string
+                  nullable: true
+                date_captured_display_label:
+                  type: string
+                  nullable: true
+                date_captured_event_type:
+                  type: string
+                  nullable: true
+                date_valid:
+                  type: string
+                  format: date-time
+                  nullable: true
+                date_valid_precision:
+                  type: string
+                  nullable: true
+                date_valid_end:
+                  type: string
+                  format: date-time
+                  nullable: true
+                date_valid_end_precision:
+                  type: string
+                  nullable: true
+                date_valid_qualifier:
+                  type: string
+                  nullable: true
+                date_valid_key_date:
+                  type: boolean
+                  nullable: true
+                date_valid_text:
+                  type: string
+                  nullable: true
+                date_valid_display_label:
+                  type: string
+                  nullable: true
+                date_valid_event_type:
+                  type: string
+                  nullable: true
+                date_other:
+                  type: string
+                  format: date-time
+                  nullable: true
+                date_other_precision:
+                  type: string
+                  nullable: true
+                date_other_end:
+                  type: string
+                  format: date-time
+                  nullable: true
+                date_other_end_precision:
+                  type: string
+                  nullable: true
+                date_other_qualifier:
+                  type: string
+                  nullable: true
+                date_other_key_date:
+                  type: boolean
+                  nullable: true
+                date_other_text:
+                  type: string
+                  nullable: true
+                date_other_display_label:
+                  type: string
+                  nullable: true
+                date_other_event_type:
+                  type: string
+                  nullable: true
+                date_modified:
+                  type: string
+                  format: date-time
+                  nullable: true
+                date_modified_precision:
+                  type: string
+                  nullable: true
+                date_modified_end:
+                  type: string
+                  format: date-time
+                  nullable: true
+                date_modified_end_precision:
+                  type: string
+                  nullable: true
+                date_modified_qualifier:
+                  type: string
+                  nullable: true
+                date_modified_key_date:
+                  type: boolean
+                  nullable: true
+                date_modified_text:
+                  type: string
+                  nullable: true
+                date_modified_display_label:
+                  type: string
+                  nullable: true
+                date_modified_event_type:
+                  type: string
+                  nullable: true
+                resource_type:
+                  type: array
+                  items:
+                    type: object
+                target_audience:
+                  type: array
+                  items:
+                    type: object
+                genres:
+                  type: array
+                  items:
+                    type: object
+                format:
+                  type: array
+                  items:
+                    type: object
+                extent:
+                  type: array
+                  items:
+                    type: object
+                digital_origin:
+                  type: array
+                  items:
+                    type: object
+                reformatting_quality:
+                  type: array
+                  items:
+                    type: object
+                physical_description_notes:
+                  type: array
+                  items:
+                    type: object
+                notes:
+                  type: array
+                  items:
+                    type: object
+                table_of_contents:
+                  type: array
+                  items:
+                    type: object
+                subject_headings:
+                  type: array
+                  items:
+                    type: object
+                topical_subjects:
+                  type: array
+                  items:
+                    type: string
+                geographic_subjects:
+                  type: array
+                  items:
+                    type: string
+                temporal_subjects:
+                  type: array
+                  items:
+                    type: string
+                personal_name_subjects:
+                  type: array
+                  items:
+                    type: string
+                corporate_name_subjects:
+                  type: array
+                  items:
+                    type: string
+                occupation_subjects:
+                  type: array
+                  items:
+                    type: string
+                genre_subjects:
+                  type: array
+                  items:
+                    type: string
+                geographic_code_subjects:
+                  type: array
+                  items:
+                    type: string
+                title_subjects:
+                  type: array
+                  items:
+                    type: string
+                hierarchical_geographic_subjects:
+                  type: array
+                  items:
+                    type: object
+                map_data:
+                  type: array
+                  items:
+                    type: object
+                related_series:
+                  type: array
+                  items:
+                    type: object
+                host_collections:
+                  type: array
+                  items:
+                    type: object
+                related_items:
+                  type: array
+                  items:
+                    type: object
+                identifiers:
+                  type: array
+                  items:
+                    type: object
+                classification:
+                  type: array
+                  items:
+                    type: object
+                permanent_url:
+                  type: string
+                  nullable: true
+                permanent_url_display_label:
+                  type: string
+                  nullable: true
+                record_info:
+                  type: object
+                  nullable: true
+                location:
+                  type: array
+                  items:
+                    type: object
+                access_condition:
+                  type: string
+                  nullable: true
+                access_condition_display_label:
+                  type: string
+                  nullable: true
+                access_condition_href:
+                  type: string
+                  nullable: true
+                use_and_reproduction:
+                  type: string
+                  nullable: true
+                use_and_reproduction_display_label:
+                  type: string
+                  nullable: true
+                use_and_reproduction_href:
+                  type: string
+                  nullable: true
+                restriction_on_access:
+                  type: string
+                  nullable: true
+                restriction_on_access_display_label:
+                  type: string
+                  nullable: true
+                restriction_on_access_href:
+                  type: string
+                  nullable: true
+      required:
+      - collection
+    CommunityMods:
+      type: object
+      properties:
+        community:
+          type: object
+          properties:
+            id:
+              type: string
+              description: NOID of the community
+            mods:
+              type: object
+              properties:
+                main_title:
+                  type: object
+                  nullable: true
+                main_title_display_label:
+                  type: string
+                  nullable: true
+                alternative_title:
+                  type: array
+                  items:
+                    type: object
+                uniform_title:
+                  type: array
+                  items:
+                    type: object
+                translated_title:
+                  type: array
+                  items:
+                    type: object
+                abbreviated_title:
+                  type: array
+                  items:
+                    type: object
+                names:
+                  type: array
+                  items:
+                    type: object
+                languages:
+                  type: array
+                  items:
+                    type: object
+                abstract:
+                  type: string
+                  nullable: true
+                abstract_display_label:
+                  type: string
+                  nullable: true
+                abstract_href:
+                  type: string
+                  nullable: true
+                publication_information:
+                  type: array
+                  items:
+                    type: object
+                place_of_publication:
+                  type: array
+                  items:
+                    type: object
+                origin_agents:
+                  type: array
+                  items:
+                    type: object
+                edition:
+                  type: array
+                  items:
+                    type: object
+                issuance:
+                  type: array
+                  items:
+                    type: object
+                frequency:
+                  type: array
+                  items:
+                    type: object
+                date_created:
+                  type: string
+                  format: date-time
+                  nullable: true
+                date_created_precision:
+                  type: string
+                  nullable: true
+                date_created_end:
+                  type: string
+                  format: date-time
+                  nullable: true
+                date_created_end_precision:
+                  type: string
+                  nullable: true
+                date_created_qualifier:
+                  type: string
+                  nullable: true
+                date_created_key_date:
+                  type: boolean
+                  nullable: true
+                date_created_text:
+                  type: string
+                  nullable: true
+                date_created_display_label:
+                  type: string
+                  nullable: true
+                date_created_event_type:
+                  type: string
+                  nullable: true
+                date_issued:
+                  type: string
+                  format: date-time
+                  nullable: true
+                date_issued_precision:
+                  type: string
+                  nullable: true
+                date_issued_end:
+                  type: string
+                  format: date-time
+                  nullable: true
+                date_issued_end_precision:
+                  type: string
+                  nullable: true
+                date_issued_qualifier:
+                  type: string
+                  nullable: true
+                date_issued_key_date:
+                  type: boolean
+                  nullable: true
+                date_issued_text:
+                  type: string
+                  nullable: true
+                date_issued_display_label:
+                  type: string
+                  nullable: true
+                date_issued_event_type:
+                  type: string
+                  nullable: true
+                copyright_date:
+                  type: string
+                  format: date-time
+                  nullable: true
+                copyright_date_precision:
+                  type: string
+                  nullable: true
+                copyright_date_end:
+                  type: string
+                  format: date-time
+                  nullable: true
+                copyright_date_end_precision:
+                  type: string
+                  nullable: true
+                copyright_date_qualifier:
+                  type: string
+                  nullable: true
+                copyright_date_key_date:
+                  type: boolean
+                  nullable: true
+                copyright_date_text:
+                  type: string
+                  nullable: true
+                copyright_date_display_label:
+                  type: string
+                  nullable: true
+                copyright_date_event_type:
+                  type: string
+                  nullable: true
+                date_captured:
+                  type: string
+                  format: date-time
+                  nullable: true
+                date_captured_precision:
+                  type: string
+                  nullable: true
+                date_captured_end:
+                  type: string
+                  format: date-time
+                  nullable: true
+                date_captured_end_precision:
+                  type: string
+                  nullable: true
+                date_captured_qualifier:
+                  type: string
+                  nullable: true
+                date_captured_key_date:
+                  type: boolean
+                  nullable: true
+                date_captured_text:
+                  type: string
+                  nullable: true
+                date_captured_display_label:
+                  type: string
+                  nullable: true
+                date_captured_event_type:
+                  type: string
+                  nullable: true
+                date_valid:
+                  type: string
+                  format: date-time
+                  nullable: true
+                date_valid_precision:
+                  type: string
+                  nullable: true
+                date_valid_end:
+                  type: string
+                  format: date-time
+                  nullable: true
+                date_valid_end_precision:
+                  type: string
+                  nullable: true
+                date_valid_qualifier:
+                  type: string
+                  nullable: true
+                date_valid_key_date:
+                  type: boolean
+                  nullable: true
+                date_valid_text:
+                  type: string
+                  nullable: true
+                date_valid_display_label:
+                  type: string
+                  nullable: true
+                date_valid_event_type:
+                  type: string
+                  nullable: true
+                date_other:
+                  type: string
+                  format: date-time
+                  nullable: true
+                date_other_precision:
+                  type: string
+                  nullable: true
+                date_other_end:
+                  type: string
+                  format: date-time
+                  nullable: true
+                date_other_end_precision:
+                  type: string
+                  nullable: true
+                date_other_qualifier:
+                  type: string
+                  nullable: true
+                date_other_key_date:
+                  type: boolean
+                  nullable: true
+                date_other_text:
+                  type: string
+                  nullable: true
+                date_other_display_label:
+                  type: string
+                  nullable: true
+                date_other_event_type:
+                  type: string
+                  nullable: true
+                date_modified:
+                  type: string
+                  format: date-time
+                  nullable: true
+                date_modified_precision:
+                  type: string
+                  nullable: true
+                date_modified_end:
+                  type: string
+                  format: date-time
+                  nullable: true
+                date_modified_end_precision:
+                  type: string
+                  nullable: true
+                date_modified_qualifier:
+                  type: string
+                  nullable: true
+                date_modified_key_date:
+                  type: boolean
+                  nullable: true
+                date_modified_text:
+                  type: string
+                  nullable: true
+                date_modified_display_label:
+                  type: string
+                  nullable: true
+                date_modified_event_type:
+                  type: string
+                  nullable: true
+                resource_type:
+                  type: array
+                  items:
+                    type: object
+                target_audience:
+                  type: array
+                  items:
+                    type: object
+                genres:
+                  type: array
+                  items:
+                    type: object
+                format:
+                  type: array
+                  items:
+                    type: object
+                extent:
+                  type: array
+                  items:
+                    type: object
+                digital_origin:
+                  type: array
+                  items:
+                    type: object
+                reformatting_quality:
+                  type: array
+                  items:
+                    type: object
+                physical_description_notes:
+                  type: array
+                  items:
+                    type: object
+                notes:
+                  type: array
+                  items:
+                    type: object
+                table_of_contents:
+                  type: array
+                  items:
+                    type: object
+                subject_headings:
+                  type: array
+                  items:
+                    type: object
+                topical_subjects:
+                  type: array
+                  items:
+                    type: string
+                geographic_subjects:
+                  type: array
+                  items:
+                    type: string
+                temporal_subjects:
+                  type: array
+                  items:
+                    type: string
+                personal_name_subjects:
+                  type: array
+                  items:
+                    type: string
+                corporate_name_subjects:
+                  type: array
+                  items:
+                    type: string
+                occupation_subjects:
+                  type: array
+                  items:
+                    type: string
+                genre_subjects:
+                  type: array
+                  items:
+                    type: string
+                geographic_code_subjects:
+                  type: array
+                  items:
+                    type: string
+                title_subjects:
+                  type: array
+                  items:
+                    type: string
+                hierarchical_geographic_subjects:
+                  type: array
+                  items:
+                    type: object
+                map_data:
+                  type: array
+                  items:
+                    type: object
+                related_series:
+                  type: array
+                  items:
+                    type: object
+                host_collections:
+                  type: array
+                  items:
+                    type: object
+                related_items:
+                  type: array
+                  items:
+                    type: object
+                identifiers:
+                  type: array
+                  items:
+                    type: object
+                classification:
+                  type: array
+                  items:
+                    type: object
+                permanent_url:
+                  type: string
+                  nullable: true
+                permanent_url_display_label:
+                  type: string
+                  nullable: true
+                record_info:
+                  type: object
+                  nullable: true
+                location:
+                  type: array
+                  items:
+                    type: object
+                access_condition:
+                  type: string
+                  nullable: true
+                access_condition_display_label:
+                  type: string
+                  nullable: true
+                access_condition_href:
+                  type: string
+                  nullable: true
+                use_and_reproduction:
+                  type: string
+                  nullable: true
+                use_and_reproduction_display_label:
+                  type: string
+                  nullable: true
+                use_and_reproduction_href:
+                  type: string
+                  nullable: true
+                restriction_on_access:
+                  type: string
+                  nullable: true
+                restriction_on_access_display_label:
+                  type: string
+                  nullable: true
+                restriction_on_access_href:
+                  type: string
+                  nullable: true
+      required:
+      - community
+    ResourceMods:
+      oneOf:
+      - "$ref": "#/components/schemas/WorkMods"
+      - "$ref": "#/components/schemas/CollectionMods"
+      - "$ref": "#/components/schemas/CommunityMods"
+    WorkMets:
+      type: object
+      properties:
+        work:
+          type: object
+          properties:
+            id:
+              type: string
+              description: NOID of the work
+            mets:
+              type: object
+              properties:
+                agent:
+                  type: string
+                  nullable: true
+                  description: The agent that wrote the METS.
+                created_at_iso:
+                  type: string
+                  nullable: true
+                  description: When the METS was written.
+                structure_label:
+                  type: string
+                  nullable: true
+                files:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        nullable: true
+                      mime_type:
+                        type: string
+                        nullable: true
+                      use:
+                        type: string
+                        nullable: true
+                pages:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      noid:
+                        type: string
+                        description: NOID of the page's FileSet
+                      order:
+                        type: integer
+                        nullable: true
+                        description: 1-based page order; absent or null when the page
+                          has no position
+                      label:
+                        type: string
+                        nullable: true
+                    required:
+                    - noid
+              required:
+              - agent
+              - created_at_iso
+              - structure_label
+              - files
+              - pages
+          required:
+          - id
+          - mets
+      required:
+      - work
+    FileSetMets:
+      type: object
+      properties:
+        file_set:
+          type: object
+          properties:
+            id:
+              type: string
+              description: NOID of the file set
+            mets:
+              type: object
+              properties:
+                agent:
+                  type: string
+                  nullable: true
+                  description: The agent that wrote the METS.
+                created_at_iso:
+                  type: string
+                  nullable: true
+                  description: When the METS was written.
+                structure_label:
+                  type: string
+                  nullable: true
+                files:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        nullable: true
+                      mime_type:
+                        type: string
+                        nullable: true
+                      use:
+                        type: string
+                        nullable: true
+                pages:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      noid:
+                        type: string
+                        description: NOID of the page's FileSet
+                      order:
+                        type: integer
+                        nullable: true
+                        description: 1-based page order; absent or null when the page
+                          has no position
+                      label:
+                        type: string
+                        nullable: true
+                    required:
+                    - noid
+              required:
+              - agent
+              - created_at_iso
+              - structure_label
+              - files
+              - pages
+          required:
+          - id
+          - mets
+      required:
+      - file_set
     WorkDarwinCore:
       type: object
       properties:
@@ -3734,9 +5155,10 @@ paths:
       tags:
       - Collections
       description: |
-        Returns the Collection's descriptive metadata. Send `Accept:
-        application/xml` for the MODS XML, which is the preservation copy, or
-        `Accept: application/json` for the JSON access copy.
+        Returns the Collection's descriptive metadata. By default the body is the
+        JSON access copy. Append `.xml` (`/collections/{id}/mods.xml`) for the MODS
+        XML, which is the preservation copy, or `.html` for the rendered
+        display. The `Accept` header does not change the format.
 
         A tombstoned Collection's metadata answers `410` with the `Tombstoned` body
         to everyone but admins and delegated admins.
@@ -3752,6 +5174,8 @@ paths:
           description: mods returned
           content:
             application/json:
+              schema:
+                "$ref": "#/components/schemas/CollectionMods"
               example:
                 collection:
                   id: d0000001x
@@ -4227,9 +5651,10 @@ paths:
       tags:
       - Communities
       description: |
-        Returns the Community's descriptive metadata. Send `Accept: application/xml`
-        for the MODS XML, which is the preservation copy, or `Accept:
-        application/json` for the JSON access copy.
+        Returns the Community's descriptive metadata. By default the body is the
+        JSON access copy. Append `.xml` (`/communities/{id}/mods.xml`) for the MODS
+        XML, which is the preservation copy, or `.html` for the rendered
+        display. The `Accept` header does not change the format.
 
         A tombstoned Community's metadata answers `410` with the `Tombstoned` body
         to everyone but admins and delegated admins.
@@ -4245,6 +5670,8 @@ paths:
           description: mods returned
           content:
             application/json:
+              schema:
+                "$ref": "#/components/schemas/CommunityMods"
               example:
                 community:
                   id: d0000001x
@@ -5175,8 +6602,8 @@ paths:
         schema:
           type: integer
           minimum: 1
-        description: The page to return, from 1. Follow `pagination.next` until it
-          is null.
+        description: The page to return, from 1. Stop when `pagination.page` reaches
+          `pagination.pages`.
       - name: per_page
         in: query
         required: false
@@ -5937,6 +7364,8 @@ paths:
           description: mets returned
           content:
             application/json:
+              schema:
+                "$ref": "#/components/schemas/FileSetMets"
               example:
                 file_set:
                   id: d0000001x
@@ -6539,6 +7968,8 @@ paths:
           description: current mods returned
           content:
             application/json:
+              schema:
+                "$ref": "#/components/schemas/ResourceMods"
               example:
                 work:
                   id: d0000001x
@@ -7356,8 +8787,8 @@ paths:
         schema:
           type: integer
           minimum: 1
-        description: The page to return, from 1. Follow `pagination.next` until it
-          is null.
+        description: The page to return, from 1. Stop when `pagination.page` reaches
+          `pagination.pages`.
       - name: per_page
         in: query
         required: false
@@ -7441,8 +8872,8 @@ paths:
         schema:
           type: integer
           minimum: 1
-        description: The page to return, from 1. Follow `pagination.next` until it
-          is null.
+        description: The page to return, from 1. Stop when `pagination.page` reaches
+          `pagination.pages`.
       - name: per_page
         in: query
         required: false
@@ -8013,9 +9444,11 @@ paths:
       tags:
       - Works
       description: |
-        Returns MODS XML by default; pass `Accept: application/json` for the
-        JSON access copy, whose body is the `WorkMods` schema, or
-        `Accept: text/html` for the rendered display.
+        Returns the Work's descriptive metadata. By default the body is the
+        JSON access copy, the `WorkMods` schema. Append `.xml`
+        (`/works/{id}/mods.xml`) for the MODS XML, which is the preservation
+        copy, or `.html` for the rendered display. The `Accept` header does
+        not change the format.
 
         The HTML form marks each browse candidate with `data-browse-axis`
         (the MODS-side axis, never a Solr field name), `data-browse-value`
@@ -8028,6 +9461,8 @@ paths:
           description: mods returned
           content:
             application/json:
+              schema:
+                "$ref": "#/components/schemas/WorkMods"
               example:
                 work:
                   id: d0000001x
@@ -8197,6 +9632,8 @@ paths:
           description: work mets returned
           content:
             application/json:
+              schema:
+                "$ref": "#/components/schemas/WorkMets"
               example:
                 work:
                   id: d0000001x

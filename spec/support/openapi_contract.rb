@@ -32,7 +32,10 @@ module OpenapiContract
       describe_path_parameters(op['parameters'])
       op['operationId'] ||= operation_id(template, verb)
       op['responses']['401'] ||= { '$ref' => UNAUTHORIZED_REF } if secured?(op, doc)
-      op['responses'].each { |code, response| OpenapiErrorBodies.document(code, response) }
+      op['responses'].each do |code, response|
+        OpenapiErrorBodies.document(code, response)
+        OpenapiJsonBodies.document(response)
+      end
     end
     disambiguate!(doc)
     OpenapiExamples.attach(doc)
@@ -146,6 +149,7 @@ module OpenapiResponseHooks
   def assert_response_matches_metadata(metadata, ...)
     super
     OpenapiErrorBodies.check(metadata, response)
+    OpenapiJsonBodies.check(metadata, response)
     OpenapiExamples.record(metadata, response, RSpec.current_example.id) if OpenapiExamples.recording?
   end
 end

@@ -47,6 +47,11 @@ module OpenapiSchemas
       ResourceDigests:    resource_digests,
       ModsVersions:       mods_versions,
       WorkMods:           work_mods,
+      CollectionMods:     container_mods(:collection),
+      CommunityMods:      container_mods(:community),
+      ResourceMods:       resource_mods,
+      WorkMets:           mets(:work),
+      FileSetMets:        mets(:file_set),
       WorkDarwinCore:     work_darwin_core,
       BlobVersions:       blob_versions,
       BlobVersionsBatch:  blob_versions_batch,
@@ -1099,7 +1104,70 @@ module OpenapiSchemas
             mods: mods_document
           }
         }
+      },
+      required:   %w[work]
+    }
+  end
+
+  # The JSON access copy of a container's MODS: the same projection as a
+  # Work's, under the container's own key.
+  def container_mods(key)
+    {
+      type:       :object,
+      properties: {
+        key => {
+          type:       :object,
+          properties: {
+            id:   { type: :string, description: "NOID of the #{key}" },
+            mods: mods_document
+          }
+        }
+      },
+      required:   [key.to_s]
+    }
+  end
+
+  # GET /resources/{id}/mods renders the typed route's body for whatever the
+  # NOID resolves to.
+  def resource_mods
+    { oneOf: %w[WorkMods CollectionMods CommunityMods].map { |name| { '$ref' => "#/components/schemas/#{name}" } } }
+  end
+
+  # The JSON projection of a structural (METS) record. `pages` is the Work's
+  # physical page order, and empty on a FileSet's record.
+  def mets(key)
+    wrapped(key, {
+              id:   { type: :string, description: "NOID of the #{key.to_s.tr('_', ' ')}" },
+              mets: bare({
+                           agent:           { type: :string, nullable: true, description: 'The agent that wrote the METS.' },
+                           created_at_iso:  { type: :string, nullable: true, description: 'When the METS was written.' },
+                           structure_label: { type: :string, nullable: true },
+                           files:           { type: :array, items: mets_file_entry },
+                           pages:           { type: :array, items: mets_page_entry }
+                         })
+            })
+  end
+
+  def mets_file_entry
+    {
+      type:       :object,
+      properties: {
+        id:        { type: :string, nullable: true },
+        mime_type: { type: :string, nullable: true },
+        use:       { type: :string, nullable: true }
       }
+    }
+  end
+
+  def mets_page_entry
+    {
+      type:       :object,
+      properties: {
+        noid:  { type: :string, description: 'NOID of the page\'s FileSet' },
+        order: { type: :integer, nullable: true, description: '1-based page order; absent or null when the page has no position' },
+        label: { type: :string, nullable: true }
+      },
+      required:   %w[noid]
     }
   end
 

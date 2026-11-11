@@ -42,7 +42,7 @@ RSpec.describe 'Search', type: :request do
                 description: 'Search text. Omit to browse.'
       parameter name: :type, in: :query, required: false, schema: { type: :string, enum: SearchQuery::TYPES },
                 description: 'Narrow to one type. Omit to search all four.'
-      paginated per_page: true
+      paginated per_page: true, shape: :search
 
       let(:q)        { nil }
       let(:type)     { nil }

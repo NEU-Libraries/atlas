@@ -806,7 +806,7 @@ RSpec.describe 'Compilations', type: :request, default_auth: false do
           pagination via `page` /
           `per_page` (default 25, capped at 100).
         D
-        paginated per_page: true
+        paginated per_page: true, shape: :search
 
         response '200', 'union minus exclusions, ACL-gated (owner with read group)' do
           schema '$ref' => '#/components/schemas/CompilationContents'

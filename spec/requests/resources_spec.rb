@@ -229,6 +229,7 @@ RSpec.describe 'Resources', type: :request do
       end
 
       response '200', 'current mods returned' do
+        json_schema :ResourceMods
         let(:id)     { work.noid }
         let(:Accept) { 'application/xml' }
         run_test!
@@ -1012,7 +1013,7 @@ RSpec.describe 'Resources', type: :request do
         (`a_linked_member_of`). Solr-side pagination via `page` / `per_page`
         (default 25, capped at 100). Unknown id → 404.
       DESC
-      paginated per_page: true
+      paginated per_page: true, shape: :search
       parameter name: :include_linked, in: :query, type: :boolean, required: false,
                 description: 'Include linked members (a_linked_member_of); structural-only by default'
 

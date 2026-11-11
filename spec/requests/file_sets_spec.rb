@@ -348,6 +348,7 @@ RSpec.describe 'FileSets', type: :request do
       end
 
       response '200', 'mets returned' do
+        json_schema :FileSetMets
         let(:file_set) { FileSetCreator.call(work_id: work.noid, classification: Classification.generic) }
         let(:id)       { file_set.noid }
         run_test!

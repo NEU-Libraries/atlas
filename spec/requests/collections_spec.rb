@@ -142,9 +142,10 @@ RSpec.describe 'Collections', type: :request do
       tags 'Collections'
       produces 'application/xml', 'application/json'
       description <<~DESC
-        Returns the Collection's descriptive metadata. Send `Accept:
-        application/xml` for the MODS XML, which is the preservation copy, or
-        `Accept: application/json` for the JSON access copy.
+        Returns the Collection's descriptive metadata. By default the body is the
+        JSON access copy. Append `.xml` (`/collections/{id}/mods.xml`) for the MODS
+        XML, which is the preservation copy, or `.html` for the rendered
+        display. The `Accept` header does not change the format.
 
         A tombstoned Collection's metadata answers `410` with the `Tombstoned` body
         to everyone but admins and delegated admins.
@@ -155,6 +156,7 @@ RSpec.describe 'Collections', type: :request do
       end
 
       response '200', 'mods returned' do
+        json_schema :CollectionMods
         let(:collection) { CollectionCreator.call(parent_id: community.noid) }
         let(:id)         { collection.noid }
         let(:Accept)     { 'application/xml' }

@@ -347,9 +347,11 @@ RSpec.describe 'Works', type: :request do
       tags 'Works'
       produces 'application/xml', 'application/json'
       description <<~DESC
-        Returns MODS XML by default; pass `Accept: application/json` for the
-        JSON access copy, whose body is the `WorkMods` schema, or
-        `Accept: text/html` for the rendered display.
+        Returns the Work's descriptive metadata. By default the body is the
+        JSON access copy, the `WorkMods` schema. Append `.xml`
+        (`/works/{id}/mods.xml`) for the MODS XML, which is the preservation
+        copy, or `.html` for the rendered display. The `Accept` header does
+        not change the format.
 
         The HTML form marks each browse candidate with `data-browse-axis`
         (the MODS-side axis, never a Solr field name), `data-browse-value`
@@ -365,6 +367,7 @@ RSpec.describe 'Works', type: :request do
       # against the same registered WorkMods entry instead.
 
       response '200', 'mods returned' do
+        json_schema :WorkMods
         let(:work) { WorkCreator.call(parent_id: collection.noid) }
         let(:id)   { work.noid }
         let(:Accept) { 'application/xml' }
@@ -400,6 +403,7 @@ RSpec.describe 'Works', type: :request do
       end
 
       response '200', 'work mets returned' do
+        json_schema :WorkMets
         let(:work) { WorkCreator.call(parent_id: collection.noid) }
         let(:id)   { work.noid }
         before do

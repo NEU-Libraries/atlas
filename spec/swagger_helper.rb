@@ -53,6 +53,12 @@ module Rswag
         metadata[:openapi_spec] = OpenapiDocument::INTERNAL
       end
 
+      # Inside a response block on a route that also serves XML or HTML: the
+      # schema of its JSON body alone, which rswag cannot express.
+      def json_schema(name)
+        metadata[:response][OpenapiJsonBodies::KEY] = name.to_s
+      end
+
       # Inside a response block: this 4xx answers with no body, against the
       # default that only 404 and 416 are bare. See docs/openapi.md.
       def no_body
@@ -65,10 +71,16 @@ module Rswag
       end
 
       # The paging parameters of a list. Pass per_page: true only where the
-      # action reads it; LazyPagination caps it at MAX_PER_PAGE.
-      def paginated(per_page: false)
+      # action reads it; LazyPagination caps it at MAX_PER_PAGE. A search-backed
+      # list returns SearchPagination, which has no `next`, so it says so.
+      PAGE_STOP = {
+        pagy:   'Follow `pagination.next` until it is null.',
+        search: 'Stop when `pagination.page` reaches `pagination.pages`.'
+      }.freeze
+
+      def paginated(per_page: false, shape: :pagy)
         parameter name: :page, in: :query, required: false, schema: { type: :integer, minimum: 1 },
-                  description: 'The page to return, from 1. Follow `pagination.next` until it is null.'
+                  description: "The page to return, from 1. #{PAGE_STOP.fetch(shape)}"
         return unless per_page
 
         parameter name: :per_page, in: :query, required: false,

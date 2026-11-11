@@ -583,7 +583,7 @@ components:
               description: NOID
             valkyrie_id:
               type: string
-              description: Valkyrie internal id
+              description: An internal id; use `id`, the NOID, in every path
             nuid:
               type: string
               description: Correlation key + public address

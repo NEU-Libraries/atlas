@@ -524,9 +524,8 @@ RSpec.describe 'Works', type: :request do
         Returns a polymorphic array of downloadable assets attached to the
         Work: held binaries (Blob entries with size + original_filename)
         and external pointer-only derivatives (Delegate entries with
-        use + uri, e.g. IIIF-served sized image variants). Thumbnails
-        (Role.thumbnail_image) and metadata roles are excluded by
-        Role.downloadable?.
+        use + uri, e.g. IIIF-served sized image variants). Thumbnails and the
+        descriptive-metadata files are left out.
 
         Each element names its model in `kind`, `Blob` or `Delegate`. Match on
         `kind`, not on whether `uri` is present: an embargo answers `uri: null`

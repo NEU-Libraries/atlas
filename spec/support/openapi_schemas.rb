@@ -299,7 +299,7 @@ module OpenapiSchemas
     wrapped(:delegate, {
               kind:              { type: :string, enum: %w[Delegate], description: 'The asset model, as the asset listings name it' },
               id:                { type: :string, description: 'NOID' },
-              valkyrie_id:       { type: :string, description: 'Valkyrie internal id' },
+              valkyrie_id:       { type: :string, description: 'An internal id; use `id`, the NOID, in every path' },
               use:               { type: :string, nullable: true },
               uri:               { type: :string, nullable: true,
                                  description: 'Where the asset can be fetched (IIIF URL for image roles). Null for the ' \
@@ -374,7 +374,7 @@ module OpenapiSchemas
   def person_props
     {
       id:                       { type: :string, description: 'NOID' },
-      valkyrie_id:              { type: :string, description: 'Valkyrie internal id' },
+      valkyrie_id:              { type: :string, description: 'An internal id; use `id`, the NOID, in every path' },
       nuid:                     { type: :string, description: 'Correlation key + public address' },
       display_name:             { type: :string, description: 'Authoritative, librarian-editable name' },
       bio:                      { type: :string, nullable: true },
@@ -1054,11 +1054,11 @@ module OpenapiSchemas
   def base_resource_props
     {
       id:               { type: :string, description: 'NOID' },
-      valkyrie_id:      { type: :string, description: 'Valkyrie internal id' },
+      valkyrie_id:      { type: :string, description: 'An internal id; use `id`, the NOID, in every path' },
       ancestors:        ancestor_nodes,
-      thumbnail:        { type: :string, nullable: true, description: 'IIIF URL of the :thumbnail_image Delegate (~85px), or null' },
-      thumbnail_2x:     { type: :string, nullable: true, description: 'IIIF URL of the :thumbnail_image_2x Delegate (~170px retina), or null' },
-      preview:          { type: :string, nullable: true, description: 'IIIF URL of the :preview_image Delegate (~500px hero), or null' },
+      thumbnail:        { type: :string, nullable: true, description: 'IIIF URL of the thumbnail, about 85px, or null' },
+      thumbnail_2x:     { type: :string, nullable: true, description: 'IIIF URL of the double-resolution thumbnail, about 170px, or null' },
+      preview:          { type: :string, nullable: true, description: 'IIIF URL of the preview image, about 500px, or null' },
       **preview_facts_props,
       title:            { type: :string, nullable: true },
       description:      { type: :string, nullable: true },
@@ -1197,7 +1197,9 @@ module OpenapiSchemas
           ]
         },
         abstract:    { type: :string },
-        keyword:     { type: :string, description: 'The topical subjects, comma-separated.' },
+        keyword:     { type:        :string,
+                       description: 'The topical subjects, comma-separated, as CSL expects. A subject can itself ' \
+                                    'contain a comma; read `topical_subjects` from the MODS JSON for a list.' },
         URL:         { type: :string, description: 'The Work\'s persistent URL, its handle.' }
       },
       required:             %w[id type title],

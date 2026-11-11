@@ -153,6 +153,17 @@ module OpenapiDocument
     This document is served at `/api-docs/openapi.yaml`, and rendered for
     people at `/docs`.
 
+    ### Quick start
+
+    1. Pick the server: `https://atlas.library.northeastern.edu` in
+       production, or the host your deployment gives you.
+    2. Search without a credential: `GET /resources/search?q=harbor`. Each
+       row has an `id`, the record's NOID.
+    3. Read a record by its NOID: `GET /works/{id}`, or
+       `GET /works/{id}/citation` for a citation.
+    4. To see more than public items, send a token as
+       `Authorization: Bearer <token>`, as "Getting access" explains.
+
     ### Getting access
 
     Without a credential, you are a **guest**. A guest can read public items

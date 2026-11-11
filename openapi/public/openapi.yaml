@@ -12,6 +12,17 @@ info:
     This document is served at `/api-docs/openapi.yaml`, and rendered for
     people at `/docs`.
 
+    ### Quick start
+
+    1. Pick the server: `https://atlas.library.northeastern.edu` in
+       production, or the host your deployment gives you.
+    2. Search without a credential: `GET /resources/search?q=harbor`. Each
+       row has an `id`, the record's NOID.
+    3. Read a record by its NOID: `GET /works/{id}`, or
+       `GET /works/{id}/citation` for a citation.
+    4. To see more than public items, send a token as
+       `Authorization: Bearer <token>`, as "Getting access" explains.
+
     ### Getting access
 
     Without a credential, you are a **guest**. A guest can read public items
@@ -89,8 +100,8 @@ info:
     - A page holds up to 50 records from `ListRecords`, or 200 headers from
       `ListIdentifiers`. Follow the `resumptionToken` until it is absent or
       empty. A token never expires, so a harvest can resume at any time.
-    - There is no rate limit. An outage answers `500` here, not the `503`
-      with `Retry-After` this API uses, so back off and retry on any `5xx`.
+    - There is no rate limit. An outage answers `503` with `Retry-After`, as
+      it does on this API; wait that many seconds, then resume.
     - `GET /oai?verb=Identify` reports the identifier scheme and the rest.
 
     ### Terms
@@ -247,7 +258,7 @@ components:
               description: NOID
             valkyrie_id:
               type: string
-              description: Valkyrie internal id
+              description: An internal id; use `id`, the NOID, in every path
             ancestors:
               type: array
               description: Ancestor chain, root-first, with titles and structural
@@ -282,17 +293,16 @@ components:
             thumbnail:
               type: string
               nullable: true
-              description: IIIF URL of the :thumbnail_image Delegate (~85px), or null
+              description: IIIF URL of the thumbnail, about 85px, or null
             thumbnail_2x:
               type: string
               nullable: true
-              description: IIIF URL of the :thumbnail_image_2x Delegate (~170px retina),
+              description: IIIF URL of the double-resolution thumbnail, about 170px,
                 or null
             preview:
               type: string
               nullable: true
-              description: IIIF URL of the :preview_image Delegate (~500px hero),
-                or null
+              description: IIIF URL of the preview image, about 500px, or null
             preview_width:
               type: integer
               nullable: true
@@ -440,7 +450,7 @@ components:
               description: NOID
             valkyrie_id:
               type: string
-              description: Valkyrie internal id
+              description: An internal id; use `id`, the NOID, in every path
             ancestors:
               type: array
               description: Ancestor chain, root-first, with titles and structural
@@ -475,17 +485,16 @@ components:
             thumbnail:
               type: string
               nullable: true
-              description: IIIF URL of the :thumbnail_image Delegate (~85px), or null
+              description: IIIF URL of the thumbnail, about 85px, or null
             thumbnail_2x:
               type: string
               nullable: true
-              description: IIIF URL of the :thumbnail_image_2x Delegate (~170px retina),
+              description: IIIF URL of the double-resolution thumbnail, about 170px,
                 or null
             preview:
               type: string
               nullable: true
-              description: IIIF URL of the :preview_image Delegate (~500px hero),
-                or null
+              description: IIIF URL of the preview image, about 500px, or null
             preview_width:
               type: integer
               nullable: true
@@ -583,7 +592,7 @@ components:
               description: NOID
             valkyrie_id:
               type: string
-              description: Valkyrie internal id
+              description: An internal id; use `id`, the NOID, in every path
             ancestors:
               type: array
               description: Ancestor chain, root-first, with titles and structural
@@ -618,17 +627,16 @@ components:
             thumbnail:
               type: string
               nullable: true
-              description: IIIF URL of the :thumbnail_image Delegate (~85px), or null
+              description: IIIF URL of the thumbnail, about 85px, or null
             thumbnail_2x:
               type: string
               nullable: true
-              description: IIIF URL of the :thumbnail_image_2x Delegate (~170px retina),
+              description: IIIF URL of the double-resolution thumbnail, about 170px,
                 or null
             preview:
               type: string
               nullable: true
-              description: IIIF URL of the :preview_image Delegate (~500px hero),
-                or null
+              description: IIIF URL of the preview image, about 500px, or null
             preview_width:
               type: integer
               nullable: true
@@ -875,7 +883,7 @@ components:
               description: NOID
             valkyrie_id:
               type: string
-              description: Valkyrie internal id
+              description: An internal id; use `id`, the NOID, in every path
             use:
               type: string
               nullable: true
@@ -1729,1025 +1737,1154 @@ components:
               type: string
               description: NOID of the work
             mods:
-              type: object
-              properties:
-                main_title:
+              "$ref": "#/components/schemas/MODSDocument"
+          required:
+          - id
+          - mods
+      required:
+      - work
+    MODSDocument:
+      type: object
+      description: The JSON access copy of a MODS record. Every field is present,
+        null or an empty array when the record does not give it.
+      properties:
+        main_title:
+          type: object
+          properties:
+            title:
+              type: string
+              nullable: true
+            subtitle:
+              type: string
+              nullable: true
+            part_number:
+              type: string
+              nullable: true
+            part_name:
+              type: string
+              nullable: true
+            non_sort:
+              type: string
+              nullable: true
+          additionalProperties: false
+          nullable: true
+        main_title_display_label:
+          type: string
+          nullable: true
+        alternative_title:
+          type: array
+          items:
+            type: object
+            properties:
+              display_label:
+                type: string
+                nullable: true
+              href:
+                type: string
+                nullable: true
+              value:
+                type: string
+                nullable: true
+            additionalProperties: false
+        uniform_title:
+          type: array
+          items:
+            type: object
+            properties:
+              display_label:
+                type: string
+                nullable: true
+              href:
+                type: string
+                nullable: true
+              value:
+                type: string
+                nullable: true
+            additionalProperties: false
+        translated_title:
+          type: array
+          items:
+            type: object
+            properties:
+              display_label:
+                type: string
+                nullable: true
+              href:
+                type: string
+                nullable: true
+              value:
+                type: string
+                nullable: true
+            additionalProperties: false
+        abbreviated_title:
+          type: array
+          items:
+            type: object
+            properties:
+              display_label:
+                type: string
+                nullable: true
+              href:
+                type: string
+                nullable: true
+              value:
+                type: string
+                nullable: true
+            additionalProperties: false
+        names:
+          type: array
+          items:
+            type: object
+            properties:
+              display_label:
+                type: string
+                nullable: true
+              href:
+                type: string
+                nullable: true
+              authority:
+                type: string
+                nullable: true
+              authority_uri:
+                type: string
+                nullable: true
+              value_uri:
+                type: string
+                nullable: true
+              name:
+                type: string
+                nullable: true
+              roles:
+                type: array
+                items:
+                  type: string
+                  nullable: true
+              affiliation:
+                type: array
+                items:
+                  type: string
+                  nullable: true
+              usage:
+                type: string
+                nullable: true
+              alternative_names:
+                type: array
+                items:
+                  type: string
+                  nullable: true
+            additionalProperties: false
+        languages:
+          type: array
+          items:
+            type: object
+            properties:
+              display_label:
+                type: string
+                nullable: true
+              href:
+                type: string
+                nullable: true
+              authority:
+                type: string
+                nullable: true
+              authority_uri:
+                type: string
+                nullable: true
+              value_uri:
+                type: string
+                nullable: true
+              term:
+                type: string
+                nullable: true
+              object_part:
+                type: string
+                nullable: true
+              script:
+                type: string
+                nullable: true
+            additionalProperties: false
+        abstract:
+          type: string
+          nullable: true
+        abstract_display_label:
+          type: string
+          nullable: true
+        abstract_href:
+          type: string
+          nullable: true
+        publication_information:
+          type: array
+          items:
+            type: object
+            properties:
+              display_label:
+                type: string
+                nullable: true
+              href:
+                type: string
+                nullable: true
+              value:
+                type: string
+                nullable: true
+              event_type:
+                type: string
+                nullable: true
+            additionalProperties: false
+        place_of_publication:
+          type: array
+          items:
+            type: object
+            properties:
+              display_label:
+                type: string
+                nullable: true
+              href:
+                type: string
+                nullable: true
+              value:
+                type: string
+                nullable: true
+              event_type:
+                type: string
+                nullable: true
+              date_elements:
+                type: array
+                items:
+                  type: string
+                  nullable: true
+            additionalProperties: false
+        origin_agents:
+          type: array
+          items:
+            type: object
+            properties:
+              display_label:
+                type: string
+                nullable: true
+              href:
+                type: string
+                nullable: true
+              authority:
+                type: string
+                nullable: true
+              authority_uri:
+                type: string
+                nullable: true
+              value_uri:
+                type: string
+                nullable: true
+              name:
+                type: string
+                nullable: true
+              roles:
+                type: array
+                items:
+                  type: string
+                  nullable: true
+              affiliation:
+                type: array
+                items:
+                  type: string
+                  nullable: true
+              usage:
+                type: string
+                nullable: true
+              alternative_names:
+                type: array
+                items:
+                  type: string
+                  nullable: true
+              event_type:
+                type: string
+                nullable: true
+            additionalProperties: false
+        edition:
+          type: array
+          items:
+            type: object
+            properties:
+              display_label:
+                type: string
+                nullable: true
+              href:
+                type: string
+                nullable: true
+              value:
+                type: string
+                nullable: true
+              event_type:
+                type: string
+                nullable: true
+            additionalProperties: false
+        issuance:
+          type: array
+          items:
+            type: object
+            properties:
+              display_label:
+                type: string
+                nullable: true
+              href:
+                type: string
+                nullable: true
+              value:
+                type: string
+                nullable: true
+              event_type:
+                type: string
+                nullable: true
+            additionalProperties: false
+        frequency:
+          type: array
+          items:
+            type: object
+            properties:
+              display_label:
+                type: string
+                nullable: true
+              href:
+                type: string
+                nullable: true
+              value:
+                type: string
+                nullable: true
+              event_type:
+                type: string
+                nullable: true
+            additionalProperties: false
+        date_created:
+          type: string
+          format: date-time
+          nullable: true
+        date_created_precision:
+          type: string
+          nullable: true
+        date_created_end:
+          type: string
+          format: date-time
+          nullable: true
+        date_created_end_precision:
+          type: string
+          nullable: true
+        date_created_qualifier:
+          type: string
+          nullable: true
+        date_created_key_date:
+          type: boolean
+          nullable: true
+        date_created_text:
+          type: string
+          nullable: true
+        date_created_display_label:
+          type: string
+          nullable: true
+        date_created_event_type:
+          type: string
+          nullable: true
+        date_issued:
+          type: string
+          format: date-time
+          nullable: true
+        date_issued_precision:
+          type: string
+          nullable: true
+        date_issued_end:
+          type: string
+          format: date-time
+          nullable: true
+        date_issued_end_precision:
+          type: string
+          nullable: true
+        date_issued_qualifier:
+          type: string
+          nullable: true
+        date_issued_key_date:
+          type: boolean
+          nullable: true
+        date_issued_text:
+          type: string
+          nullable: true
+        date_issued_display_label:
+          type: string
+          nullable: true
+        date_issued_event_type:
+          type: string
+          nullable: true
+        copyright_date:
+          type: string
+          format: date-time
+          nullable: true
+        copyright_date_precision:
+          type: string
+          nullable: true
+        copyright_date_end:
+          type: string
+          format: date-time
+          nullable: true
+        copyright_date_end_precision:
+          type: string
+          nullable: true
+        copyright_date_qualifier:
+          type: string
+          nullable: true
+        copyright_date_key_date:
+          type: boolean
+          nullable: true
+        copyright_date_text:
+          type: string
+          nullable: true
+        copyright_date_display_label:
+          type: string
+          nullable: true
+        copyright_date_event_type:
+          type: string
+          nullable: true
+        date_captured:
+          type: string
+          format: date-time
+          nullable: true
+        date_captured_precision:
+          type: string
+          nullable: true
+        date_captured_end:
+          type: string
+          format: date-time
+          nullable: true
+        date_captured_end_precision:
+          type: string
+          nullable: true
+        date_captured_qualifier:
+          type: string
+          nullable: true
+        date_captured_key_date:
+          type: boolean
+          nullable: true
+        date_captured_text:
+          type: string
+          nullable: true
+        date_captured_display_label:
+          type: string
+          nullable: true
+        date_captured_event_type:
+          type: string
+          nullable: true
+        date_valid:
+          type: string
+          format: date-time
+          nullable: true
+        date_valid_precision:
+          type: string
+          nullable: true
+        date_valid_end:
+          type: string
+          format: date-time
+          nullable: true
+        date_valid_end_precision:
+          type: string
+          nullable: true
+        date_valid_qualifier:
+          type: string
+          nullable: true
+        date_valid_key_date:
+          type: boolean
+          nullable: true
+        date_valid_text:
+          type: string
+          nullable: true
+        date_valid_display_label:
+          type: string
+          nullable: true
+        date_valid_event_type:
+          type: string
+          nullable: true
+        date_other:
+          type: string
+          format: date-time
+          nullable: true
+        date_other_precision:
+          type: string
+          nullable: true
+        date_other_end:
+          type: string
+          format: date-time
+          nullable: true
+        date_other_end_precision:
+          type: string
+          nullable: true
+        date_other_qualifier:
+          type: string
+          nullable: true
+        date_other_key_date:
+          type: boolean
+          nullable: true
+        date_other_text:
+          type: string
+          nullable: true
+        date_other_display_label:
+          type: string
+          nullable: true
+        date_other_event_type:
+          type: string
+          nullable: true
+        date_modified:
+          type: string
+          format: date-time
+          nullable: true
+        date_modified_precision:
+          type: string
+          nullable: true
+        date_modified_end:
+          type: string
+          format: date-time
+          nullable: true
+        date_modified_end_precision:
+          type: string
+          nullable: true
+        date_modified_qualifier:
+          type: string
+          nullable: true
+        date_modified_key_date:
+          type: boolean
+          nullable: true
+        date_modified_text:
+          type: string
+          nullable: true
+        date_modified_display_label:
+          type: string
+          nullable: true
+        date_modified_event_type:
+          type: string
+          nullable: true
+        resource_type:
+          type: array
+          items:
+            type: object
+            properties:
+              display_label:
+                type: string
+                nullable: true
+              href:
+                type: string
+                nullable: true
+              value:
+                type: string
+                nullable: true
+            additionalProperties: false
+        target_audience:
+          type: array
+          items:
+            type: object
+            properties:
+              display_label:
+                type: string
+                nullable: true
+              href:
+                type: string
+                nullable: true
+              value:
+                type: string
+                nullable: true
+            additionalProperties: false
+        genres:
+          type: array
+          items:
+            type: object
+            properties:
+              display_label:
+                type: string
+                nullable: true
+              href:
+                type: string
+                nullable: true
+              authority:
+                type: string
+                nullable: true
+              authority_uri:
+                type: string
+                nullable: true
+              value_uri:
+                type: string
+                nullable: true
+              value:
+                type: string
+                nullable: true
+            additionalProperties: false
+        format:
+          type: array
+          items:
+            type: object
+            properties:
+              display_label:
+                type: string
+                nullable: true
+              href:
+                type: string
+                nullable: true
+              value:
+                type: string
+                nullable: true
+            additionalProperties: false
+        extent:
+          type: array
+          items:
+            type: object
+            properties:
+              display_label:
+                type: string
+                nullable: true
+              href:
+                type: string
+                nullable: true
+              value:
+                type: string
+                nullable: true
+            additionalProperties: false
+        digital_origin:
+          type: array
+          items:
+            type: object
+            properties:
+              display_label:
+                type: string
+                nullable: true
+              href:
+                type: string
+                nullable: true
+              value:
+                type: string
+                nullable: true
+            additionalProperties: false
+        reformatting_quality:
+          type: array
+          items:
+            type: object
+            properties:
+              display_label:
+                type: string
+                nullable: true
+              href:
+                type: string
+                nullable: true
+              value:
+                type: string
+                nullable: true
+            additionalProperties: false
+        physical_description_notes:
+          type: array
+          items:
+            type: object
+            properties:
+              display_label:
+                type: string
+                nullable: true
+              href:
+                type: string
+                nullable: true
+              value:
+                type: string
+                nullable: true
+            additionalProperties: false
+        notes:
+          type: array
+          items:
+            type: object
+            properties:
+              display_label:
+                type: string
+                nullable: true
+              href:
+                type: string
+                nullable: true
+              type:
+                type: string
+                nullable: true
+              value:
+                type: string
+                nullable: true
+            additionalProperties: false
+        table_of_contents:
+          type: array
+          items:
+            type: object
+            properties:
+              display_label:
+                type: string
+                nullable: true
+              href:
+                type: string
+                nullable: true
+              value:
+                type: string
+                nullable: true
+            additionalProperties: false
+        subject_headings:
+          type: array
+          items:
+            type: object
+            properties:
+              display_label:
+                type: string
+                nullable: true
+              href:
+                type: string
+                nullable: true
+              authority:
+                type: string
+                nullable: true
+              authority_uri:
+                type: string
+                nullable: true
+              value_uri:
+                type: string
+                nullable: true
+              parts:
+                type: array
+                items:
+                  type: string
+                  nullable: true
+              heading:
+                type: string
+                nullable: true
+              axis:
+                type: string
+                nullable: true
+            additionalProperties: false
+        topical_subjects:
+          type: array
+          items:
+            type: string
+        geographic_subjects:
+          type: array
+          items:
+            type: string
+        temporal_subjects:
+          type: array
+          items:
+            type: string
+        personal_name_subjects:
+          type: array
+          items:
+            type: string
+        corporate_name_subjects:
+          type: array
+          items:
+            type: string
+        occupation_subjects:
+          type: array
+          items:
+            type: string
+        genre_subjects:
+          type: array
+          items:
+            type: string
+        geographic_code_subjects:
+          type: array
+          items:
+            type: string
+        title_subjects:
+          type: array
+          items:
+            type: string
+        hierarchical_geographic_subjects:
+          type: array
+          items:
+            type: object
+            properties:
+              continent:
+                type: string
+                nullable: true
+              country:
+                type: string
+                nullable: true
+              province:
+                type: string
+                nullable: true
+              region:
+                type: string
+                nullable: true
+              state:
+                type: string
+                nullable: true
+              territory:
+                type: string
+                nullable: true
+              county:
+                type: string
+                nullable: true
+              city:
+                type: string
+                nullable: true
+              city_section:
+                type: string
+                nullable: true
+              island:
+                type: string
+                nullable: true
+              area:
+                type: string
+                nullable: true
+            additionalProperties: false
+        map_data:
+          type: array
+          items:
+            type: object
+            properties:
+              display_label:
+                type: string
+                nullable: true
+              href:
+                type: string
+                nullable: true
+              scale:
+                type: string
+                nullable: true
+              projection:
+                type: string
+                nullable: true
+              coordinates:
+                type: string
+                nullable: true
+            additionalProperties: false
+        related_series:
+          type: array
+          items:
+            type: object
+            properties:
+              display_label:
+                type: string
+                nullable: true
+              href:
+                type: string
+                nullable: true
+              value:
+                type: string
+                nullable: true
+            additionalProperties: false
+        host_collections:
+          type: array
+          items:
+            type: object
+            properties:
+              display_label:
+                type: string
+                nullable: true
+              href:
+                type: string
+                nullable: true
+              title:
+                type: string
+                nullable: true
+              volume:
+                type: string
+                nullable: true
+              issue:
+                type: string
+                nullable: true
+              start_page:
+                type: string
+                nullable: true
+              end_page:
+                type: string
+                nullable: true
+              date:
+                type: string
+                nullable: true
+              text:
+                type: string
+                nullable: true
+              details:
+                type: array
+                items:
                   type: object
                   properties:
+                    type:
+                      type: string
+                      nullable: true
+                    number:
+                      type: string
+                      nullable: true
+                    caption:
+                      type: string
+                      nullable: true
                     title:
                       type: string
                       nullable: true
-                    subtitle:
-                      type: string
-                      nullable: true
-                    part_number:
-                      type: string
-                      nullable: true
-                    part_name:
-                      type: string
-                      nullable: true
-                    non_sort:
-                      type: string
-                      nullable: true
                   additionalProperties: false
-                  nullable: true
-                main_title_display_label:
-                  type: string
-                  nullable: true
-                alternative_title:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                uniform_title:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                translated_title:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                abbreviated_title:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                names:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      authority:
-                        type: string
-                        nullable: true
-                      authority_uri:
-                        type: string
-                        nullable: true
-                      value_uri:
-                        type: string
-                        nullable: true
-                      name:
-                        type: string
-                        nullable: true
-                      roles:
-                        type: array
-                        items:
-                          type: string
-                          nullable: true
-                      affiliation:
-                        type: array
-                        items:
-                          type: string
-                          nullable: true
-                      usage:
-                        type: string
-                        nullable: true
-                      alternative_names:
-                        type: array
-                        items:
-                          type: string
-                          nullable: true
-                    additionalProperties: false
-                languages:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      authority:
-                        type: string
-                        nullable: true
-                      authority_uri:
-                        type: string
-                        nullable: true
-                      value_uri:
-                        type: string
-                        nullable: true
-                      term:
-                        type: string
-                        nullable: true
-                      object_part:
-                        type: string
-                        nullable: true
-                      script:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                abstract:
-                  type: string
-                  nullable: true
-                abstract_display_label:
-                  type: string
-                  nullable: true
-                abstract_href:
-                  type: string
-                  nullable: true
-                publication_information:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                      event_type:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                place_of_publication:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                      event_type:
-                        type: string
-                        nullable: true
-                      date_elements:
-                        type: array
-                        items:
-                          type: string
-                          nullable: true
-                    additionalProperties: false
-                origin_agents:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      authority:
-                        type: string
-                        nullable: true
-                      authority_uri:
-                        type: string
-                        nullable: true
-                      value_uri:
-                        type: string
-                        nullable: true
-                      name:
-                        type: string
-                        nullable: true
-                      roles:
-                        type: array
-                        items:
-                          type: string
-                          nullable: true
-                      affiliation:
-                        type: array
-                        items:
-                          type: string
-                          nullable: true
-                      usage:
-                        type: string
-                        nullable: true
-                      alternative_names:
-                        type: array
-                        items:
-                          type: string
-                          nullable: true
-                      event_type:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                edition:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                      event_type:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                issuance:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                      event_type:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                frequency:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                      event_type:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                date_created:
-                  type: string
-                  format: date-time
-                  nullable: true
-                date_created_precision:
-                  type: string
-                  nullable: true
-                date_created_end:
-                  type: string
-                  format: date-time
-                  nullable: true
-                date_created_end_precision:
-                  type: string
-                  nullable: true
-                date_created_qualifier:
-                  type: string
-                  nullable: true
-                date_created_key_date:
-                  type: boolean
-                  nullable: true
-                date_created_text:
-                  type: string
-                  nullable: true
-                date_created_display_label:
-                  type: string
-                  nullable: true
-                date_created_event_type:
-                  type: string
-                  nullable: true
-                date_issued:
-                  type: string
-                  format: date-time
-                  nullable: true
-                date_issued_precision:
-                  type: string
-                  nullable: true
-                date_issued_end:
-                  type: string
-                  format: date-time
-                  nullable: true
-                date_issued_end_precision:
-                  type: string
-                  nullable: true
-                date_issued_qualifier:
-                  type: string
-                  nullable: true
-                date_issued_key_date:
-                  type: boolean
-                  nullable: true
-                date_issued_text:
-                  type: string
-                  nullable: true
-                date_issued_display_label:
-                  type: string
-                  nullable: true
-                date_issued_event_type:
-                  type: string
-                  nullable: true
-                copyright_date:
-                  type: string
-                  format: date-time
-                  nullable: true
-                copyright_date_precision:
-                  type: string
-                  nullable: true
-                copyright_date_end:
-                  type: string
-                  format: date-time
-                  nullable: true
-                copyright_date_end_precision:
-                  type: string
-                  nullable: true
-                copyright_date_qualifier:
-                  type: string
-                  nullable: true
-                copyright_date_key_date:
-                  type: boolean
-                  nullable: true
-                copyright_date_text:
-                  type: string
-                  nullable: true
-                copyright_date_display_label:
-                  type: string
-                  nullable: true
-                copyright_date_event_type:
-                  type: string
-                  nullable: true
-                date_captured:
-                  type: string
-                  format: date-time
-                  nullable: true
-                date_captured_precision:
-                  type: string
-                  nullable: true
-                date_captured_end:
-                  type: string
-                  format: date-time
-                  nullable: true
-                date_captured_end_precision:
-                  type: string
-                  nullable: true
-                date_captured_qualifier:
-                  type: string
-                  nullable: true
-                date_captured_key_date:
-                  type: boolean
-                  nullable: true
-                date_captured_text:
-                  type: string
-                  nullable: true
-                date_captured_display_label:
-                  type: string
-                  nullable: true
-                date_captured_event_type:
-                  type: string
-                  nullable: true
-                date_valid:
-                  type: string
-                  format: date-time
-                  nullable: true
-                date_valid_precision:
-                  type: string
-                  nullable: true
-                date_valid_end:
-                  type: string
-                  format: date-time
-                  nullable: true
-                date_valid_end_precision:
-                  type: string
-                  nullable: true
-                date_valid_qualifier:
-                  type: string
-                  nullable: true
-                date_valid_key_date:
-                  type: boolean
-                  nullable: true
-                date_valid_text:
-                  type: string
-                  nullable: true
-                date_valid_display_label:
-                  type: string
-                  nullable: true
-                date_valid_event_type:
-                  type: string
-                  nullable: true
-                date_other:
-                  type: string
-                  format: date-time
-                  nullable: true
-                date_other_precision:
-                  type: string
-                  nullable: true
-                date_other_end:
-                  type: string
-                  format: date-time
-                  nullable: true
-                date_other_end_precision:
-                  type: string
-                  nullable: true
-                date_other_qualifier:
-                  type: string
-                  nullable: true
-                date_other_key_date:
-                  type: boolean
-                  nullable: true
-                date_other_text:
-                  type: string
-                  nullable: true
-                date_other_display_label:
-                  type: string
-                  nullable: true
-                date_other_event_type:
-                  type: string
-                  nullable: true
-                date_modified:
-                  type: string
-                  format: date-time
-                  nullable: true
-                date_modified_precision:
-                  type: string
-                  nullable: true
-                date_modified_end:
-                  type: string
-                  format: date-time
-                  nullable: true
-                date_modified_end_precision:
-                  type: string
-                  nullable: true
-                date_modified_qualifier:
-                  type: string
-                  nullable: true
-                date_modified_key_date:
-                  type: boolean
-                  nullable: true
-                date_modified_text:
-                  type: string
-                  nullable: true
-                date_modified_display_label:
-                  type: string
-                  nullable: true
-                date_modified_event_type:
-                  type: string
-                  nullable: true
-                resource_type:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                target_audience:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                genres:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      authority:
-                        type: string
-                        nullable: true
-                      authority_uri:
-                        type: string
-                        nullable: true
-                      value_uri:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                format:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                extent:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                digital_origin:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                reformatting_quality:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                physical_description_notes:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                notes:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      type:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                table_of_contents:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                subject_headings:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      authority:
-                        type: string
-                        nullable: true
-                      authority_uri:
-                        type: string
-                        nullable: true
-                      value_uri:
-                        type: string
-                        nullable: true
-                      parts:
-                        type: array
-                        items:
-                          type: string
-                          nullable: true
-                      heading:
-                        type: string
-                        nullable: true
-                      axis:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                topical_subjects:
-                  type: array
-                  items:
-                    type: string
-                geographic_subjects:
-                  type: array
-                  items:
-                    type: string
-                temporal_subjects:
-                  type: array
-                  items:
-                    type: string
-                personal_name_subjects:
-                  type: array
-                  items:
-                    type: string
-                corporate_name_subjects:
-                  type: array
-                  items:
-                    type: string
-                occupation_subjects:
-                  type: array
-                  items:
-                    type: string
-                genre_subjects:
-                  type: array
-                  items:
-                    type: string
-                geographic_code_subjects:
-                  type: array
-                  items:
-                    type: string
-                title_subjects:
-                  type: array
-                  items:
-                    type: string
-                hierarchical_geographic_subjects:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      continent:
-                        type: string
-                        nullable: true
-                      country:
-                        type: string
-                        nullable: true
-                      province:
-                        type: string
-                        nullable: true
-                      region:
-                        type: string
-                        nullable: true
-                      state:
-                        type: string
-                        nullable: true
-                      territory:
-                        type: string
-                        nullable: true
-                      county:
-                        type: string
-                        nullable: true
-                      city:
-                        type: string
-                        nullable: true
-                      city_section:
-                        type: string
-                        nullable: true
-                      island:
-                        type: string
-                        nullable: true
-                      area:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                map_data:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      scale:
-                        type: string
-                        nullable: true
-                      projection:
-                        type: string
-                        nullable: true
-                      coordinates:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                related_series:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                host_collections:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      title:
-                        type: string
-                        nullable: true
-                      volume:
-                        type: string
-                        nullable: true
-                      issue:
-                        type: string
-                        nullable: true
-                      start_page:
-                        type: string
-                        nullable: true
-                      end_page:
-                        type: string
-                        nullable: true
-                      date:
-                        type: string
-                        nullable: true
-                      text:
-                        type: string
-                        nullable: true
-                      details:
-                        type: array
-                        items:
-                          type: object
-                          properties:
-                            type:
-                              type: string
-                              nullable: true
-                            number:
-                              type: string
-                              nullable: true
-                            caption:
-                              type: string
-                              nullable: true
-                            title:
-                              type: string
-                              nullable: true
-                          additionalProperties: false
-                      extents:
-                        type: array
-                        items:
-                          type: object
-                          properties:
-                            unit:
-                              type: string
-                              nullable: true
-                            start:
-                              type: string
-                              nullable: true
-                            end:
-                              type: string
-                              nullable: true
-                            total:
-                              type: string
-                              nullable: true
-                            list:
-                              type: string
-                              nullable: true
-                          additionalProperties: false
-                    additionalProperties: false
-                related_items:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      type:
-                        type: string
-                        nullable: true
-                      title:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                identifiers:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      type:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                      invalid:
-                        type: boolean
-                        nullable: true
-                    additionalProperties: false
-                classification:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                permanent_url:
-                  type: string
-                  nullable: true
-                permanent_url_display_label:
-                  type: string
-                  nullable: true
-                record_info:
+              extents:
+                type: array
+                items:
                   type: object
                   properties:
-                    content_source:
+                    unit:
                       type: string
                       nullable: true
-                    origin:
+                    start:
                       type: string
                       nullable: true
-                    description_standard:
+                    end:
                       type: string
                       nullable: true
-                    creation_date:
+                    total:
                       type: string
                       nullable: true
-                    change_date:
-                      type: string
-                      nullable: true
-                    language_of_cataloging:
+                    list:
                       type: string
                       nullable: true
                   additionalProperties: false
-                  nullable: true
-                location:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      physical_location:
-                        type: string
-                        nullable: true
-                      shelf_location:
-                        type: string
-                        nullable: true
-                      url:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                access_condition:
-                  type: string
-                  nullable: true
-                access_condition_display_label:
-                  type: string
-                  nullable: true
-                access_condition_href:
-                  type: string
-                  nullable: true
-                use_and_reproduction:
-                  type: string
-                  nullable: true
-                use_and_reproduction_display_label:
-                  type: string
-                  nullable: true
-                use_and_reproduction_href:
-                  type: string
-                  nullable: true
-                restriction_on_access:
-                  type: string
-                  nullable: true
-                restriction_on_access_display_label:
-                  type: string
-                  nullable: true
-                restriction_on_access_href:
-                  type: string
-                  nullable: true
+            additionalProperties: false
+        related_items:
+          type: array
+          items:
+            type: object
+            properties:
+              display_label:
+                type: string
+                nullable: true
+              href:
+                type: string
+                nullable: true
+              type:
+                type: string
+                nullable: true
+              title:
+                type: string
+                nullable: true
+            additionalProperties: false
+        identifiers:
+          type: array
+          items:
+            type: object
+            properties:
+              display_label:
+                type: string
+                nullable: true
+              href:
+                type: string
+                nullable: true
+              type:
+                type: string
+                nullable: true
+              value:
+                type: string
+                nullable: true
+              invalid:
+                type: boolean
+                nullable: true
+            additionalProperties: false
+        classification:
+          type: array
+          items:
+            type: object
+            properties:
+              display_label:
+                type: string
+                nullable: true
+              href:
+                type: string
+                nullable: true
+              value:
+                type: string
+                nullable: true
+            additionalProperties: false
+        permanent_url:
+          type: string
+          nullable: true
+        permanent_url_display_label:
+          type: string
+          nullable: true
+        record_info:
+          type: object
+          properties:
+            content_source:
+              type: string
+              nullable: true
+            origin:
+              type: string
+              nullable: true
+            description_standard:
+              type: string
+              nullable: true
+            creation_date:
+              type: string
+              nullable: true
+            change_date:
+              type: string
+              nullable: true
+            language_of_cataloging:
+              type: string
+              nullable: true
+          additionalProperties: false
+          nullable: true
+        location:
+          type: array
+          items:
+            type: object
+            properties:
+              display_label:
+                type: string
+                nullable: true
+              href:
+                type: string
+                nullable: true
+              physical_location:
+                type: string
+                nullable: true
+              shelf_location:
+                type: string
+                nullable: true
+              url:
+                type: string
+                nullable: true
+            additionalProperties: false
+        access_condition:
+          type: string
+          nullable: true
+        access_condition_display_label:
+          type: string
+          nullable: true
+        access_condition_href:
+          type: string
+          nullable: true
+        use_and_reproduction:
+          type: string
+          nullable: true
+        use_and_reproduction_display_label:
+          type: string
+          nullable: true
+        use_and_reproduction_href:
+          type: string
+          nullable: true
+        restriction_on_access:
+          type: string
+          nullable: true
+        restriction_on_access_display_label:
+          type: string
+          nullable: true
+        restriction_on_access_href:
+          type: string
+          nullable: true
       required:
-      - work
+      - main_title
+      - main_title_display_label
+      - alternative_title
+      - uniform_title
+      - translated_title
+      - abbreviated_title
+      - names
+      - languages
+      - abstract
+      - abstract_display_label
+      - abstract_href
+      - publication_information
+      - place_of_publication
+      - origin_agents
+      - edition
+      - issuance
+      - frequency
+      - date_created
+      - date_created_precision
+      - date_created_end
+      - date_created_end_precision
+      - date_created_qualifier
+      - date_created_key_date
+      - date_created_text
+      - date_created_display_label
+      - date_created_event_type
+      - date_issued
+      - date_issued_precision
+      - date_issued_end
+      - date_issued_end_precision
+      - date_issued_qualifier
+      - date_issued_key_date
+      - date_issued_text
+      - date_issued_display_label
+      - date_issued_event_type
+      - copyright_date
+      - copyright_date_precision
+      - copyright_date_end
+      - copyright_date_end_precision
+      - copyright_date_qualifier
+      - copyright_date_key_date
+      - copyright_date_text
+      - copyright_date_display_label
+      - copyright_date_event_type
+      - date_captured
+      - date_captured_precision
+      - date_captured_end
+      - date_captured_end_precision
+      - date_captured_qualifier
+      - date_captured_key_date
+      - date_captured_text
+      - date_captured_display_label
+      - date_captured_event_type
+      - date_valid
+      - date_valid_precision
+      - date_valid_end
+      - date_valid_end_precision
+      - date_valid_qualifier
+      - date_valid_key_date
+      - date_valid_text
+      - date_valid_display_label
+      - date_valid_event_type
+      - date_other
+      - date_other_precision
+      - date_other_end
+      - date_other_end_precision
+      - date_other_qualifier
+      - date_other_key_date
+      - date_other_text
+      - date_other_display_label
+      - date_other_event_type
+      - date_modified
+      - date_modified_precision
+      - date_modified_end
+      - date_modified_end_precision
+      - date_modified_qualifier
+      - date_modified_key_date
+      - date_modified_text
+      - date_modified_display_label
+      - date_modified_event_type
+      - resource_type
+      - target_audience
+      - genres
+      - format
+      - extent
+      - digital_origin
+      - reformatting_quality
+      - physical_description_notes
+      - notes
+      - table_of_contents
+      - subject_headings
+      - topical_subjects
+      - geographic_subjects
+      - temporal_subjects
+      - personal_name_subjects
+      - corporate_name_subjects
+      - occupation_subjects
+      - genre_subjects
+      - geographic_code_subjects
+      - title_subjects
+      - hierarchical_geographic_subjects
+      - map_data
+      - related_series
+      - host_collections
+      - related_items
+      - identifiers
+      - classification
+      - permanent_url
+      - permanent_url_display_label
+      - record_info
+      - location
+      - access_condition
+      - access_condition_display_label
+      - access_condition_href
+      - use_and_reproduction
+      - use_and_reproduction_display_label
+      - use_and_reproduction_href
+      - restriction_on_access
+      - restriction_on_access_display_label
+      - restriction_on_access_href
+      additionalProperties: false
     Citation:
       type: object
       description: 'The Work as a CSL-JSON item (Citation Style Language), ready for
@@ -2824,7 +2961,9 @@ components:
           type: string
         keyword:
           type: string
-          description: The topical subjects, comma-separated.
+          description: The topical subjects, comma-separated, as CSL expects. A subject
+            can itself contain a comma; read `topical_subjects` from the MODS JSON
+            for a list.
         URL:
           type: string
           description: The Work's persistent URL, its handle.
@@ -2843,1023 +2982,10 @@ components:
               type: string
               description: NOID of the collection
             mods:
-              type: object
-              properties:
-                main_title:
-                  type: object
-                  properties:
-                    title:
-                      type: string
-                      nullable: true
-                    subtitle:
-                      type: string
-                      nullable: true
-                    part_number:
-                      type: string
-                      nullable: true
-                    part_name:
-                      type: string
-                      nullable: true
-                    non_sort:
-                      type: string
-                      nullable: true
-                  additionalProperties: false
-                  nullable: true
-                main_title_display_label:
-                  type: string
-                  nullable: true
-                alternative_title:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                uniform_title:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                translated_title:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                abbreviated_title:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                names:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      authority:
-                        type: string
-                        nullable: true
-                      authority_uri:
-                        type: string
-                        nullable: true
-                      value_uri:
-                        type: string
-                        nullable: true
-                      name:
-                        type: string
-                        nullable: true
-                      roles:
-                        type: array
-                        items:
-                          type: string
-                          nullable: true
-                      affiliation:
-                        type: array
-                        items:
-                          type: string
-                          nullable: true
-                      usage:
-                        type: string
-                        nullable: true
-                      alternative_names:
-                        type: array
-                        items:
-                          type: string
-                          nullable: true
-                    additionalProperties: false
-                languages:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      authority:
-                        type: string
-                        nullable: true
-                      authority_uri:
-                        type: string
-                        nullable: true
-                      value_uri:
-                        type: string
-                        nullable: true
-                      term:
-                        type: string
-                        nullable: true
-                      object_part:
-                        type: string
-                        nullable: true
-                      script:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                abstract:
-                  type: string
-                  nullable: true
-                abstract_display_label:
-                  type: string
-                  nullable: true
-                abstract_href:
-                  type: string
-                  nullable: true
-                publication_information:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                      event_type:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                place_of_publication:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                      event_type:
-                        type: string
-                        nullable: true
-                      date_elements:
-                        type: array
-                        items:
-                          type: string
-                          nullable: true
-                    additionalProperties: false
-                origin_agents:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      authority:
-                        type: string
-                        nullable: true
-                      authority_uri:
-                        type: string
-                        nullable: true
-                      value_uri:
-                        type: string
-                        nullable: true
-                      name:
-                        type: string
-                        nullable: true
-                      roles:
-                        type: array
-                        items:
-                          type: string
-                          nullable: true
-                      affiliation:
-                        type: array
-                        items:
-                          type: string
-                          nullable: true
-                      usage:
-                        type: string
-                        nullable: true
-                      alternative_names:
-                        type: array
-                        items:
-                          type: string
-                          nullable: true
-                      event_type:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                edition:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                      event_type:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                issuance:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                      event_type:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                frequency:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                      event_type:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                date_created:
-                  type: string
-                  format: date-time
-                  nullable: true
-                date_created_precision:
-                  type: string
-                  nullable: true
-                date_created_end:
-                  type: string
-                  format: date-time
-                  nullable: true
-                date_created_end_precision:
-                  type: string
-                  nullable: true
-                date_created_qualifier:
-                  type: string
-                  nullable: true
-                date_created_key_date:
-                  type: boolean
-                  nullable: true
-                date_created_text:
-                  type: string
-                  nullable: true
-                date_created_display_label:
-                  type: string
-                  nullable: true
-                date_created_event_type:
-                  type: string
-                  nullable: true
-                date_issued:
-                  type: string
-                  format: date-time
-                  nullable: true
-                date_issued_precision:
-                  type: string
-                  nullable: true
-                date_issued_end:
-                  type: string
-                  format: date-time
-                  nullable: true
-                date_issued_end_precision:
-                  type: string
-                  nullable: true
-                date_issued_qualifier:
-                  type: string
-                  nullable: true
-                date_issued_key_date:
-                  type: boolean
-                  nullable: true
-                date_issued_text:
-                  type: string
-                  nullable: true
-                date_issued_display_label:
-                  type: string
-                  nullable: true
-                date_issued_event_type:
-                  type: string
-                  nullable: true
-                copyright_date:
-                  type: string
-                  format: date-time
-                  nullable: true
-                copyright_date_precision:
-                  type: string
-                  nullable: true
-                copyright_date_end:
-                  type: string
-                  format: date-time
-                  nullable: true
-                copyright_date_end_precision:
-                  type: string
-                  nullable: true
-                copyright_date_qualifier:
-                  type: string
-                  nullable: true
-                copyright_date_key_date:
-                  type: boolean
-                  nullable: true
-                copyright_date_text:
-                  type: string
-                  nullable: true
-                copyright_date_display_label:
-                  type: string
-                  nullable: true
-                copyright_date_event_type:
-                  type: string
-                  nullable: true
-                date_captured:
-                  type: string
-                  format: date-time
-                  nullable: true
-                date_captured_precision:
-                  type: string
-                  nullable: true
-                date_captured_end:
-                  type: string
-                  format: date-time
-                  nullable: true
-                date_captured_end_precision:
-                  type: string
-                  nullable: true
-                date_captured_qualifier:
-                  type: string
-                  nullable: true
-                date_captured_key_date:
-                  type: boolean
-                  nullable: true
-                date_captured_text:
-                  type: string
-                  nullable: true
-                date_captured_display_label:
-                  type: string
-                  nullable: true
-                date_captured_event_type:
-                  type: string
-                  nullable: true
-                date_valid:
-                  type: string
-                  format: date-time
-                  nullable: true
-                date_valid_precision:
-                  type: string
-                  nullable: true
-                date_valid_end:
-                  type: string
-                  format: date-time
-                  nullable: true
-                date_valid_end_precision:
-                  type: string
-                  nullable: true
-                date_valid_qualifier:
-                  type: string
-                  nullable: true
-                date_valid_key_date:
-                  type: boolean
-                  nullable: true
-                date_valid_text:
-                  type: string
-                  nullable: true
-                date_valid_display_label:
-                  type: string
-                  nullable: true
-                date_valid_event_type:
-                  type: string
-                  nullable: true
-                date_other:
-                  type: string
-                  format: date-time
-                  nullable: true
-                date_other_precision:
-                  type: string
-                  nullable: true
-                date_other_end:
-                  type: string
-                  format: date-time
-                  nullable: true
-                date_other_end_precision:
-                  type: string
-                  nullable: true
-                date_other_qualifier:
-                  type: string
-                  nullable: true
-                date_other_key_date:
-                  type: boolean
-                  nullable: true
-                date_other_text:
-                  type: string
-                  nullable: true
-                date_other_display_label:
-                  type: string
-                  nullable: true
-                date_other_event_type:
-                  type: string
-                  nullable: true
-                date_modified:
-                  type: string
-                  format: date-time
-                  nullable: true
-                date_modified_precision:
-                  type: string
-                  nullable: true
-                date_modified_end:
-                  type: string
-                  format: date-time
-                  nullable: true
-                date_modified_end_precision:
-                  type: string
-                  nullable: true
-                date_modified_qualifier:
-                  type: string
-                  nullable: true
-                date_modified_key_date:
-                  type: boolean
-                  nullable: true
-                date_modified_text:
-                  type: string
-                  nullable: true
-                date_modified_display_label:
-                  type: string
-                  nullable: true
-                date_modified_event_type:
-                  type: string
-                  nullable: true
-                resource_type:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                target_audience:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                genres:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      authority:
-                        type: string
-                        nullable: true
-                      authority_uri:
-                        type: string
-                        nullable: true
-                      value_uri:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                format:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                extent:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                digital_origin:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                reformatting_quality:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                physical_description_notes:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                notes:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      type:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                table_of_contents:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                subject_headings:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      authority:
-                        type: string
-                        nullable: true
-                      authority_uri:
-                        type: string
-                        nullable: true
-                      value_uri:
-                        type: string
-                        nullable: true
-                      parts:
-                        type: array
-                        items:
-                          type: string
-                          nullable: true
-                      heading:
-                        type: string
-                        nullable: true
-                      axis:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                topical_subjects:
-                  type: array
-                  items:
-                    type: string
-                geographic_subjects:
-                  type: array
-                  items:
-                    type: string
-                temporal_subjects:
-                  type: array
-                  items:
-                    type: string
-                personal_name_subjects:
-                  type: array
-                  items:
-                    type: string
-                corporate_name_subjects:
-                  type: array
-                  items:
-                    type: string
-                occupation_subjects:
-                  type: array
-                  items:
-                    type: string
-                genre_subjects:
-                  type: array
-                  items:
-                    type: string
-                geographic_code_subjects:
-                  type: array
-                  items:
-                    type: string
-                title_subjects:
-                  type: array
-                  items:
-                    type: string
-                hierarchical_geographic_subjects:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      continent:
-                        type: string
-                        nullable: true
-                      country:
-                        type: string
-                        nullable: true
-                      province:
-                        type: string
-                        nullable: true
-                      region:
-                        type: string
-                        nullable: true
-                      state:
-                        type: string
-                        nullable: true
-                      territory:
-                        type: string
-                        nullable: true
-                      county:
-                        type: string
-                        nullable: true
-                      city:
-                        type: string
-                        nullable: true
-                      city_section:
-                        type: string
-                        nullable: true
-                      island:
-                        type: string
-                        nullable: true
-                      area:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                map_data:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      scale:
-                        type: string
-                        nullable: true
-                      projection:
-                        type: string
-                        nullable: true
-                      coordinates:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                related_series:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                host_collections:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      title:
-                        type: string
-                        nullable: true
-                      volume:
-                        type: string
-                        nullable: true
-                      issue:
-                        type: string
-                        nullable: true
-                      start_page:
-                        type: string
-                        nullable: true
-                      end_page:
-                        type: string
-                        nullable: true
-                      date:
-                        type: string
-                        nullable: true
-                      text:
-                        type: string
-                        nullable: true
-                      details:
-                        type: array
-                        items:
-                          type: object
-                          properties:
-                            type:
-                              type: string
-                              nullable: true
-                            number:
-                              type: string
-                              nullable: true
-                            caption:
-                              type: string
-                              nullable: true
-                            title:
-                              type: string
-                              nullable: true
-                          additionalProperties: false
-                      extents:
-                        type: array
-                        items:
-                          type: object
-                          properties:
-                            unit:
-                              type: string
-                              nullable: true
-                            start:
-                              type: string
-                              nullable: true
-                            end:
-                              type: string
-                              nullable: true
-                            total:
-                              type: string
-                              nullable: true
-                            list:
-                              type: string
-                              nullable: true
-                          additionalProperties: false
-                    additionalProperties: false
-                related_items:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      type:
-                        type: string
-                        nullable: true
-                      title:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                identifiers:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      type:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                      invalid:
-                        type: boolean
-                        nullable: true
-                    additionalProperties: false
-                classification:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                permanent_url:
-                  type: string
-                  nullable: true
-                permanent_url_display_label:
-                  type: string
-                  nullable: true
-                record_info:
-                  type: object
-                  properties:
-                    content_source:
-                      type: string
-                      nullable: true
-                    origin:
-                      type: string
-                      nullable: true
-                    description_standard:
-                      type: string
-                      nullable: true
-                    creation_date:
-                      type: string
-                      nullable: true
-                    change_date:
-                      type: string
-                      nullable: true
-                    language_of_cataloging:
-                      type: string
-                      nullable: true
-                  additionalProperties: false
-                  nullable: true
-                location:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      physical_location:
-                        type: string
-                        nullable: true
-                      shelf_location:
-                        type: string
-                        nullable: true
-                      url:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                access_condition:
-                  type: string
-                  nullable: true
-                access_condition_display_label:
-                  type: string
-                  nullable: true
-                access_condition_href:
-                  type: string
-                  nullable: true
-                use_and_reproduction:
-                  type: string
-                  nullable: true
-                use_and_reproduction_display_label:
-                  type: string
-                  nullable: true
-                use_and_reproduction_href:
-                  type: string
-                  nullable: true
-                restriction_on_access:
-                  type: string
-                  nullable: true
-                restriction_on_access_display_label:
-                  type: string
-                  nullable: true
-                restriction_on_access_href:
-                  type: string
-                  nullable: true
+              "$ref": "#/components/schemas/MODSDocument"
+          required:
+          - id
+          - mods
       required:
       - collection
     CommunityMods:
@@ -3872,1023 +2998,10 @@ components:
               type: string
               description: NOID of the community
             mods:
-              type: object
-              properties:
-                main_title:
-                  type: object
-                  properties:
-                    title:
-                      type: string
-                      nullable: true
-                    subtitle:
-                      type: string
-                      nullable: true
-                    part_number:
-                      type: string
-                      nullable: true
-                    part_name:
-                      type: string
-                      nullable: true
-                    non_sort:
-                      type: string
-                      nullable: true
-                  additionalProperties: false
-                  nullable: true
-                main_title_display_label:
-                  type: string
-                  nullable: true
-                alternative_title:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                uniform_title:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                translated_title:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                abbreviated_title:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                names:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      authority:
-                        type: string
-                        nullable: true
-                      authority_uri:
-                        type: string
-                        nullable: true
-                      value_uri:
-                        type: string
-                        nullable: true
-                      name:
-                        type: string
-                        nullable: true
-                      roles:
-                        type: array
-                        items:
-                          type: string
-                          nullable: true
-                      affiliation:
-                        type: array
-                        items:
-                          type: string
-                          nullable: true
-                      usage:
-                        type: string
-                        nullable: true
-                      alternative_names:
-                        type: array
-                        items:
-                          type: string
-                          nullable: true
-                    additionalProperties: false
-                languages:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      authority:
-                        type: string
-                        nullable: true
-                      authority_uri:
-                        type: string
-                        nullable: true
-                      value_uri:
-                        type: string
-                        nullable: true
-                      term:
-                        type: string
-                        nullable: true
-                      object_part:
-                        type: string
-                        nullable: true
-                      script:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                abstract:
-                  type: string
-                  nullable: true
-                abstract_display_label:
-                  type: string
-                  nullable: true
-                abstract_href:
-                  type: string
-                  nullable: true
-                publication_information:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                      event_type:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                place_of_publication:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                      event_type:
-                        type: string
-                        nullable: true
-                      date_elements:
-                        type: array
-                        items:
-                          type: string
-                          nullable: true
-                    additionalProperties: false
-                origin_agents:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      authority:
-                        type: string
-                        nullable: true
-                      authority_uri:
-                        type: string
-                        nullable: true
-                      value_uri:
-                        type: string
-                        nullable: true
-                      name:
-                        type: string
-                        nullable: true
-                      roles:
-                        type: array
-                        items:
-                          type: string
-                          nullable: true
-                      affiliation:
-                        type: array
-                        items:
-                          type: string
-                          nullable: true
-                      usage:
-                        type: string
-                        nullable: true
-                      alternative_names:
-                        type: array
-                        items:
-                          type: string
-                          nullable: true
-                      event_type:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                edition:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                      event_type:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                issuance:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                      event_type:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                frequency:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                      event_type:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                date_created:
-                  type: string
-                  format: date-time
-                  nullable: true
-                date_created_precision:
-                  type: string
-                  nullable: true
-                date_created_end:
-                  type: string
-                  format: date-time
-                  nullable: true
-                date_created_end_precision:
-                  type: string
-                  nullable: true
-                date_created_qualifier:
-                  type: string
-                  nullable: true
-                date_created_key_date:
-                  type: boolean
-                  nullable: true
-                date_created_text:
-                  type: string
-                  nullable: true
-                date_created_display_label:
-                  type: string
-                  nullable: true
-                date_created_event_type:
-                  type: string
-                  nullable: true
-                date_issued:
-                  type: string
-                  format: date-time
-                  nullable: true
-                date_issued_precision:
-                  type: string
-                  nullable: true
-                date_issued_end:
-                  type: string
-                  format: date-time
-                  nullable: true
-                date_issued_end_precision:
-                  type: string
-                  nullable: true
-                date_issued_qualifier:
-                  type: string
-                  nullable: true
-                date_issued_key_date:
-                  type: boolean
-                  nullable: true
-                date_issued_text:
-                  type: string
-                  nullable: true
-                date_issued_display_label:
-                  type: string
-                  nullable: true
-                date_issued_event_type:
-                  type: string
-                  nullable: true
-                copyright_date:
-                  type: string
-                  format: date-time
-                  nullable: true
-                copyright_date_precision:
-                  type: string
-                  nullable: true
-                copyright_date_end:
-                  type: string
-                  format: date-time
-                  nullable: true
-                copyright_date_end_precision:
-                  type: string
-                  nullable: true
-                copyright_date_qualifier:
-                  type: string
-                  nullable: true
-                copyright_date_key_date:
-                  type: boolean
-                  nullable: true
-                copyright_date_text:
-                  type: string
-                  nullable: true
-                copyright_date_display_label:
-                  type: string
-                  nullable: true
-                copyright_date_event_type:
-                  type: string
-                  nullable: true
-                date_captured:
-                  type: string
-                  format: date-time
-                  nullable: true
-                date_captured_precision:
-                  type: string
-                  nullable: true
-                date_captured_end:
-                  type: string
-                  format: date-time
-                  nullable: true
-                date_captured_end_precision:
-                  type: string
-                  nullable: true
-                date_captured_qualifier:
-                  type: string
-                  nullable: true
-                date_captured_key_date:
-                  type: boolean
-                  nullable: true
-                date_captured_text:
-                  type: string
-                  nullable: true
-                date_captured_display_label:
-                  type: string
-                  nullable: true
-                date_captured_event_type:
-                  type: string
-                  nullable: true
-                date_valid:
-                  type: string
-                  format: date-time
-                  nullable: true
-                date_valid_precision:
-                  type: string
-                  nullable: true
-                date_valid_end:
-                  type: string
-                  format: date-time
-                  nullable: true
-                date_valid_end_precision:
-                  type: string
-                  nullable: true
-                date_valid_qualifier:
-                  type: string
-                  nullable: true
-                date_valid_key_date:
-                  type: boolean
-                  nullable: true
-                date_valid_text:
-                  type: string
-                  nullable: true
-                date_valid_display_label:
-                  type: string
-                  nullable: true
-                date_valid_event_type:
-                  type: string
-                  nullable: true
-                date_other:
-                  type: string
-                  format: date-time
-                  nullable: true
-                date_other_precision:
-                  type: string
-                  nullable: true
-                date_other_end:
-                  type: string
-                  format: date-time
-                  nullable: true
-                date_other_end_precision:
-                  type: string
-                  nullable: true
-                date_other_qualifier:
-                  type: string
-                  nullable: true
-                date_other_key_date:
-                  type: boolean
-                  nullable: true
-                date_other_text:
-                  type: string
-                  nullable: true
-                date_other_display_label:
-                  type: string
-                  nullable: true
-                date_other_event_type:
-                  type: string
-                  nullable: true
-                date_modified:
-                  type: string
-                  format: date-time
-                  nullable: true
-                date_modified_precision:
-                  type: string
-                  nullable: true
-                date_modified_end:
-                  type: string
-                  format: date-time
-                  nullable: true
-                date_modified_end_precision:
-                  type: string
-                  nullable: true
-                date_modified_qualifier:
-                  type: string
-                  nullable: true
-                date_modified_key_date:
-                  type: boolean
-                  nullable: true
-                date_modified_text:
-                  type: string
-                  nullable: true
-                date_modified_display_label:
-                  type: string
-                  nullable: true
-                date_modified_event_type:
-                  type: string
-                  nullable: true
-                resource_type:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                target_audience:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                genres:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      authority:
-                        type: string
-                        nullable: true
-                      authority_uri:
-                        type: string
-                        nullable: true
-                      value_uri:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                format:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                extent:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                digital_origin:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                reformatting_quality:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                physical_description_notes:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                notes:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      type:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                table_of_contents:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                subject_headings:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      authority:
-                        type: string
-                        nullable: true
-                      authority_uri:
-                        type: string
-                        nullable: true
-                      value_uri:
-                        type: string
-                        nullable: true
-                      parts:
-                        type: array
-                        items:
-                          type: string
-                          nullable: true
-                      heading:
-                        type: string
-                        nullable: true
-                      axis:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                topical_subjects:
-                  type: array
-                  items:
-                    type: string
-                geographic_subjects:
-                  type: array
-                  items:
-                    type: string
-                temporal_subjects:
-                  type: array
-                  items:
-                    type: string
-                personal_name_subjects:
-                  type: array
-                  items:
-                    type: string
-                corporate_name_subjects:
-                  type: array
-                  items:
-                    type: string
-                occupation_subjects:
-                  type: array
-                  items:
-                    type: string
-                genre_subjects:
-                  type: array
-                  items:
-                    type: string
-                geographic_code_subjects:
-                  type: array
-                  items:
-                    type: string
-                title_subjects:
-                  type: array
-                  items:
-                    type: string
-                hierarchical_geographic_subjects:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      continent:
-                        type: string
-                        nullable: true
-                      country:
-                        type: string
-                        nullable: true
-                      province:
-                        type: string
-                        nullable: true
-                      region:
-                        type: string
-                        nullable: true
-                      state:
-                        type: string
-                        nullable: true
-                      territory:
-                        type: string
-                        nullable: true
-                      county:
-                        type: string
-                        nullable: true
-                      city:
-                        type: string
-                        nullable: true
-                      city_section:
-                        type: string
-                        nullable: true
-                      island:
-                        type: string
-                        nullable: true
-                      area:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                map_data:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      scale:
-                        type: string
-                        nullable: true
-                      projection:
-                        type: string
-                        nullable: true
-                      coordinates:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                related_series:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                host_collections:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      title:
-                        type: string
-                        nullable: true
-                      volume:
-                        type: string
-                        nullable: true
-                      issue:
-                        type: string
-                        nullable: true
-                      start_page:
-                        type: string
-                        nullable: true
-                      end_page:
-                        type: string
-                        nullable: true
-                      date:
-                        type: string
-                        nullable: true
-                      text:
-                        type: string
-                        nullable: true
-                      details:
-                        type: array
-                        items:
-                          type: object
-                          properties:
-                            type:
-                              type: string
-                              nullable: true
-                            number:
-                              type: string
-                              nullable: true
-                            caption:
-                              type: string
-                              nullable: true
-                            title:
-                              type: string
-                              nullable: true
-                          additionalProperties: false
-                      extents:
-                        type: array
-                        items:
-                          type: object
-                          properties:
-                            unit:
-                              type: string
-                              nullable: true
-                            start:
-                              type: string
-                              nullable: true
-                            end:
-                              type: string
-                              nullable: true
-                            total:
-                              type: string
-                              nullable: true
-                            list:
-                              type: string
-                              nullable: true
-                          additionalProperties: false
-                    additionalProperties: false
-                related_items:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      type:
-                        type: string
-                        nullable: true
-                      title:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                identifiers:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      type:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                      invalid:
-                        type: boolean
-                        nullable: true
-                    additionalProperties: false
-                classification:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      value:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                permanent_url:
-                  type: string
-                  nullable: true
-                permanent_url_display_label:
-                  type: string
-                  nullable: true
-                record_info:
-                  type: object
-                  properties:
-                    content_source:
-                      type: string
-                      nullable: true
-                    origin:
-                      type: string
-                      nullable: true
-                    description_standard:
-                      type: string
-                      nullable: true
-                    creation_date:
-                      type: string
-                      nullable: true
-                    change_date:
-                      type: string
-                      nullable: true
-                    language_of_cataloging:
-                      type: string
-                      nullable: true
-                  additionalProperties: false
-                  nullable: true
-                location:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      display_label:
-                        type: string
-                        nullable: true
-                      href:
-                        type: string
-                        nullable: true
-                      physical_location:
-                        type: string
-                        nullable: true
-                      shelf_location:
-                        type: string
-                        nullable: true
-                      url:
-                        type: string
-                        nullable: true
-                    additionalProperties: false
-                access_condition:
-                  type: string
-                  nullable: true
-                access_condition_display_label:
-                  type: string
-                  nullable: true
-                access_condition_href:
-                  type: string
-                  nullable: true
-                use_and_reproduction:
-                  type: string
-                  nullable: true
-                use_and_reproduction_display_label:
-                  type: string
-                  nullable: true
-                use_and_reproduction_href:
-                  type: string
-                  nullable: true
-                restriction_on_access:
-                  type: string
-                  nullable: true
-                restriction_on_access_display_label:
-                  type: string
-                  nullable: true
-                restriction_on_access_href:
-                  type: string
-                  nullable: true
+              "$ref": "#/components/schemas/MODSDocument"
+          required:
+          - id
+          - mods
       required:
       - community
     ResourceMods:
@@ -5865,7 +3978,7 @@ components:
               description: NOID
             valkyrie_id:
               type: string
-              description: Valkyrie internal id
+              description: An internal id; use `id`, the NOID, in every path
             nuid:
               type: string
               description: Correlation key + public address
@@ -5907,7 +4020,7 @@ components:
           description: NOID
         valkyrie_id:
           type: string
-          description: Valkyrie internal id
+          description: An internal id; use `id`, the NOID, in every path
         nuid:
           type: string
           description: Correlation key + public address
@@ -6550,17 +4663,21 @@ paths:
         '200':
           description: The whole file's bytes.
           content:
-            "*/*":
+            application/octet-stream:
               schema:
                 type: string
                 format: binary
+                description: The file's bytes. Content-Type is the file's own media
+                  type, such as image/tiff.
         '206':
           description: The bytes in the requested `Range`, with `Content-Range`.
           content:
-            "*/*":
+            application/octet-stream:
               schema:
                 type: string
                 format: binary
+                description: The file's bytes. Content-Type is the file's own media
+                  type, such as image/tiff.
         '416':
           description: The `Range` lies outside the file.
         '410':
@@ -6791,10 +4908,12 @@ paths:
         '200':
           description: The bytes of that version.
           content:
-            "*/*":
+            application/octet-stream:
               schema:
                 type: string
                 format: binary
+                description: The file's bytes. Content-Type is the file's own media
+                  type, such as image/tiff.
         '404':
           description: The Blob has no version with that label.
         '403':
@@ -10021,8 +8140,8 @@ paths:
       - Resources
       description: |
         Generic resolver. Issues a 302 redirect to the typed endpoint, keyed
-        on the same NOID (e.g. /works/{id}). Resolves the Valkyrie-backed
-        resource types only,
+        on the same NOID (e.g. /works/{id}). Resolves Communities,
+        Collections, Works, FileSets, Files, Delegates and People only,
         so a Compilation NOID answers 404 here and is served by
         /compilations/{id} instead.
       responses:
@@ -11165,18 +9284,17 @@ paths:
       description: |
         Resolves a resource's full descendant subtree to the Works it contains,
         at any depth — the structural counterpart to
-        `GET /compilations/{id}/contents`. Same digest shape and query engine,
-        but the container set is the resource's own subtree (self +
-        `ancestor_ids_ssim` descendants) instead of a Set recipe.
+        `GET /compilations/{id}/contents`. Same row shape, but the Works come
+        from the resource's own subtree rather than a Set.
 
         Gated per-Work to what the caller may read: public, one of the caller's
         read or edit groups, the caller as an edit user, or the caller as the
         depositor. Admins see everything. So a restricted Work never leaks via
         the subtree, and one the caller can edit is never hidden. Tombstoned
-        works are dropped. Membership is **structural** (`a_member_of`) only;
-        pass `include_linked=true` to also surface linked members
-        (`a_linked_member_of`). Solr-side pagination via `page` / `per_page`
-        (default 25, capped at 100). Unknown id → 404.
+        works are dropped. Only Works that sit in the subtree count; pass
+        `include_linked=true` to add Works linked into it from elsewhere
+        (`GET /works/{id}/linked_members`). Paged with `page` and `per_page`
+        (default 25, at most 100).
       parameters:
       - name: page
         in: query
@@ -11199,7 +9317,7 @@ paths:
       - name: include_linked
         in: query
         required: false
-        description: Include linked members (a_linked_member_of); structural-only
+        description: Also include Works linked into the subtree from elsewhere; false
           by default
         schema:
           type: boolean
@@ -12234,9 +10352,8 @@ paths:
         Returns a polymorphic array of downloadable assets attached to the
         Work: held binaries (Blob entries with size + original_filename)
         and external pointer-only derivatives (Delegate entries with
-        use + uri, e.g. IIIF-served sized image variants). Thumbnails
-        (Role.thumbnail_image) and metadata roles are excluded by
-        Role.downloadable?.
+        use + uri, e.g. IIIF-served sized image variants). Thumbnails and the
+        descriptive-metadata files are left out.
 
         Each element names its model in `kind`, `Blob` or `Delegate`. Match on
         `kind`, not on whether `uri` is present: an embargo answers `uri: null`

@@ -29,8 +29,8 @@ RSpec.describe 'Resources', type: :request do
       produces 'application/json'
       description <<~DESC
         Generic resolver. Issues a 302 redirect to the typed endpoint, keyed
-        on the same NOID (e.g. /works/{id}). Resolves the Valkyrie-backed
-        resource types only,
+        on the same NOID (e.g. /works/{id}). Resolves Communities,
+        Collections, Works, FileSets, Files, Delegates and People only,
         so a Compilation NOID answers 404 here and is served by
         /compilations/{id} instead.
       DESC
@@ -1092,22 +1092,21 @@ RSpec.describe 'Resources', type: :request do
       description <<~DESC
         Resolves a resource's full descendant subtree to the Works it contains,
         at any depth — the structural counterpart to
-        `GET /compilations/{id}/contents`. Same digest shape and query engine,
-        but the container set is the resource's own subtree (self +
-        `ancestor_ids_ssim` descendants) instead of a Set recipe.
+        `GET /compilations/{id}/contents`. Same row shape, but the Works come
+        from the resource's own subtree rather than a Set.
 
         Gated per-Work to what the caller may read: public, one of the caller's
         read or edit groups, the caller as an edit user, or the caller as the
         depositor. Admins see everything. So a restricted Work never leaks via
         the subtree, and one the caller can edit is never hidden. Tombstoned
-        works are dropped. Membership is **structural** (`a_member_of`) only;
-        pass `include_linked=true` to also surface linked members
-        (`a_linked_member_of`). Solr-side pagination via `page` / `per_page`
-        (default 25, capped at 100). Unknown id → 404.
+        works are dropped. Only Works that sit in the subtree count; pass
+        `include_linked=true` to add Works linked into it from elsewhere
+        (`GET /works/{id}/linked_members`). Paged with `page` and `per_page`
+        (default 25, at most 100).
       DESC
       paginated per_page: true, shape: :search
       parameter name: :include_linked, in: :query, type: :boolean, required: false,
-                description: 'Include linked members (a_linked_member_of); structural-only by default'
+                description: 'Also include Works linked into the subtree from elsewhere; false by default'
 
       response '200', 'descendant works (transitively flattened, gated, paginated)' do
         schema '$ref' => '#/components/schemas/DescendantWorks'

@@ -10,6 +10,7 @@
     "label": null,
     "tombstoned": false,
     "tombstoned_at": null,
-    "tombstoned_by": null
+    "tombstoned_by": null,
+    "updated_at": "2026-01-15T12:00:00Z"
   }
 }

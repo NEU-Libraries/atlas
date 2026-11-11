@@ -6,6 +6,7 @@
     "tombstoned": false,
     "tombstoned_at": null,
     "tombstoned_by": null,
-    "tombstone_reason": null
+    "tombstone_reason": null,
+    "updated_at": "2026-01-15T12:00:00Z"
   }
 }

@@ -47,6 +47,7 @@
         "next",
         "series"
       ],
+      "overflow": "empty_page",
       "count": 0
     },
     "pages": 1,

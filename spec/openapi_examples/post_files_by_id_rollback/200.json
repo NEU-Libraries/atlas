@@ -21,6 +21,7 @@
     "tombstoned": false,
     "tombstoned_at": null,
     "tombstoned_by": null,
+    "updated_at": "2026-01-15T12:00:00Z",
     "tombstoned_in_effect": false,
     "tombstoned_resource_id": null,
     "tombstoned_resource_type": null

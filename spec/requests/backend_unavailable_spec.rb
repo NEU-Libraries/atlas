@@ -44,6 +44,17 @@ RSpec.describe 'Backend unavailable', type: :request do
       expect_backend_unavailable('index')
     end
 
+    # The harvest endpoint is not an API controller, so it includes the handlers
+    # itself; a harvester backs off on the same Retry-After.
+    it 'answers 503 on the OAI-PMH endpoint too' do
+      allow(OAIWorksQuery).to receive(:call)
+        .and_raise(RSolr::Error::Http.new(solr_context, { status: 503, body: +'core is loading' }))
+
+      get '/oai', params: { verb: 'ListIdentifiers', metadataPrefix: 'oai_dc' }
+
+      expect_backend_unavailable('index')
+    end
+
     it 'answers 503 when Solr itself answers 5xx' do
       allow(SearchQuery).to receive(:call)
         .and_raise(RSolr::Error::Http.new(solr_context, { status: 503, body: +'core is loading' }))

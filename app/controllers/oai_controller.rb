@@ -16,6 +16,11 @@
 # One action for six verbs: OAI-PMH dispatches on the `verb` argument, not the
 # path, and requires one baseURL answering both GET and POST.
 class OAIController < ActionController::Base # rubocop:disable Rails/ApplicationController
+  # An outage answers 503 with Retry-After, as on the API and as OAI-PMH
+  # recommends for flow control, so a harvester backs off rather than retrying
+  # a 500 at once. docs/error-contract.md.
+  include BackendUnavailable
+
   CONTENT_TYPE = 'text/xml; charset=utf-8'
 
   # The protocol's own form encoding. A POST body in any other encoding

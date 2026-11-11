@@ -230,8 +230,8 @@ module OpenapiDocument
     - A page holds up to 50 records from `ListRecords`, or 200 headers from
       `ListIdentifiers`. Follow the `resumptionToken` until it is absent or
       empty. A token never expires, so a harvest can resume at any time.
-    - There is no rate limit. An outage answers `500` here, not the `503`
-      with `Retry-After` this API uses, so back off and retry on any `5xx`.
+    - There is no rate limit. An outage answers `503` with `Retry-After`, as
+      it does on this API; wait that many seconds, then resume.
     - `GET /oai?verb=Identify` reports the identifier scheme and the rest.
 
     ### Terms

@@ -98,6 +98,9 @@ level, never to the wire. `Retry-After` is a fixed 30 seconds, because an outage
 has no scheduled end the way a maintenance window does.
 
 The handlers live in a concern so `ApplicationController` keeps the auth logic.
+`OAIController`, which is not an API controller, includes the same concern, so a
+harvester gets the same `503` and `Retry-After`; OAI-PMH recommends exactly that
+for flow control.
 Controllers that include `IndexReadGate` declare their own Solr handler, which
 Rails consults first, so the operator inspection endpoints keep their `502
 solr_unavailable` (see [`solr-indexing.md`](solr-indexing.md)).

@@ -2,6 +2,7 @@
 
 module LazyPagination
   include Pagy::Backend
+  include PageParam
   extend ActiveSupport::Concern
 
   # Caps caller-supplied per_page so a request can't ask for an unbounded page.
@@ -69,7 +70,7 @@ module LazyPagination
     # Map an optional caller per_page into pagy's :items var (clamped). Blank
     # leaves pagy on its configured default (Pagy::DEFAULT[:items]).
     def per_page_vars(per_page)
-      return {} if per_page.blank?
+      return {} unless per_page.to_i.positive?
 
       { items: per_page.to_i.clamp(1, MAX_PER_PAGE) }
     end

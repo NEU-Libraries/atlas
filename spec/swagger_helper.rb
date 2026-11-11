@@ -93,12 +93,14 @@ module Rswag
 
       def paginated(per_page: false, shape: :pagy)
         parameter name: :page, in: :query, required: false, schema: { type: :integer, minimum: 1 },
-                  description: "The page to return, from 1. #{PAGE_STOP.fetch(shape)}"
+                  description: "The page to return, from 1. #{PAGE_STOP.fetch(shape)} A page below 1 is " \
+                               'page 1, and a page past the end is empty.'
         return unless per_page
 
         parameter name: :per_page, in: :query, required: false,
                   schema:      { type: :integer, minimum: 1, maximum: LazyPagination::MAX_PER_PAGE },
-                  description: "Items per page, at most #{LazyPagination::MAX_PER_PAGE}."
+                  description: "Items per page, at most #{LazyPagination::MAX_PER_PAGE}. A value that is not a " \
+                               'positive number gives the default.'
       end
     end
   end

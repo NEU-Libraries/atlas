@@ -39,7 +39,7 @@ class SearchQuery
     @query    = query.to_s.strip
     @type     = type.presence
     @page     = [page.to_i, 1].max
-    @per_page = per_page.present? ? per_page.to_i.clamp(1, MAX_PER_PAGE) : DEFAULT_PER_PAGE
+    @per_page = per_page.to_i.positive? ? per_page.to_i.clamp(1, MAX_PER_PAGE) : DEFAULT_PER_PAGE
   end
 
   def call

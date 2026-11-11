@@ -7,6 +7,7 @@
 # RecordNotFound rescue); the pk never reaches the wire.
 class CompilationsController < ApplicationController
   include Pagy::Backend
+  include PageParam
   include Auditable
   include CompilationMemberships
 

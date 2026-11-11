@@ -45,3 +45,6 @@
 /.claude
 /.ruby-lsp
 /.zed
+
+# The OpenAPI gate's pinned tools, installed by bin/openapi-lint.
+/openapi-lint/node_modules/

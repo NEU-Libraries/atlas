@@ -1,0 +1,10 @@
+{
+  "openapi/openapi.yaml": {
+    "atlas-2xx-json-has-example": 96,
+    "atlas-4xx-uses-error-schema": 31,
+    "atlas-no-authorization-parameter": 29,
+    "atlas-secured-operation-documents-401": 24,
+    "oas3-schema": 3,
+    "operation-operationId": 110
+  }
+}

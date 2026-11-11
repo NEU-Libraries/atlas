@@ -1,0 +1,11 @@
+{
+  "name": "atlas-openapi-lint",
+  "private": true,
+  "description": "The mechanical gate over the generated OpenAPI documents. See docs/openapi.md.",
+  "type": "module",
+  "devDependencies": {
+    "@stoplight/spectral-cli": "6.17.0",
+    "openapi-typescript": "7.13.0",
+    "typescript": "5.9.3"
+  }
+}

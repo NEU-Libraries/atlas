@@ -27,6 +27,7 @@ because a developer needs it before any of the other pages make sense.
 | [`testing.md`](testing.md) | The spec wrappers, the per-worker stores, the Solr cores, the guards |
 | [`authentication.md`](authentication.md) | The credential paths, the resolution matrix, acting-as, the write floors |
 | [`authorization.md`](authorization.md) | The `Ability` tiers, the ACL envelope, the write guard, per-asset visibility |
+| [`openapi.md`](openapi.md) | The generated OpenAPI document, its mechanical gate and the baseline it ratchets against |
 | [`error-contract.md`](error-contract.md) | The `rescue_from` shapes and the `error` codes `atlas_rb` keys on |
 | [`resource-graph.md`](resource-graph.md) | The tree and its DAG overlay, the traversal endpoints, the on-disk envelope |
 | [`search.md`](search.md) | The search endpoint, the search explanation, and the read gate every Solr list shares |

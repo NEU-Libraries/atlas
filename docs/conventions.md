@@ -41,6 +41,9 @@ metadata serialization or persistence.
 - Regenerate `openapi/openapi.yaml` with `bin/openapi`, and commit it with the
   change. CI fails when the committed file differs from what the specs
   generate.
+- Run `bin/openapi-lint` after you regenerate, and commit a changed
+  `openapi-lint/baseline.json` with the change. CI fails when a count differs
+  from the baseline; [`openapi.md`](openapi.md) explains the rules it counts.
 
 ## Lint
 

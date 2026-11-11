@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+#
+# The mechanical gate over the generated OpenAPI documents: Spectral's counted
+# rules and a generated TypeScript client, held against
+# openapi-lint/baseline.json.
+#
+#   bin/openapi-lint             print the counts per document and rule
+#   bin/openapi-lint --verbose   also print every finding
+#   bin/openapi-lint --check     exit non-zero when a count differs
+#   bin/openapi-lint --update    write the current counts to the baseline
+#
+# Runs on the host with Node, not in the web container. See docs/openapi.md.
+set -euo pipefail
+
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+  sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'
+  exit 0
+fi
+
+LINT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../openapi-lint" && pwd)"
+
+if [[ ! -d "$LINT_DIR/node_modules" ]]; then
+  npm ci --prefix "$LINT_DIR" --no-audit --no-fund >&2
+fi
+
+exec node "$LINT_DIR/check.mjs" "$@"

@@ -61,3 +61,12 @@ jobs:
           echo "::error::openapi/openapi.yaml is stale. Run 'bin/openapi' locally and commit the result."
           exit 1
         fi
+
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 24
+        cache: npm
+        cache-dependency-path: openapi-lint/package-lock.json
+
+    - name: Check the OpenAPI gate
+      run: bin/openapi-lint --check

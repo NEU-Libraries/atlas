@@ -8,6 +8,8 @@ module OpenapiContract
   UNAUTHORIZED_REF = '#/components/responses/Unauthorized'
   FORBIDDEN_REF    = '#/components/responses/Forbidden'
   NOT_FOUND_REF    = '#/components/responses/NotFound'
+  UNAVAILABLE_REF  = '#/components/responses/ServiceUnavailable'
+  NOT_MODIFIED_REF = '#/components/responses/NotModified'
   NO_NOT_FOUND     = 'x-atlas-no-not-found'
 
   # The wording for an identity path parameter a spec left undescribed, so the
@@ -35,6 +37,7 @@ module OpenapiContract
       describe_path_parameters(op['parameters'])
       op['operationId'] ||= operation_id(template, verb)
       attach_shared_responses(template, op, doc)
+      attach_availability_responses(verb, op)
       op['responses'].each do |code, response|
         OpenapiErrorBodies.document(code, response)
         OpenapiJsonBodies.document(response)
@@ -76,6 +79,15 @@ module OpenapiContract
     end
     lookup = template.include?('{') && !operation.delete(NO_NOT_FOUND)
     responses['404'] ||= { '$ref' => NOT_FOUND_REF } if lookup
+  end
+
+  # Any operation can meet an outage or a maintenance window, and every buffered
+  # GET body carries a weak ETag; a file's streamed bytes do not.
+  def attach_availability_responses(verb, operation)
+    responses = operation['responses']
+    responses['503'] ||= { '$ref' => UNAVAILABLE_REF }
+    binary = responses.values.any? { |response| response.is_a?(Hash) && response[OpenapiJsonBodies::BINARY] }
+    responses['304'] ||= { '$ref' => NOT_MODIFIED_REF } if verb == 'get' && !binary
   end
 
   def secured?(operation, doc)

@@ -87,6 +87,10 @@ before it is written:
   documents state it once, as the `Unauthorized` response.
   `spec/requests/openapi_contract_spec.rb` sends a bad token to every such
   operation and checks the answer.
+- **The shared `503` and `304`.** Any operation can meet an outage or a
+  maintenance window, so each gets `ServiceUnavailable`; every GET whose body
+  is buffered carries a weak `ETag`, so each gets `NotModified`. A file's
+  streamed bytes carry no `ETag`, so the two byte routes get no `304`.
 - **The shared `403` and `404`.** Every action calls `authorize!`
   (`check_authorization` enforces it), so any secured operation can refuse,
   and the documents attach the `Forbidden` response to each. Every path
@@ -134,8 +138,13 @@ rswag gives one schema to every media type an operation produces. On a route
 that serves XML or HTML as well as JSON, `json_schema :Name` in the response
 block declares the JSON body's schema alone, and the response hook checks every
 JSON body a spec receives against it. A file's bytes take `binary_body`, which
-documents `application/octet-stream`: a `schema` would make rswag parse the
-bytes as JSON.
+documents `*/*` with a binary schema, since Atlas serves each file's own media
+type; a `schema` would make rswag parse the bytes as JSON.
+
+The MODS JSON's object members, such as a name or a title, are read off the
+AttrJson models that serialise them (`attr_json_schema`), so their schemas cannot
+drift from the projection. None of a member's keys is required, because attr_json
+stores only the keys a value set, and each member is closed to unknown keys.
 
 ### Paging
 

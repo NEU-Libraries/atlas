@@ -241,7 +241,9 @@ RSpec.describe 'Collections', type: :request do
       produces 'application/json'
       description <<~DESC
         Returns the NOIDs of the Collection's direct children, Works and
-        Collections. Fetch each one by its NOID.
+        Collections, tombstoned ones included.
+        `POST /resources/find_many` resolves them all in one call and flags the
+        tombstoned ones.
 
         A tombstoned Collection answers `410`: an admin or delegated admin gets the
         full record, and everyone else gets a stub.

@@ -12,9 +12,9 @@ RSpec.describe 'Maintenance', type: :request do
       operationId 'maintenance_show'
       produces 'application/json'
       description <<~D
-        The state of the repository-wide read-only window. On the authenticated
-        read floor, and answered even while the window is open — a client that
-        could not read the flag could not honour it.
+        The state of the repository-wide read-only window. Any caller may read
+        it, a guest included, and it is answered even while the window is open
+        — a client that could not read the flag could not honour it.
 
         While `read_only` is true every write-shaped action is refused with a
         `503` carrying `error: "read_only_mode"` and a `Retry-After` header.

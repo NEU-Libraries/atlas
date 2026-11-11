@@ -88,6 +88,22 @@ components:
     NotFound:
       description: Nothing answers to that identifier, or it names a resource of another
         type. Most 404 responses have no body.
+    ServiceUnavailable:
+      description: 'Atlas cannot serve the request now: `backend_unavailable` when
+        a dependency is down, named in `dependency`, or `read_only_mode` on a write
+        during a maintenance window. Wait the `Retry-After` seconds, then retry.'
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+          description: Seconds to wait before retrying.
+      content:
+        application/json:
+          schema:
+            "$ref": "#/components/schemas/Error"
+    NotModified:
+      description: Nothing changed since the `ETag` sent in `If-None-Match`; the body
+        is empty.
     Unauthorized:
       description: 'The credential was not recognised: an unknown, expired or revoked
         token. Send no `Authorization` header to call as a guest instead.'
@@ -646,6 +662,8 @@ paths:
           "$ref": "#/components/responses/Unauthorized"
         '403':
           "$ref": "#/components/responses/Forbidden"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
       operationId: embargoes_release
   "/fixity_checks":
     post:
@@ -731,6 +749,8 @@ paths:
                 "$ref": "#/components/schemas/Error"
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
       requestBody:
         content:
           application/json:
@@ -895,6 +915,10 @@ paths:
                 "$ref": "#/components/schemas/Error"
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
+        '304':
+          "$ref": "#/components/responses/NotModified"
       operationId: fixity_checks_due
   "/resources/{id}/solr":
     get:
@@ -1096,6 +1120,10 @@ paths:
           "$ref": "#/components/responses/Unauthorized"
         '403':
           "$ref": "#/components/responses/Forbidden"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
+        '304':
+          "$ref": "#/components/responses/NotModified"
       operationId: index_documents_show
   "/maintenance":
     put:
@@ -1132,6 +1160,8 @@ paths:
           "$ref": "#/components/responses/Unauthorized"
         '403':
           "$ref": "#/components/responses/Forbidden"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
       requestBody:
         content:
           application/json:
@@ -1171,6 +1201,10 @@ paths:
       responses:
         '204':
           description: The development or test state is wiped and reseeded.
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
+        '304':
+          "$ref": "#/components/responses/NotModified"
   "/metrics/latency":
     get:
       summary: Report Atlas's own request latency
@@ -1229,6 +1263,8 @@ paths:
           "$ref": "#/components/responses/Unauthorized"
         '403':
           "$ref": "#/components/responses/Forbidden"
+        '304':
+          "$ref": "#/components/responses/NotModified"
   "/people":
     post:
       summary: Create a person (system/admin)
@@ -1269,6 +1305,8 @@ paths:
                 "$ref": "#/components/schemas/Error"
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
       requestBody:
         content:
           application/json:
@@ -1331,6 +1369,8 @@ paths:
           "$ref": "#/components/responses/Forbidden"
         '404':
           "$ref": "#/components/responses/NotFound"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
       requestBody:
         content:
           application/json:
@@ -1386,6 +1426,8 @@ paths:
           "$ref": "#/components/responses/Forbidden"
         '404':
           "$ref": "#/components/responses/NotFound"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
       operationId: people_remove_affiliation
   "/resources/{id}/reindex":
     parameters:
@@ -1424,6 +1466,8 @@ paths:
                 "$ref": "#/components/schemas/Error"
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
       operationId: resources_reindex
   "/resources/{id}/reindex_subtree":
     parameters:
@@ -1471,6 +1515,8 @@ paths:
           "$ref": "#/components/responses/Unauthorized"
         '403':
           "$ref": "#/components/responses/Forbidden"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
       operationId: resources_reindex_subtree
   "/resources/{id}/search_explanation":
     get:
@@ -3248,6 +3294,10 @@ paths:
           "$ref": "#/components/responses/Unauthorized"
         '403':
           "$ref": "#/components/responses/Forbidden"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
+        '304':
+          "$ref": "#/components/responses/NotModified"
       operationId: search_explanations_show
   "/nuid":
     post:
@@ -3290,6 +3340,8 @@ paths:
                 "$ref": "#/components/schemas/Error"
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
       requestBody:
         content:
           application/json:
@@ -3331,6 +3383,8 @@ paths:
                 "$ref": "#/components/schemas/Error"
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
       requestBody:
         content:
           application/json:
@@ -3392,6 +3446,8 @@ paths:
           "$ref": "#/components/responses/Unauthorized"
         '404':
           "$ref": "#/components/responses/NotFound"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
       requestBody:
         content:
           application/json:
@@ -3451,6 +3507,8 @@ paths:
                 "$ref": "#/components/schemas/Error"
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
       requestBody:
         content:
           application/json:

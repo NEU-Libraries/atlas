@@ -751,7 +751,8 @@ module OpenapiSchemas
         klass:       { type: :string, enum: SearchQuery::TYPES, description: 'Resource type' },
         title:       { type: :string, nullable: true },
         creators:    { type: :array, items: { type: :string } },
-        year:        { type: :string, nullable: true, description: 'Publication year' },
+        year:        { type: :string, nullable: true,
+                       description: 'The year of the record\'s created date, which the citation calls `issued`' },
         thumbnail:   { type: :string, nullable: true, description: 'IIIF URL of the thumbnail tier, or null' },
         in_progress: { type: :boolean, description: 'An unfinished deposit' },
         embargoed:   { type: :boolean },
@@ -1286,62 +1287,6 @@ module OpenapiSchemas
     }
   end
 
-  # The two members every DISPLAYED field carries: the header the record asked
-  # for (@displayLabel) and the link it attached (xlink:href). Spelled once and
-  # merged in below, the way the projection reads them as one pair.
-  MODS_DISPLAY_MEMBERS = %i[display_label href].freeze
-
-  # The three members every BROWSABLE field carries beside those: the
-  # vocabulary its value was taken from, which is what a consumer gates a
-  # browse link on. Only the fields below have them -- nothing gates on the
-  # vocabulary of an extent, and three more members on every displayed field
-  # is a schema no consumer reads.
-  MODS_AUTHORITY_MEMBERS = %i[authority authority_uri value_uri].freeze
-
-  MODS_BROWSABLE_FIELDS =
-    (%i[names origin_agents languages subject_headings] + Metadata::MODS::AUTHORIZED_VALUE_FIELDS).freeze
-
-  # The three object fields that carry NEITHER: MODS puts no @displayLabel on
-  # hierarchicalGeographic, recordInfo takes one but describes the cataloguing
-  # rather than the resource, and a primary title's label is a scalar companion
-  # because the title itself is a parts model.
-  MODS_UNLABELED_OBJECT_PROPS = {
-    main_title:                       %i[title subtitle part_number part_name non_sort],
-    record_info:                      %i[content_source origin description_standard creation_date
-                                         change_date language_of_cataloging],
-    hierarchical_geographic_subjects: %i[continent country province region state territory
-                                         county city city_section island area]
-  }.freeze
-
-  # MODS fields whose members are objects rather than strings; everything else
-  # is a string, singular or an array according to its registry cardinality.
-  MODS_OBJECT_PROPS = {
-    names:                %i[name roles affiliation usage alternative_names],
-    languages:            %i[term object_part script],
-    notes:                %i[type value],
-    host_collections:     %i[title volume issue start_page end_page date text
-                             details extents],
-    # :heading is the parts joined, which is the string the display renders AND
-    # the string the browse index holds; :axis names the MODS element the
-    # heading's main term came from, which is the facet it browses in.
-    subject_headings:     %i[parts heading axis],
-    location:             %i[physical_location shelf_location url],
-    map_data:             %i[scale projection coordinates],
-    related_items:        %i[type title],
-    identifiers:          %i[type value invalid],
-    place_of_publication: %i[value event_type date_elements],
-    origin_agents:        %i[name roles affiliation usage alternative_names event_type]
-  }.merge(Metadata::MODS::LABELED_VALUE_FIELDS.index_with { %i[value] })
-                      .merge(Metadata::MODS::AUTHORIZED_VALUE_FIELDS.index_with { %i[value] })
-                      .merge(Metadata::MODS::ORIGIN_VALUE_FIELDS.index_with { %i[value event_type] })
-                      .transform_values { |members| members + MODS_DISPLAY_MEMBERS }
-                      .merge(MODS_UNLABELED_OBJECT_PROPS)
-                      .to_h do |field, members|
-                        browsable = MODS_BROWSABLE_FIELDS.include?(field)
-                        [field, browsable ? members + MODS_AUTHORITY_MEMBERS : members]
-                      end
-                      .freeze
-
   # The originInfo dates serialise as timestamps, both ends of a range alike.
   # Their precision and qualifier siblings are plain strings. All seven MODS
   # dates are here, including the four that render nowhere -- the response body
@@ -1367,13 +1312,8 @@ module OpenapiSchemas
   end
 
   def mods_member(field)
-    if MODS_OBJECT_PROPS.key?(field)
-      # The member keys are documented in MODS_OBJECT_PROPS but not enumerated
-      # here: attr_json stores only the keys a value actually set, so a name
-      # with no role serialises without the key at all, and strict validation
-      # would demand every part of every member. The field set above is the
-      # contract that matters -- it is the one that drifts.
-      { type: :object }
+    if (model = mods_model(field))
+      attr_json_schema(model)
     elsif MODS_DATE_PROPS.include?(field)
       { type: :string, format: 'date-time' }
     elsif MODS_BOOLEAN_PROPS.include?(field)
@@ -1382,6 +1322,38 @@ module OpenapiSchemas
       { type: :string }
     end
   end
+
+  # The AttrJson model a MODS field projects into, if it is an object rather
+  # than a scalar; an array field names its element's model.
+  def mods_model(field)
+    type = Metadata::MODS.attr_json_registry[field]&.type
+    type = type.base_type if type.is_a?(AttrJson::Type::Array)
+    type.model if type.is_a?(AttrJson::Type::Model)
+  end
+
+  # A member's keys, read off the model that serialises it, so the schema
+  # cannot drift from the projection. None is required: attr_json stores only
+  # the keys a value set, so a name with no role has no `roles` key at all.
+  # Closed, so a key the model gains fails the specs until regenerated.
+  def attr_json_schema(model)
+    properties = model.attr_json_registry.definitions.to_h { |d| [d.name, attr_json_value(d.type)] }
+    { type: :object, properties: properties, additionalProperties: false }
+  end
+
+  def attr_json_value(type)
+    case type
+    when AttrJson::Type::Array then { type: :array, items: attr_json_value(type.base_type) }
+    when AttrJson::Type::Model then attr_json_schema(type.model)
+    else ATTR_JSON_SCALARS.fetch(type.type, { type: :string }).merge(nullable: true)
+    end
+  end
+
+  ATTR_JSON_SCALARS = {
+    string:   { type: :string },
+    boolean:  { type: :boolean },
+    integer:  { type: :integer },
+    datetime: { type: :string, format: 'date-time' }
+  }.freeze
 
   # GET /files/:id/versions — binary version-history envelope. The counterpart
   # to ModsVersions: one descriptor per retained content revision (off the

@@ -79,27 +79,38 @@ module OpenapiDocument
   }.freeze
 
   # Shared responses. OpenapiContract attaches `Unauthorized` and `Forbidden`
-  # to every operation that accepts a credential, and `NotFound` to every
-  # operation with a path parameter; spec/requests/openapi_contract_spec.rb
+  # to every operation that accepts a credential, `NotFound` to every operation
+  # with a path parameter, `ServiceUnavailable` to every operation, and
+  # `NotModified` to every GET whose body carries an ETag; spec/requests/openapi_contract_spec.rb
   # proves the 401 and the 404 on each one. `ServerError` is named here only: a spec
   # cannot provoke a 5xx per path.
   RESPONSES = {
-    Forbidden:    {
+    Forbidden:          {
       description: 'The caller may not do this: the record is not readable to it, or the operation needs ' \
                    'more than the access its credential carries. A guest may read public items only. The ' \
                    'body\'s `action` names the verb that was refused, and `subject` the type it was refused on.',
       content:     { 'application/json' => { schema: { '$ref' => '#/components/schemas/Error' } } }
     },
-    NotFound:     {
+    NotFound:           {
       description: 'Nothing answers to that identifier, or it names a resource of another type. ' \
                    'Most 404 responses have no body.'
     },
-    Unauthorized: {
+    ServiceUnavailable: {
+      description: 'Atlas cannot serve the request now: `backend_unavailable` when a dependency is down, named in ' \
+                   '`dependency`, or `read_only_mode` on a write during a maintenance window. Wait the ' \
+                   '`Retry-After` seconds, then retry.',
+      headers:     { 'Retry-After' => { schema: { type: :integer }, description: 'Seconds to wait before retrying.' } },
+      content:     { 'application/json' => { schema: { '$ref' => '#/components/schemas/Error' } } }
+    },
+    NotModified:        {
+      description: 'Nothing changed since the `ETag` sent in `If-None-Match`; the body is empty.'
+    },
+    Unauthorized:       {
       description: 'The credential was not recognised: an unknown, expired or revoked token. ' \
                    'Send no `Authorization` header to call as a guest instead.',
       content:     { 'application/json' => { schema: { '$ref' => '#/components/schemas/Error' } } }
     },
-    ServerError:  {
+    ServerError:        {
       description: 'Atlas, or a proxy in front of it, failed to serve the request. Applies to every ' \
                    'operation. Atlas\'s own 5xx carries an `Error` body; a proxy\'s 502 or 504 can ' \
                    'carry HTML or plain text, so read the status before you parse the body.',
@@ -163,13 +174,14 @@ module OpenapiDocument
     the `Error` schema, and a client branches on its `error` key, never on
     `message`. Most `404` responses have no body at all.
 
-    Two exceptions are documented where they occur. On some `422` responses,
-    `error` is a sentence and the code is in `code`. And a tombstoned
-    resource's own record answers `410` with the record, or a stub of it,
-    rather than an `Error`.
+    Three exceptions are documented where they occur. On a `400`, `401` or
+    `403`, `error` is a sentence for a person, so branch on the status. On
+    some `422` responses, `error` is a sentence and the code is in `code`.
+    And a tombstoned resource's own record answers `410` with the record, or
+    a stub of it, rather than an `Error`.
 
-    Three statuses apply to every operation, so they are not repeated on each
-    one:
+    Three statuses can answer any operation. Each operation lists the two
+    `503`s as the shared `ServiceUnavailable` response:
 
     - **`503` with `error: "backend_unavailable"`.** Atlas cannot reach a
       dependency. The `dependency` key names it. Wait for the `Retry-After`
@@ -215,6 +227,11 @@ module OpenapiDocument
     - Its sets are the published Compilations.
     - Deletions are `transient`: a purged record leaves no trace, so a full
       harvest now and then is the only way to catch every removal.
+    - A page holds up to 50 records from `ListRecords`, or 200 headers from
+      `ListIdentifiers`. Follow the `resumptionToken` until it is absent or
+      empty. A token never expires, so a harvest can resume at any time.
+    - There is no rate limit. An outage answers `500` here, not the `503`
+      with `Retry-After` this API uses, so back off and retry on any `5xx`.
     - `GET /oai?verb=Identify` reports the identifier scheme and the rest.
 
     ### Terms

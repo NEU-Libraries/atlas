@@ -16,7 +16,7 @@ module OpenapiJsonBodies
     return unless response.is_a?(Hash)
 
     if response.delete(BINARY)
-      response['content'] = { 'application/octet-stream' => { 'schema' => { 'type' => 'string', 'format' => 'binary' } } }
+      response['content'] = { '*/*' => { 'schema' => { 'type' => 'string', 'format' => 'binary' } } }
     end
     name = response.delete(KEY)
     return unless name

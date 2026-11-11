@@ -33,9 +33,8 @@ RSpec.describe 'Resource children', type: :request do
         answers for a tombstoned container instead of 410. Each row has the
         `POST /resources/find_many` digest shape, `tombstoned` included.
 
-        Admins and delegated admins only, the gate of
-        `GET /resources/{id}/solr`. A delegated admin must also be able to read
-        the container, and a child they cannot read is left out. Not
+        Admins and delegated admins only. A delegated admin must also be able
+        to read the container, and a child they cannot read is left out. Not
         response-cached.
 
         404 for an unknown NOID and for anything other than a Community or a

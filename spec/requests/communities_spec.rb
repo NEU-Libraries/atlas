@@ -182,7 +182,9 @@ RSpec.describe 'Communities', type: :request do
       produces 'application/json'
       description <<~DESC
         Returns the NOIDs of the Community's direct children, Collections and
-        Communities. Fetch each one by its NOID.
+        Communities, tombstoned ones included.
+        `POST /resources/find_many` resolves them all in one call and flags the
+        tombstoned ones.
 
         A tombstoned Community answers `410`: an admin or delegated admin gets the
         full record, and everyone else gets a stub.

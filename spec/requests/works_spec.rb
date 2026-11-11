@@ -772,7 +772,8 @@ RSpec.describe 'Works', type: :request do
       response_texts(
         '200' => 'The Work\'s replaced Blobs, each with its revisions newest first; an empty array when no file was ever ' \
                  'replaced.',
-        '404' => 'No Work has that NOID.'
+        '404' => 'No Work has that NOID.',
+        '410' => 'The Work is tombstoned, so its files are withheld from everyone but admins and delegated admins.'
       )
       produces 'application/json'
       description <<~DESC
@@ -787,6 +788,10 @@ RSpec.describe 'Works', type: :request do
 
         A Work whose files were never replaced answers `[]`.
       DESC
+
+      withheld_by_tombstone do
+        let(:id) { tombstoned_public_work!.noid }
+      end
 
       response '200', 'replaced files listed' do
         let(:work) { WorkCreator.call(parent_id: collection.noid) }
@@ -1012,7 +1017,8 @@ RSpec.describe 'Works', type: :request do
       tags 'Works'
       response_texts(
         '200' => 'The Work\'s page FileSets in order, each with its downloadable assets nested under it.',
-        '404' => 'No Work has that NOID.'
+        '404' => 'No Work has that NOID.',
+        '410' => 'The Work is tombstoned, so its files are withheld from everyone but admins and delegated admins.'
       )
       produces 'application/json'
       description <<~DESC
@@ -1024,6 +1030,10 @@ RSpec.describe 'Works', type: :request do
         a derivative FileSet under the page. Unpaginated by design: manifest
         assembly needs the whole sequence in one read.
       DESC
+
+      withheld_by_tombstone do
+        let(:id) { tombstoned_public_work!.noid }
+      end
 
       response '200', 'page file sets listed in order' do
         let(:work) { WorkCreator.call(parent_id: collection.noid) }

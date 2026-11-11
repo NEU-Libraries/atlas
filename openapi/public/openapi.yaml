@@ -33,13 +33,14 @@ info:
     the `Error` schema, and a client branches on its `error` key, never on
     `message`. Most `404` responses have no body at all.
 
-    Two exceptions are documented where they occur. On some `422` responses,
-    `error` is a sentence and the code is in `code`. And a tombstoned
-    resource's own record answers `410` with the record, or a stub of it,
-    rather than an `Error`.
+    Three exceptions are documented where they occur. On a `400`, `401` or
+    `403`, `error` is a sentence for a person, so branch on the status. On
+    some `422` responses, `error` is a sentence and the code is in `code`.
+    And a tombstoned resource's own record answers `410` with the record, or
+    a stub of it, rather than an `Error`.
 
-    Three statuses apply to every operation, so they are not repeated on each
-    one:
+    Three statuses can answer any operation. Each operation lists the two
+    `503`s as the shared `ServiceUnavailable` response:
 
     - **`503` with `error: "backend_unavailable"`.** Atlas cannot reach a
       dependency. The `dependency` key names it. Wait for the `Retry-After`
@@ -85,6 +86,11 @@ info:
     - Its sets are the published Compilations.
     - Deletions are `transient`: a purged record leaves no trace, so a full
       harvest now and then is the only way to catch every removal.
+    - A page holds up to 50 records from `ListRecords`, or 200 headers from
+      `ListIdentifiers`. Follow the `resumptionToken` until it is absent or
+      empty. A token never expires, so a harvest can resume at any time.
+    - There is no rate limit. An outage answers `500` here, not the `503`
+      with `Retry-After` this API uses, so back off and retry on any `5xx`.
     - `GET /oai?verb=Identify` reports the identifier scheme and the rest.
 
     ### Terms
@@ -197,6 +203,22 @@ components:
     NotFound:
       description: Nothing answers to that identifier, or it names a resource of another
         type. Most 404 responses have no body.
+    ServiceUnavailable:
+      description: 'Atlas cannot serve the request now: `backend_unavailable` when
+        a dependency is down, named in `dependency`, or `read_only_mode` on a write
+        during a maintenance window. Wait the `Retry-After` seconds, then retry.'
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+          description: Seconds to wait before retrying.
+      content:
+        application/json:
+          schema:
+            "$ref": "#/components/schemas/Error"
+    NotModified:
+      description: Nothing changed since the `ETag` sent in `If-None-Match`; the body
+        is empty.
     Unauthorized:
       description: 'The credential was not recognised: an unknown, expired or revoked
         token. Send no `Authorization` header to call as a guest instead.'
@@ -358,6 +380,16 @@ components:
                 independent tiers audio/video/pdf/archive/spreadsheet/structured_text/presentation/text/generic.
                 Empty when unset (tiers inherit the Work visibility). For a guest
                 each tier keeps only `public`, so a reserved tier reads [].'
+            embargoed:
+              type: boolean
+              description: Whether an active embargo withholds the Work's files now.
+                Its record stays readable.
+            embargo_release_date:
+              type: string
+              format: date-time
+              nullable: true
+              description: When the embargo ends, past or future; null when the Work
+                has none.
             metadata_formats:
               type: array
               items:
@@ -392,6 +424,8 @@ components:
           - incomplete_reason
           - handle
           - derivative_permissions
+          - embargoed
+          - embargo_release_date
           - metadata_formats
       required:
       - work
@@ -2113,6 +2147,91 @@ components:
                   nullable: true
       required:
       - work
+    Citation:
+      type: object
+      description: 'The Work as a CSL-JSON item (Citation Style Language), ready for
+        a reference manager or a CSL formatter. Names are literal: the record does
+        not say which are personal.'
+      properties:
+        id:
+          type: string
+          description: The Work's NOID.
+        type:
+          type: string
+          enum:
+          - article
+          - book
+          - collection
+          - dataset
+          - document
+          - graphic
+          - map
+          - motion_picture
+          - musical_score
+          - report
+          - software
+          - song
+          - thesis
+          description: The CSL item type, from the genre, then the type of resource.
+        title:
+          type: string
+        author:
+          type: array
+          items:
+            type: object
+            properties:
+              literal:
+                type: string
+            required:
+            - literal
+            additionalProperties: false
+          description: The creators, in record order.
+        contributor:
+          type: array
+          items:
+            type: object
+            properties:
+              literal:
+                type: string
+            required:
+            - literal
+            additionalProperties: false
+          description: The other named contributors.
+        issued:
+          description: The created date, to the precision the record states, or its
+            own words when it gives a date it could not encode.
+          oneOf:
+          - type: object
+            required:
+            - date-parts
+            additionalProperties: false
+            properties:
+              date-parts:
+                type: array
+                items:
+                  type: array
+                  items:
+                    type: integer
+          - type: object
+            required:
+            - literal
+            additionalProperties: false
+            properties:
+              literal:
+                type: string
+        abstract:
+          type: string
+        keyword:
+          type: string
+          description: The topical subjects, comma-separated.
+        URL:
+          type: string
+          description: The Work's persistent URL, its handle.
+      required:
+      - id
+      - type
+      - title
+      additionalProperties: false
     CollectionMods:
       type: object
       properties:
@@ -3242,12 +3361,27 @@ components:
                 type: string
                 nullable: true
                 description: IIIF URL of the thumbnail tier, or null
+              creators:
+                type: array
+                items:
+                  type: string
+                description: The creators, as search reports them
+              year:
+                type: string
+                nullable: true
+                description: The created date's year, as search reports it
+              embargoed:
+                type: boolean
+                description: Whether an embargo withholds the Work's files now
             required:
             - id
             - noid
             - klass
             - title
             - thumbnail
+            - creators
+            - year
+            - embargoed
         pagination:
           "$ref": "#/components/schemas/SearchPagination"
       required:
@@ -3285,7 +3419,8 @@ components:
               year:
                 type: string
                 nullable: true
-                description: Publication year
+                description: The year of the record's created date, which the citation
+                  calls `issued`
               thumbnail:
                 type: string
                 nullable: true
@@ -3499,9 +3634,9 @@ components:
         gated:
           type: boolean
           description: 'True if this binary must be authorized rather than downloaded
-            directly (its audience is not public). Blobs classify by media type: image
-            original => original, plus pdf/audio/video; other types ride the Work
-            gate'
+            directly: its audience is not public, or the Work is under an active embargo.
+            Blobs classify by media type: image original => original, plus pdf/audio/video;
+            other types ride the Work gate'
         permission:
           type: array
           items:
@@ -3556,8 +3691,9 @@ components:
             for IIIF tiers)
         gated:
           type: boolean
-          description: True if this derivative tier must be authorized rather than
-            linked directly (its audience is not public)
+          description: 'True if this derivative tier must be authorized rather than
+            linked directly: its audience is not public, or the Work is under an active
+            embargo (thumbnails stay open)'
         permission:
           type: array
           items:
@@ -3622,9 +3758,9 @@ components:
         gated:
           type: boolean
           description: 'True if this binary must be authorized rather than downloaded
-            directly (its audience is not public). Blobs classify by media type: image
-            original => original, plus pdf/audio/video; other types ride the Work
-            gate'
+            directly: its audience is not public, or the Work is under an active embargo.
+            Blobs classify by media type: image original => original, plus pdf/audio/video;
+            other types ride the Work gate'
         permission:
           type: array
           items:
@@ -3687,8 +3823,9 @@ components:
             for IIIF tiers)
         gated:
           type: boolean
-          description: True if this derivative tier must be authorized rather than
-            linked directly (its audience is not public)
+          description: 'True if this derivative tier must be authorized rather than
+            linked directly: its audience is not public, or the Work is under an active
+            embargo (thumbnails stay open)'
         permission:
           type: array
           items:
@@ -3888,12 +4025,27 @@ components:
                 type: string
                 nullable: true
                 description: IIIF URL of the thumbnail tier, or null
+              creators:
+                type: array
+                items:
+                  type: string
+                description: The creators, as search reports them
+              year:
+                type: string
+                nullable: true
+                description: The created date's year, as search reports it
+              embargoed:
+                type: boolean
+                description: Whether an embargo withholds the Work's files now
             required:
             - id
             - noid
             - klass
             - title
             - thumbnail
+            - creators
+            - year
+            - embargoed
         pagination:
           "$ref": "#/components/schemas/SearchPagination"
       required:
@@ -4256,6 +4408,10 @@ paths:
           "$ref": "#/components/responses/Unauthorized"
         '403':
           "$ref": "#/components/responses/Forbidden"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
+        '304':
+          "$ref": "#/components/responses/NotModified"
       operationId: blobs_index
     post:
       summary: Upload a file
@@ -4357,6 +4513,8 @@ paths:
           "$ref": "#/components/responses/Unauthorized"
         '403':
           "$ref": "#/components/responses/Forbidden"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
       operationId: blobs_create
   "/files/{id}":
     parameters:
@@ -4419,6 +4577,10 @@ paths:
           "$ref": "#/components/responses/Forbidden"
         '404':
           "$ref": "#/components/responses/NotFound"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
+        '304':
+          "$ref": "#/components/responses/NotModified"
       operationId: blobs_show
     patch:
       summary: Append a new revision to a file
@@ -4514,6 +4676,8 @@ paths:
           "$ref": "#/components/responses/Unauthorized"
         '403':
           "$ref": "#/components/responses/Forbidden"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
       operationId: blobs_update
     delete:
       summary: Destroy a file
@@ -4535,6 +4699,8 @@ paths:
           "$ref": "#/components/responses/Forbidden"
         '404':
           "$ref": "#/components/responses/NotFound"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
       operationId: blobs_destroy
   "/files/{id}/content":
     parameters:
@@ -4581,14 +4747,14 @@ paths:
         '200':
           description: The whole file's bytes.
           content:
-            application/octet-stream:
+            "*/*":
               schema:
                 type: string
                 format: binary
         '206':
           description: The bytes in the requested `Range`, with `Content-Range`.
           content:
-            application/octet-stream:
+            "*/*":
               schema:
                 type: string
                 format: binary
@@ -4612,6 +4778,8 @@ paths:
           "$ref": "#/components/responses/Unauthorized"
         '404':
           "$ref": "#/components/responses/NotFound"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
       operationId: blobs_content
   "/files/{id}/ancestry":
     parameters:
@@ -4651,6 +4819,10 @@ paths:
           "$ref": "#/components/responses/Unauthorized"
         '403':
           "$ref": "#/components/responses/Forbidden"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
+        '304':
+          "$ref": "#/components/responses/NotModified"
       operationId: blobs_ancestry
   "/files/{id}/versions":
     parameters:
@@ -4706,6 +4878,10 @@ paths:
           "$ref": "#/components/responses/Unauthorized"
         '403':
           "$ref": "#/components/responses/Forbidden"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
+        '304':
+          "$ref": "#/components/responses/NotModified"
       operationId: blobs_versions
   "/files/find_many_versions":
     post:
@@ -4767,6 +4943,8 @@ paths:
           "$ref": "#/components/responses/Unauthorized"
         '403':
           "$ref": "#/components/responses/Forbidden"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
       requestBody:
         content:
           application/json:
@@ -4810,7 +4988,7 @@ paths:
         '200':
           description: The bytes of that version.
           content:
-            application/octet-stream:
+            "*/*":
               schema:
                 type: string
                 format: binary
@@ -4825,6 +5003,8 @@ paths:
                 "$ref": "#/components/schemas/Error"
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
       operationId: blobs_version_content
   "/files/{id}/rollback":
     parameters:
@@ -4879,6 +5059,8 @@ paths:
           "$ref": "#/components/responses/Unauthorized"
         '403':
           "$ref": "#/components/responses/Forbidden"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
       requestBody:
         content:
           application/json:
@@ -4984,6 +5166,10 @@ paths:
           "$ref": "#/components/responses/Unauthorized"
         '403':
           "$ref": "#/components/responses/Forbidden"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
+        '304':
+          "$ref": "#/components/responses/NotModified"
       operationId: collections_index
     post:
       summary: Create a collection
@@ -5054,6 +5240,8 @@ paths:
                 "$ref": "#/components/schemas/Error"
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
       requestBody:
         content:
           application/json:
@@ -5143,6 +5331,10 @@ paths:
           "$ref": "#/components/responses/Forbidden"
         '404':
           "$ref": "#/components/responses/NotFound"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
+        '304':
+          "$ref": "#/components/responses/NotModified"
       operationId: collections_show
   "/collections/{id}/mods":
     parameters:
@@ -5313,6 +5505,10 @@ paths:
           "$ref": "#/components/responses/Forbidden"
         '404':
           "$ref": "#/components/responses/NotFound"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
+        '304':
+          "$ref": "#/components/responses/NotModified"
       operationId: collections_mods
   "/collections/{id}/featured":
     parameters:
@@ -5374,6 +5570,8 @@ paths:
           "$ref": "#/components/responses/Unauthorized"
         '403':
           "$ref": "#/components/responses/Forbidden"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
       requestBody:
         content:
           application/json:
@@ -5399,7 +5597,9 @@ paths:
       - Collections
       description: |
         Returns the NOIDs of the Collection's direct children, Works and
-        Collections. Fetch each one by its NOID.
+        Collections, tombstoned ones included.
+        `POST /resources/find_many` resolves them all in one call and flags the
+        tombstoned ones.
 
         A tombstoned Collection answers `410`: an admin or delegated admin gets the
         full record, and everyone else gets a stub.
@@ -5428,6 +5628,10 @@ paths:
           "$ref": "#/components/responses/Forbidden"
         '404':
           "$ref": "#/components/responses/NotFound"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
+        '304':
+          "$ref": "#/components/responses/NotModified"
       operationId: collections_children
   "/communities":
     get:
@@ -5522,6 +5726,10 @@ paths:
           "$ref": "#/components/responses/Unauthorized"
         '403':
           "$ref": "#/components/responses/Forbidden"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
+        '304':
+          "$ref": "#/components/responses/NotModified"
       operationId: communities_index
     post:
       summary: Create a community
@@ -5584,6 +5792,8 @@ paths:
                 "$ref": "#/components/schemas/Error"
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
       requestBody:
         content:
           application/json:
@@ -5660,6 +5870,10 @@ paths:
           "$ref": "#/components/responses/Forbidden"
         '404':
           "$ref": "#/components/responses/NotFound"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
+        '304':
+          "$ref": "#/components/responses/NotModified"
       operationId: communities_show
   "/communities/{id}/mods":
     parameters:
@@ -5831,6 +6045,10 @@ paths:
           "$ref": "#/components/responses/Forbidden"
         '404':
           "$ref": "#/components/responses/NotFound"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
+        '304':
+          "$ref": "#/components/responses/NotModified"
       operationId: communities_mods
   "/communities/{id}/children":
     parameters:
@@ -5846,7 +6064,9 @@ paths:
       - Communities
       description: |
         Returns the NOIDs of the Community's direct children, Collections and
-        Communities. Fetch each one by its NOID.
+        Communities, tombstoned ones included.
+        `POST /resources/find_many` resolves them all in one call and flags the
+        tombstoned ones.
 
         A tombstoned Community answers `410`: an admin or delegated admin gets the
         full record, and everyone else gets a stub.
@@ -5875,6 +6095,10 @@ paths:
           "$ref": "#/components/responses/Forbidden"
         '404':
           "$ref": "#/components/responses/NotFound"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
+        '304':
+          "$ref": "#/components/responses/NotModified"
       operationId: communities_children
   "/compilations":
     get:
@@ -6023,6 +6247,10 @@ paths:
                 "$ref": "#/components/schemas/Error"
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
+        '304':
+          "$ref": "#/components/responses/NotModified"
       operationId: compilations_index
     post:
       summary: Create a compilation
@@ -6068,6 +6296,8 @@ paths:
                 "$ref": "#/components/schemas/Error"
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
       requestBody:
         content:
           application/json:
@@ -6128,6 +6358,10 @@ paths:
           description: No Compilation has that NOID.
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
+        '304':
+          "$ref": "#/components/responses/NotModified"
       operationId: compilations_show
     patch:
       summary: Update a compilation
@@ -6173,6 +6407,8 @@ paths:
           "$ref": "#/components/responses/Unauthorized"
         '404':
           "$ref": "#/components/responses/NotFound"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
       requestBody:
         content:
           application/json:
@@ -6218,6 +6454,8 @@ paths:
           description: No Compilation has that NOID.
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
       operationId: compilations_destroy
   "/compilations/{id}/included_collections":
     parameters:
@@ -6276,6 +6514,8 @@ paths:
           "$ref": "#/components/responses/Unauthorized"
         '404':
           "$ref": "#/components/responses/NotFound"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
       requestBody:
         content:
           application/json:
@@ -6336,6 +6576,8 @@ paths:
           "$ref": "#/components/responses/Forbidden"
         '404':
           "$ref": "#/components/responses/NotFound"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
       operationId: compilations_remove_included_collection
   "/compilations/{id}/included_works":
     parameters:
@@ -6392,6 +6634,8 @@ paths:
           "$ref": "#/components/responses/Unauthorized"
         '404':
           "$ref": "#/components/responses/NotFound"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
       requestBody:
         content:
           application/json:
@@ -6452,6 +6696,8 @@ paths:
           "$ref": "#/components/responses/Forbidden"
         '404':
           "$ref": "#/components/responses/NotFound"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
       operationId: compilations_remove_included_work
   "/compilations/{id}/exclusions":
     parameters:
@@ -6497,6 +6743,8 @@ paths:
           "$ref": "#/components/responses/Forbidden"
         '404':
           "$ref": "#/components/responses/NotFound"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
       requestBody:
         content:
           application/json:
@@ -6557,6 +6805,8 @@ paths:
           "$ref": "#/components/responses/Forbidden"
         '404':
           "$ref": "#/components/responses/NotFound"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
       operationId: compilations_remove_exclusion
   "/compilations/{id}/published":
     parameters:
@@ -6610,6 +6860,8 @@ paths:
           "$ref": "#/components/responses/Unauthorized"
         '404':
           "$ref": "#/components/responses/NotFound"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
       operationId: compilations_publish
     delete:
       summary: Remove the Set from OAI-PMH
@@ -6646,6 +6898,8 @@ paths:
           "$ref": "#/components/responses/Forbidden"
         '404':
           "$ref": "#/components/responses/NotFound"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
       operationId: compilations_unpublish
   "/compilations/{id}/contents":
     parameters:
@@ -6738,6 +6992,10 @@ paths:
           description: No Compilation has that NOID.
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
+        '304':
+          "$ref": "#/components/responses/NotModified"
       operationId: compilations_contents
   "/works/{id}/dwc":
     parameters:
@@ -6820,6 +7078,10 @@ paths:
           "$ref": "#/components/responses/Unauthorized"
         '403':
           "$ref": "#/components/responses/Forbidden"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
+        '304':
+          "$ref": "#/components/responses/NotModified"
       operationId: darwin_core_show
   "/resources/{id}/dwc":
     parameters:
@@ -6914,6 +7176,8 @@ paths:
           "$ref": "#/components/responses/Unauthorized"
         '403':
           "$ref": "#/components/responses/Forbidden"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
       operationId: darwin_core_update
     delete:
       summary: Tombstone a work's Darwin Core record
@@ -6935,6 +7199,8 @@ paths:
           "$ref": "#/components/responses/Unauthorized"
         '403':
           "$ref": "#/components/responses/Forbidden"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
       operationId: darwin_core_destroy
   "/resources/{id}/dwc/versions":
     parameters:
@@ -6977,6 +7243,10 @@ paths:
           "$ref": "#/components/responses/Forbidden"
         '404':
           "$ref": "#/components/responses/NotFound"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
+        '304':
+          "$ref": "#/components/responses/NotModified"
       operationId: darwin_core_versions
   "/resources/{id}/dwc/versions/{version_id}":
     parameters:
@@ -7016,6 +7286,10 @@ paths:
           "$ref": "#/components/responses/Unauthorized"
         '403':
           "$ref": "#/components/responses/Forbidden"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
+        '304':
+          "$ref": "#/components/responses/NotModified"
       operationId: darwin_core_version
   "/delegates/{id}":
     parameters:
@@ -7071,6 +7345,10 @@ paths:
           "$ref": "#/components/responses/Forbidden"
         '404':
           "$ref": "#/components/responses/NotFound"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
+        '304':
+          "$ref": "#/components/responses/NotModified"
       operationId: delegates_show
   "/file_sets":
     get:
@@ -7191,6 +7469,10 @@ paths:
           "$ref": "#/components/responses/Unauthorized"
         '403':
           "$ref": "#/components/responses/Forbidden"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
+        '304':
+          "$ref": "#/components/responses/NotModified"
       operationId: file_sets_index
     post:
       summary: Create a file set
@@ -7239,6 +7521,8 @@ paths:
           "$ref": "#/components/responses/Unauthorized"
         '403':
           "$ref": "#/components/responses/Forbidden"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
       requestBody:
         content:
           application/json:
@@ -7309,6 +7593,10 @@ paths:
           "$ref": "#/components/responses/Forbidden"
         '404':
           "$ref": "#/components/responses/NotFound"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
+        '304':
+          "$ref": "#/components/responses/NotModified"
       operationId: file_sets_show
     patch:
       summary: Append binary content to a file set
@@ -7383,6 +7671,8 @@ paths:
           "$ref": "#/components/responses/Unauthorized"
         '403':
           "$ref": "#/components/responses/Forbidden"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
       operationId: file_sets_update
     delete:
       summary: Destroy a file set
@@ -7404,6 +7694,8 @@ paths:
           "$ref": "#/components/responses/Forbidden"
         '404':
           "$ref": "#/components/responses/NotFound"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
       operationId: file_sets_destroy
   "/file_sets/{id}/iiif_service":
     parameters:
@@ -7461,6 +7753,8 @@ paths:
           "$ref": "#/components/responses/Unauthorized"
         '403':
           "$ref": "#/components/responses/Forbidden"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
       requestBody:
         content:
           application/json:
@@ -7515,6 +7809,10 @@ paths:
           "$ref": "#/components/responses/Forbidden"
         '404':
           "$ref": "#/components/responses/NotFound"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
+        '304':
+          "$ref": "#/components/responses/NotModified"
       operationId: file_sets_mets
   "/health":
     get:
@@ -7558,6 +7856,8 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Health"
+        '304':
+          "$ref": "#/components/responses/NotModified"
   "/maintenance":
     get:
       summary: Read the repository-wide read-only window
@@ -7565,9 +7865,9 @@ paths:
       - Maintenance
       operationId: maintenance_show
       description: |
-        The state of the repository-wide read-only window. On the authenticated
-        read floor, and answered even while the window is open — a client that
-        could not read the flag could not honour it.
+        The state of the repository-wide read-only window. Any caller may read
+        it, a guest included, and it is answered even while the window is open
+        — a client that could not read the flag could not honour it.
 
         While `read_only` is true every write-shaped action is refused with a
         `503` carrying `error: "read_only_mode"` and a `Retry-After` header.
@@ -7588,6 +7888,10 @@ paths:
           "$ref": "#/components/responses/Unauthorized"
         '403':
           "$ref": "#/components/responses/Forbidden"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
+        '304':
+          "$ref": "#/components/responses/NotModified"
   "/people":
     get:
       summary: List or batch-resolve people
@@ -7712,6 +8016,10 @@ paths:
           "$ref": "#/components/responses/Unauthorized"
         '403':
           "$ref": "#/components/responses/Forbidden"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
+        '304':
+          "$ref": "#/components/responses/NotModified"
       operationId: people_index
   "/people/{id}":
     parameters:
@@ -7752,6 +8060,10 @@ paths:
           "$ref": "#/components/responses/Unauthorized"
         '403':
           "$ref": "#/components/responses/Forbidden"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
+        '304':
+          "$ref": "#/components/responses/NotModified"
       operationId: people_show
     patch:
       summary: Edit profile fields (system/admin, or the person themself)
@@ -7801,6 +8113,8 @@ paths:
           description: No Person has that NOID.
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
       requestBody:
         content:
           application/json:
@@ -7826,9 +8140,8 @@ paths:
         answers for a tombstoned container instead of 410. Each row has the
         `POST /resources/find_many` digest shape, `tombstoned` included.
 
-        Admins and delegated admins only, the gate of
-        `GET /resources/{id}/solr`. A delegated admin must also be able to read
-        the container, and a child they cannot read is left out. Not
+        Admins and delegated admins only. A delegated admin must also be able
+        to read the container, and a child they cannot read is left out. Not
         response-cached.
 
         404 for an unknown NOID and for anything other than a Community or a
@@ -7870,6 +8183,10 @@ paths:
           "$ref": "#/components/responses/Unauthorized"
         '403':
           "$ref": "#/components/responses/Forbidden"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
+        '304':
+          "$ref": "#/components/responses/NotModified"
       operationId: resource_children_show
   "/resources/{id}":
     parameters:
@@ -7899,6 +8216,10 @@ paths:
           "$ref": "#/components/responses/Forbidden"
         '404':
           "$ref": "#/components/responses/NotFound"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
+        '304':
+          "$ref": "#/components/responses/NotModified"
       operationId: resources_show
     delete:
       summary: Purge a resource
@@ -7940,6 +8261,8 @@ paths:
           "$ref": "#/components/responses/Unauthorized"
         '403':
           "$ref": "#/components/responses/Forbidden"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
       operationId: resources_destroy
   "/resources/{id}/permissions":
     parameters:
@@ -7999,6 +8322,10 @@ paths:
           description: No resource has that NOID.
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
+        '304':
+          "$ref": "#/components/responses/NotModified"
       operationId: resources_permissions
     patch:
       summary: Adjust a resource's ACL
@@ -8072,6 +8399,8 @@ paths:
           "$ref": "#/components/responses/Unauthorized"
         '403':
           "$ref": "#/components/responses/Forbidden"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
       requestBody:
         content:
           application/json:
@@ -8275,6 +8604,10 @@ paths:
           "$ref": "#/components/responses/Unauthorized"
         '403':
           "$ref": "#/components/responses/Forbidden"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
+        '304':
+          "$ref": "#/components/responses/NotModified"
       operationId: resources_mods
     put:
       summary: Replace a resource's MODS document
@@ -8378,6 +8711,8 @@ paths:
           "$ref": "#/components/responses/Unauthorized"
         '403':
           "$ref": "#/components/responses/Forbidden"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
       operationId: resources_put_mods
   "/resources/{id}/mods/versions":
     parameters:
@@ -8428,6 +8763,10 @@ paths:
           "$ref": "#/components/responses/Forbidden"
         '404':
           "$ref": "#/components/responses/NotFound"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
+        '304':
+          "$ref": "#/components/responses/NotModified"
       operationId: resources_mods_versions
   "/resources/{id}/mods/versions/{version_id}":
     parameters:
@@ -8468,6 +8807,10 @@ paths:
           "$ref": "#/components/responses/Unauthorized"
         '403':
           "$ref": "#/components/responses/Forbidden"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
+        '304':
+          "$ref": "#/components/responses/NotModified"
       operationId: resources_mods_version
   "/resources/{id}/thumbnails":
     parameters:
@@ -8559,6 +8902,8 @@ paths:
           "$ref": "#/components/responses/Unauthorized"
         '403':
           "$ref": "#/components/responses/Forbidden"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
       requestBody:
         content:
           application/json:
@@ -8674,6 +9019,8 @@ paths:
           "$ref": "#/components/responses/Unauthorized"
         '403':
           "$ref": "#/components/responses/Forbidden"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
       requestBody:
         content:
           application/json:
@@ -8784,6 +9131,8 @@ paths:
           "$ref": "#/components/responses/Unauthorized"
         '403':
           "$ref": "#/components/responses/Forbidden"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
       requestBody:
         content:
           application/json:
@@ -8881,6 +9230,8 @@ paths:
           "$ref": "#/components/responses/Unauthorized"
         '403':
           "$ref": "#/components/responses/Forbidden"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
       operationId: resources_restore
   "/resources/preview":
     post:
@@ -8910,6 +9261,8 @@ paths:
           "$ref": "#/components/responses/Unauthorized"
         '403':
           "$ref": "#/components/responses/Forbidden"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
       operationId: resources_preview
   "/resources/find_many":
     post:
@@ -8951,6 +9304,8 @@ paths:
           "$ref": "#/components/responses/Unauthorized"
         '403':
           "$ref": "#/components/responses/Forbidden"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
       requestBody:
         content:
           application/json:
@@ -9044,6 +9399,10 @@ paths:
           "$ref": "#/components/responses/Unauthorized"
         '403':
           "$ref": "#/components/responses/Forbidden"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
+        '304':
+          "$ref": "#/components/responses/NotModified"
       operationId: resources_descendant_works
   "/resources/search":
     get:
@@ -9138,6 +9497,10 @@ paths:
           "$ref": "#/components/responses/Unauthorized"
         '403':
           "$ref": "#/components/responses/Forbidden"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
+        '304':
+          "$ref": "#/components/responses/NotModified"
       operationId: search_index
   "/users/by_nuid/{nuid}/accounts":
     get:
@@ -9184,6 +9547,10 @@ paths:
           "$ref": "#/components/responses/Unauthorized"
         '403':
           "$ref": "#/components/responses/Forbidden"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
+        '304':
+          "$ref": "#/components/responses/NotModified"
       operationId: users_accounts
   "/users/by_nuid/{nuid}/preferred_account":
     put:
@@ -9225,6 +9592,8 @@ paths:
           "$ref": "#/components/responses/Unauthorized"
         '403':
           "$ref": "#/components/responses/Forbidden"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
       requestBody:
         content:
           application/json:
@@ -9290,6 +9659,10 @@ paths:
           "$ref": "#/components/responses/Unauthorized"
         '403':
           "$ref": "#/components/responses/Forbidden"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
+        '304':
+          "$ref": "#/components/responses/NotModified"
       operationId: users_index
   "/users/by_nuid/{nuid}":
     get:
@@ -9324,6 +9697,10 @@ paths:
           "$ref": "#/components/responses/Unauthorized"
         '403':
           "$ref": "#/components/responses/Forbidden"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
+        '304':
+          "$ref": "#/components/responses/NotModified"
       operationId: users_show
   "/user":
     get:
@@ -9367,6 +9744,10 @@ paths:
           "$ref": "#/components/responses/Unauthorized"
         '403':
           "$ref": "#/components/responses/Forbidden"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
+        '304':
+          "$ref": "#/components/responses/NotModified"
       operationId: users_tokens_show
   "/works":
     get:
@@ -9492,6 +9873,10 @@ paths:
           "$ref": "#/components/responses/Unauthorized"
         '403':
           "$ref": "#/components/responses/Forbidden"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
+        '304':
+          "$ref": "#/components/responses/NotModified"
       operationId: works_index
     post:
       summary: Create a work
@@ -9588,6 +9973,8 @@ paths:
                 "$ref": "#/components/schemas/Error"
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
       requestBody:
         content:
           application/json:
@@ -9683,6 +10070,10 @@ paths:
           "$ref": "#/components/responses/Forbidden"
         '404':
           "$ref": "#/components/responses/NotFound"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
+        '304':
+          "$ref": "#/components/responses/NotModified"
       operationId: works_show
   "/works/{id}/mods":
     parameters:
@@ -9859,7 +10250,56 @@ paths:
           "$ref": "#/components/responses/Forbidden"
         '404':
           "$ref": "#/components/responses/NotFound"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
+        '304':
+          "$ref": "#/components/responses/NotModified"
       operationId: works_mods
+  "/works/{id}/citation":
+    parameters:
+    - name: id
+      in: path
+      description: NOID of the Work
+      required: true
+      schema:
+        type: string
+    get:
+      summary: Cite a work
+      tags:
+      - Works
+      description: |
+        The Work's citation as a CSL-JSON item (Citation Style Language), which
+        reference managers and citation formatters read directly: pass it to a
+        CSL processor for APA, Chicago or any other style. Built from the
+        descriptive metadata. Creators and the year follow the same rules as
+        search's `creators` and `year`. A fact the record does not give is left
+        out rather than sent as null.
+      responses:
+        '410':
+          description: The Work is tombstoned, so its citation is withheld from everyone
+            but admins and delegated admins.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Tombstoned"
+        '200':
+          description: The Work as a CSL-JSON item. Facts the record does not give
+            are left out.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Citation"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '404':
+          "$ref": "#/components/responses/NotFound"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
+        '304':
+          "$ref": "#/components/responses/NotModified"
+      operationId: works_citation
   "/works/{id}/mets":
     parameters:
     - name: id
@@ -9911,6 +10351,10 @@ paths:
           "$ref": "#/components/responses/Unauthorized"
         '403':
           "$ref": "#/components/responses/Forbidden"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
+        '304':
+          "$ref": "#/components/responses/NotModified"
       operationId: works_mets
   "/works/{id}/assets":
     parameters:
@@ -9975,6 +10419,10 @@ paths:
           "$ref": "#/components/responses/Forbidden"
         '404':
           "$ref": "#/components/responses/NotFound"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
+        '304':
+          "$ref": "#/components/responses/NotModified"
       operationId: works_assets
   "/works/{id}/tombstoned_assets":
     parameters:
@@ -10031,6 +10479,10 @@ paths:
           "$ref": "#/components/responses/Unauthorized"
         '403':
           "$ref": "#/components/responses/Forbidden"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
+        '304':
+          "$ref": "#/components/responses/NotModified"
       operationId: works_tombstoned_assets
   "/works/{id}/file_revisions":
     parameters:
@@ -10056,6 +10508,13 @@ paths:
 
         A Work whose files were never replaced answers `[]`.
       responses:
+        '410':
+          description: The Work is tombstoned, so its files are withheld from everyone
+            but admins and delegated admins.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Tombstoned"
         '200':
           description: The Work's replaced Blobs, each with its revisions newest first;
             an empty array when no file was ever replaced.
@@ -10076,6 +10535,10 @@ paths:
           "$ref": "#/components/responses/Unauthorized"
         '403':
           "$ref": "#/components/responses/Forbidden"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
+        '304':
+          "$ref": "#/components/responses/NotModified"
       operationId: works_file_revisions
   "/works/{id}/health_check":
     parameters:
@@ -10157,6 +10620,10 @@ paths:
           "$ref": "#/components/responses/Unauthorized"
         '403':
           "$ref": "#/components/responses/Forbidden"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
+        '304':
+          "$ref": "#/components/responses/NotModified"
       operationId: works_health_check
   "/works/{id}/file_sets":
     parameters:
@@ -10179,6 +10646,13 @@ paths:
         a derivative FileSet under the page. Unpaginated by design: manifest
         assembly needs the whole sequence in one read.
       responses:
+        '410':
+          description: The Work is tombstoned, so its files are withheld from everyone
+            but admins and delegated admins.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Tombstoned"
         '200':
           description: The Work's page FileSets in order, each with its downloadable
             assets nested under it.
@@ -10208,6 +10682,10 @@ paths:
           "$ref": "#/components/responses/Unauthorized"
         '403':
           "$ref": "#/components/responses/Forbidden"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
+        '304':
+          "$ref": "#/components/responses/NotModified"
       operationId: works_file_sets
   "/works/{id}/image_derivatives":
     parameters:
@@ -10289,6 +10767,8 @@ paths:
           "$ref": "#/components/responses/Forbidden"
         '404':
           "$ref": "#/components/responses/NotFound"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
       requestBody:
         content:
           application/json:
@@ -10410,6 +10890,8 @@ paths:
           "$ref": "#/components/responses/Forbidden"
         '404':
           "$ref": "#/components/responses/NotFound"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
       requestBody:
         content:
           application/json:
@@ -10570,6 +11052,8 @@ paths:
           "$ref": "#/components/responses/Forbidden"
         '404':
           "$ref": "#/components/responses/NotFound"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
       requestBody:
         content:
           application/json:
@@ -10624,6 +11108,10 @@ paths:
           "$ref": "#/components/responses/Forbidden"
         '404':
           "$ref": "#/components/responses/NotFound"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
+        '304':
+          "$ref": "#/components/responses/NotModified"
       operationId: works_linked_members
     post:
       summary: Link a work into an additional collection
@@ -10665,6 +11153,8 @@ paths:
           "$ref": "#/components/responses/Forbidden"
         '404':
           "$ref": "#/components/responses/NotFound"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
       requestBody:
         content:
           application/json:
@@ -10716,6 +11206,8 @@ paths:
           "$ref": "#/components/responses/Forbidden"
         '404':
           "$ref": "#/components/responses/NotFound"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
       operationId: works_remove_linked_member
   "/works/{id}/associations":
     parameters:
@@ -10771,6 +11263,10 @@ paths:
           "$ref": "#/components/responses/Forbidden"
         '404':
           "$ref": "#/components/responses/NotFound"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
+        '304':
+          "$ref": "#/components/responses/NotModified"
       operationId: works_associations
     post:
       summary: Associate a work with another work
@@ -10819,6 +11315,8 @@ paths:
           "$ref": "#/components/responses/Forbidden"
         '404':
           "$ref": "#/components/responses/NotFound"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
       requestBody:
         content:
           application/json:
@@ -10891,6 +11389,8 @@ paths:
           "$ref": "#/components/responses/Forbidden"
         '404':
           "$ref": "#/components/responses/NotFound"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
       operationId: works_remove_association
   "/works/{id}/complete":
     parameters:
@@ -10967,6 +11467,8 @@ paths:
           "$ref": "#/components/responses/Forbidden"
         '404':
           "$ref": "#/components/responses/NotFound"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
       operationId: works_complete
   "/works/{id}/incomplete":
     parameters:
@@ -11060,6 +11562,8 @@ paths:
           "$ref": "#/components/responses/Unauthorized"
         '403':
           "$ref": "#/components/responses/Forbidden"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
       requestBody:
         content:
           application/json:
@@ -11130,4 +11634,6 @@ paths:
           "$ref": "#/components/responses/Unauthorized"
         '403':
           "$ref": "#/components/responses/Forbidden"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
       operationId: works_clear_incomplete

@@ -62,6 +62,7 @@ spec/integration/work_file_revisions_atlas_rb_spec.rb
 spec/integration/write_status_guard_atlas_rb_spec.rb
 spec/lib/acl_coverage_spec.rb
 spec/lib/cerberus_signing_keys_spec.rb
+spec/lib/citation_spec.rb
 spec/lib/darwin_core_document_spec.rb
 spec/lib/enhanced_text_spec.rb
 spec/lib/example_watchdog_spec.rb

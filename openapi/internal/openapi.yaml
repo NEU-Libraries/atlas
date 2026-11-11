@@ -76,6 +76,18 @@ components:
         operator is recorded only in the audit event. Sent with any other credential,
         it is a 403.
   responses:
+    Forbidden:
+      description: 'The caller may not do this: the record is not readable to it,
+        or the operation needs more than the access its credential carries. A guest
+        may read public items only. The body''s `action` names the verb that was refused,
+        and `subject` the type it was refused on.'
+      content:
+        application/json:
+          schema:
+            "$ref": "#/components/schemas/Error"
+    NotFound:
+      description: Nothing answers to that identifier, or it names a resource of another
+        type. Most 404 responses have no body.
     Unauthorized:
       description: 'The credential was not recognised: an unknown, expired or revoked
         token. Send no `Authorization` header to call as a guest instead.'
@@ -632,6 +644,8 @@ paths:
                 "$ref": "#/components/schemas/Error"
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
       operationId: embargoes_release
   "/fixity_checks":
     post:
@@ -1078,6 +1092,8 @@ paths:
                 "$ref": "#/components/schemas/Error"
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
       operationId: index_documents_show
   "/maintenance":
     put:
@@ -1112,6 +1128,8 @@ paths:
                 retry_after: 900
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
       requestBody:
         content:
           application/json:
@@ -1207,6 +1225,8 @@ paths:
           description: Redis, which holds the figures, does not answer
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
   "/people":
     post:
       summary: Create a person (system/admin)
@@ -1305,6 +1325,10 @@ paths:
                 "$ref": "#/components/schemas/Error"
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '404':
+          "$ref": "#/components/responses/NotFound"
       requestBody:
         content:
           application/json:
@@ -1356,6 +1380,10 @@ paths:
                   personal_root_id: d0000002x
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '404':
+          "$ref": "#/components/responses/NotFound"
       operationId: people_remove_affiliation
   "/resources/{id}/reindex":
     parameters:
@@ -1437,6 +1465,8 @@ paths:
           description: unknown id
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
       operationId: resources_reindex_subtree
   "/resources/{id}/search_explanation":
     get:
@@ -3210,6 +3240,8 @@ paths:
                 "$ref": "#/components/schemas/Error"
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
       operationId: search_explanations_show
   "/nuid":
     post:
@@ -3352,6 +3384,8 @@ paths:
                 "$ref": "#/components/schemas/Error"
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '404':
+          "$ref": "#/components/responses/NotFound"
       requestBody:
         content:
           application/json:

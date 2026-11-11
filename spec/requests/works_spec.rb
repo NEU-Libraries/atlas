@@ -40,6 +40,8 @@ RSpec.describe 'Works', type: :request do
         `POST /works/{id}/incomplete`). The two filters are independent and
         combine, so `?in_progress=false&incomplete=true` reads as "finished,
         but degraded".
+
+        Only an admin may call this; anyone else gets `403`.
       DESC
       parameter name: :in_progress, in: :query, type: :boolean, required: false,
                 description: 'Filter by in_progress state. Omit for no filtering.'
@@ -574,6 +576,9 @@ RSpec.describe 'Works', type: :request do
         Admin and devolved-admin tiers only, the tiers that may tombstone and
         restore a FileSet. Anyone else gets 403, including a user with edit
         rights on the Work. Not response-cached.
+
+        Only an admin or a delegated admin may call this; anyone else gets
+        `403`.
       DESC
 
       response '200', 'tombstoned assets listed' do
@@ -800,6 +805,9 @@ RSpec.describe 'Works', type: :request do
 
         Admin and devolved-admin tiers only. Anyone else gets 403, including a
         user with edit rights on the Work. Not response-cached.
+
+        Only an admin or a delegated admin may call this; anyone else gets
+        `403`.
       DESC
 
       response '200', 'health graded' do

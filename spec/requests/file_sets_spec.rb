@@ -19,6 +19,8 @@ RSpec.describe 'FileSets', type: :request do
       produces 'application/json'
       description <<~DESC
         Lists every FileSet, one page at a time.
+
+        Only an admin may call this; anyone else gets `403`.
       DESC
       paginated
 

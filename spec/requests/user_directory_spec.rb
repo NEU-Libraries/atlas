@@ -38,6 +38,8 @@ RSpec.describe 'User directory', type: :request do
         `nuid`, `name` and `display_name` only — a directory, not a profile
         endpoint. `display_name` is the Person's curated name, or null when
         the NUID has no Person.
+
+        A guest gets `403`; any signed-in user may call this.
       D
       parameter name: :q, in: :query, type: :string, required: false,
                 description: 'Name fragment (case-insensitive) or NUID prefix'

@@ -36,6 +36,9 @@ RSpec.describe 'Resource children', type: :request do
 
         404 for an unknown NOID and for anything other than a Community or a
         Collection.
+
+        Only an admin or a delegated admin may call this; anyone else gets
+        `403`.
       DESC
       parameter name: :id, in: :path, type: :string, description: 'NOID of the Community or Collection'
 

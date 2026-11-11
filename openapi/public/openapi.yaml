@@ -155,6 +155,18 @@ components:
       description: A personal access token issued by the repository operator. Omit
         the header to call as a guest, who sees public items only.
   responses:
+    Forbidden:
+      description: 'The caller may not do this: the record is not readable to it,
+        or the operation needs more than the access its credential carries. A guest
+        may read public items only. The body''s `action` names the verb that was refused,
+        and `subject` the type it was refused on.'
+      content:
+        application/json:
+          schema:
+            "$ref": "#/components/schemas/Error"
+    NotFound:
+      description: Nothing answers to that identifier, or it names a resource of another
+        type. Most 404 responses have no body.
     Unauthorized:
       description: 'The credential was not recognised: an unknown, expired or revoked
         token. Send no `Authorization` header to call as a guest instead.'
@@ -4247,6 +4259,8 @@ paths:
       description: |
         Lists every Blob, one page at a time. A row is a file's metadata, not its
         bytes; read the bytes from `GET /files/{id}/content`.
+
+        Only an admin may call this; anyone else gets `403`.
       parameters:
       - name: page
         in: query
@@ -4322,6 +4336,8 @@ paths:
                   - '1'
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
       operationId: blobs_index
     post:
       summary: Upload a file
@@ -4418,6 +4434,8 @@ paths:
                 "$ref": "#/components/schemas/Blob"
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
       operationId: blobs_create
   "/files/{id}":
     parameters:
@@ -4475,6 +4493,10 @@ paths:
                 - "$ref": "#/components/schemas/Tombstoned"
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '404':
+          "$ref": "#/components/responses/NotFound"
       operationId: blobs_show
     patch:
       summary: Append a new revision to a file
@@ -4567,6 +4589,8 @@ paths:
           description: file not found
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
       operationId: blobs_update
     delete:
       summary: Destroy a file
@@ -4584,6 +4608,10 @@ paths:
           description: file destroyed
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '404':
+          "$ref": "#/components/responses/NotFound"
       operationId: blobs_destroy
   "/files/{id}/content":
     parameters:
@@ -4643,6 +4671,8 @@ paths:
                 "$ref": "#/components/schemas/Error"
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '404':
+          "$ref": "#/components/responses/NotFound"
       operationId: blobs_content
   "/files/{id}/ancestry":
     parameters:
@@ -4680,6 +4710,8 @@ paths:
           description: unknown blob
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
       operationId: blobs_ancestry
   "/files/{id}/versions":
     parameters:
@@ -4707,6 +4739,9 @@ paths:
         Admin-gated, like the MODS version list, because the descriptors expose
         edit attribution (the devolved-admin tier — :privileged role + the
         repository:admin group — can also reach this). Unknown id → 404.
+
+        Only an admin or a delegated admin may call this; anyone else gets
+        `403`.
       responses:
         '200':
           description: versions listed (newest first)
@@ -4730,6 +4765,8 @@ paths:
           description: unknown blob
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
       operationId: blobs_versions
   "/files/find_many_versions":
     post:
@@ -4752,6 +4789,9 @@ paths:
         :privileged role + the repository:admin group — reaches it too), because
         the descriptors expose the same edit attribution. The grant is
         class-wide, so nothing is dropped for authorization.
+
+        Only an admin or a delegated admin may call this; anyone else gets
+        `403`.
       parameters: []
       responses:
         '200':
@@ -4785,6 +4825,8 @@ paths:
                   original_filename: two.bin
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
       requestBody:
         content:
           application/json:
@@ -4888,6 +4930,8 @@ paths:
           description: unknown version
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
       requestBody:
         content:
           application/json:
@@ -4905,9 +4949,10 @@ paths:
       summary: List collections
       tags:
       - Collections
-      description: 'Lists every Collection, one page at a time.
+      description: |
+        Lists every Collection, one page at a time.
 
-        '
+        Only an admin may call this; anyone else gets `403`.
       parameters:
       - name: page
         in: query
@@ -4989,6 +5034,8 @@ paths:
                   - '1'
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
       operationId: collections_index
     post:
       summary: Create a collection
@@ -5141,6 +5188,10 @@ paths:
                 - "$ref": "#/components/schemas/CollectionPurged"
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '404':
+          "$ref": "#/components/responses/NotFound"
       operationId: collections_show
   "/collections/{id}/mods":
     parameters:
@@ -5307,6 +5358,10 @@ paths:
                     restriction_on_access_display_label:
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '404':
+          "$ref": "#/components/responses/NotFound"
       operationId: collections_mods
   "/collections/{id}/featured":
     parameters:
@@ -5365,6 +5420,8 @@ paths:
           description: unknown id
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
       requestBody:
         content:
           application/json:
@@ -5415,15 +5472,20 @@ paths:
                 - "$ref": "#/components/schemas/CollectionTombstone"
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '404':
+          "$ref": "#/components/responses/NotFound"
       operationId: collections_children
   "/communities":
     get:
       summary: List communities
       tags:
       - Communities
-      description: 'Lists every Community, one page at a time.
+      description: |
+        Lists every Community, one page at a time.
 
-        '
+        Only an admin may call this; anyone else gets `403`.
       parameters:
       - name: page
         in: query
@@ -5505,6 +5567,8 @@ paths:
                   - '1'
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
       operationId: communities_index
     post:
       summary: Create a community
@@ -5637,6 +5701,10 @@ paths:
                 - "$ref": "#/components/schemas/CommunityPurged"
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '404':
+          "$ref": "#/components/responses/NotFound"
       operationId: communities_show
   "/communities/{id}/mods":
     parameters:
@@ -5803,6 +5871,10 @@ paths:
                     restriction_on_access_display_label:
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '404':
+          "$ref": "#/components/responses/NotFound"
       operationId: communities_mods
   "/communities/{id}/children":
     parameters:
@@ -5843,6 +5915,10 @@ paths:
                 - "$ref": "#/components/schemas/CommunityTombstone"
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '404':
+          "$ref": "#/components/responses/NotFound"
       operationId: communities_children
   "/compilations":
     get:
@@ -6133,6 +6209,8 @@ paths:
                 "$ref": "#/components/schemas/Error"
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '404':
+          "$ref": "#/components/responses/NotFound"
       requestBody:
         content:
           application/json:
@@ -6231,6 +6309,8 @@ paths:
                 "$ref": "#/components/schemas/Error"
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '404':
+          "$ref": "#/components/responses/NotFound"
       requestBody:
         content:
           application/json:
@@ -6286,6 +6366,10 @@ paths:
                   updated_at: '2026-01-15T12:00:00Z'
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '404':
+          "$ref": "#/components/responses/NotFound"
       operationId: compilations_remove_included_collection
   "/compilations/{id}/included_works":
     parameters:
@@ -6339,6 +6423,8 @@ paths:
                 "$ref": "#/components/schemas/Error"
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '404':
+          "$ref": "#/components/responses/NotFound"
       requestBody:
         content:
           application/json:
@@ -6394,6 +6480,10 @@ paths:
                   updated_at: '2026-01-15T12:00:00Z'
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '404':
+          "$ref": "#/components/responses/NotFound"
       operationId: compilations_remove_included_work
   "/compilations/{id}/exclusions":
     parameters:
@@ -6435,6 +6525,10 @@ paths:
                   updated_at: '2026-01-15T12:00:00Z'
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '404':
+          "$ref": "#/components/responses/NotFound"
       requestBody:
         content:
           application/json:
@@ -6490,6 +6584,10 @@ paths:
                   updated_at: '2026-01-15T12:00:00Z'
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '404':
+          "$ref": "#/components/responses/NotFound"
       operationId: compilations_remove_exclusion
   "/compilations/{id}/published":
     parameters:
@@ -6541,6 +6639,8 @@ paths:
                 "$ref": "#/components/schemas/Error"
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '404':
+          "$ref": "#/components/responses/NotFound"
       operationId: compilations_publish
     delete:
       summary: Remove the Set from OAI-PMH
@@ -6573,6 +6673,10 @@ paths:
                   updated_at: '2026-01-15T12:00:00Z'
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '404':
+          "$ref": "#/components/responses/NotFound"
       operationId: compilations_unpublish
   "/compilations/{id}/contents":
     parameters:
@@ -6739,6 +6843,8 @@ paths:
           description: the work holds no record, or the id is not a work
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
       operationId: darwin_core_show
   "/resources/{id}/dwc":
     parameters:
@@ -6830,6 +6936,8 @@ paths:
                 "$ref": "#/components/schemas/Error"
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
       operationId: darwin_core_update
     delete:
       summary: Tombstone a work's Darwin Core record
@@ -6848,6 +6956,8 @@ paths:
           description: nothing to tombstone
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
       operationId: darwin_core_destroy
   "/resources/{id}/dwc/versions":
     parameters:
@@ -6885,6 +6995,8 @@ paths:
                   note:
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
       operationId: darwin_core_versions
   "/resources/{id}/dwc/versions/{version_id}":
     parameters:
@@ -6919,6 +7031,8 @@ paths:
           description: unknown version
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
       operationId: darwin_core_version
   "/delegates/{id}":
     parameters:
@@ -6968,15 +7082,20 @@ paths:
                 - "$ref": "#/components/schemas/Tombstoned"
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '404':
+          "$ref": "#/components/responses/NotFound"
       operationId: delegates_show
   "/file_sets":
     get:
       summary: List file sets
       tags:
       - FileSets
-      description: 'Lists every FileSet, one page at a time.
+      description: |
+        Lists every FileSet, one page at a time.
 
-        '
+        Only an admin may call this; anyone else gets `403`.
       parameters:
       - name: page
         in: query
@@ -7080,6 +7199,8 @@ paths:
                   - '1'
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
       operationId: file_sets_index
     post:
       summary: Create a file set
@@ -7123,6 +7244,8 @@ paths:
                 "$ref": "#/components/schemas/FileSet"
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
       requestBody:
         content:
           application/json:
@@ -7188,6 +7311,10 @@ paths:
                 - "$ref": "#/components/schemas/Tombstoned"
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '404':
+          "$ref": "#/components/responses/NotFound"
       operationId: file_sets_show
     patch:
       summary: Append binary content to a file set
@@ -7258,6 +7385,8 @@ paths:
           description: file set not found
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
       operationId: file_sets_update
     delete:
       summary: Destroy a file set
@@ -7275,6 +7404,10 @@ paths:
           description: file set destroyed
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '404':
+          "$ref": "#/components/responses/NotFound"
       operationId: file_sets_destroy
   "/file_sets/{id}/iiif_service":
     parameters:
@@ -7327,6 +7460,8 @@ paths:
                 "$ref": "#/components/schemas/Error"
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
       requestBody:
         content:
           application/json:
@@ -7377,6 +7512,10 @@ paths:
                     structure_label: fileSet
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '404':
+          "$ref": "#/components/responses/NotFound"
       operationId: file_sets_mets
   "/health":
     get:
@@ -7446,6 +7585,8 @@ paths:
                 retry_after: 900
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
   "/people":
     get:
       summary: List or batch-resolve people
@@ -7565,6 +7706,8 @@ paths:
                   - '1'
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
       operationId: people_index
   "/people/{id}":
     parameters:
@@ -7603,6 +7746,8 @@ paths:
           description: unknown noid
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
       operationId: people_show
     patch:
       summary: Edit profile fields (system/admin, or the person themself)
@@ -7682,6 +7827,9 @@ paths:
 
         404 for an unknown NOID and for anything other than a Community or a
         Collection.
+
+        Only an admin or a delegated admin may call this; anyone else gets
+        `403`.
       parameters:
       - name: id
         in: path
@@ -7713,6 +7861,8 @@ paths:
           description: a Work, which is not a container
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
       operationId: resource_children_show
   "/resources/{id}":
     parameters:
@@ -7737,6 +7887,10 @@ paths:
           description: redirect to typed resource
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '404':
+          "$ref": "#/components/responses/NotFound"
       operationId: resources_show
     delete:
       summary: Purge a resource
@@ -7775,6 +7929,8 @@ paths:
           description: unknown id
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
       operationId: resources_destroy
   "/resources/{id}/permissions":
     parameters:
@@ -7904,6 +8060,8 @@ paths:
           description: unknown id
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
       requestBody:
         content:
           application/json:
@@ -8103,6 +8261,8 @@ paths:
           description: unknown id / non-Modsable / no MODS
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
       operationId: resources_mods
     put:
       summary: Replace a resource's MODS document
@@ -8202,6 +8362,8 @@ paths:
                 "$ref": "#/components/schemas/Error"
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
       operationId: resources_put_mods
   "/resources/{id}/mods/versions":
     parameters:
@@ -8226,6 +8388,9 @@ paths:
         edit attribution (the devolved-admin tier — :privileged role + the
         repository:admin group — can also reach this, as it can `/history`).
         A resource with no MODS yields `{ "versions": [] }`.
+
+        Only an admin or a delegated admin may call this; anyone else gets
+        `403`.
       responses:
         '200':
           description: versions listed (newest first)
@@ -8244,6 +8409,8 @@ paths:
                   note:
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
       operationId: resources_mods_versions
   "/resources/{id}/mods/versions/{version_id}":
     parameters:
@@ -8278,6 +8445,8 @@ paths:
           description: unknown version
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
       operationId: resources_mods_version
   "/resources/{id}/thumbnails":
     parameters:
@@ -8364,6 +8533,8 @@ paths:
           description: unknown id
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
       requestBody:
         content:
           application/json:
@@ -8475,6 +8646,8 @@ paths:
                 "$ref": "#/components/schemas/Error"
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
       requestBody:
         content:
           application/json:
@@ -8580,6 +8753,8 @@ paths:
           description: unknown id
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
       requestBody:
         content:
           application/json:
@@ -8674,6 +8849,8 @@ paths:
           description: unknown id
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
       operationId: resources_restore
   "/resources/preview":
     post:
@@ -8701,6 +8878,8 @@ paths:
           description: preview rendered
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
       operationId: resources_preview
   "/resources/find_many":
     post:
@@ -8739,6 +8918,8 @@ paths:
                 tombstoned: false
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
       requestBody:
         content:
           application/json:
@@ -8827,6 +9008,8 @@ paths:
           description: unknown id
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
       operationId: resources_descendant_works
   "/resources/search":
     get:
@@ -8916,6 +9099,8 @@ paths:
                 "$ref": "#/components/schemas/Error"
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
       operationId: search_index
   "/users/by_nuid/{nuid}/accounts":
     get:
@@ -8960,6 +9145,8 @@ paths:
                   preferred: false
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
       operationId: users_accounts
   "/users/by_nuid/{nuid}/preferred_account":
     put:
@@ -8999,6 +9186,8 @@ paths:
           description: email is not one of this NUID's accounts
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
       requestBody:
         content:
           application/json:
@@ -9030,6 +9219,8 @@ paths:
         `nuid`, `name` and `display_name` only — a directory, not a profile
         endpoint. `display_name` is the Person's curated name, or null when
         the NUID has no Person.
+
+        A guest gets `403`; any signed-in user may call this.
       parameters:
       - name: q
         in: query
@@ -9059,6 +9250,8 @@ paths:
                 display_name:
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
       operationId: users_index
   "/users/by_nuid/{nuid}":
     get:
@@ -9090,6 +9283,8 @@ paths:
           description: unknown or excluded NUID
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
       operationId: users_show
   "/user":
     get:
@@ -9130,6 +9325,8 @@ paths:
                 updated_at: '2026-01-15T12:00:00Z'
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
       operationId: users_tokens_show
   "/works":
     get:
@@ -9169,6 +9366,8 @@ paths:
         `POST /works/{id}/incomplete`). The two filters are independent and
         combine, so `?in_progress=false&incomplete=true` reads as "finished,
         but degraded".
+
+        Only an admin may call this; anyone else gets `403`.
       responses:
         '200':
           description: the two filters combine — finished but degraded
@@ -9249,6 +9448,8 @@ paths:
                   - '1'
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
       operationId: works_index
     post:
       summary: Create a work
@@ -9430,6 +9631,10 @@ paths:
                 - "$ref": "#/components/schemas/WorkPurged"
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '404':
+          "$ref": "#/components/responses/NotFound"
       operationId: works_show
   "/works/{id}/mods":
     parameters:
@@ -9601,6 +9806,10 @@ paths:
                 "$ref": "#/components/schemas/Tombstoned"
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '404':
+          "$ref": "#/components/responses/NotFound"
       operationId: works_mods
   "/works/{id}/mets":
     parameters:
@@ -9650,6 +9859,8 @@ paths:
           description: work never completed — no METS yet
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
       operationId: works_mets
   "/works/{id}/assets":
     parameters:
@@ -9707,6 +9918,10 @@ paths:
                 permission: []
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '404':
+          "$ref": "#/components/responses/NotFound"
       operationId: works_assets
   "/works/{id}/tombstoned_assets":
     parameters:
@@ -9729,6 +9944,9 @@ paths:
         Admin and devolved-admin tiers only, the tiers that may tombstone and
         restore a FileSet. Anyone else gets 403, including a user with edit
         rights on the Work. Not response-cached.
+
+        Only an admin or a delegated admin may call this; anyone else gets
+        `403`.
       responses:
         '200':
           description: tombstoned assets listed
@@ -9757,6 +9975,8 @@ paths:
           description: work not found
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
       operationId: works_tombstoned_assets
   "/works/{id}/file_revisions":
     parameters:
@@ -9799,6 +10019,8 @@ paths:
           description: work not found
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
       operationId: works_file_revisions
   "/works/{id}/health_check":
     parameters:
@@ -9834,6 +10056,9 @@ paths:
 
         Admin and devolved-admin tiers only. Anyone else gets 403, including a
         user with edit rights on the Work. Not response-cached.
+
+        Only an admin or a delegated admin may call this; anyone else gets
+        `403`.
       responses:
         '200':
           description: health graded
@@ -9875,6 +10100,8 @@ paths:
           description: work not found
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
       operationId: works_health_check
   "/works/{id}/file_sets":
     parameters:
@@ -9923,6 +10150,8 @@ paths:
           description: work not found
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
       operationId: works_file_sets
   "/works/{id}/image_derivatives":
     parameters:
@@ -9998,6 +10227,10 @@ paths:
                 "$ref": "#/components/schemas/Error"
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '404':
+          "$ref": "#/components/responses/NotFound"
       requestBody:
         content:
           application/json:
@@ -10113,6 +10346,10 @@ paths:
                 "$ref": "#/components/schemas/Error"
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '404':
+          "$ref": "#/components/responses/NotFound"
       requestBody:
         content:
           application/json:
@@ -10267,6 +10504,10 @@ paths:
                 "$ref": "#/components/schemas/Error"
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '404':
+          "$ref": "#/components/responses/NotFound"
       requestBody:
         content:
           application/json:
@@ -10317,6 +10558,10 @@ paths:
               - d0000001x
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '404':
+          "$ref": "#/components/responses/NotFound"
       operationId: works_linked_members
     post:
       summary: Link a work into an additional collection
@@ -10353,6 +10598,10 @@ paths:
                 "$ref": "#/components/schemas/Error"
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '404':
+          "$ref": "#/components/responses/NotFound"
       requestBody:
         content:
           application/json:
@@ -10400,6 +10649,10 @@ paths:
               example: []
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '404':
+          "$ref": "#/components/responses/NotFound"
       operationId: works_remove_linked_member
   "/works/{id}/associations":
     parameters:
@@ -10450,6 +10703,10 @@ paths:
                 inbound: {}
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '404':
+          "$ref": "#/components/responses/NotFound"
       operationId: works_associations
     post:
       summary: Associate a work with another work
@@ -10494,6 +10751,10 @@ paths:
                 "$ref": "#/components/schemas/Error"
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '404':
+          "$ref": "#/components/responses/NotFound"
       requestBody:
         content:
           application/json:
@@ -10562,6 +10823,10 @@ paths:
                 inbound: {}
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '404':
+          "$ref": "#/components/responses/NotFound"
       operationId: works_remove_association
   "/works/{id}/complete":
     parameters:
@@ -10631,6 +10896,10 @@ paths:
                 "$ref": "#/components/schemas/Error"
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '404':
+          "$ref": "#/components/responses/NotFound"
       operationId: works_complete
   "/works/{id}/incomplete":
     parameters:
@@ -10719,6 +10988,8 @@ paths:
                 "$ref": "#/components/schemas/Error"
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
       requestBody:
         content:
           application/json:
@@ -10786,4 +11057,6 @@ paths:
           description: no such work
         '401':
           "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
       operationId: works_clear_incomplete

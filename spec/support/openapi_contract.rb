@@ -6,6 +6,9 @@
 module OpenapiContract
   ERROR_REF        = '#/components/schemas/Error'
   UNAUTHORIZED_REF = '#/components/responses/Unauthorized'
+  FORBIDDEN_REF    = '#/components/responses/Forbidden'
+  NOT_FOUND_REF    = '#/components/responses/NotFound'
+  NO_NOT_FOUND     = 'x-atlas-no-not-found'
 
   # The wording for an identity path parameter a spec left undescribed, so the
   # same name means the same thing on every route.
@@ -31,7 +34,7 @@ module OpenapiContract
     operations(doc).each do |template, verb, op|
       describe_path_parameters(op['parameters'])
       op['operationId'] ||= operation_id(template, verb)
-      op['responses']['401'] ||= { '$ref' => UNAUTHORIZED_REF } if secured?(op, doc)
+      attach_shared_responses(template, op, doc)
       op['responses'].each do |code, response|
         OpenapiErrorBodies.document(code, response)
         OpenapiJsonBodies.document(response)
@@ -81,6 +84,18 @@ module OpenapiContract
       param['description'] = PATH_PARAMETERS[param['name']]
       param.compact!
     end
+  end
+
+  # Every action calls authorize! (check_authorization enforces it), so any
+  # secured operation can refuse, and every path parameter is a lookup.
+  def attach_shared_responses(template, operation, doc)
+    responses = operation['responses']
+    if secured?(operation, doc)
+      responses['401'] ||= { '$ref' => UNAUTHORIZED_REF }
+      responses['403'] ||= { '$ref' => FORBIDDEN_REF }
+    end
+    lookup = template.include?('{') && !operation.delete(NO_NOT_FOUND)
+    responses['404'] ||= { '$ref' => NOT_FOUND_REF } if lookup
   end
 
   def secured?(operation, doc)

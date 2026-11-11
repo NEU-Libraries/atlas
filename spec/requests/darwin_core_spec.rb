@@ -159,6 +159,7 @@ RSpec.describe 'Darwin Core records', type: :request do
 
     get "List a work's Darwin Core version history" do
       tags 'Resources'
+      no_not_found
       produces 'application/json'
       description <<~DESC
         Newest-first list of the retained Darwin Core versions, in the same

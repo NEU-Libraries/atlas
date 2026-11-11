@@ -21,6 +21,8 @@ RSpec.describe 'Files (Blobs)', type: :request do
       description <<~DESC
         Lists every Blob, one page at a time. A row is a file's metadata, not its
         bytes; read the bytes from `GET /files/{id}/content`.
+
+        Only an admin may call this; anyone else gets `403`.
       DESC
       paginated
 
@@ -425,6 +427,9 @@ RSpec.describe 'Files (Blobs)', type: :request do
         Admin-gated, like the MODS version list, because the descriptors expose
         edit attribution (the devolved-admin tier — :privileged role + the
         repository:admin group — can also reach this). Unknown id → 404.
+
+        Only an admin or a delegated admin may call this; anyone else gets
+        `403`.
       DESC
 
       response '200', 'versions listed (newest first)' do
@@ -500,6 +505,9 @@ RSpec.describe 'Files (Blobs)', type: :request do
         :privileged role + the repository:admin group — reaches it too), because
         the descriptors expose the same edit attribution. The grant is
         class-wide, so nothing is dropped for authorization.
+
+        Only an admin or a delegated admin may call this; anyone else gets
+        `403`.
       DESC
       parameter name: :body, in: :body, schema: {
         type:       :object,

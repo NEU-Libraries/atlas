@@ -53,6 +53,13 @@ module Rswag
         metadata[:openapi_spec] = OpenapiDocument::INTERNAL
       end
 
+      # Inside a verb block: this operation's path parameter is not a lookup
+      # that answers 404 for an unknown value, such as a list that is empty for
+      # it, or a find-or-create. The formatter then leaves out the shared 404.
+      def no_not_found
+        metadata[:operation][OpenapiContract::NO_NOT_FOUND] = true
+      end
+
       # Inside a response block on a route that also serves XML or HTML: the
       # schema of its JSON body alone, which rswag cannot express.
       def json_schema(name)

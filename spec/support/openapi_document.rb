@@ -78,11 +78,22 @@ module OpenapiDocument
     }
   }.freeze
 
-  # Shared responses. `Unauthorized` is attached to every operation that
-  # accepts a credential, by OpenapiContract; spec/requests/openapi_contract_spec.rb
-  # proves each of them answers it. `ServerError` is named here only: a spec
+  # Shared responses. OpenapiContract attaches `Unauthorized` and `Forbidden`
+  # to every operation that accepts a credential, and `NotFound` to every
+  # operation with a path parameter; spec/requests/openapi_contract_spec.rb
+  # proves the 401 and the 404 on each one. `ServerError` is named here only: a spec
   # cannot provoke a 5xx per path.
   RESPONSES = {
+    Forbidden:    {
+      description: 'The caller may not do this: the record is not readable to it, or the operation needs ' \
+                   'more than the access its credential carries. A guest may read public items only. The ' \
+                   'body\'s `action` names the verb that was refused, and `subject` the type it was refused on.',
+      content:     { 'application/json' => { schema: { '$ref' => '#/components/schemas/Error' } } }
+    },
+    NotFound:     {
+      description: 'Nothing answers to that identifier, or it names a resource of another type. ' \
+                   'Most 404 responses have no body.'
+    },
     Unauthorized: {
       description: 'The credential was not recognised: an unknown, expired or revoked token. ' \
                    'Send no `Authorization` header to call as a guest instead.',

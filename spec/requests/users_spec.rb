@@ -207,6 +207,7 @@ RSpec.describe 'User', type: :request, default_auth: false do
   path '/users/by_email/{email}', openapi_spec: OpenapiDocument::INTERNAL do
     put 'Find-or-create a user by email and replace their groups (system-only)' do
       tags 'User'
+      no_not_found
       consumes 'application/json'
       produces 'application/json'
       description <<~D

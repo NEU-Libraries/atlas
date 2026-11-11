@@ -22,6 +22,7 @@ RSpec.describe 'User accounts', type: :request do
   path '/users/by_nuid/{nuid}/accounts' do
     get 'List the accounts sharing a NUID' do
       tags 'User'
+      no_not_found
       produces 'application/json'
       description <<~D
         Every account sharing this NUID (a person's staff/student logins), each

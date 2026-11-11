@@ -24,6 +24,11 @@ Most handlers render the same three-key body:
 `error` carries a machine-readable code and `message` carries the detail a person
 reads. **A client branches on `error` and never parses `message`.**
 
+A failure with no body, such as the bare 404 or a 416, sends no `Content-Type`.
+Rails would label it with the request's format; `lib/empty_body_content_type.rb`
+removes the label, so a client that parses by media type does not parse nothing
+as JSON.
+
 Three codes are exact-match strings that `atlas_rb` depends on. Do not change
 any of them without a contract bump:
 

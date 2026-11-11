@@ -41,10 +41,9 @@ RSpec.describe 'MODS version history via atlas_rb', :atlas_rb_server do
     expect(xml).to include("What's New") # title from the edited fixture
   end
 
-  it 'returns a well-formed empty envelope for a resource with no MODS' do
-    envelope = AtlasRb::Resource.mods_versions('no-such-resource', nuid: admin_nuid)
-
-    expect(envelope['resource_id']).to eq('no-such-resource')
-    expect(envelope['versions']).to eq([])
+  # Atlas answers an unknown NOID with 404, which atlas_rb reads as nil. A real
+  # resource with no MODS gets the empty list; spec/requests/mods_versions_spec.rb.
+  it 'returns nil for an unknown resource' do
+    expect(AtlasRb::Resource.mods_versions('no-such-resource', nuid: admin_nuid)).to be_nil
   end
 end

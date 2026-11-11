@@ -92,10 +92,9 @@ RSpec.describe 'MODS version history endpoints', type: :request do
       expect(ordinals).to eq(ordinals.sort.reverse)
     end
 
-    it 'returns an empty array for a resource with no MODS (or an unknown id)' do
+    it 'answers 404 for an unknown id' do
       get '/resources/does-not-exist/mods/versions'
-      expect(response).to have_http_status(:ok)
-      expect(response.parsed_body['versions']).to eq([])
+      expect(response).to have_http_status(:not_found)
     end
 
     # Every non-Modsable type answers the documented empty array. A FileSet is

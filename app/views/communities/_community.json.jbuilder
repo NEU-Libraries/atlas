@@ -6,11 +6,7 @@ json.community do
   json.ancestors @community.ancestors
   json.thumbnail @community.thumbnail_uri
   json.thumbnail_2x @community.thumbnail_uri_for(Role.thumbnail_image_2x.name)
-  preview = @community.delegate_for(Role.preview_image.name)
-  json.preview preview&.uri
-  json.preview_width preview&.width
-  json.preview_height preview&.height
-  json.preview_placeholder preview&.placeholder
+  json.partial! 'shared/preview', resource: @community
   json.title @community.plain_title
   json.description @community.plain_description
   json.permanent_url @community.mods&.permanent_url

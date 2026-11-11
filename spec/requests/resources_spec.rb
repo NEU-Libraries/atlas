@@ -362,7 +362,6 @@ RSpec.describe 'Resources', type: :request do
 
     get 'List MODS version history for a resource' do
       tags 'Resources'
-      no_not_found
       produces 'application/json'
       description <<~DESC
         Reverse-chronological list of retained MODS versions for any Modsable
@@ -374,7 +373,8 @@ RSpec.describe 'Resources', type: :request do
         Admin-gated, like the File version list, because the descriptors expose
         edit attribution (the devolved-admin tier — :privileged role + the
         repository:admin group — can also reach this, as it can `/history`).
-        A resource with no MODS yields `{ "versions": [] }`.
+        A resource with no MODS yields `{ "versions": [] }`; an unknown NOID
+        answers `404`.
 
         Only an admin or a delegated admin may call this; anyone else gets
         `403`.

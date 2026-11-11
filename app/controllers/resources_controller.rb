@@ -75,6 +75,8 @@ class ResourcesController < ApplicationController
     @resource_id = params[:id]
     resource = Resource.find(@resource_id)
     authorize! :read_versions, resource&.class || Resource
+    return head(:not_found) if resource.nil?
+
     @versions = MODSVersionHistory.descriptors(resource: resource)
   end
 

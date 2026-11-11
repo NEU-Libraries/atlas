@@ -6926,8 +6926,9 @@ paths:
         Newest-first list of the retained Darwin Core versions, in the same
         shape as `/resources/{id}/mods/versions` and under the same admin gate,
         because the descriptors carry edit attribution. Attribution comes from
-        the `dwc` audit events only. A Work with no record, or a NOID that is
-        not a Work, yields `{ "versions": [] }`.
+        the `dwc` audit events only. A Work with no record yields
+        `{ "versions": [] }`; a NOID that is unknown or not a Work answers
+        `404`.
       responses:
         '200':
           description: versions listed (newest first)
@@ -6948,6 +6949,8 @@ paths:
           "$ref": "#/components/responses/Unauthorized"
         '403':
           "$ref": "#/components/responses/Forbidden"
+        '404':
+          "$ref": "#/components/responses/NotFound"
       operationId: darwin_core_versions
   "/resources/{id}/dwc/versions/{version_id}":
     parameters:
@@ -8356,7 +8359,8 @@ paths:
         Admin-gated, like the File version list, because the descriptors expose
         edit attribution (the devolved-admin tier — :privileged role + the
         repository:admin group — can also reach this, as it can `/history`).
-        A resource with no MODS yields `{ "versions": [] }`.
+        A resource with no MODS yields `{ "versions": [] }`; an unknown NOID
+        answers `404`.
 
         Only an admin or a delegated admin may call this; anyone else gets
         `403`.
@@ -8380,6 +8384,8 @@ paths:
           "$ref": "#/components/responses/Unauthorized"
         '403':
           "$ref": "#/components/responses/Forbidden"
+        '404':
+          "$ref": "#/components/responses/NotFound"
       operationId: resources_mods_versions
   "/resources/{id}/mods/versions/{version_id}":
     parameters:

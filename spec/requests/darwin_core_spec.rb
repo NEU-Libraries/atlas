@@ -159,14 +159,14 @@ RSpec.describe 'Darwin Core records', type: :request do
 
     get "List a work's Darwin Core version history" do
       tags 'Resources'
-      no_not_found
       produces 'application/json'
       description <<~DESC
         Newest-first list of the retained Darwin Core versions, in the same
         shape as `/resources/{id}/mods/versions` and under the same admin gate,
         because the descriptors carry edit attribution. Attribution comes from
-        the `dwc` audit events only. A Work with no record, or a NOID that is
-        not a Work, yields `{ "versions": [] }`.
+        the `dwc` audit events only. A Work with no record yields
+        `{ "versions": [] }`; a NOID that is unknown or not a Work answers
+        `404`.
       DESC
 
       response '200', 'versions listed (newest first)' do
@@ -367,11 +367,14 @@ RSpec.describe 'Darwin Core records', type: :request do
       expect(response).to have_http_status(:forbidden)
     end
 
-    it 'is empty for a Work with no record and for a NOID that is not a Work' do
-      [work, collection].each do |resource|
-        get "/resources/#{resource.noid}/dwc/versions"
-        expect(response.parsed_body['versions']).to eq([])
-      end
+    it 'is empty for a Work with no record' do
+      get "/resources/#{work.noid}/dwc/versions"
+      expect(response.parsed_body['versions']).to eq([])
+    end
+
+    it 'answers 404 for a NOID that is not a Work' do
+      get "/resources/#{collection.noid}/dwc/versions"
+      expect(response).to have_http_status(:not_found)
     end
 
     # The two records share the `metadata` change type, so each history must

@@ -62,7 +62,11 @@ class DarwinCoreController < ApplicationController
     @resource_id = params[:id]
     work = find_work
     authorize! :read_versions, Work
-    @versions = work ? DarwinCoreVersionHistory.descriptors(resource: work) : []
+    # An unknown NOID, or one that is not a Work, is a 404 like every other
+    # lookup; a Work with no record is an empty history.
+    return head(:not_found) if work.nil?
+
+    @versions = DarwinCoreVersionHistory.descriptors(resource: work)
     render 'resources/mods_versions'
   end
 

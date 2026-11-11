@@ -1,0 +1,100 @@
+{
+  "file_sets": [
+    {
+      "id": "d0000001x",
+      "type": "Descriptive Metadata",
+      "position": null,
+      "tombstoned": false,
+      "tombstoned_at": null,
+      "tombstoned_by": null,
+      "tombstone_reason": null
+    },
+    {
+      "id": "d0000002x",
+      "type": "File",
+      "position": null,
+      "tombstoned": false,
+      "tombstoned_at": null,
+      "tombstoned_by": null,
+      "tombstone_reason": null
+    },
+    {
+      "id": "d0000003x",
+      "type": "Descriptive Metadata",
+      "position": null,
+      "tombstoned": false,
+      "tombstoned_at": null,
+      "tombstoned_by": null,
+      "tombstone_reason": null
+    },
+    {
+      "id": "d0000004x",
+      "type": "Descriptive Metadata",
+      "position": null,
+      "tombstoned": false,
+      "tombstoned_at": null,
+      "tombstoned_by": null,
+      "tombstone_reason": null
+    }
+  ],
+  "pagination": {
+    "scaffold_url": "/file_sets?page=__pagy_page__",
+    "first_url": "/file_sets?page=1",
+    "prev_url": "/file_sets?page=",
+    "page_url": "/file_sets?page=1",
+    "next_url": "/file_sets?page=",
+    "last_url": "/file_sets?page=1",
+    "count": 4,
+    "page": 1,
+    "items": 10,
+    "vars": {
+      "page": 1,
+      "items": 10,
+      "outset": 0,
+      "size": [
+        1,
+        4,
+        4,
+        1
+      ],
+      "page_param": "page",
+      "params": {},
+      "fragment": "",
+      "link_extra": "",
+      "i18n_key": "pagy.item_name",
+      "cycle": false,
+      "request_path": "",
+      "metadata": [
+        "scaffold_url",
+        "first_url",
+        "prev_url",
+        "page_url",
+        "next_url",
+        "last_url",
+        "count",
+        "page",
+        "items",
+        "vars",
+        "pages",
+        "last",
+        "in",
+        "from",
+        "to",
+        "prev",
+        "next",
+        "series"
+      ],
+      "count": 4
+    },
+    "pages": 1,
+    "last": 1,
+    "in": 4,
+    "from": 1,
+    "to": 4,
+    "prev": null,
+    "next": null,
+    "series": [
+      "1"
+    ]
+  }
+}

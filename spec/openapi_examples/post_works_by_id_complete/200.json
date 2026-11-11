@@ -1,0 +1,43 @@
+{
+  "work": {
+    "id": "d0000001x",
+    "valkyrie_id": "00000000-0000-4000-8000-000000000001",
+    "ancestors": [
+      {
+        "noid": "d0000002x",
+        "klass": "Community",
+        "title": "",
+        "system_container": false,
+        "personal_root": false
+      },
+      {
+        "noid": "d0000003x",
+        "klass": "Collection",
+        "title": "",
+        "system_container": false,
+        "personal_root": false
+      }
+    ],
+    "thumbnail": null,
+    "thumbnail_2x": null,
+    "preview": null,
+    "preview_width": null,
+    "preview_height": null,
+    "preview_placeholder": null,
+    "derivative_permissions": {},
+    "title": "",
+    "description": "",
+    "permanent_url": null,
+    "handle": null,
+    "tombstoned": false,
+    "tombstoned_at": null,
+    "tombstoned_by": null,
+    "tombstone_reason": null,
+    "depositor": null,
+    "proxy_uploader": null,
+    "in_progress": false,
+    "incomplete": false,
+    "incomplete_reason": null,
+    "metadata_formats": []
+  }
+}

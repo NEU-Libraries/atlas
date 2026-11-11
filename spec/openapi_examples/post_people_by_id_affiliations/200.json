@@ -1,0 +1,14 @@
+{
+  "person": {
+    "id": "d0000001x",
+    "valkyrie_id": "00000000-0000-4000-8000-000000000001",
+    "nuid": "001234567",
+    "display_name": "Jane Doe",
+    "bio": null,
+    "orcid": "0000-0002-1825-0097",
+    "affiliated_community_ids": [
+      "d0000002x"
+    ],
+    "personal_root_id": "d0000003x"
+  }
+}

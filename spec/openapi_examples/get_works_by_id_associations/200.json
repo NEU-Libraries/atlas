@@ -1,0 +1,8 @@
+{
+  "outbound": {
+    "is_codebook_for": [
+      "d0000001x"
+    ]
+  },
+  "inbound": {}
+}

@@ -1,0 +1,15 @@
+{
+  "user": {
+    "id": 1,
+    "nuid": "001234567",
+    "name": "Jane Doe",
+    "email": "person1@example.org",
+    "role": "standard",
+    "groups": [
+      "northeastern:staff",
+      "drs:editors"
+    ],
+    "affiliation": null,
+    "preferred": false
+  }
+}

@@ -35,6 +35,7 @@ module OpenapiContract
       op['responses'].each { |code, response| OpenapiErrorBodies.document(code, response) }
     end
     disambiguate!(doc)
+    OpenapiExamples.attach(doc)
     prune_schemas!(doc)
     doc
   end
@@ -138,3 +139,16 @@ module Rswag
     end
   end
 end
+
+# Runs on the response rswag itself requested, once rswag has validated it and
+# before a run_test! block can send another request and replace `response`.
+module OpenapiResponseHooks
+  def assert_response_matches_metadata(metadata, ...)
+    super
+    OpenapiErrorBodies.check(metadata, response)
+    OpenapiExamples.record(metadata, response, RSpec.current_example.id) if OpenapiExamples.recording?
+  end
+end
+
+require 'rswag/specs'
+Rswag::Specs::ExampleHelpers.prepend(OpenapiResponseHooks)

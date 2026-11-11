@@ -2,7 +2,7 @@
 
 # Which 4xx responses carry an Error body, decided once and applied twice: to
 # each generated document by OpenapiContract.finish, and to every 4xx a request
-# spec receives, by the hook below. docs/openapi.md explains the rule.
+# spec receives, by OpenapiResponseHooks. docs/openapi.md explains the rule.
 module OpenapiErrorBodies
   NO_BODY    = 'x-atlas-no-body'
   ERROR_BODY = 'x-atlas-error-body'
@@ -79,13 +79,5 @@ module OpenapiErrorBodies
 
     out = node.except(:nullable).transform_values { |value| json_schema(value) }
     node[:nullable] ? out.merge(type: [node[:type], 'null']) : out
-  end
-end
-
-RSpec.configure do |config|
-  config.after(:each, type: :request) do |example|
-    next unless example.metadata[:response] && example.metadata[:operation] && response
-
-    OpenapiErrorBodies.check(example.metadata, response)
   end
 end

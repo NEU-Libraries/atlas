@@ -1,0 +1,15 @@
+{
+  "fixity_check": {
+    "resource_id": "d0000001x",
+    "object": "urn:neu-drs:d0000001x",
+    "checked_at": "2026-01-15T12:00:00Z",
+    "version": "v1",
+    "algorithm": "sha512",
+    "files": 3,
+    "result": "pass",
+    "findings": [],
+    "checker": "ocfl-fixity-sweep 1.0",
+    "recorded_by": "000000098",
+    "latest": true
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "id": 1,
+  "affiliation": null,
+  "created_at": "2026-01-15T12:00:00Z",
+  "email": "person1@example.org",
+  "groups": [],
+  "jti": "<redacted>",
+  "name": null,
+  "nuid": null,
+  "preferred": false,
+  "role": "guest",
+  "updated_at": "2026-01-15T12:00:00Z"
+}

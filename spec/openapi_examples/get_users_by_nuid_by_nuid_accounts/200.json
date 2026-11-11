@@ -1,0 +1,25 @@
+{
+  "nuid": "000000055",
+  "accounts": [
+    {
+      "email": "person1@example.org",
+      "name": "P",
+      "affiliation": "staff",
+      "role": "standard",
+      "groups": [
+        "g:staff"
+      ],
+      "preferred": false
+    },
+    {
+      "email": "person2@example.org",
+      "name": "P",
+      "affiliation": "student",
+      "role": "standard",
+      "groups": [
+        "g:student"
+      ],
+      "preferred": false
+    }
+  ]
+}

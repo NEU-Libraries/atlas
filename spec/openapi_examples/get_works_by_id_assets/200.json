@@ -1,0 +1,18 @@
+[
+  {
+    "kind": "Blob",
+    "noid": "d0000001x",
+    "mime_type": "image/png",
+    "original_filename": "page1.png",
+    "size": 408360,
+    "language": null,
+    "track_label": null,
+    "filename": "original_d0000001x.png",
+    "label": "Original Image",
+    "role": "original_file",
+    "file_set": "d0000002x",
+    "classification": "Image",
+    "gated": true,
+    "permission": []
+  }
+]

@@ -1,0 +1,23 @@
+[
+  {
+    "noid": "d0000001x",
+    "type": "Image",
+    "position": 1,
+    "tombstoned": false,
+    "assets": []
+  },
+  {
+    "noid": "d0000002x",
+    "type": "Image",
+    "position": 2,
+    "tombstoned": false,
+    "assets": []
+  },
+  {
+    "noid": "d0000003x",
+    "type": "Image",
+    "position": null,
+    "tombstoned": false,
+    "assets": []
+  }
+]

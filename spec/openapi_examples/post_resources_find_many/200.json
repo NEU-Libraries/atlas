@@ -1,0 +1,18 @@
+[
+  {
+    "id": "d0000001x",
+    "noid": "d0000001x",
+    "klass": "Community",
+    "title": "Root Community",
+    "thumbnail": null,
+    "tombstoned": false
+  },
+  {
+    "id": "d0000002x",
+    "noid": "d0000002x",
+    "klass": "Collection",
+    "title": "Child Collection",
+    "thumbnail": null,
+    "tombstoned": false
+  }
+]

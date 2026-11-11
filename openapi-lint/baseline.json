@@ -1,8 +1,4 @@
 {
-  "openapi/internal/openapi.yaml": {
-    "atlas-2xx-json-has-example": 15
-  },
-  "openapi/public/openapi.yaml": {
-    "atlas-2xx-json-has-example": 81
-  }
+  "openapi/internal/openapi.yaml": {},
+  "openapi/public/openapi.yaml": {}
 }

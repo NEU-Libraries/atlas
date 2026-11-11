@@ -1,0 +1,63 @@
+{
+  "blobs": [],
+  "pagination": {
+    "scaffold_url": "/files?page=__pagy_page__",
+    "first_url": "/files?page=1",
+    "prev_url": "/files?page=",
+    "page_url": "/files?page=1",
+    "next_url": "/files?page=",
+    "last_url": "/files?page=1",
+    "count": 0,
+    "page": 1,
+    "items": 10,
+    "vars": {
+      "page": 1,
+      "items": 10,
+      "outset": 0,
+      "size": [
+        1,
+        4,
+        4,
+        1
+      ],
+      "page_param": "page",
+      "params": {},
+      "fragment": "",
+      "link_extra": "",
+      "i18n_key": "pagy.item_name",
+      "cycle": false,
+      "request_path": "",
+      "metadata": [
+        "scaffold_url",
+        "first_url",
+        "prev_url",
+        "page_url",
+        "next_url",
+        "last_url",
+        "count",
+        "page",
+        "items",
+        "vars",
+        "pages",
+        "last",
+        "in",
+        "from",
+        "to",
+        "prev",
+        "next",
+        "series"
+      ],
+      "count": 0
+    },
+    "pages": 1,
+    "last": 1,
+    "in": 0,
+    "from": 0,
+    "to": 0,
+    "prev": null,
+    "next": null,
+    "series": [
+      "1"
+    ]
+  }
+}

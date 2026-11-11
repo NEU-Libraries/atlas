@@ -1,0 +1,74 @@
+{
+  "people": [
+    {
+      "id": "d0000001x",
+      "valkyrie_id": "00000000-0000-4000-8000-000000000001",
+      "nuid": "001234567",
+      "display_name": "Jane Doe",
+      "bio": null,
+      "orcid": "0000-0002-1825-0097",
+      "affiliated_community_ids": [],
+      "personal_root_id": "d0000002x"
+    }
+  ],
+  "pagination": {
+    "scaffold_url": "/people?nuids=&q=&page=__pagy_page__&per_page=",
+    "first_url": "/people?nuids=&q=&page=1&per_page=",
+    "prev_url": "/people?nuids=&q=&page=&per_page=",
+    "page_url": "/people?nuids=&q=&page=1&per_page=",
+    "next_url": "/people?nuids=&q=&page=&per_page=",
+    "last_url": "/people?nuids=&q=&page=1&per_page=",
+    "count": 1,
+    "page": 1,
+    "items": 10,
+    "vars": {
+      "page": 1,
+      "items": 10,
+      "outset": 0,
+      "size": [
+        1,
+        4,
+        4,
+        1
+      ],
+      "page_param": "page",
+      "params": {},
+      "fragment": "",
+      "link_extra": "",
+      "i18n_key": "pagy.item_name",
+      "cycle": false,
+      "request_path": "",
+      "metadata": [
+        "scaffold_url",
+        "first_url",
+        "prev_url",
+        "page_url",
+        "next_url",
+        "last_url",
+        "count",
+        "page",
+        "items",
+        "vars",
+        "pages",
+        "last",
+        "in",
+        "from",
+        "to",
+        "prev",
+        "next",
+        "series"
+      ],
+      "count": 1
+    },
+    "pages": 1,
+    "last": 1,
+    "in": 1,
+    "from": 1,
+    "to": 1,
+    "prev": null,
+    "next": null,
+    "series": [
+      "1"
+    ]
+  }
+}

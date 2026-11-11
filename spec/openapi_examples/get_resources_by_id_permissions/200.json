@@ -1,0 +1,13 @@
+{
+  "resource": {
+    "embargo": null,
+    "depositor": null,
+    "proxy_uploader": null,
+    "edit_users": [],
+    "read": [],
+    "edit": [
+      "northeastern:drs:repository:staff"
+    ],
+    "type": "Work"
+  }
+}

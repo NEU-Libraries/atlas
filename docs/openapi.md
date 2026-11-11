@@ -11,6 +11,8 @@ Source files:
 - `spec/support/openapi_contract.rb` — the rules applied to every operation
 - `spec/support/openapi_error_bodies.rb` — which 4xx responses carry an `Error`
   body, and the hook that checks it
+- `spec/support/openapi_examples.rb`, `spec/openapi_examples/` and
+  `bin/openapi-record` — the recorded example bodies
 - `spec/swagger_helper.rb` — the rswag configuration and the spec helpers
 - `spec/support/openapi_schemas.rb` — the component schemas
 - `config/initializers/rswag_api.rb` — the directory `/api-docs` serves
@@ -104,6 +106,57 @@ Declare a list's paging with `paginated`, or `paginated per_page: true` where
 the action reads `per_page`. A list's `pagination` block has one of two
 shapes: pagy's `Pagination`, from `LazyPagination`, or `SearchPagination`,
 which `SearchQuery` and `WorkDigestQuery` build themselves.
+
+## Examples
+
+Every 2xx JSON response carries a real body as its example. The generator runs
+with `--dry-run`, so the bodies cannot come from responses at generation time.
+They are recorded instead, into one committed file per operation and status,
+and `OpenapiContract.finish` attaches them:
+
+```bash
+bin/openapi-record          # record, then regenerate; about six minutes
+```
+
+The files sit in `spec/openapi_examples/<verb>_<path>/<status>.json`, keyed on
+the path rather than the `operationId`, which is settled only once a whole
+document is built. When several examples hit one operation and status, the one
+with the lowest RSpec id wins, so recording unchanged code twice picks the same
+body. Recording hooks into rswag's own response, before a `run_test!` block can
+send another request.
+
+Re-record after a change to a jbuilder partial, or to the fixtures a recorded
+spec builds. Until then an example can lag the code. Spectral's
+`oas3-valid-media-example` holds every example to its current schema, so a
+change of shape fails the gate; a change of value does not.
+
+### Every example is published
+
+So every example must be safe to publish. The recorder scrubs each body as it
+writes it: a NOID or UUID becomes a stable placeholder, the same value mapping
+to the same placeholder throughout one body, and timestamps, dates (also inside
+a sentence), digests, email addresses, row ids, Solr's `_version_` and the
+values of `jti`, `token` and password keys become fixed values. That also makes
+a re-recording of unchanged code produce no diff.
+
+NOIDs are matched exactly, not by shape. A NOID can be nine digits, which is
+also the shape of a NUID, so the recorder reads every NOID the example's
+fixtures hold from the database and replaces those. NUIDs are fixture
+constants and stay as they are.
+
+One example still moves: `GET /fixity_checks/due` orders ties by object key,
+which holds a NOID, and NOIDs are random on every run. Its items can reorder
+when it is re-recorded.
+
+`spec/requests/openapi_examples_spec.rb` fails if a committed example holds
+anything the scrubber should have replaced, or names a host outside the
+reserved example domains and `OpenapiExamples::PUBLIC_HOSTS`. Adding a host to
+that list is a decision that its URLs are safe to publish. It also fails on an
+example whose operation and status no longer exist.
+
+A route that serves XML and JSON declares no schema, because rswag would give
+both media types the same one. Its recorded JSON body still gets a JSON media
+type to sit under.
 
 ## The gate
 

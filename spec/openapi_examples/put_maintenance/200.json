@@ -1,0 +1,7 @@
+{
+  "read_only": true,
+  "source": "operator",
+  "since": "2026-01-15T12:00:00Z",
+  "message": "Back at 10:00",
+  "retry_after": 900
+}

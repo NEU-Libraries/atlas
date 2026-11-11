@@ -1,0 +1,20 @@
+[
+  {
+    "kind": "Blob",
+    "noid": "d0000001x",
+    "mime_type": "text/vtt",
+    "original_filename": "es.vtt",
+    "size": 102400,
+    "language": null,
+    "track_label": null,
+    "filename": "text_d0000001x.vtt",
+    "label": "Text Document",
+    "role": "original_file",
+    "file_set": "d0000002x",
+    "classification": "Text",
+    "gated": true,
+    "permission": [],
+    "tombstoned_at": "2026-01-15T12:00:00Z",
+    "tombstoned_by": "000000004"
+  }
+]

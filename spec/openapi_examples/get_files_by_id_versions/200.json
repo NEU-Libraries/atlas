@@ -1,0 +1,16 @@
+{
+  "blob_id": "d0000001x",
+  "versions": [
+    {
+      "revision": 1,
+      "version_id": "v1",
+      "file_identifier": "ocfl://testdisk/@r001/d0000001x/v1/example.bin",
+      "created": "2026-01-15T12:00:00Z",
+      "actor_nuid": null,
+      "on_behalf_of_nuid": null,
+      "digest": "sha512:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      "size": 102400,
+      "original_filename": "example.bin"
+    }
+  ]
+}

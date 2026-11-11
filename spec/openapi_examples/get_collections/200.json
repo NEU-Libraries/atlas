@@ -1,0 +1,74 @@
+{
+  "collections": [
+    {
+      "id": "d0000001x",
+      "title": "",
+      "description": ""
+    },
+    {
+      "id": "d0000002x",
+      "title": "",
+      "description": ""
+    }
+  ],
+  "pagination": {
+    "scaffold_url": "/collections?page=__pagy_page__",
+    "first_url": "/collections?page=1",
+    "prev_url": "/collections?page=",
+    "page_url": "/collections?page=1",
+    "next_url": "/collections?page=",
+    "last_url": "/collections?page=1",
+    "count": 2,
+    "page": 1,
+    "items": 10,
+    "vars": {
+      "page": 1,
+      "items": 10,
+      "outset": 0,
+      "size": [
+        1,
+        4,
+        4,
+        1
+      ],
+      "page_param": "page",
+      "params": {},
+      "fragment": "",
+      "link_extra": "",
+      "i18n_key": "pagy.item_name",
+      "cycle": false,
+      "request_path": "",
+      "metadata": [
+        "scaffold_url",
+        "first_url",
+        "prev_url",
+        "page_url",
+        "next_url",
+        "last_url",
+        "count",
+        "page",
+        "items",
+        "vars",
+        "pages",
+        "last",
+        "in",
+        "from",
+        "to",
+        "prev",
+        "next",
+        "series"
+      ],
+      "count": 2
+    },
+    "pages": 1,
+    "last": 1,
+    "in": 2,
+    "from": 1,
+    "to": 2,
+    "prev": null,
+    "next": null,
+    "series": [
+      "1"
+    ]
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "noid": "d0000001x",
+  "grade": "yellow",
+  "fixity_checked": false,
+  "fixity": {
+    "last_checked_at": null,
+    "result": null,
+    "objects": 3,
+    "never_checked": 3
+  },
+  "findings": [
+    {
+      "severity": "repairable",
+      "code": "untitled",
+      "subject": "d0000001x",
+      "message": "the MODS has no title; nothing can find or name this Work"
+    },
+    {
+      "severity": "repairable",
+      "code": "no_depositor",
+      "subject": "d0000001x",
+      "message": "no depositor; the owner cannot edit"
+    },
+    {
+      "severity": "advisory",
+      "code": "private",
+      "subject": "d0000001x",
+      "message": "no read group; only editors can see it"
+    },
+    {
+      "severity": "repairable",
+      "code": "no_content",
+      "subject": "d0000001x",
+      "message": "no content FileSet; nothing to view or download"
+    },
+    {
+      "severity": "advisory",
+      "code": "in_progress",
+      "subject": "d0000001x",
+      "message": "deposit still open since 2026-01-15"
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "work": {
+    "id": "d0000001x",
+    "mets": {
+      "agent": "Atlas",
+      "files": [],
+      "pages": [
+        {
+          "noid": "d0000002x",
+          "label": "Image",
+          "order": 1
+        }
+      ],
+      "created_at_iso": "2026-01-15T12:00:00Z",
+      "structure_label": "work"
+    }
+  }
+}

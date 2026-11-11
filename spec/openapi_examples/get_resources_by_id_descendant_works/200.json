@@ -1,0 +1,17 @@
+{
+  "works": [
+    {
+      "id": "d0000001x",
+      "noid": "d0000001x",
+      "klass": "Work",
+      "title": "",
+      "thumbnail": null
+    }
+  ],
+  "pagination": {
+    "total": 1,
+    "page": 1,
+    "per_page": 25,
+    "pages": 1
+  }
+}

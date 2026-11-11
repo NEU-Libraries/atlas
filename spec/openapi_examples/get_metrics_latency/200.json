@@ -1,0 +1,21 @@
+{
+  "window_minutes": 30,
+  "calls": 3,
+  "server_errors": 1,
+  "mean_ms": 303,
+  "p50_ms": 175,
+  "p95_ms": 925,
+  "p99_ms": 985,
+  "slowest_actions": [
+    {
+      "action": "works#mods",
+      "calls": 2,
+      "p95_ms": 950
+    },
+    {
+      "action": "works#show",
+      "calls": 1,
+      "p95_ms": 49
+    }
+  ]
+}

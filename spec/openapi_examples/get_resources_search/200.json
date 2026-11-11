@@ -1,0 +1,25 @@
+{
+  "results": [
+    {
+      "id": "d0000001x",
+      "noid": "d0000001x",
+      "klass": "Work",
+      "title": "Albatross almanac. How We Respond to Disaster. Episode 1",
+      "creators": [
+        "Cohen, Daniel J.(Daniel Jared), 1968-",
+        "Northeastern University (Boston, Mass.) Libraries"
+      ],
+      "year": "2017",
+      "thumbnail": null,
+      "in_progress": false,
+      "embargoed": false,
+      "incomplete": false
+    }
+  ],
+  "pagination": {
+    "total": 1,
+    "page": 1,
+    "per_page": 25,
+    "pages": 1
+  }
+}

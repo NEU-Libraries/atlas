@@ -1,0 +1,14 @@
+{
+  "user": {
+    "id": 1,
+    "nuid": "000000055",
+    "name": "P",
+    "email": "person1@example.org",
+    "role": "standard",
+    "groups": [
+      "g:student"
+    ],
+    "affiliation": "student",
+    "preferred": true
+  }
+}

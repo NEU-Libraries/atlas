@@ -1,0 +1,25 @@
+{
+  "blob": {
+    "id": "d0000001x",
+    "mime_type": "application/octet-stream",
+    "original_filename": "example.bin",
+    "use": "Original File",
+    "size": 102400,
+    "digest": "sha512:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    "filename": "zipped_d0000001x.bin",
+    "label": "Zip File",
+    "language": null,
+    "track_label": null,
+    "file_identifiers": [
+      {
+        "id": "ocfl://testdisk/@r001/d0000001x/v1/example.bin"
+      }
+    ],
+    "tombstoned": false,
+    "tombstoned_at": null,
+    "tombstoned_by": null,
+    "tombstoned_in_effect": false,
+    "tombstoned_resource_id": null,
+    "tombstoned_resource_type": null
+  }
+}

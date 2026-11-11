@@ -1,0 +1,186 @@
+{
+  "noid": "d0000001x",
+  "document": {
+    "id": "00000000-0000-4000-8000-000000000001",
+    "join_id_ssi": "id-00000000-0000-4000-8000-000000000001",
+    "created_at_dtsi": "2026-01-15T12:00:00Z",
+    "updated_at_dtsi": "2026-01-15T12:00:00Z",
+    "internal_resource_tsim": [
+      "Work"
+    ],
+    "all_text_timv": [
+      "Work",
+      "Work",
+      "Work",
+      "public",
+      "public",
+      "public",
+      "northeastern:drs:repository:staff",
+      "northeastern:drs:repository:staff",
+      "northeastern:drs:repository:staff",
+      "",
+      "",
+      "",
+      "id-d0000001x",
+      "id-d0000001x",
+      "id-d0000001x",
+      "boolean-false",
+      "boolean-false",
+      "boolean-false",
+      "id-00000000-0000-4000-8000-000000000002",
+      "id-00000000-0000-4000-8000-000000000002",
+      "id-00000000-0000-4000-8000-000000000002",
+      "Work",
+      "Work",
+      "Work",
+      "boolean-true",
+      "boolean-true",
+      "boolean-true",
+      "boolean-false",
+      "boolean-false",
+      "boolean-false",
+      "public",
+      "northeastern:drs:repository:staff",
+      "",
+      ""
+    ],
+    "internal_resource_ssim": [
+      "Work"
+    ],
+    "internal_resource_tesim": [
+      "Work"
+    ],
+    "read_groups_tsim": [
+      "public"
+    ],
+    "read_groups_ssim": [
+      "public"
+    ],
+    "read_groups_tesim": [
+      "public"
+    ],
+    "read_groups_tsi": "public",
+    "read_groups_ssi": "public",
+    "read_groups_tesi": "public",
+    "edit_groups_tsim": [
+      "northeastern:drs:repository:staff"
+    ],
+    "edit_groups_ssim": [
+      "northeastern:drs:repository:staff"
+    ],
+    "edit_groups_tesim": [
+      "northeastern:drs:repository:staff"
+    ],
+    "edit_groups_tsi": "northeastern:drs:repository:staff",
+    "edit_groups_ssi": "northeastern:drs:repository:staff",
+    "edit_groups_tesi": "northeastern:drs:repository:staff",
+    "embargo_release_date_tsim": [
+      ""
+    ],
+    "embargo_release_date_ssim": [
+      ""
+    ],
+    "embargo_release_date_tesim": [
+      ""
+    ],
+    "embargo_release_date_tsi": "",
+    "embargo_release_date_ssi": "",
+    "embargo_release_date_tesi": "",
+    "alternate_ids_tsim": [
+      "id-d0000001x"
+    ],
+    "alternate_ids_ssim": [
+      "id-d0000001x"
+    ],
+    "alternate_ids_tesim": [
+      "id-d0000001x"
+    ],
+    "alternate_ids_tsi": "id-d0000001x",
+    "alternate_ids_ssi": "id-d0000001x",
+    "alternate_ids_tesi": "id-d0000001x",
+    "tombstoned_tsim": [
+      "boolean-false"
+    ],
+    "tombstoned_ssim": [
+      "boolean-false"
+    ],
+    "tombstoned_tesim": [
+      "boolean-false"
+    ],
+    "tombstoned_tsi": "boolean-false",
+    "tombstoned_ssi": "boolean-false",
+    "tombstoned_tesi": "boolean-false",
+    "a_member_of_tsim": [
+      "id-00000000-0000-4000-8000-000000000002"
+    ],
+    "a_member_of_ssim": [
+      "id-00000000-0000-4000-8000-000000000002"
+    ],
+    "a_member_of_tesim": [
+      "id-00000000-0000-4000-8000-000000000002"
+    ],
+    "a_member_of_tsi": "id-00000000-0000-4000-8000-000000000002",
+    "a_member_of_ssi": "id-00000000-0000-4000-8000-000000000002",
+    "a_member_of_tesi": "id-00000000-0000-4000-8000-000000000002",
+    "type_tsim": [
+      "Work"
+    ],
+    "type_ssim": [
+      "Work"
+    ],
+    "type_tesim": [
+      "Work"
+    ],
+    "type_tsi": "Work",
+    "type_ssi": "Work",
+    "type_tesi": "Work",
+    "in_progress_tsim": [
+      "boolean-true"
+    ],
+    "in_progress_ssim": [
+      "boolean-true"
+    ],
+    "in_progress_tesim": [
+      "boolean-true"
+    ],
+    "in_progress_tsi": "boolean-true",
+    "in_progress_ssi": "boolean-true",
+    "in_progress_tesi": "boolean-true",
+    "incomplete_tsim": [
+      "boolean-false"
+    ],
+    "incomplete_ssim": [
+      "boolean-false"
+    ],
+    "incomplete_tesim": [
+      "boolean-false"
+    ],
+    "incomplete_tsi": "boolean-false",
+    "incomplete_ssi": "boolean-false",
+    "incomplete_tesi": "boolean-false",
+    "read_access_group_ssim": [
+      "public"
+    ],
+    "edit_access_group_ssim": [
+      "northeastern:drs:repository:staff"
+    ],
+    "in_progress_bsi": true,
+    "incomplete_bsi": false,
+    "title_tsim": [
+      ""
+    ],
+    "description_tsim": [
+      ""
+    ],
+    "tombstoned_bsi": false,
+    "has_downloads_bsi": false,
+    "oai_datestamp_dtsi": "2026-01-15T12:00:00Z",
+    "mods_xml_ss": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<mods:mods xmlns:drs=\"https://repository.neu.edu/spec/v1\" xmlns:mods=\"http://www.loc.gov/mods/v3\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:niec=\"http://repository.neu.edu/schema/niec\" xmlns:dcterms=\"http://purl.org/dc/terms/\" xmlns:dwc=\"http://rs.tdwg.org/dwc/terms/\" xmlns:dwr=\"http://rs.tdwg.org/dwc/xsd/simpledarwincore/\" xsi:schemaLocation=\"http://www.loc.gov/mods/v3 http://www.loc.gov/standards/mods/v3/mods-3-8.xsd\">\n  <mods:titleInfo usage=\"primary\">\n    <mods:title/>\n  </mods:titleInfo>\n  <mods:identifier type=\"hdl\" displayLabel=\"Permanent URL\"/>\n</mods:mods>\n",
+    "mods_updated_at_dtsi": "2026-01-15T12:00:00Z",
+    "storage_bytes_ls": 13133,
+    "work_fixity_objects_isi": 3,
+    "work_fixity_never_checked_isi": 3,
+    "_version_": 0,
+    "timestamp": "2026-01-15T12:00:00Z"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "file_set": {
+    "id": "d0000001x",
+    "type": "Image",
+    "position": 1,
+    "tombstoned": false,
+    "tombstoned_at": null,
+    "tombstoned_by": null,
+    "tombstone_reason": null
+  }
+}

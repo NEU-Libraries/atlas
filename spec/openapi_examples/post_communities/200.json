@@ -1,0 +1,23 @@
+{
+  "community": {
+    "id": "d0000001x",
+    "valkyrie_id": "00000000-0000-4000-8000-000000000001",
+    "ancestors": [],
+    "thumbnail": null,
+    "thumbnail_2x": null,
+    "preview": null,
+    "preview_width": null,
+    "preview_height": null,
+    "preview_placeholder": null,
+    "title": "",
+    "description": "",
+    "permanent_url": null,
+    "tombstoned": false,
+    "tombstoned_at": null,
+    "tombstoned_by": null,
+    "tombstone_reason": null,
+    "depositor": "000000004",
+    "proxy_uploader": "000000004",
+    "system_container": false
+  }
+}

@@ -1,0 +1,18 @@
+[
+  {
+    "id": "d0000001x",
+    "noid": "d0000001x",
+    "klass": "Work",
+    "title": "",
+    "thumbnail": null,
+    "tombstoned": true
+  },
+  {
+    "id": "d0000002x",
+    "noid": "d0000002x",
+    "klass": "Collection",
+    "title": "",
+    "thumbnail": null,
+    "tombstoned": true
+  }
+]

@@ -1,0 +1,29 @@
+{
+  "work": {
+    "id": "d0000001x",
+    "dwc": {
+      "type": "PhysicalObject",
+      "modified": "2026-01-15T12:00:00Z",
+      "language": "en",
+      "rightsHolder": "Regents of the University of California",
+      "license": "http://creativecommons.org/publicdomain/zero/1.0/legalcode",
+      "basisOfRecord": "PreservedSpecimen",
+      "institutionCode": "MVZ",
+      "collectionCode": "Mammal specimens",
+      "catalogNumber": "MVZ:Mamm:14523",
+      "sex": "male",
+      "occurrenceID": "http://arctos.database.museum/guid/MVZ:Mamm:14523?seid=770093",
+      "country": "United States",
+      "countryCode": "US",
+      "stateProvince": "California",
+      "county": "Kern County",
+      "locality": "8 mi NE Bakersfield",
+      "decimalLatitude": "35.45038",
+      "decimalLongitude": "-118.9092",
+      "geodeticDatum": "epsg:4267",
+      "coordinateUncertaintyInMeters": "13696",
+      "eventDate": "2026-01-15",
+      "scientificName": "Perognathus inornatus inornatus"
+    }
+  }
+}

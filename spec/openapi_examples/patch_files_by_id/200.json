@@ -1,0 +1,28 @@
+{
+  "blob": {
+    "id": "d0000001x",
+    "mime_type": "image/tiff",
+    "original_filename": "scan.tif",
+    "use": "Original File",
+    "size": 18382,
+    "digest": "sha512:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    "filename": "original_d0000001x.tif",
+    "label": "Original Image",
+    "language": null,
+    "track_label": null,
+    "file_identifiers": [
+      {
+        "id": "ocfl://testdisk/@r001/d0000001x/v1/example.bin"
+      },
+      {
+        "id": "ocfl://testdisk/@r001/d0000001x/v3/scan.tif"
+      }
+    ],
+    "tombstoned": false,
+    "tombstoned_at": null,
+    "tombstoned_by": null,
+    "tombstoned_in_effect": false,
+    "tombstoned_resource_id": null,
+    "tombstoned_resource_type": null
+  }
+}

@@ -272,6 +272,7 @@ components:
               - Removed from view at Northeastern University's discretion
               - Removed from view at Northeastern University Library's discretion
               - Removed from view at contributor or content curator's discretion
+              -
               description: The policy removal note chosen at tombstoning, or null.
                 The date comes from tombstoned_at.
             depositor:
@@ -454,6 +455,7 @@ components:
               - Removed from view at Northeastern University's discretion
               - Removed from view at Northeastern University Library's discretion
               - Removed from view at contributor or content curator's discretion
+              -
               description: The policy removal note chosen at tombstoning, or null.
                 The date comes from tombstoned_at.
             depositor:
@@ -598,6 +600,7 @@ components:
               - Removed from view at Northeastern University's discretion
               - Removed from view at Northeastern University Library's discretion
               - Removed from view at contributor or content curator's discretion
+              -
               description: The policy removal note chosen at tombstoning, or null.
                 The date comes from tombstoned_at.
             depositor:
@@ -675,6 +678,7 @@ components:
               - Removed from view at Northeastern University's discretion
               - Removed from view at Northeastern University Library's discretion
               - Removed from view at contributor or content curator's discretion
+              -
               description: The policy removal note chosen at tombstoning, or null.
                 The date comes from tombstoned_at.
           required:
@@ -942,6 +946,7 @@ components:
           - Removed from view at Northeastern University's discretion
           - Removed from view at Northeastern University Library's discretion
           - Removed from view at contributor or content curator's discretion
+          -
           description: The policy removal note chosen at tombstoning, or null. The
             date comes from tombstoned_at.
       required:
@@ -1512,6 +1517,7 @@ components:
               enum:
               - pass
               - fail
+              -
               nullable: true
               description: The worst recorded outcome among the objects, or null when
                 none is recorded
@@ -2239,6 +2245,7 @@ components:
           enum:
           - operator
           - deploy
+          -
           description: Which door opened the window; null when closed
         since:
           type: string
@@ -2712,6 +2719,7 @@ components:
               - Removed from view at Northeastern University's discretion
               - Removed from view at Northeastern University Library's discretion
               - Removed from view at contributor or content curator's discretion
+              -
               description: The policy removal note chosen at tombstoning, or null.
                 The date comes from tombstoned_at.
           required:
@@ -2754,6 +2762,7 @@ components:
               - Removed from view at Northeastern University's discretion
               - Removed from view at Northeastern University Library's discretion
               - Removed from view at contributor or content curator's discretion
+              -
               description: The policy removal note chosen at tombstoning, or null.
                 The date comes from tombstoned_at.
           required:
@@ -2796,6 +2805,7 @@ components:
               - Removed from view at Northeastern University's discretion
               - Removed from view at Northeastern University Library's discretion
               - Removed from view at contributor or content curator's discretion
+              -
               description: The policy removal note chosen at tombstoning, or null.
                 The date comes from tombstoned_at.
           required:
@@ -2832,6 +2842,63 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/BlobsIndex"
+              example:
+                blobs: []
+                pagination:
+                  scaffold_url: "/files?page=__pagy_page__"
+                  first_url: "/files?page=1"
+                  prev_url: "/files?page="
+                  page_url: "/files?page=1"
+                  next_url: "/files?page="
+                  last_url: "/files?page=1"
+                  count: 0
+                  page: 1
+                  items: 10
+                  vars:
+                    page: 1
+                    items: 10
+                    outset: 0
+                    size:
+                    - 1
+                    - 4
+                    - 4
+                    - 1
+                    page_param: page
+                    params: {}
+                    fragment: ''
+                    link_extra: ''
+                    i18n_key: pagy.item_name
+                    cycle: false
+                    request_path: ''
+                    metadata:
+                    - scaffold_url
+                    - first_url
+                    - prev_url
+                    - page_url
+                    - next_url
+                    - last_url
+                    - count
+                    - page
+                    - items
+                    - vars
+                    - pages
+                    - last
+                    - in
+                    - from
+                    - to
+                    - prev
+                    - next
+                    - series
+                    count: 0
+                  pages: 1
+                  last: 1
+                  in: 0
+                  from: 0
+                  to: 0
+                  prev:
+                  next:
+                  series:
+                  - '1'
         '401':
           "$ref": "#/components/responses/Unauthorized"
       operationId: blobs_index
@@ -2896,6 +2963,26 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Blob"
+              example:
+                blob:
+                  id: d0000001x
+                  mime_type: application/octet-stream
+                  original_filename: example.bin
+                  use: Original File
+                  size: 102400
+                  digest: sha512:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+                  filename: zipped_d0000001x.bin
+                  label: Zip File
+                  language:
+                  track_label:
+                  file_identifiers:
+                  - id: ocfl://testdisk/@r001/d0000001x/v1/example.bin
+                  tombstoned: false
+                  tombstoned_at:
+                  tombstoned_by:
+                  tombstoned_in_effect: false
+                  tombstoned_resource_id:
+                  tombstoned_resource_type:
         '422':
           description: verify-on-ingest rejects a digest mismatch (nothing persisted)
           content:
@@ -2936,6 +3023,26 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Blob"
+              example:
+                blob:
+                  id: d0000001x
+                  mime_type: application/octet-stream
+                  original_filename: example.bin
+                  use: Original File
+                  size: 102400
+                  digest: sha512:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+                  filename: zipped_d0000001x.bin
+                  label: Zip File
+                  language:
+                  track_label:
+                  file_identifiers:
+                  - id: ocfl://testdisk/@r001/d0000001x/v1/example.bin
+                  tombstoned: false
+                  tombstoned_at:
+                  tombstoned_by:
+                  tombstoned_in_effect: false
+                  tombstoned_resource_id:
+                  tombstoned_resource_type:
         '410':
           description: 'tombstoned: the Blob to admins and delegated admins, Tombstoned
             to everyone else'
@@ -3014,6 +3121,27 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Blob"
+              example:
+                blob:
+                  id: d0000001x
+                  mime_type: image/tiff
+                  original_filename: scan.tif
+                  use: Original File
+                  size: 18382
+                  digest: sha512:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+                  filename: original_d0000001x.tif
+                  label: Original Image
+                  language:
+                  track_label:
+                  file_identifiers:
+                  - id: ocfl://testdisk/@r001/d0000001x/v1/example.bin
+                  - id: ocfl://testdisk/@r001/d0000001x/v3/scan.tif
+                  tombstoned: false
+                  tombstoned_at:
+                  tombstoned_by:
+                  tombstoned_in_effect: false
+                  tombstoned_resource_id:
+                  tombstoned_resource_type:
         '404':
           description: file not found
         '401':
@@ -3122,6 +3250,11 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/BlobAncestry"
+              example:
+                file_set: d0000001x
+                work: d0000002x
+                file_set_tombstoned: false
+                work_tombstoned: false
         '404':
           description: unknown blob
         '401':
@@ -3160,6 +3293,18 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/BlobVersions"
+              example:
+                blob_id: d0000001x
+                versions:
+                - revision: 1
+                  version_id: v1
+                  file_identifier: ocfl://testdisk/@r001/d0000001x/v1/example.bin
+                  created: '2026-01-15T12:00:00Z'
+                  actor_nuid:
+                  on_behalf_of_nuid:
+                  digest: sha512:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+                  size: 102400
+                  original_filename: example.bin
         '404':
           description: unknown blob
         '401':
@@ -3194,6 +3339,29 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/BlobVersionsBatch"
+              example:
+              - blob_id: d0000001x
+                versions:
+                - revision: 1
+                  version_id: v1
+                  file_identifier: ocfl://testdisk/@r001/d0000001x/v1/one.bin
+                  created: '2026-01-15T12:00:00Z'
+                  actor_nuid:
+                  on_behalf_of_nuid:
+                  digest: sha512:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+                  size: 102400
+                  original_filename: one.bin
+              - blob_id: d0000002x
+                versions:
+                - revision: 1
+                  version_id: v1
+                  file_identifier: ocfl://testdisk/@r001/d0000002x/v1/two.bin
+                  created: '2026-01-15T12:00:00Z'
+                  actor_nuid:
+                  on_behalf_of_nuid:
+                  digest: sha512:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+                  size: 102400
+                  original_filename: two.bin
         '401':
           "$ref": "#/components/responses/Unauthorized"
       requestBody:
@@ -3274,6 +3442,27 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Blob"
+              example:
+                blob:
+                  id: d0000001x
+                  mime_type: application/octet-stream
+                  original_filename: example.bin
+                  use: Original File
+                  size: 102400
+                  digest: sha512:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+                  filename: zipped_d0000001x.bin
+                  label: Zip File
+                  language:
+                  track_label:
+                  file_identifiers:
+                  - id: ocfl://testdisk/@r001/d0000001x/v1/example.bin
+                  - id: ocfl://testdisk/@r001/d0000001x/v3/example.bin
+                  tombstoned: false
+                  tombstoned_at:
+                  tombstoned_by:
+                  tombstoned_in_effect: false
+                  tombstoned_resource_id:
+                  tombstoned_resource_type:
         '404':
           description: unknown version
         '401':
@@ -3314,6 +3503,69 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/CollectionsIndex"
+              example:
+                collections:
+                - id: d0000001x
+                  title: ''
+                  description: ''
+                - id: d0000002x
+                  title: ''
+                  description: ''
+                pagination:
+                  scaffold_url: "/collections?page=__pagy_page__"
+                  first_url: "/collections?page=1"
+                  prev_url: "/collections?page="
+                  page_url: "/collections?page=1"
+                  next_url: "/collections?page="
+                  last_url: "/collections?page=1"
+                  count: 2
+                  page: 1
+                  items: 10
+                  vars:
+                    page: 1
+                    items: 10
+                    outset: 0
+                    size:
+                    - 1
+                    - 4
+                    - 4
+                    - 1
+                    page_param: page
+                    params: {}
+                    fragment: ''
+                    link_extra: ''
+                    i18n_key: pagy.item_name
+                    cycle: false
+                    request_path: ''
+                    metadata:
+                    - scaffold_url
+                    - first_url
+                    - prev_url
+                    - page_url
+                    - next_url
+                    - last_url
+                    - count
+                    - page
+                    - items
+                    - vars
+                    - pages
+                    - last
+                    - in
+                    - from
+                    - to
+                    - prev
+                    - next
+                    - series
+                    count: 2
+                  pages: 1
+                  last: 1
+                  in: 2
+                  from: 1
+                  to: 2
+                  prev:
+                  next:
+                  series:
+                  - '1'
         '401':
           "$ref": "#/components/responses/Unauthorized"
       operationId: collections_index
@@ -3342,6 +3594,33 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Collection"
+              example:
+                collection:
+                  id: d0000001x
+                  valkyrie_id: 00000000-0000-4000-8000-000000000001
+                  ancestors:
+                  - noid: d0000002x
+                    klass: Community
+                    title: ''
+                    system_container: false
+                    personal_root: false
+                  thumbnail:
+                  thumbnail_2x:
+                  preview:
+                  preview_width:
+                  preview_height:
+                  preview_placeholder:
+                  title: ''
+                  description: ''
+                  permanent_url:
+                  tombstoned: false
+                  tombstoned_at:
+                  tombstoned_by:
+                  tombstone_reason:
+                  depositor: '000000004'
+                  proxy_uploader: '000000004'
+                  featured: false
+                  personal_root: false
         '403':
           description: caller holds no edit rights on the parent
           content:
@@ -3402,6 +3681,33 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Collection"
+              example:
+                collection:
+                  id: d0000001x
+                  valkyrie_id: 00000000-0000-4000-8000-000000000001
+                  ancestors:
+                  - noid: d0000002x
+                    klass: Community
+                    title: ''
+                    system_container: false
+                    personal_root: false
+                  thumbnail:
+                  thumbnail_2x:
+                  preview:
+                  preview_width:
+                  preview_height:
+                  preview_placeholder:
+                  title: ''
+                  description: ''
+                  permanent_url:
+                  tombstoned: false
+                  tombstoned_at:
+                  tombstoned_by:
+                  tombstone_reason:
+                  depositor:
+                  proxy_uploader:
+                  featured: false
+                  personal_root: false
         '410':
           description: 'tombstoned: the Collection to admins and delegated admins,
             CollectionTombstone to everyone else; purged: CollectionPurged to everyone'
@@ -3444,6 +3750,137 @@ paths:
                 "$ref": "#/components/schemas/Tombstoned"
         '200':
           description: mods returned
+          content:
+            application/json:
+              example:
+                collection:
+                  id: d0000001x
+                  mods:
+                    names: []
+                    notes: []
+                    extent: []
+                    format: []
+                    genres: []
+                    edition: []
+                    abstract: ''
+                    issuance: []
+                    location: []
+                    map_data: []
+                    frequency: []
+                    languages: []
+                    date_other:
+                    date_valid:
+                    main_title:
+                      title: ''
+                      non_sort: ''
+                      subtitle: ''
+                      part_name: ''
+                      part_number: ''
+                    date_issued:
+                    identifiers: []
+                    record_info:
+                    date_created:
+                    abstract_href:
+                    date_captured:
+                    date_modified:
+                    origin_agents: []
+                    permanent_url:
+                    related_items: []
+                    resource_type: []
+                    uniform_title: []
+                    classification: []
+                    copyright_date:
+                    date_other_end:
+                    date_valid_end:
+                    digital_origin: []
+                    genre_subjects: []
+                    related_series: []
+                    title_subjects: []
+                    date_issued_end:
+                    date_other_text:
+                    date_valid_text:
+                    target_audience: []
+                    access_condition: ''
+                    date_created_end:
+                    date_issued_text:
+                    host_collections: []
+                    subject_headings: []
+                    topical_subjects: []
+                    translated_title: []
+                    abbreviated_title: []
+                    alternative_title: []
+                    date_captured_end:
+                    date_created_text:
+                    date_modified_end:
+                    table_of_contents: []
+                    temporal_subjects: []
+                    copyright_date_end:
+                    date_captured_text:
+                    date_modified_text:
+                    copyright_date_text:
+                    date_other_key_date:
+                    date_valid_key_date:
+                    geographic_subjects: []
+                    occupation_subjects: []
+                    date_issued_key_date:
+                    date_other_precision:
+                    date_other_qualifier:
+                    date_valid_precision:
+                    date_valid_qualifier:
+                    place_of_publication: []
+                    reformatting_quality: []
+                    use_and_reproduction: ''
+                    access_condition_href:
+                    date_created_key_date:
+                    date_issued_precision:
+                    date_issued_qualifier:
+                    date_other_event_type:
+                    date_valid_event_type:
+                    restriction_on_access: ''
+                    abstract_display_label:
+                    date_captured_key_date:
+                    date_created_precision:
+                    date_created_qualifier:
+                    date_issued_event_type:
+                    date_modified_key_date:
+                    personal_name_subjects: []
+                    copyright_date_key_date:
+                    corporate_name_subjects: []
+                    date_captured_precision:
+                    date_captured_qualifier:
+                    date_created_event_type:
+                    date_modified_precision:
+                    date_modified_qualifier:
+                    publication_information: []
+                    copyright_date_precision:
+                    copyright_date_qualifier:
+                    date_captured_event_type:
+                    date_modified_event_type:
+                    date_other_display_label:
+                    date_other_end_precision:
+                    date_valid_display_label:
+                    date_valid_end_precision:
+                    geographic_code_subjects: []
+                    main_title_display_label:
+                    copyright_date_event_type:
+                    date_issued_display_label:
+                    date_issued_end_precision:
+                    use_and_reproduction_href:
+                    date_created_display_label:
+                    date_created_end_precision:
+                    physical_description_notes: []
+                    restriction_on_access_href:
+                    date_captured_display_label:
+                    date_captured_end_precision:
+                    date_modified_display_label:
+                    date_modified_end_precision:
+                    permanent_url_display_label: Permanent URL
+                    copyright_date_display_label:
+                    copyright_date_end_precision:
+                    access_condition_display_label:
+                    hierarchical_geographic_subjects: []
+                    use_and_reproduction_display_label:
+                    restriction_on_access_display_label:
         '401':
           "$ref": "#/components/responses/Unauthorized"
       operationId: collections_mods
@@ -3473,6 +3910,33 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Collection"
+              example:
+                collection:
+                  id: d0000001x
+                  valkyrie_id: 00000000-0000-4000-8000-000000000001
+                  ancestors:
+                  - noid: d0000002x
+                    klass: Community
+                    title: ''
+                    system_container: false
+                    personal_root: false
+                  thumbnail:
+                  thumbnail_2x:
+                  preview:
+                  preview_width:
+                  preview_height:
+                  preview_placeholder:
+                  title: ''
+                  description: ''
+                  permanent_url:
+                  tombstoned: false
+                  tombstoned_at:
+                  tombstoned_by:
+                  tombstone_reason:
+                  depositor:
+                  proxy_uploader:
+                  featured: true
+                  personal_root: false
         '404':
           description: unknown id
         '401':
@@ -3515,6 +3979,7 @@ paths:
                 type: array
                 items:
                   type: string
+              example: []
         '410':
           description: 'tombstoned: the Collection to admins and delegated admins,
             CollectionTombstone to everyone else'
@@ -3551,6 +4016,69 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/CommunitiesIndex"
+              example:
+                communities:
+                - id: d0000001x
+                  title: ''
+                  description: ''
+                - id: d0000002x
+                  title: ''
+                  description: ''
+                pagination:
+                  scaffold_url: "/communities?page=__pagy_page__"
+                  first_url: "/communities?page=1"
+                  prev_url: "/communities?page="
+                  page_url: "/communities?page=1"
+                  next_url: "/communities?page="
+                  last_url: "/communities?page=1"
+                  count: 2
+                  page: 1
+                  items: 10
+                  vars:
+                    page: 1
+                    items: 10
+                    outset: 0
+                    size:
+                    - 1
+                    - 4
+                    - 4
+                    - 1
+                    page_param: page
+                    params: {}
+                    fragment: ''
+                    link_extra: ''
+                    i18n_key: pagy.item_name
+                    cycle: false
+                    request_path: ''
+                    metadata:
+                    - scaffold_url
+                    - first_url
+                    - prev_url
+                    - page_url
+                    - next_url
+                    - last_url
+                    - count
+                    - page
+                    - items
+                    - vars
+                    - pages
+                    - last
+                    - in
+                    - from
+                    - to
+                    - prev
+                    - next
+                    - series
+                    count: 2
+                  pages: 1
+                  last: 1
+                  in: 2
+                  from: 1
+                  to: 2
+                  prev:
+                  next:
+                  series:
+                  - '1'
         '401':
           "$ref": "#/components/responses/Unauthorized"
       operationId: communities_index
@@ -3577,6 +4105,27 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Community"
+              example:
+                community:
+                  id: d0000001x
+                  valkyrie_id: 00000000-0000-4000-8000-000000000001
+                  ancestors: []
+                  thumbnail:
+                  thumbnail_2x:
+                  preview:
+                  preview_width:
+                  preview_height:
+                  preview_placeholder:
+                  title: ''
+                  description: ''
+                  permanent_url:
+                  tombstoned: false
+                  tombstoned_at:
+                  tombstoned_by:
+                  tombstone_reason:
+                  depositor: '000000004'
+                  proxy_uploader: '000000004'
+                  system_container: false
         '403':
           description: caller holds no edit rights on the parent Community
           content:
@@ -3631,6 +4180,27 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Community"
+              example:
+                community:
+                  id: d0000001x
+                  valkyrie_id: 00000000-0000-4000-8000-000000000001
+                  ancestors: []
+                  thumbnail:
+                  thumbnail_2x:
+                  preview:
+                  preview_width:
+                  preview_height:
+                  preview_placeholder:
+                  title: ''
+                  description: ''
+                  permanent_url:
+                  tombstoned: false
+                  tombstoned_at:
+                  tombstoned_by:
+                  tombstone_reason:
+                  depositor:
+                  proxy_uploader:
+                  system_container: false
         '410':
           description: 'tombstoned: the Community to admins and delegated admins,
             CommunityTombstone to everyone else; purged: CommunityPurged to everyone'
@@ -3673,6 +4243,137 @@ paths:
                 "$ref": "#/components/schemas/Tombstoned"
         '200':
           description: mods returned
+          content:
+            application/json:
+              example:
+                community:
+                  id: d0000001x
+                  mods:
+                    names: []
+                    notes: []
+                    extent: []
+                    format: []
+                    genres: []
+                    edition: []
+                    abstract: ''
+                    issuance: []
+                    location: []
+                    map_data: []
+                    frequency: []
+                    languages: []
+                    date_other:
+                    date_valid:
+                    main_title:
+                      title: ''
+                      non_sort: ''
+                      subtitle: ''
+                      part_name: ''
+                      part_number: ''
+                    date_issued:
+                    identifiers: []
+                    record_info:
+                    date_created:
+                    abstract_href:
+                    date_captured:
+                    date_modified:
+                    origin_agents: []
+                    permanent_url:
+                    related_items: []
+                    resource_type: []
+                    uniform_title: []
+                    classification: []
+                    copyright_date:
+                    date_other_end:
+                    date_valid_end:
+                    digital_origin: []
+                    genre_subjects: []
+                    related_series: []
+                    title_subjects: []
+                    date_issued_end:
+                    date_other_text:
+                    date_valid_text:
+                    target_audience: []
+                    access_condition: ''
+                    date_created_end:
+                    date_issued_text:
+                    host_collections: []
+                    subject_headings: []
+                    topical_subjects: []
+                    translated_title: []
+                    abbreviated_title: []
+                    alternative_title: []
+                    date_captured_end:
+                    date_created_text:
+                    date_modified_end:
+                    table_of_contents: []
+                    temporal_subjects: []
+                    copyright_date_end:
+                    date_captured_text:
+                    date_modified_text:
+                    copyright_date_text:
+                    date_other_key_date:
+                    date_valid_key_date:
+                    geographic_subjects: []
+                    occupation_subjects: []
+                    date_issued_key_date:
+                    date_other_precision:
+                    date_other_qualifier:
+                    date_valid_precision:
+                    date_valid_qualifier:
+                    place_of_publication: []
+                    reformatting_quality: []
+                    use_and_reproduction: ''
+                    access_condition_href:
+                    date_created_key_date:
+                    date_issued_precision:
+                    date_issued_qualifier:
+                    date_other_event_type:
+                    date_valid_event_type:
+                    restriction_on_access: ''
+                    abstract_display_label:
+                    date_captured_key_date:
+                    date_created_precision:
+                    date_created_qualifier:
+                    date_issued_event_type:
+                    date_modified_key_date:
+                    personal_name_subjects: []
+                    copyright_date_key_date:
+                    corporate_name_subjects: []
+                    date_captured_precision:
+                    date_captured_qualifier:
+                    date_created_event_type:
+                    date_modified_precision:
+                    date_modified_qualifier:
+                    publication_information: []
+                    copyright_date_precision:
+                    copyright_date_qualifier:
+                    date_captured_event_type:
+                    date_modified_event_type:
+                    date_other_display_label:
+                    date_other_end_precision:
+                    date_valid_display_label:
+                    date_valid_end_precision:
+                    geographic_code_subjects: []
+                    main_title_display_label:
+                    copyright_date_event_type:
+                    date_issued_display_label:
+                    date_issued_end_precision:
+                    use_and_reproduction_href:
+                    date_created_display_label:
+                    date_created_end_precision:
+                    physical_description_notes: []
+                    restriction_on_access_href:
+                    date_captured_display_label:
+                    date_captured_end_precision:
+                    date_modified_display_label:
+                    date_modified_end_precision:
+                    permanent_url_display_label: Permanent URL
+                    copyright_date_display_label:
+                    copyright_date_end_precision:
+                    access_condition_display_label:
+                    hierarchical_geographic_subjects: []
+                    use_and_reproduction_display_label:
+                    restriction_on_access_display_label:
         '401':
           "$ref": "#/components/responses/Unauthorized"
       operationId: communities_mods
@@ -3703,6 +4404,7 @@ paths:
                 type: array
                 items:
                   type: string
+              example: []
         '410':
           description: 'tombstoned: the Community to admins and delegated admins,
             CommunityTombstone to everyone else'
@@ -3775,6 +4477,76 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/CompilationsIndex"
+              example:
+                compilations:
+                - id: d0000001x
+                  title: My Set
+                  description:
+                  depositor: '000000002'
+                  published: false
+                  included_collections: []
+                  included_works: []
+                  excluded_works: []
+                  edit_users: []
+                  read_groups: []
+                  edit_groups: []
+                  created_at: '2026-01-15T12:00:00Z'
+                  updated_at: '2026-01-15T12:00:00Z'
+                pagination:
+                  scaffold_url: "/compilations?owner=&scope=&q=&page=__pagy_page__"
+                  first_url: "/compilations?owner=&scope=&q=&page=1"
+                  prev_url: "/compilations?owner=&scope=&q=&page="
+                  page_url: "/compilations?owner=&scope=&q=&page=1"
+                  next_url: "/compilations?owner=&scope=&q=&page="
+                  last_url: "/compilations?owner=&scope=&q=&page=1"
+                  count: 1
+                  page: 1
+                  items: 10
+                  vars:
+                    page: 1
+                    items: 10
+                    outset: 0
+                    size:
+                    - 1
+                    - 4
+                    - 4
+                    - 1
+                    page_param: page
+                    params: {}
+                    fragment: ''
+                    link_extra: ''
+                    i18n_key: pagy.item_name
+                    cycle: false
+                    request_path: ''
+                    metadata:
+                    - scaffold_url
+                    - first_url
+                    - prev_url
+                    - page_url
+                    - next_url
+                    - last_url
+                    - count
+                    - page
+                    - items
+                    - vars
+                    - pages
+                    - last
+                    - in
+                    - from
+                    - to
+                    - prev
+                    - next
+                    - series
+                    count: 1
+                  pages: 1
+                  last: 1
+                  in: 1
+                  from: 1
+                  to: 1
+                  prev:
+                  next:
+                  series:
+                  - '1'
         '400':
           description: unknown scope value
           content:
@@ -3804,6 +4576,21 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Compilation"
+              example:
+                compilation:
+                  id: d0000001x
+                  title: Course readings
+                  description: HIST 1101
+                  depositor: '000000002'
+                  published: false
+                  included_collections: []
+                  included_works: []
+                  excluded_works: []
+                  edit_users: []
+                  read_groups: []
+                  edit_groups: []
+                  created_at: '2026-01-15T12:00:00Z'
+                  updated_at: '2026-01-15T12:00:00Z'
         '403':
           description: guest cannot create
           content:
@@ -3852,6 +4639,21 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Compilation"
+              example:
+                compilation:
+                  id: d0000001x
+                  title: My Set
+                  description:
+                  depositor: '000000002'
+                  published: false
+                  included_collections: []
+                  included_works: []
+                  excluded_works: []
+                  edit_users: []
+                  read_groups: []
+                  edit_groups: []
+                  created_at: '2026-01-15T12:00:00Z'
+                  updated_at: '2026-01-15T12:00:00Z'
         '403':
           description: guest cannot read a private set
           content:
@@ -3880,6 +4682,22 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Compilation"
+              example:
+                compilation:
+                  id: d0000001x
+                  title: Renamed
+                  description:
+                  depositor: '000000002'
+                  published: false
+                  included_collections: []
+                  included_works: []
+                  excluded_works: []
+                  edit_users: []
+                  read_groups:
+                  - public
+                  edit_groups: []
+                  created_at: '2026-01-15T12:00:00Z'
+                  updated_at: '2026-01-15T12:00:00Z'
         '403':
           description: non-owner without a grant
           content:
@@ -3956,6 +4774,22 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Compilation"
+              example:
+                compilation:
+                  id: d0000001x
+                  title: My Set
+                  description:
+                  depositor: '000000002'
+                  published: false
+                  included_collections:
+                  - d0000002x
+                  included_works: []
+                  excluded_works: []
+                  edit_users: []
+                  read_groups: []
+                  edit_groups: []
+                  created_at: '2026-01-15T12:00:00Z'
+                  updated_at: '2026-01-15T12:00:00Z'
         '422':
           description: community noid rejected (no top-node includes)
           content:
@@ -4008,6 +4842,21 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Compilation"
+              example:
+                compilation:
+                  id: d0000001x
+                  title: My Set
+                  description:
+                  depositor: '000000002'
+                  published: false
+                  included_collections: []
+                  included_works: []
+                  excluded_works: []
+                  edit_users: []
+                  read_groups: []
+                  edit_groups: []
+                  created_at: '2026-01-15T12:00:00Z'
+                  updated_at: '2026-01-15T12:00:00Z'
         '401':
           "$ref": "#/components/responses/Unauthorized"
       operationId: compilations_remove_included_collection
@@ -4033,6 +4882,22 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Compilation"
+              example:
+                compilation:
+                  id: d0000001x
+                  title: My Set
+                  description:
+                  depositor: '000000002'
+                  published: false
+                  included_collections: []
+                  included_works:
+                  - d0000002x
+                  excluded_works: []
+                  edit_users: []
+                  read_groups: []
+                  edit_groups: []
+                  created_at: '2026-01-15T12:00:00Z'
+                  updated_at: '2026-01-15T12:00:00Z'
         '422':
           description: collection noid rejected where a Work is expected
           content:
@@ -4085,6 +4950,21 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Compilation"
+              example:
+                compilation:
+                  id: d0000001x
+                  title: My Set
+                  description:
+                  depositor: '000000002'
+                  published: false
+                  included_collections: []
+                  included_works: []
+                  excluded_works: []
+                  edit_users: []
+                  read_groups: []
+                  edit_groups: []
+                  created_at: '2026-01-15T12:00:00Z'
+                  updated_at: '2026-01-15T12:00:00Z'
         '401':
           "$ref": "#/components/responses/Unauthorized"
       operationId: compilations_remove_included_work
@@ -4110,6 +4990,22 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Compilation"
+              example:
+                compilation:
+                  id: d0000001x
+                  title: My Set
+                  description:
+                  depositor: '000000002'
+                  published: false
+                  included_collections: []
+                  included_works: []
+                  excluded_works:
+                  - d0000002x
+                  edit_users: []
+                  read_groups: []
+                  edit_groups: []
+                  created_at: '2026-01-15T12:00:00Z'
+                  updated_at: '2026-01-15T12:00:00Z'
         '401':
           "$ref": "#/components/responses/Unauthorized"
       requestBody:
@@ -4150,6 +5046,21 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Compilation"
+              example:
+                compilation:
+                  id: d0000001x
+                  title: My Set
+                  description:
+                  depositor: '000000002'
+                  published: false
+                  included_collections: []
+                  included_works: []
+                  excluded_works: []
+                  edit_users: []
+                  read_groups: []
+                  edit_groups: []
+                  created_at: '2026-01-15T12:00:00Z'
+                  updated_at: '2026-01-15T12:00:00Z'
         '401':
           "$ref": "#/components/responses/Unauthorized"
       operationId: compilations_remove_exclusion
@@ -4180,6 +5091,21 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Compilation"
+              example:
+                compilation:
+                  id: d0000001x
+                  title: My Set
+                  description:
+                  depositor: '000000002'
+                  published: true
+                  included_collections: []
+                  included_works: []
+                  excluded_works: []
+                  edit_users: []
+                  read_groups: []
+                  edit_groups: []
+                  created_at: '2026-01-15T12:00:00Z'
+                  updated_at: '2026-01-15T12:00:00Z'
         '403':
           description: owner without admin is refused
           content:
@@ -4203,6 +5129,21 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Compilation"
+              example:
+                compilation:
+                  id: d0000001x
+                  title: My Set
+                  description:
+                  depositor: '000000002'
+                  published: false
+                  included_collections: []
+                  included_works: []
+                  excluded_works: []
+                  edit_users: []
+                  read_groups: []
+                  edit_groups: []
+                  created_at: '2026-01-15T12:00:00Z'
+                  updated_at: '2026-01-15T12:00:00Z'
         '401':
           "$ref": "#/components/responses/Unauthorized"
       operationId: compilations_unpublish
@@ -4251,6 +5192,38 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/CompilationContents"
+              example:
+                contents:
+                - id: d0000001x
+                  noid: d0000001x
+                  klass: Work
+                  title: ''
+                  thumbnail:
+                - id: d0000002x
+                  noid: d0000002x
+                  klass: Work
+                  title: ''
+                  thumbnail:
+                - id: d0000003x
+                  noid: d0000003x
+                  klass: Work
+                  title: ''
+                  thumbnail:
+                - id: d0000004x
+                  noid: d0000004x
+                  klass: Work
+                  title: ''
+                  thumbnail:
+                - id: d0000005x
+                  noid: d0000005x
+                  klass: Work
+                  title: ''
+                  thumbnail:
+                pagination:
+                  total: 5
+                  page: 1
+                  per_page: 25
+                  pages: 1
         '403':
           description: guest cannot resolve a private set
           content:
@@ -4303,6 +5276,32 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/WorkDarwinCore"
+              example:
+                work:
+                  id: d0000001x
+                  dwc:
+                    sex: male
+                    type: PhysicalObject
+                    county: Kern County
+                    country: United States
+                    license: http://creativecommons.org/publicdomain/zero/1.0/legalcode
+                    language: en
+                    locality: 8 mi NE Bakersfield
+                    modified: '2026-01-15T12:00:00Z'
+                    eventDate: '2026-01-15'
+                    countryCode: US
+                    occurrenceID: http://arctos.database.museum/guid/MVZ:Mamm:14523?seid=770093
+                    rightsHolder: Regents of the University of California
+                    basisOfRecord: PreservedSpecimen
+                    catalogNumber: MVZ:Mamm:14523
+                    geodeticDatum: epsg:4267
+                    stateProvince: California
+                    collectionCode: Mammal specimens
+                    scientificName: Perognathus inornatus inornatus
+                    decimalLatitude: '35.45038'
+                    institutionCode: MVZ
+                    decimalLongitude: "-118.9092"
+                    coordinateUncertaintyInMeters: '13696'
             application/xml:
               schema:
                 "$ref": "#/components/schemas/WorkDarwinCore"
@@ -4368,6 +5367,32 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/WorkDarwinCore"
+              example:
+                work:
+                  id: d0000001x
+                  dwc:
+                    type: PhysicalObject
+                    modified: '2026-01-15T12:00:00Z'
+                    language: en
+                    rightsHolder: Regents of the University of California
+                    license: http://creativecommons.org/publicdomain/zero/1.0/legalcode
+                    basisOfRecord: PreservedSpecimen
+                    institutionCode: MVZ
+                    collectionCode: Mammal specimens
+                    catalogNumber: MVZ:Mamm:14523
+                    sex: male
+                    occurrenceID: http://arctos.database.museum/guid/MVZ:Mamm:14523?seid=770093
+                    country: United States
+                    countryCode: US
+                    stateProvince: California
+                    county: Kern County
+                    locality: 8 mi NE Bakersfield
+                    decimalLatitude: '35.45038'
+                    decimalLongitude: "-118.9092"
+                    geodeticDatum: epsg:4267
+                    coordinateUncertaintyInMeters: '13696'
+                    eventDate: '2026-01-15'
+                    scientificName: Perognathus inornatus inornatus
         '404':
           description: unknown id, or not a work
         '422':
@@ -4422,6 +5447,15 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/ModsVersions"
+              example:
+                resource_id: d0000001x
+                versions:
+                - version_id: v2
+                  created: '2026-01-15T12:00:00Z'
+                  actor_nuid: '000000004'
+                  on_behalf_of_nuid:
+                  source: dwc
+                  note:
         '401':
           "$ref": "#/components/responses/Unauthorized"
       operationId: darwin_core_versions
@@ -4483,6 +5517,19 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Delegate"
+              example:
+                delegate:
+                  kind: Delegate
+                  id: d0000001x
+                  valkyrie_id: 00000000-0000-4000-8000-000000000001
+                  use: Thumbnail Image
+                  uri: https://iiif.example/iiif/2/abc/full/!200,200/0/default.jpg
+                  mime_type:
+                  original_filename:
+                  label:
+                  tombstoned: false
+                  tombstoned_at:
+                  tombstoned_by:
         '410':
           description: 'tombstoned: the Delegate to admins and delegated admins, Tombstoned
             to everyone else'
@@ -4519,6 +5566,91 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/FileSetsIndex"
+              example:
+                file_sets:
+                - id: d0000001x
+                  type: Descriptive Metadata
+                  position:
+                  tombstoned: false
+                  tombstoned_at:
+                  tombstoned_by:
+                  tombstone_reason:
+                - id: d0000002x
+                  type: File
+                  position:
+                  tombstoned: false
+                  tombstoned_at:
+                  tombstoned_by:
+                  tombstone_reason:
+                - id: d0000003x
+                  type: Descriptive Metadata
+                  position:
+                  tombstoned: false
+                  tombstoned_at:
+                  tombstoned_by:
+                  tombstone_reason:
+                - id: d0000004x
+                  type: Descriptive Metadata
+                  position:
+                  tombstoned: false
+                  tombstoned_at:
+                  tombstoned_by:
+                  tombstone_reason:
+                pagination:
+                  scaffold_url: "/file_sets?page=__pagy_page__"
+                  first_url: "/file_sets?page=1"
+                  prev_url: "/file_sets?page="
+                  page_url: "/file_sets?page=1"
+                  next_url: "/file_sets?page="
+                  last_url: "/file_sets?page=1"
+                  count: 4
+                  page: 1
+                  items: 10
+                  vars:
+                    page: 1
+                    items: 10
+                    outset: 0
+                    size:
+                    - 1
+                    - 4
+                    - 4
+                    - 1
+                    page_param: page
+                    params: {}
+                    fragment: ''
+                    link_extra: ''
+                    i18n_key: pagy.item_name
+                    cycle: false
+                    request_path: ''
+                    metadata:
+                    - scaffold_url
+                    - first_url
+                    - prev_url
+                    - page_url
+                    - next_url
+                    - last_url
+                    - count
+                    - page
+                    - items
+                    - vars
+                    - pages
+                    - last
+                    - in
+                    - from
+                    - to
+                    - prev
+                    - next
+                    - series
+                    count: 4
+                  pages: 1
+                  last: 1
+                  in: 4
+                  from: 1
+                  to: 4
+                  prev:
+                  next:
+                  series:
+                  - '1'
         '401':
           "$ref": "#/components/responses/Unauthorized"
       operationId: file_sets_index
@@ -4547,6 +5679,15 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/FileSet"
+              example:
+                file_set:
+                  id: d0000001x
+                  type: File
+                  position:
+                  tombstoned: false
+                  tombstoned_at:
+                  tombstoned_by:
+                  tombstone_reason:
         '410':
           description: idempotent replay on a tombstoned file set
           content:
@@ -4600,6 +5741,15 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/FileSet"
+              example:
+                file_set:
+                  id: d0000001x
+                  type: File
+                  position:
+                  tombstoned: false
+                  tombstoned_at:
+                  tombstoned_by:
+                  tombstone_reason:
         '410':
           description: 'tombstoned: the FileSet to admins and delegated admins, Tombstoned
             to everyone else'
@@ -4662,6 +5812,15 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/FileSet"
+              example:
+                file_set:
+                  id: d0000001x
+                  type: File
+                  position:
+                  tombstoned: false
+                  tombstoned_at:
+                  tombstoned_by:
+                  tombstone_reason:
         '422':
           description: verify-on-ingest rejects a digest mismatch
           content:
@@ -4722,6 +5881,15 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/FileSet"
+              example:
+                file_set:
+                  id: d0000001x
+                  type: Image
+                  position: 1
+                  tombstoned: false
+                  tombstoned_at:
+                  tombstoned_by:
+                  tombstone_reason:
         '404':
           description: unknown file set
         '409':
@@ -4767,6 +5935,17 @@ paths:
                 "$ref": "#/components/schemas/Tombstoned"
         '200':
           description: mets returned
+          content:
+            application/json:
+              example:
+                file_set:
+                  id: d0000001x
+                  mets:
+                    agent: Atlas
+                    files: []
+                    pages: []
+                    created_at_iso: '2026-01-15T12:00:00Z'
+                    structure_label: fileSet
         '401':
           "$ref": "#/components/responses/Unauthorized"
       operationId: file_sets_mets
@@ -4798,6 +5977,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Health"
+              example:
+                status: ok
+                database: ok
+                index: ok
+                storage: ok
+                cache: disabled
         '503':
           description: a required dependency is unavailable
           content:
@@ -4824,6 +6009,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/MaintenanceMode"
+              example:
+                read_only: false
+                source:
+                since:
+                message:
+                retry_after: 900
         '401':
           "$ref": "#/components/responses/Unauthorized"
   "/people":
@@ -4878,6 +6069,71 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/PeopleIndex"
+              example:
+                people:
+                - id: d0000001x
+                  valkyrie_id: 00000000-0000-4000-8000-000000000001
+                  nuid: '001234567'
+                  display_name: Jane Doe
+                  bio:
+                  orcid: 0000-0002-1825-0097
+                  affiliated_community_ids: []
+                  personal_root_id: d0000002x
+                pagination:
+                  scaffold_url: "/people?nuids=&q=&page=__pagy_page__&per_page="
+                  first_url: "/people?nuids=&q=&page=1&per_page="
+                  prev_url: "/people?nuids=&q=&page=&per_page="
+                  page_url: "/people?nuids=&q=&page=1&per_page="
+                  next_url: "/people?nuids=&q=&page=&per_page="
+                  last_url: "/people?nuids=&q=&page=1&per_page="
+                  count: 1
+                  page: 1
+                  items: 10
+                  vars:
+                    page: 1
+                    items: 10
+                    outset: 0
+                    size:
+                    - 1
+                    - 4
+                    - 4
+                    - 1
+                    page_param: page
+                    params: {}
+                    fragment: ''
+                    link_extra: ''
+                    i18n_key: pagy.item_name
+                    cycle: false
+                    request_path: ''
+                    metadata:
+                    - scaffold_url
+                    - first_url
+                    - prev_url
+                    - page_url
+                    - next_url
+                    - last_url
+                    - count
+                    - page
+                    - items
+                    - vars
+                    - pages
+                    - last
+                    - in
+                    - from
+                    - to
+                    - prev
+                    - next
+                    - series
+                    count: 1
+                  pages: 1
+                  last: 1
+                  in: 1
+                  from: 1
+                  to: 1
+                  prev:
+                  next:
+                  series:
+                  - '1'
         '401':
           "$ref": "#/components/responses/Unauthorized"
       operationId: people_index
@@ -4904,6 +6160,16 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Person"
+              example:
+                person:
+                  id: d0000001x
+                  valkyrie_id: 00000000-0000-4000-8000-000000000001
+                  nuid: '001234567'
+                  display_name: Jane Doe
+                  bio:
+                  orcid: 0000-0002-1825-0097
+                  affiliated_community_ids: []
+                  personal_root_id: d0000002x
         '404':
           description: unknown noid
         '401':
@@ -4929,6 +6195,16 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Person"
+              example:
+                person:
+                  id: d0000001x
+                  valkyrie_id: 00000000-0000-4000-8000-000000000001
+                  nuid: '001234567'
+                  display_name: Jane A. Doe
+                  bio: Researcher
+                  orcid: 0000-0002-1825-0097
+                  affiliated_community_ids: []
+                  personal_root_id: d0000002x
         '403':
           description: a person cannot edit someone else's profile
           content:
@@ -4991,6 +6267,19 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/ResourceDigests"
+              example:
+              - id: d0000001x
+                noid: d0000001x
+                klass: Work
+                title: ''
+                thumbnail:
+                tombstoned: true
+              - id: d0000002x
+                noid: d0000002x
+                klass: Collection
+                title: ''
+                thumbnail:
+                tombstoned: true
         '404':
           description: a Work, which is not a container
         '401':
@@ -5089,6 +6378,16 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Permissions"
+              example:
+                resource:
+                  embargo:
+                  depositor:
+                  proxy_uploader:
+                  edit_users: []
+                  read: []
+                  edit:
+                  - northeastern:drs:repository:staff
+                  type: Work
         '410':
           description: withheld by a tombstone from everyone but admins and delegated
             admins
@@ -5136,6 +6435,42 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Work"
+              example:
+                work:
+                  id: d0000001x
+                  valkyrie_id: 00000000-0000-4000-8000-000000000001
+                  ancestors:
+                  - noid: d0000002x
+                    klass: Community
+                    title: ''
+                    system_container: false
+                    personal_root: false
+                  - noid: d0000003x
+                    klass: Collection
+                    title: ''
+                    system_container: false
+                    personal_root: false
+                  thumbnail:
+                  thumbnail_2x:
+                  preview:
+                  preview_width:
+                  preview_height:
+                  preview_placeholder:
+                  derivative_permissions: {}
+                  title: ''
+                  description: ''
+                  permanent_url:
+                  handle:
+                  tombstoned: false
+                  tombstoned_at:
+                  tombstoned_by:
+                  tombstone_reason:
+                  depositor:
+                  proxy_uploader:
+                  in_progress: true
+                  incomplete: false
+                  incomplete_reason:
+                  metadata_formats: []
         '404':
           description: unknown id
         '401':
@@ -5202,6 +6537,137 @@ paths:
                 "$ref": "#/components/schemas/Tombstoned"
         '200':
           description: current mods returned
+          content:
+            application/json:
+              example:
+                work:
+                  id: d0000001x
+                  mods:
+                    names: []
+                    notes: []
+                    extent: []
+                    format: []
+                    genres: []
+                    edition: []
+                    abstract: ''
+                    issuance: []
+                    location: []
+                    map_data: []
+                    frequency: []
+                    languages: []
+                    date_other:
+                    date_valid:
+                    main_title:
+                      title: ''
+                      non_sort: ''
+                      subtitle: ''
+                      part_name: ''
+                      part_number: ''
+                    date_issued:
+                    identifiers: []
+                    record_info:
+                    date_created:
+                    abstract_href:
+                    date_captured:
+                    date_modified:
+                    origin_agents: []
+                    permanent_url:
+                    related_items: []
+                    resource_type: []
+                    uniform_title: []
+                    classification: []
+                    copyright_date:
+                    date_other_end:
+                    date_valid_end:
+                    digital_origin: []
+                    genre_subjects: []
+                    related_series: []
+                    title_subjects: []
+                    date_issued_end:
+                    date_other_text:
+                    date_valid_text:
+                    target_audience: []
+                    access_condition: ''
+                    date_created_end:
+                    date_issued_text:
+                    host_collections: []
+                    subject_headings: []
+                    topical_subjects: []
+                    translated_title: []
+                    abbreviated_title: []
+                    alternative_title: []
+                    date_captured_end:
+                    date_created_text:
+                    date_modified_end:
+                    table_of_contents: []
+                    temporal_subjects: []
+                    copyright_date_end:
+                    date_captured_text:
+                    date_modified_text:
+                    copyright_date_text:
+                    date_other_key_date:
+                    date_valid_key_date:
+                    geographic_subjects: []
+                    occupation_subjects: []
+                    date_issued_key_date:
+                    date_other_precision:
+                    date_other_qualifier:
+                    date_valid_precision:
+                    date_valid_qualifier:
+                    place_of_publication: []
+                    reformatting_quality: []
+                    use_and_reproduction: ''
+                    access_condition_href:
+                    date_created_key_date:
+                    date_issued_precision:
+                    date_issued_qualifier:
+                    date_other_event_type:
+                    date_valid_event_type:
+                    restriction_on_access: ''
+                    abstract_display_label:
+                    date_captured_key_date:
+                    date_created_precision:
+                    date_created_qualifier:
+                    date_issued_event_type:
+                    date_modified_key_date:
+                    personal_name_subjects: []
+                    copyright_date_key_date:
+                    corporate_name_subjects: []
+                    date_captured_precision:
+                    date_captured_qualifier:
+                    date_created_event_type:
+                    date_modified_precision:
+                    date_modified_qualifier:
+                    publication_information: []
+                    copyright_date_precision:
+                    copyright_date_qualifier:
+                    date_captured_event_type:
+                    date_modified_event_type:
+                    date_other_display_label:
+                    date_other_end_precision:
+                    date_valid_display_label:
+                    date_valid_end_precision:
+                    geographic_code_subjects: []
+                    main_title_display_label:
+                    copyright_date_event_type:
+                    date_issued_display_label:
+                    date_issued_end_precision:
+                    use_and_reproduction_href:
+                    date_created_display_label:
+                    date_created_end_precision:
+                    physical_description_notes: []
+                    restriction_on_access_href:
+                    date_captured_display_label:
+                    date_captured_end_precision:
+                    date_modified_display_label:
+                    date_modified_end_precision:
+                    permanent_url_display_label: Permanent URL
+                    copyright_date_display_label:
+                    copyright_date_end_precision:
+                    access_condition_display_label:
+                    hierarchical_geographic_subjects: []
+                    use_and_reproduction_display_label:
+                    restriction_on_access_display_label:
         '404':
           description: unknown id / non-Modsable / no MODS
         '401':
@@ -5251,6 +6717,48 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Work"
+              example:
+                work:
+                  id: d0000001x
+                  valkyrie_id: 00000000-0000-4000-8000-000000000001
+                  ancestors:
+                  - noid: d0000002x
+                    klass: Community
+                    title: ''
+                    system_container: false
+                    personal_root: false
+                  - noid: d0000003x
+                    klass: Collection
+                    title: ''
+                    system_container: false
+                    personal_root: false
+                  thumbnail:
+                  thumbnail_2x:
+                  preview:
+                  preview_width:
+                  preview_height:
+                  preview_placeholder:
+                  derivative_permissions: {}
+                  title: What's New. How We Respond to Disaster. Episode 1
+                  description: How do people and cities respond during and after major
+                    disasters such as terrorist attacks or the destructive hurricanes
+                    so many communities have recently endured? Stephen Flynn, Professor
+                    of Political Science and the Founding Director of the Global Resilience
+                    Institute at Northeastern University, talks about what happens
+                    during the worst of times, and how the best of humanity sometimes
+                    emerges in the most stressful moments.
+                  permanent_url: http://hdl.handle.net/2047/D20254217
+                  handle:
+                  tombstoned: false
+                  tombstoned_at:
+                  tombstoned_by:
+                  tombstone_reason:
+                  depositor:
+                  proxy_uploader:
+                  in_progress: true
+                  incomplete: false
+                  incomplete_reason:
+                  metadata_formats: []
         '404':
           description: unknown id, or a type that holds no MODS
         '422':
@@ -5294,6 +6802,15 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/ModsVersions"
+              example:
+                resource_id: d0000001x
+                versions:
+                - version_id: v2
+                  created: '2026-01-15T12:00:00Z'
+                  actor_nuid:
+                  on_behalf_of_nuid:
+                  source:
+                  note:
         '401':
           "$ref": "#/components/responses/Unauthorized"
       operationId: resources_mods_versions
@@ -5369,6 +6886,42 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Work"
+              example:
+                work:
+                  id: d0000001x
+                  valkyrie_id: 00000000-0000-4000-8000-000000000001
+                  ancestors:
+                  - noid: d0000002x
+                    klass: Community
+                    title: ''
+                    system_container: false
+                    personal_root: false
+                  - noid: d0000003x
+                    klass: Collection
+                    title: ''
+                    system_container: false
+                    personal_root: false
+                  thumbnail: https://iiif.example/iiif/3/abc.jp2/full/!85,85/0/default.jpg
+                  thumbnail_2x:
+                  preview:
+                  preview_width:
+                  preview_height:
+                  preview_placeholder:
+                  derivative_permissions: {}
+                  title: ''
+                  description: ''
+                  permanent_url:
+                  handle:
+                  tombstoned: false
+                  tombstoned_at:
+                  tombstoned_by:
+                  tombstone_reason:
+                  depositor:
+                  proxy_uploader:
+                  in_progress: true
+                  incomplete: false
+                  incomplete_reason:
+                  metadata_formats: []
         '422':
           description: preview size or placeholder malformed, or sent without the
             preview
@@ -5445,6 +6998,42 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Work"
+              example:
+                work:
+                  id: d0000001x
+                  valkyrie_id: 00000000-0000-4000-8000-000000000001
+                  ancestors:
+                  - noid: d0000002x
+                    klass: Community
+                    title: ''
+                    system_container: false
+                    personal_root: false
+                  - noid: d0000003x
+                    klass: Collection
+                    title: ''
+                    system_container: false
+                    personal_root: false
+                  thumbnail:
+                  thumbnail_2x:
+                  preview:
+                  preview_width:
+                  preview_height:
+                  preview_placeholder:
+                  derivative_permissions: {}
+                  title: ''
+                  description: ''
+                  permanent_url:
+                  handle:
+                  tombstoned: false
+                  tombstoned_at:
+                  tombstoned_by:
+                  tombstone_reason:
+                  depositor:
+                  proxy_uploader:
+                  in_progress: true
+                  incomplete: false
+                  incomplete_reason:
+                  metadata_formats: []
         '404':
           description: unknown id
         '422':
@@ -5513,6 +7102,43 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Work"
+              example:
+                work:
+                  id: d0000001x
+                  valkyrie_id: 00000000-0000-4000-8000-000000000001
+                  ancestors:
+                  - noid: d0000002x
+                    klass: Community
+                    title: ''
+                    system_container: false
+                    personal_root: false
+                  - noid: d0000003x
+                    klass: Collection
+                    title: ''
+                    system_container: false
+                    personal_root: false
+                  thumbnail:
+                  thumbnail_2x:
+                  preview:
+                  preview_width:
+                  preview_height:
+                  preview_placeholder:
+                  derivative_permissions: {}
+                  title: ''
+                  description: ''
+                  permanent_url:
+                  handle:
+                  tombstoned: true
+                  tombstoned_at: '2026-01-15T12:00:00Z'
+                  tombstoned_by: '000000004'
+                  tombstone_reason: Removed from view at contributor or content curator's
+                    discretion
+                  depositor:
+                  proxy_uploader:
+                  in_progress: true
+                  incomplete: false
+                  incomplete_reason:
+                  metadata_formats: []
         '422':
           description: reason is not a policy removal note
           content:
@@ -5571,6 +7197,42 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Work"
+              example:
+                work:
+                  id: d0000001x
+                  valkyrie_id: 00000000-0000-4000-8000-000000000001
+                  ancestors:
+                  - noid: d0000002x
+                    klass: Community
+                    title: ''
+                    system_container: false
+                    personal_root: false
+                  - noid: d0000003x
+                    klass: Collection
+                    title: ''
+                    system_container: false
+                    personal_root: false
+                  thumbnail:
+                  thumbnail_2x:
+                  preview:
+                  preview_width:
+                  preview_height:
+                  preview_placeholder:
+                  derivative_permissions: {}
+                  title: ''
+                  description: ''
+                  permanent_url:
+                  handle:
+                  tombstoned: false
+                  tombstoned_at:
+                  tombstoned_by:
+                  tombstone_reason:
+                  depositor:
+                  proxy_uploader:
+                  in_progress: true
+                  incomplete: false
+                  incomplete_reason:
+                  metadata_formats: []
         '422':
           description: parent is still tombstoned
           content:
@@ -5631,6 +7293,19 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/ResourceDigests"
+              example:
+              - id: d0000001x
+                noid: d0000001x
+                klass: Community
+                title: Root Community
+                thumbnail:
+                tombstoned: false
+              - id: d0000002x
+                noid: d0000002x
+                klass: Collection
+                title: Child Collection
+                thumbnail:
+                tombstoned: false
         '401':
           "$ref": "#/components/responses/Unauthorized"
       requestBody:
@@ -5705,6 +7380,18 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/DescendantWorks"
+              example:
+                works:
+                - id: d0000001x
+                  noid: d0000001x
+                  klass: Work
+                  title: ''
+                  thumbnail:
+                pagination:
+                  total: 1
+                  page: 1
+                  per_page: 25
+                  pages: 1
         '404':
           description: unknown id
         '401':
@@ -5771,6 +7458,25 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/SearchResults"
+              example:
+                results:
+                - id: d0000001x
+                  noid: d0000001x
+                  klass: Work
+                  title: Albatross almanac. How We Respond to Disaster. Episode 1
+                  creators:
+                  - Cohen, Daniel J.(Daniel Jared), 1968-
+                  - Northeastern University (Boston, Mass.) Libraries
+                  year: '2017'
+                  thumbnail:
+                  in_progress: false
+                  embargoed: false
+                  incomplete: false
+                pagination:
+                  total: 1
+                  page: 1
+                  per_page: 25
+                  pages: 1
         '400':
           description: unknown type
           content:
@@ -5804,6 +7510,23 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/UserAccounts"
+              example:
+                nuid: '000000055'
+                accounts:
+                - email: person1@example.org
+                  name: P
+                  affiliation: staff
+                  role: standard
+                  groups:
+                  - g:staff
+                  preferred: false
+                - email: person2@example.org
+                  name: P
+                  affiliation: student
+                  role: standard
+                  groups:
+                  - g:student
+                  preferred: false
         '401':
           "$ref": "#/components/responses/Unauthorized"
       operationId: users_accounts
@@ -5830,6 +7553,17 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/ProvisionedUser"
+              example:
+                user:
+                  id: 1
+                  nuid: '000000055'
+                  name: P
+                  email: person1@example.org
+                  role: standard
+                  groups:
+                  - g:student
+                  affiliation: student
+                  preferred: true
         '404':
           description: email is not one of this NUID's accounts
         '401':
@@ -5885,6 +7619,13 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/UserDirectory"
+              example:
+              - nuid: '001111111'
+                name: Doe, Jane
+                display_name:
+              - nuid: '002222222'
+                name: Smith, Janet
+                display_name:
         '401':
           "$ref": "#/components/responses/Unauthorized"
       operationId: users_index
@@ -5910,6 +7651,10 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/UserDirectoryEntry"
+              example:
+                nuid: '001111111'
+                name: Doe, Jane
+                display_name:
         '404':
           description: unknown or excluded NUID
         '401':
@@ -5940,6 +7685,18 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/User"
+              example:
+                id: 1
+                affiliation:
+                created_at: '2026-01-15T12:00:00Z'
+                email: person1@example.org
+                groups: []
+                jti: "<redacted>"
+                name:
+                nuid:
+                preferred: false
+                role: guest
+                updated_at: '2026-01-15T12:00:00Z'
         '401':
           "$ref": "#/components/responses/Unauthorized"
       operationId: users_tokens_show
@@ -5988,6 +7745,77 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/WorksIndex"
+              example:
+                works:
+                - id: d0000001x
+                  title: ''
+                  description: ''
+                  in_progress: true
+                  incomplete: false
+                  incomplete_reason:
+                  handle:
+                - id: d0000002x
+                  title: ''
+                  description: ''
+                  in_progress: true
+                  incomplete: false
+                  incomplete_reason:
+                  handle:
+                pagination:
+                  scaffold_url: "/works?in_progress=&incomplete=&page=__pagy_page__"
+                  first_url: "/works?in_progress=&incomplete=&page=1"
+                  prev_url: "/works?in_progress=&incomplete=&page="
+                  page_url: "/works?in_progress=&incomplete=&page=1"
+                  next_url: "/works?in_progress=&incomplete=&page="
+                  last_url: "/works?in_progress=&incomplete=&page=1"
+                  count: 2
+                  page: 1
+                  items: 10
+                  vars:
+                    page: 1
+                    items: 10
+                    outset: 0
+                    size:
+                    - 1
+                    - 4
+                    - 4
+                    - 1
+                    page_param: page
+                    params: {}
+                    fragment: ''
+                    link_extra: ''
+                    i18n_key: pagy.item_name
+                    cycle: false
+                    request_path: ''
+                    metadata:
+                    - scaffold_url
+                    - first_url
+                    - prev_url
+                    - page_url
+                    - next_url
+                    - last_url
+                    - count
+                    - page
+                    - items
+                    - vars
+                    - pages
+                    - last
+                    - in
+                    - from
+                    - to
+                    - prev
+                    - next
+                    - series
+                    count: 2
+                  pages: 1
+                  last: 1
+                  in: 2
+                  from: 1
+                  to: 2
+                  prev:
+                  next:
+                  series:
+                  - '1'
         '401':
           "$ref": "#/components/responses/Unauthorized"
       operationId: works_index
@@ -6024,6 +7852,42 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Work"
+              example:
+                work:
+                  id: d0000001x
+                  valkyrie_id: 00000000-0000-4000-8000-000000000001
+                  ancestors:
+                  - noid: d0000002x
+                    klass: Community
+                    title: ''
+                    system_container: false
+                    personal_root: false
+                  - noid: d0000003x
+                    klass: Collection
+                    title: ''
+                    system_container: false
+                    personal_root: false
+                  thumbnail:
+                  thumbnail_2x:
+                  preview:
+                  preview_width:
+                  preview_height:
+                  preview_placeholder:
+                  derivative_permissions: {}
+                  title: ''
+                  description: ''
+                  permanent_url:
+                  handle:
+                  tombstoned: false
+                  tombstoned_at:
+                  tombstoned_by:
+                  tombstone_reason:
+                  depositor: '000000004'
+                  proxy_uploader: '000000004'
+                  in_progress: true
+                  incomplete: false
+                  incomplete_reason:
+                  metadata_formats: []
         '410':
           description: idempotent replay on a tombstoned work
           content:
@@ -6087,6 +7951,42 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Work"
+              example:
+                work:
+                  id: d0000001x
+                  valkyrie_id: 00000000-0000-4000-8000-000000000001
+                  ancestors:
+                  - noid: d0000002x
+                    klass: Community
+                    title: ''
+                    system_container: false
+                    personal_root: false
+                  - noid: d0000003x
+                    klass: Collection
+                    title: ''
+                    system_container: false
+                    personal_root: false
+                  thumbnail:
+                  thumbnail_2x:
+                  preview:
+                  preview_width:
+                  preview_height:
+                  preview_placeholder:
+                  derivative_permissions: {}
+                  title: ''
+                  description: ''
+                  permanent_url:
+                  handle:
+                  tombstoned: false
+                  tombstoned_at:
+                  tombstoned_by:
+                  tombstone_reason:
+                  depositor:
+                  proxy_uploader:
+                  in_progress: true
+                  incomplete: false
+                  incomplete_reason:
+                  metadata_formats: []
         '410':
           description: 'tombstoned: the Work to admins and delegated admins, WorkTombstone
             to everyone else; purged: WorkPurged to everyone'
@@ -6126,6 +8026,137 @@ paths:
       responses:
         '200':
           description: mods returned
+          content:
+            application/json:
+              example:
+                work:
+                  id: d0000001x
+                  mods:
+                    names: []
+                    notes: []
+                    extent: []
+                    format: []
+                    genres: []
+                    edition: []
+                    abstract: ''
+                    issuance: []
+                    location: []
+                    map_data: []
+                    frequency: []
+                    languages: []
+                    date_other:
+                    date_valid:
+                    main_title:
+                      title: ''
+                      non_sort: ''
+                      subtitle: ''
+                      part_name: ''
+                      part_number: ''
+                    date_issued:
+                    identifiers: []
+                    record_info:
+                    date_created:
+                    abstract_href:
+                    date_captured:
+                    date_modified:
+                    origin_agents: []
+                    permanent_url:
+                    related_items: []
+                    resource_type: []
+                    uniform_title: []
+                    classification: []
+                    copyright_date:
+                    date_other_end:
+                    date_valid_end:
+                    digital_origin: []
+                    genre_subjects: []
+                    related_series: []
+                    title_subjects: []
+                    date_issued_end:
+                    date_other_text:
+                    date_valid_text:
+                    target_audience: []
+                    access_condition: ''
+                    date_created_end:
+                    date_issued_text:
+                    host_collections: []
+                    subject_headings: []
+                    topical_subjects: []
+                    translated_title: []
+                    abbreviated_title: []
+                    alternative_title: []
+                    date_captured_end:
+                    date_created_text:
+                    date_modified_end:
+                    table_of_contents: []
+                    temporal_subjects: []
+                    copyright_date_end:
+                    date_captured_text:
+                    date_modified_text:
+                    copyright_date_text:
+                    date_other_key_date:
+                    date_valid_key_date:
+                    geographic_subjects: []
+                    occupation_subjects: []
+                    date_issued_key_date:
+                    date_other_precision:
+                    date_other_qualifier:
+                    date_valid_precision:
+                    date_valid_qualifier:
+                    place_of_publication: []
+                    reformatting_quality: []
+                    use_and_reproduction: ''
+                    access_condition_href:
+                    date_created_key_date:
+                    date_issued_precision:
+                    date_issued_qualifier:
+                    date_other_event_type:
+                    date_valid_event_type:
+                    restriction_on_access: ''
+                    abstract_display_label:
+                    date_captured_key_date:
+                    date_created_precision:
+                    date_created_qualifier:
+                    date_issued_event_type:
+                    date_modified_key_date:
+                    personal_name_subjects: []
+                    copyright_date_key_date:
+                    corporate_name_subjects: []
+                    date_captured_precision:
+                    date_captured_qualifier:
+                    date_created_event_type:
+                    date_modified_precision:
+                    date_modified_qualifier:
+                    publication_information: []
+                    copyright_date_precision:
+                    copyright_date_qualifier:
+                    date_captured_event_type:
+                    date_modified_event_type:
+                    date_other_display_label:
+                    date_other_end_precision:
+                    date_valid_display_label:
+                    date_valid_end_precision:
+                    geographic_code_subjects: []
+                    main_title_display_label:
+                    copyright_date_event_type:
+                    date_issued_display_label:
+                    date_issued_end_precision:
+                    use_and_reproduction_href:
+                    date_created_display_label:
+                    date_created_end_precision:
+                    physical_description_notes: []
+                    restriction_on_access_href:
+                    date_captured_display_label:
+                    date_captured_end_precision:
+                    date_modified_display_label:
+                    date_modified_end_precision:
+                    permanent_url_display_label: Permanent URL
+                    copyright_date_display_label:
+                    copyright_date_end_precision:
+                    access_condition_display_label:
+                    hierarchical_geographic_subjects: []
+                    use_and_reproduction_display_label:
+                    restriction_on_access_display_label:
         '410':
           description: withheld by a tombstone from everyone but admins and delegated
             admins
@@ -6164,6 +8195,20 @@ paths:
                 "$ref": "#/components/schemas/Tombstoned"
         '200':
           description: work mets returned
+          content:
+            application/json:
+              example:
+                work:
+                  id: d0000001x
+                  mets:
+                    agent: Atlas
+                    files: []
+                    pages:
+                    - noid: d0000002x
+                      label: Image
+                      order: 1
+                    created_at_iso: '2026-01-15T12:00:00Z'
+                    structure_label: work
         '404':
           description: work never completed — no METS yet
         '401':
@@ -6208,6 +8253,21 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/WorkAssets"
+              example:
+              - kind: Blob
+                noid: d0000001x
+                mime_type: image/png
+                original_filename: page1.png
+                size: 408360
+                language:
+                track_label:
+                filename: original_d0000001x.png
+                label: Original Image
+                role: original_file
+                file_set: d0000002x
+                classification: Image
+                gated: true
+                permission: []
         '401':
           "$ref": "#/components/responses/Unauthorized"
       operationId: works_assets
@@ -6239,6 +8299,23 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/TombstonedAssets"
+              example:
+              - kind: Blob
+                noid: d0000001x
+                mime_type: text/vtt
+                original_filename: es.vtt
+                size: 102400
+                language:
+                track_label:
+                filename: text_d0000001x.vtt
+                label: Text Document
+                role: original_file
+                file_set: d0000002x
+                classification: Text
+                gated: true
+                permission: []
+                tombstoned_at: '2026-01-15T12:00:00Z'
+                tombstoned_by: '000000004'
         '404':
           description: work not found
         '401':
@@ -6274,6 +8351,13 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/WorkFileRevisions"
+              example:
+              - blob_id: d0000001x
+                revisions:
+                - revision: 2
+                  created: '2026-01-15T12:00:00Z'
+                - revision: 1
+                  created: '2026-01-15T12:00:00Z'
         '404':
           description: work not found
         '401':
@@ -6320,6 +8404,36 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/WorkHealthCheck"
+              example:
+                noid: d0000001x
+                grade: yellow
+                fixity_checked: false
+                fixity:
+                  last_checked_at:
+                  result:
+                  objects: 3
+                  never_checked: 3
+                findings:
+                - severity: repairable
+                  code: untitled
+                  subject: d0000001x
+                  message: the MODS has no title; nothing can find or name this Work
+                - severity: repairable
+                  code: no_depositor
+                  subject: d0000001x
+                  message: no depositor; the owner cannot edit
+                - severity: advisory
+                  code: private
+                  subject: d0000001x
+                  message: no read group; only editors can see it
+                - severity: repairable
+                  code: no_content
+                  subject: d0000001x
+                  message: no content FileSet; nothing to view or download
+                - severity: advisory
+                  code: in_progress
+                  subject: d0000001x
+                  message: deposit still open since 2026-01-15
         '404':
           description: work not found
         '401':
@@ -6352,6 +8466,22 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/WorkFileSets"
+              example:
+              - noid: d0000001x
+                type: Image
+                position: 1
+                tombstoned: false
+                assets: []
+              - noid: d0000002x
+                type: Image
+                position: 2
+                tombstoned: false
+                assets: []
+              - noid: d0000003x
+                type: Image
+                position:
+                tombstoned: false
+                assets: []
         '404':
           description: work not found
         '401':
@@ -6387,6 +8517,42 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Work"
+              example:
+                work:
+                  id: d0000001x
+                  valkyrie_id: 00000000-0000-4000-8000-000000000001
+                  ancestors:
+                  - noid: d0000002x
+                    klass: Community
+                    title: ''
+                    system_container: false
+                    personal_root: false
+                  - noid: d0000003x
+                    klass: Collection
+                    title: ''
+                    system_container: false
+                    personal_root: false
+                  thumbnail:
+                  thumbnail_2x:
+                  preview:
+                  preview_width:
+                  preview_height:
+                  preview_placeholder:
+                  derivative_permissions: {}
+                  title: ''
+                  description: ''
+                  permanent_url:
+                  handle:
+                  tombstoned: false
+                  tombstoned_at:
+                  tombstoned_by:
+                  tombstone_reason:
+                  depositor:
+                  proxy_uploader:
+                  in_progress: true
+                  incomplete: false
+                  incomplete_reason:
+                  metadata_formats: []
         '409':
           description: optimistic-lock conflict survived the internal retry budget
           content:
@@ -6455,6 +8621,46 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Work"
+              example:
+                work:
+                  id: d0000001x
+                  valkyrie_id: 00000000-0000-4000-8000-000000000001
+                  ancestors:
+                  - noid: d0000002x
+                    klass: Community
+                    title: ''
+                    system_container: false
+                    personal_root: false
+                  - noid: d0000003x
+                    klass: Collection
+                    title: ''
+                    system_container: false
+                    personal_root: false
+                  thumbnail:
+                  thumbnail_2x:
+                  preview:
+                  preview_width:
+                  preview_height:
+                  preview_placeholder:
+                  derivative_permissions:
+                    large:
+                    - northeastern:drs:x:archives
+                    service:
+                    - northeastern:drs:x:archives
+                  title: ''
+                  description: ''
+                  permanent_url:
+                  handle:
+                  tombstoned: false
+                  tombstoned_at:
+                  tombstoned_by:
+                  tombstone_reason:
+                  depositor:
+                  proxy_uploader:
+                  in_progress: true
+                  incomplete: false
+                  incomplete_reason:
+                  metadata_formats: []
         '422':
           description: an unknown tier key is rejected
           content:
@@ -6580,6 +8786,42 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Work"
+              example:
+                work:
+                  id: d0000001x
+                  valkyrie_id: 00000000-0000-4000-8000-000000000001
+                  ancestors:
+                  - noid: d0000002x
+                    klass: Community
+                    title: ''
+                    system_container: false
+                    personal_root: false
+                  - noid: d0000003x
+                    klass: Collection
+                    title: ''
+                    system_container: false
+                    personal_root: false
+                  thumbnail:
+                  thumbnail_2x:
+                  preview:
+                  preview_width:
+                  preview_height:
+                  preview_placeholder:
+                  derivative_permissions: {}
+                  title: ''
+                  description: ''
+                  permanent_url:
+                  handle:
+                  tombstoned: false
+                  tombstoned_at:
+                  tombstoned_by:
+                  tombstone_reason:
+                  depositor:
+                  proxy_uploader:
+                  in_progress: true
+                  incomplete: false
+                  incomplete_reason:
+                  metadata_formats: []
         '409':
           description: optimistic-lock conflict survived the internal retry budget
           content:
@@ -6634,6 +8876,8 @@ paths:
                 type: array
                 items:
                   type: string
+              example:
+              - d0000001x
         '401':
           "$ref": "#/components/responses/Unauthorized"
       operationId: works_linked_members
@@ -6662,6 +8906,8 @@ paths:
                 type: array
                 items:
                   type: string
+              example:
+              - d0000001x
         '422':
           description: rejects a non-Collection target
           content:
@@ -6714,6 +8960,7 @@ paths:
                 type: array
                 items:
                   type: string
+              example: []
         '401':
           "$ref": "#/components/responses/Unauthorized"
       operationId: works_remove_linked_member
@@ -6759,6 +9006,11 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/WorkAssociations"
+              example:
+                outbound:
+                  is_codebook_for:
+                  - d0000001x
+                inbound: {}
         '401':
           "$ref": "#/components/responses/Unauthorized"
       operationId: works_associations
@@ -6792,6 +9044,11 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/WorkAssociations"
+              example:
+                outbound:
+                  is_codebook_for:
+                  - d0000001x
+                inbound: {}
         '422':
           description: rejects an unknown relationship type
           content:
@@ -6863,6 +9120,9 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/WorkAssociations"
+              example:
+                outbound: {}
+                inbound: {}
         '401':
           "$ref": "#/components/responses/Unauthorized"
       operationId: works_remove_association
@@ -6890,6 +9150,42 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Work"
+              example:
+                work:
+                  id: d0000001x
+                  valkyrie_id: 00000000-0000-4000-8000-000000000001
+                  ancestors:
+                  - noid: d0000002x
+                    klass: Community
+                    title: ''
+                    system_container: false
+                    personal_root: false
+                  - noid: d0000003x
+                    klass: Collection
+                    title: ''
+                    system_container: false
+                    personal_root: false
+                  thumbnail:
+                  thumbnail_2x:
+                  preview:
+                  preview_width:
+                  preview_height:
+                  preview_placeholder:
+                  derivative_permissions: {}
+                  title: ''
+                  description: ''
+                  permanent_url:
+                  handle:
+                  tombstoned: false
+                  tombstoned_at:
+                  tombstoned_by:
+                  tombstone_reason:
+                  depositor:
+                  proxy_uploader:
+                  in_progress: false
+                  incomplete: false
+                  incomplete_reason:
+                  metadata_formats: []
         '409':
           description: optimistic-lock conflict survived the internal retry budget
           content:
@@ -6940,6 +9236,42 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Work"
+              example:
+                work:
+                  id: d0000001x
+                  valkyrie_id: 00000000-0000-4000-8000-000000000001
+                  ancestors:
+                  - noid: d0000002x
+                    klass: Community
+                    title: ''
+                    system_container: false
+                    personal_root: false
+                  - noid: d0000003x
+                    klass: Collection
+                    title: ''
+                    system_container: false
+                    personal_root: false
+                  thumbnail:
+                  thumbnail_2x:
+                  preview:
+                  preview_width:
+                  preview_height:
+                  preview_placeholder:
+                  derivative_permissions: {}
+                  title: ''
+                  description: ''
+                  permanent_url:
+                  handle:
+                  tombstoned: false
+                  tombstoned_at:
+                  tombstoned_by:
+                  tombstone_reason:
+                  depositor:
+                  proxy_uploader:
+                  in_progress: true
+                  incomplete: true
+                  incomplete_reason: pdf_rendition_gave_up
+                  metadata_formats: []
         '404':
           description: no such work
         '409':
@@ -6977,6 +9309,42 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Work"
+              example:
+                work:
+                  id: d0000001x
+                  valkyrie_id: 00000000-0000-4000-8000-000000000001
+                  ancestors:
+                  - noid: d0000002x
+                    klass: Community
+                    title: ''
+                    system_container: false
+                    personal_root: false
+                  - noid: d0000003x
+                    klass: Collection
+                    title: ''
+                    system_container: false
+                    personal_root: false
+                  thumbnail:
+                  thumbnail_2x:
+                  preview:
+                  preview_width:
+                  preview_height:
+                  preview_placeholder:
+                  derivative_permissions: {}
+                  title: ''
+                  description: ''
+                  permanent_url:
+                  handle:
+                  tombstoned: false
+                  tombstoned_at:
+                  tombstoned_by:
+                  tombstone_reason:
+                  depositor:
+                  proxy_uploader:
+                  in_progress: true
+                  incomplete: false
+                  incomplete_reason:
+                  metadata_formats: []
         '404':
           description: no such work
         '401':

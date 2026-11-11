@@ -1,0 +1,12 @@
+{
+  "person": {
+    "id": "d0000001x",
+    "valkyrie_id": "00000000-0000-4000-8000-000000000001",
+    "nuid": "009998888",
+    "display_name": "New Person",
+    "bio": null,
+    "orcid": null,
+    "affiliated_community_ids": [],
+    "personal_root_id": "d0000002x"
+  }
+}

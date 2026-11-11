@@ -76,6 +76,7 @@ docker compose exec web bundle exec rspec spec/requests/works_spec.rb:42    # on
 docker compose exec web bundle exec rubocop                       # lint
 bin/openapi                                                       # regenerate the OpenAPI documents
 bin/openapi-lint --check                                          # the OpenAPI gate (host, Node)
+bin/openapi-record                                                # re-record the OpenAPI example bodies (~6 min)
 ```
 
 `bin/openapi` is a thin wrapper — it runs `rake rswag:specs:swaggerize`

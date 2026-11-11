@@ -25,15 +25,18 @@ RSpec.describe 'Resources', type: :request do
       tags 'Resources'
       produces 'application/json'
       description <<~DESC
-        Generic resolver. Issues a 302 redirect to the typed endpoint
-        (e.g. /works/{id}). Resolves the Valkyrie-backed resource types only,
+        Generic resolver. Issues a 302 redirect to the typed endpoint, keyed
+        on the same NOID (e.g. /works/{id}). Resolves the Valkyrie-backed
+        resource types only,
         so a Compilation NOID answers 404 here and is served by
         /compilations/{id} instead.
       DESC
 
       response '302', 'redirect to typed resource' do
         let(:id) { work.noid }
-        run_test!
+        run_test! do |response|
+          expect(URI(response.location).path).to eq("/works/#{work.noid}")
+        end
       end
     end
 

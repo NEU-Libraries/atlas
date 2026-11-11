@@ -31,15 +31,12 @@ class ResourcesController < ApplicationController
     authorize! :read, resource || Resource
     return head(:not_found) if resource.nil?
 
-    @resource = resource.decorate
-    # Person has no resourceful route, so polymorphic redirect_to can't build
-    # its path — send it to the NOID-keyed endpoint.
-    return redirect_to(person_path(@resource.noid)) if @resource.is_a?(Person)
-    # A Blob's typed route is /files/:id, so the polymorphic helper would be
-    # blob_url, which no route defines.
-    return redirect_to(file_path(@resource.noid)) if @resource.is_a?(Blob)
+    # The typed routes are keyed on the NOID; the polymorphic helper would put
+    # the Valkyrie id in the path instead. A Blob's typed route is /files/:id,
+    # which no route key names.
+    return redirect_to(file_path(resource.noid)) if resource.is_a?(Blob)
 
-    redirect_to(@resource)
+    redirect_to(public_send(:"#{resource.model_name.singular_route_key}_path", resource.noid))
   end
 
   def preview

@@ -57,6 +57,12 @@ RSpec.describe 'Auth matrix', type: :request, default_auth: false do
       expect(response).to have_http_status(:unauthorized)
     end
 
+    it 'returns 401 for a credential in a scheme other than Bearer' do
+      get "/communities/#{public_community!.noid}", headers: { 'Authorization' => 'Basic Zm9vOmJhcg==' }
+      expect(response).to have_http_status(:unauthorized)
+      expect(response.parsed_body['error']).to start_with('unsupported authorization scheme')
+    end
+
     it 'falls through to guest when no Authorization header is sent' do
       # A public resource, not the roll of every Community: the index is
       # operator-only now, and a guest is refused it whatever the auth path did.

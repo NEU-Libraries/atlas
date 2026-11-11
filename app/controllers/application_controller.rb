@@ -23,6 +23,8 @@ class ApplicationController < ActionController::API
   READ_ONLY_TOKEN_ACTIONS = %i[read read_directory read_versions read_history read_index index_all search
                                preview read_metrics read_health read_tombstoned].freeze
 
+  UNSUPPORTED_SCHEME = 'unsupported authorization scheme; send Authorization: Bearer <token>'
+
   before_action :require_auth
   # One re-index per touched Work or container per action, not one per OCFL
   # version the action writes.
@@ -261,7 +263,24 @@ class ApplicationController < ActionController::API
     # devise-jwt. docs/authentication.md carries the full resolution matrix.
     def require_auth
       parse_headers
+      return render_error(:unauthorized, UNSUPPORTED_SCHEME) if foreign_scheme?
+      return render_error(:unauthorized, 'invalid bearer token') unless resolve_principal
 
+      # `performed?` guards against a double render: a resolver can bail with a
+      # rendered error.
+      enforce_on_behalf_of_gate unless performed?
+    end
+
+    # A credential in another scheme is refused, not read as no credential: a
+    # caller who sent one expects to be someone, not the guest.
+    def foreign_scheme?
+      header = request.headers['Authorization']
+      header.present? && !header.start_with?('Bearer ')
+    end
+
+    # Falsey only when the token matches no credential path. The paths before
+    # the JWT are terminal: each resolves, or renders its own refusal.
+    def resolve_principal
       if @token.blank?
         guest_sign_in
       elsif valid_system_token?
@@ -270,15 +289,11 @@ class ApplicationController < ActionController::API
         resolve_fixity_checker
       elsif cerberus_assertion?
         resolve_cerberus_assertion
-      elsif resolve_jwt_user
-        # @current_user is set inside resolve_jwt_user — identity is in the token
       else
-        return render_error(:unauthorized, 'invalid bearer token')
+        # @current_user is set inside resolve_jwt_user — identity is in the token
+        return resolve_jwt_user
       end
-
-      # `performed?` guards against a double render: the branches above bail
-      # with a rendered error.
-      enforce_on_behalf_of_gate unless performed?
+      true
     end
 
     # Two cases pass: an admin on the assertion path, and :system. The

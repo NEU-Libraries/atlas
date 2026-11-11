@@ -205,7 +205,10 @@ class BlobsController < ApplicationController
     # send_file hands a Pathname to Rack::Files which chunks at the Rack layer,
     # so this is memory-safe for 20GB+ files. Used by #version_content (a pinned
     # prior version); #content goes through #serve_bytes for Range support.
+    # Content-Length is set from the file, not left to the server: a HEAD has
+    # its body emptied by Rack::Head, and the server would then count zero.
     def stream_file(file, filename:, type:)
+      response.set_header('Content-Length', ::File.size(file.disk_path).to_s)
       send_file file.disk_path, type: type, disposition: 'attachment', filename: filename
     end
 

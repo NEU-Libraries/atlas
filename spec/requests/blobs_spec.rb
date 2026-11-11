@@ -285,7 +285,8 @@ RSpec.describe 'Files (Blobs)', type: :request do
         bytes=START-END` request is answered `206 Partial Content` with
         `Content-Range`, and a syntactically-valid but unsatisfiable range is
         rejected `416`. Multi-range is not supported; an absent or unparseable
-        Range serves the full `200` body.
+        Range serves the full `200` body. A `HEAD` answers the headers alone,
+        with the file's size in `Content-Length`.
 
         When the Blob, its FileSet or its Work is tombstoned, the bytes are
         withheld with `410 tombstoned`, which names the tombstoned resource.
@@ -312,7 +313,17 @@ RSpec.describe 'Files (Blobs)', type: :request do
         run_test! do |response|
           expect(response.headers['Accept-Ranges']).to eq('bytes')
           expect(response.body.bytesize).to eq(File.size(fixture))
+          expect(response.headers['Content-Length']).to eq(File.size(fixture).to_s)
         end
+      end
+
+      # Rack::Head empties a HEAD's body before the server counts it, so the
+      # length must come from the action, or a client sizing a download reads 0.
+      it 'reports the file size to a HEAD' do
+        head "/files/#{id}/content"
+
+        expect(response).to have_http_status(:ok)
+        expect(response.headers['Content-Length']).to eq(File.size(fixture).to_s)
       end
 
       response '206', 'partial content (byte range)' do

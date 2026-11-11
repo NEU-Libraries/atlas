@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 #
-# Regenerate the OpenAPI documents under openapi/ from spec/requests/*_spec.rb.
+# Regenerate the OpenAPI documents under openapi/ from spec/requests/*_spec.rb,
+# then run the OpenAPI gate over them (bin/openapi-lint --check).
 #
 #   bin/openapi
 #
@@ -32,3 +33,7 @@ fi
 
 echo
 echo "Wrote openapi/public/openapi.yaml and openapi/internal/openapi.yaml. Review with 'git diff openapi/' and commit if expected."
+
+# The gate CI runs next, so a fault shows here rather than on the build.
+echo
+exec "$SCRIPT_DIR/openapi-lint" --check

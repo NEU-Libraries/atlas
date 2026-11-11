@@ -232,4 +232,31 @@ alone cannot prove the error contract.
 - **A count that fell** is a fix. Record it with `--update` in the same
   commit, so the next regression cannot hide under the old, higher number.
 
-CI runs `bin/openapi-lint --check` after it regenerates the document.
+CI runs `bin/openapi-lint --check` after it regenerates the documents, and
+`bin/openapi` runs it too, so a fault shows when you regenerate rather than on
+the build.
+
+### Before a commit
+
+A git hook can run the gate before any commit that touches what the documents
+are built from. Hooks are per developer and stay out of the repository, so
+install it yourself as `.git/hooks/pre-commit` (which every worktree shares) and
+make it executable:
+
+```bash
+#!/usr/bin/env bash
+set -uo pipefail
+root="$(git rev-parse --show-toplevel)"
+git diff --cached --name-only |
+  grep -qE '^(openapi/|openapi-lint/|spec/requests/|spec/support/openapi|spec/swagger_helper\.rb|spec/openapi_examples/|app/views/.*\.jbuilder$)' || exit 0
+[[ -x "$root/bin/openapi-lint" ]] || exit 0           # a branch from before the gate
+command -v node >/dev/null 2>&1 || exit 0              # no Node, no gate
+"$root/bin/openapi-lint" --check || {
+  echo 'OpenAPI gate failed: run bin/openapi, then fix or --update the baseline.' >&2
+  exit 1
+}
+```
+
+It checks the documents as they are in the working tree, so run `bin/openapi`
+first when you changed a request spec or a partial. `git commit --no-verify`
+skips it once.

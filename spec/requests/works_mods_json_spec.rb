@@ -20,9 +20,11 @@ RSpec.describe 'Work MODS JSON', type: :request do
   after { Atlas.persister.wipe! }
 
   # Resolved through the same registry the OpenAPI document is generated from,
-  # so the assertion and the published contract cannot diverge.
+  # so the assertion and the published contract cannot diverge. WorkMods names
+  # the shared MODSDocument by $ref, so the component map rides along.
   def work_mods_schema
-    OpenapiSchemas.all[:WorkMods].deep_stringify_keys
+    { 'components' => { 'schemas' => OpenapiSchemas.all.deep_stringify_keys } }
+      .merge('$ref' => '#/components/schemas/WorkMods')
   end
 
   # `nullable: true` is OpenAPI 3; JSON Schema spells the same thing as a union
@@ -64,7 +66,7 @@ RSpec.describe 'Work MODS JSON', type: :request do
   # The registry is the reason the schema cannot silently fall behind the
   # projection; this is the assertion that says so out loud.
   it 'documents every field the gem projects, and nothing it does not' do
-    properties = work_mods_schema.dig('properties', 'work', 'properties', 'mods', 'properties')
+    properties = OpenapiSchemas.all[:MODSDocument][:properties]
 
     expect(properties.keys.map(&:to_sym)).to match_array(NEU::MODS::FIELDS.keys)
   end

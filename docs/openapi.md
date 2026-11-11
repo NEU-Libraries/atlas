@@ -138,8 +138,10 @@ rswag gives one schema to every media type an operation produces. On a route
 that serves XML or HTML as well as JSON, `json_schema :Name` in the response
 block declares the JSON body's schema alone, and the response hook checks every
 JSON body a spec receives against it. A file's bytes take `binary_body`, which
-documents `*/*` with a binary schema, since Atlas serves each file's own media
-type; a `schema` would make rswag parse the bytes as JSON.
+documents `application/octet-stream` with a binary schema whose description says
+Atlas serves each file's own media type. Not `*/*`: openapi-python-client drops a
+response it cannot name a type for. A `schema` would make rswag parse the bytes
+as JSON.
 
 The MODS JSON's object members, such as a name or a title, are read off the
 AttrJson models that serialise them (`attr_json_schema`), so their schemas cannot

@@ -47,6 +47,7 @@ module OpenapiSchemas
       ResourceDigests:         resource_digests,
       ModsVersions:            mods_versions,
       WorkMods:                work_mods,
+      MODSDocument:            mods_document,
       Citation:                citation,
       CollectionMods:          container_mods(:collection),
       CommunityMods:           container_mods(:community),
@@ -1159,8 +1160,9 @@ module OpenapiSchemas
           type:       :object,
           properties: {
             id:   { type: :string, description: 'NOID of the work' },
-            mods: mods_document
-          }
+            mods: { '$ref' => '#/components/schemas/MODSDocument' }
+          },
+          required:   %w[id mods]
         }
       },
       required:   %w[work]
@@ -1213,8 +1215,9 @@ module OpenapiSchemas
           type:       :object,
           properties: {
             id:   { type: :string, description: "NOID of the #{key}" },
-            mods: mods_document
-          }
+            mods: { '$ref' => '#/components/schemas/MODSDocument' }
+          },
+          required:   %w[id mods]
         }
       },
       required:   [key.to_s]
@@ -1280,10 +1283,18 @@ module OpenapiSchemas
             })
   end
 
+  # The JSON access copy of a MODS record, one component for Works,
+  # Collections and Communities alike. Every field is always sent, null or []
+  # when the record lacks it, so every key is required; the members inside a
+  # field keep optional keys (see attr_json_schema).
   def mods_document
     {
-      type:       :object,
-      properties: NEU::MODS::FIELDS.to_h { |field, cardinality| [field, mods_property(field, cardinality)] }
+      type:                 :object,
+      description:          'The JSON access copy of a MODS record. Every field is present, null or an ' \
+                            'empty array when the record does not give it.',
+      properties:           NEU::MODS::FIELDS.to_h { |field, cardinality| [field, mods_property(field, cardinality)] },
+      required:             NEU::MODS::FIELDS.keys.map(&:to_s),
+      additionalProperties: false
     }
   end
 

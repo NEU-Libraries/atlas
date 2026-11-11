@@ -10,14 +10,20 @@ module OpenapiJsonBodies
   KEY    = 'x-atlas-json-schema'
   BINARY = 'x-atlas-binary'
 
+  # application/octet-stream rather than */*, which some generators drop the
+  # response for; the description says the real type is the file's own.
+  BINARY_SCHEMA = {
+    'type'        => 'string',
+    'format'      => 'binary',
+    'description' => "The file's bytes. Content-Type is the file's own media type, such as image/tiff."
+  }.freeze
+
   module_function
 
   def document(response)
     return unless response.is_a?(Hash)
 
-    if response.delete(BINARY)
-      response['content'] = { '*/*' => { 'schema' => { 'type' => 'string', 'format' => 'binary' } } }
-    end
+    response['content'] = { 'application/octet-stream' => { 'schema' => BINARY_SCHEMA } } if response.delete(BINARY)
     name = response.delete(KEY)
     return unless name
 

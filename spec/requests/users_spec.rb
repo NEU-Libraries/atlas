@@ -14,6 +14,9 @@ RSpec.describe 'User', type: :request, default_auth: false do
   path '/user' do
     get 'Current user details' do
       tags 'User'
+      response_texts(
+        '200' => 'The account the token names, or the shared guest account when there is no token.'
+      )
       produces 'application/json'
       description <<~D
         Returns the account the request's token names. With no token, it
@@ -51,6 +54,10 @@ RSpec.describe 'User', type: :request, default_auth: false do
 
     post 'Mint a JWT for a NUID (system-only)' do
       tags 'User'
+      response_texts(
+        '200' => 'The new JWT, read-only when `read_only` was true.',
+        '403' => 'The caller is neither the system user nor an admin.'
+      )
       consumes 'application/json'
       produces 'application/json'
       description <<~D
@@ -105,6 +112,10 @@ RSpec.describe 'User', type: :request, default_auth: false do
 
     delete 'Revoke all of a user\'s tokens (system-only)' do
       tags 'User'
+      response_texts(
+        '204' => 'Every token the user held is revoked.',
+        '403' => 'The caller is neither the system user nor an admin.'
+      )
       consumes 'application/json'
       produces 'application/json'
       description <<~D
@@ -143,6 +154,10 @@ RSpec.describe 'User', type: :request, default_auth: false do
   path '/users/by_nuid/{nuid}', openapi_spec: OpenapiDocument::INTERNAL do
     put 'Find-or-create a user and replace their groups (system-only)' do
       tags 'User'
+      response_texts(
+        '200' => 'The user, found or created, with the supplied groups.',
+        '403' => 'The caller is neither the system user nor an admin.'
+      )
       consumes 'application/json'
       produces 'application/json'
       description <<~D
@@ -207,6 +222,10 @@ RSpec.describe 'User', type: :request, default_auth: false do
   path '/users/by_email/{email}', openapi_spec: OpenapiDocument::INTERNAL do
     put 'Find-or-create a user by email and replace their groups (system-only)' do
       tags 'User'
+      response_texts(
+        '200' => 'The user, found or created, with the supplied groups.',
+        '403' => 'The caller is neither the system user nor an admin.'
+      )
       no_not_found
       consumes 'application/json'
       produces 'application/json'

@@ -10,6 +10,9 @@ RSpec.describe 'Collections', type: :request do
   path '/collections' do
     get 'List collections' do
       tags 'Collections'
+      response_texts(
+        '200' => 'One page of Collections.'
+      )
       produces 'application/json'
       description <<~DESC
         Lists every Collection, one page at a time.
@@ -27,6 +30,12 @@ RSpec.describe 'Collections', type: :request do
 
     post 'Create a collection' do
       tags 'Collections'
+      response_texts(
+        '200' => 'The new Collection.',
+        '403' => 'The caller holds no edit rights on the parent.',
+        '404' => 'The `parent_id` is missing or names nothing.',
+        '422' => 'The parent is tombstoned.'
+      )
       consumes 'application/json'
       produces 'application/json'
       description <<~DESC
@@ -114,6 +123,11 @@ RSpec.describe 'Collections', type: :request do
 
     get 'Retrieve a collection' do
       tags 'Collections'
+      response_texts(
+        '200' => 'The Collection.',
+        '410' => 'The Collection is tombstoned or purged. For a tombstoned Collection an admin or delegated admin gets ' \
+                 'the full record and everyone else a stub; a purged one answers everyone with a stub that says so.'
+      )
       produces 'application/json'
       description <<~DESC
         Returns a Collection's record: its title and description, its ancestors,
@@ -142,6 +156,10 @@ RSpec.describe 'Collections', type: :request do
 
     get 'Retrieve MODS metadata for a collection' do
       tags 'Collections'
+      response_texts(
+        '410' => 'The Collection is tombstoned; its metadata is withheld from everyone but admins and delegated admins.',
+        '200' => 'The Collection\'s descriptive metadata, in the format requested.'
+      )
       produces 'application/xml', 'application/json'
       description <<~DESC
         Returns the Collection's descriptive metadata. By default the body is the
@@ -174,6 +192,10 @@ RSpec.describe 'Collections', type: :request do
 
     patch 'Set a collection’s showcase Featured flag' do
       tags 'Collections'
+      response_texts(
+        '200' => 'The Collection, with its new `featured` value.',
+        '404' => 'No Collection has that NOID.'
+      )
       consumes 'application/json'
       produces 'application/json'
       description <<~DESC
@@ -211,6 +233,11 @@ RSpec.describe 'Collections', type: :request do
 
     get 'List child noids of a collection' do
       tags 'Collections'
+      response_texts(
+        '200' => 'The NOIDs of the Collection\'s direct children.',
+        '410' => 'The Collection is tombstoned. An admin or delegated admin gets the full Collection record; everyone else ' \
+                 'gets a stub.'
+      )
       produces 'application/json'
       description <<~DESC
         Returns the NOIDs of the Collection's direct children, Works and

@@ -17,6 +17,9 @@ RSpec.describe 'Files (Blobs)', type: :request do
   path '/files' do
     get 'List files' do
       tags 'Files'
+      response_texts(
+        '200' => 'One page of Blobs.'
+      )
       produces 'application/json'
       description <<~DESC
         Lists every Blob, one page at a time. A row is a file's metadata, not its
@@ -34,6 +37,11 @@ RSpec.describe 'Files (Blobs)', type: :request do
 
     post 'Upload a file' do
       tags 'Files'
+      response_texts(
+        '200' => 'The new Blob, or the Blob an earlier request with the same `Idempotency-Key` created.',
+        '422' => 'The `expected_digest` does not match the uploaded bytes; nothing is stored.',
+        '410' => 'The `Idempotency-Key` replays a request whose Blob is now tombstoned.'
+      )
       consumes 'multipart/form-data'
       produces 'application/json'
       description <<~DESC
@@ -149,6 +157,11 @@ RSpec.describe 'Files (Blobs)', type: :request do
 
     get 'Retrieve file metadata' do
       tags 'Files'
+      response_texts(
+        '200' => 'The Blob\'s metadata.',
+        '410' => 'The Blob or its FileSet is tombstoned. An admin or delegated admin gets the full Blob; everyone else ' \
+                 'gets the `Tombstoned` body.'
+      )
       produces 'application/json'
       description <<~DESC
         Returns a Blob's metadata: its name, type, size and digest. Read the bytes
@@ -180,6 +193,10 @@ RSpec.describe 'Files (Blobs)', type: :request do
 
     patch 'Append a new revision to a file' do
       tags 'Files'
+      response_texts(
+        '200' => 'The Blob, with the new revision as its current content.',
+        '404' => 'No Blob has that NOID.'
+      )
       consumes 'multipart/form-data'
       produces 'application/json'
       description <<~DESC
@@ -253,6 +270,9 @@ RSpec.describe 'Files (Blobs)', type: :request do
 
     delete 'Destroy a file' do
       tags 'Files'
+      response_texts(
+        '204' => 'The Blob is destroyed.'
+      )
       description <<~DESC
         Permanently removes the Blob's metadata record **and** its bytes,
         taking the whole OCFL object with it — every retained revision, not
@@ -277,6 +297,14 @@ RSpec.describe 'Files (Blobs)', type: :request do
 
     get 'Stream file content bytes' do
       tags 'Files'
+      response_texts(
+        '200' => 'The whole file\'s bytes.',
+        '206' => 'The bytes in the requested `Range`, with `Content-Range`.',
+        '416' => 'The `Range` lies outside the file.',
+        '410' => 'The Blob, its FileSet or its Work is tombstoned, so the bytes are withheld; the `Tombstoned` body ' \
+                 'names the tombstoned resource.',
+        '403' => 'The Work is under embargo, or the file\'s tier is reserved to groups the caller is not in.'
+      )
       produces 'application/octet-stream'
       description <<~DESC
         Streams the underlying bytes with attachment disposition; memory-safe
@@ -385,6 +413,10 @@ RSpec.describe 'Files (Blobs)', type: :request do
 
     get 'Resolve a file to its parent FileSet and Work' do
       tags 'Files'
+      response_texts(
+        '200' => 'The NOIDs of the Blob\'s parent FileSet and containing Work.',
+        '404' => 'No Blob has that NOID.'
+      )
       produces 'application/json'
       description <<~DESC
         Resolves a content Blob to its parent FileSet and containing Work noids
@@ -425,6 +457,10 @@ RSpec.describe 'Files (Blobs)', type: :request do
 
     get 'List binary version history for a file' do
       tags 'Files'
+      response_texts(
+        '200' => 'The Blob\'s retained versions, newest first.',
+        '404' => 'No Blob has that NOID.'
+      )
       produces 'application/json'
       description <<~DESC
         Reverse-chronological list of the Blob's retained content revisions —
@@ -500,6 +536,9 @@ RSpec.describe 'Files (Blobs)', type: :request do
   path '/files/find_many_versions' do
     post 'List binary version history for many files in one round-trip' do
       tags 'Files'
+      response_texts(
+        '200' => 'One version history for each id that names a Blob, in no particular order; an empty list for no ids.'
+      )
       consumes 'application/json'
       produces 'application/json'
       description <<~DESC
@@ -617,6 +656,11 @@ RSpec.describe 'Files (Blobs)', type: :request do
 
     get 'Stream a prior version’s content bytes' do
       tags 'Files'
+      response_texts(
+        '200' => 'The bytes of that version.',
+        '404' => 'The Blob has no version with that label.',
+        '403' => 'The Work is under embargo, or the file\'s tier is reserved to groups the caller is not in.'
+      )
       produces 'application/octet-stream'
       description <<~DESC
         Streams the bytes of a retained version, pinned to its OCFL label.
@@ -664,6 +708,10 @@ RSpec.describe 'Files (Blobs)', type: :request do
 
     post 'Roll a file back to a prior version' do
       tags 'Files'
+      response_texts(
+        '200' => 'The Blob, with the reinstated bytes as a new current revision.',
+        '404' => 'The Blob has no version with that `version_id`.'
+      )
       consumes 'application/json'
       produces 'application/json'
       description <<~DESC

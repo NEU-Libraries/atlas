@@ -46,6 +46,12 @@ RSpec.describe 'Compilations', type: :request, default_auth: false do
   path '/compilations' do
     get 'List compilations (owner- or grant-scoped)' do
       tags 'Compilations'
+      response_texts(
+        '200' => 'One page of Compilations, ordered by title: the caller\'s own, another owner\'s, or those granted to ' \
+                 'the caller, as `owner` and `scope` select.',
+        '400' => '`scope` is neither `editable` nor `shared`.',
+        '403' => 'A non-admin caller names another user in `owner`.'
+      )
       produces 'application/json'
       paginated
       description <<~D
@@ -201,6 +207,11 @@ RSpec.describe 'Compilations', type: :request, default_auth: false do
 
     post 'Create a compilation' do
       tags 'Compilations'
+      response_texts(
+        '201' => 'The new Compilation, owned by the caller.',
+        '403' => 'The caller may not create a Compilation: a guest, the system token or a read-only token.',
+        '422' => 'The body has no `title`.'
+      )
       consumes 'application/json'
       produces 'application/json'
       description 'Creates a personal Set owned by the acting user (depositor is stamped ' \
@@ -267,6 +278,11 @@ RSpec.describe 'Compilations', type: :request, default_auth: false do
 
     get 'Fetch a compilation' do
       tags 'Compilations'
+      response_texts(
+        '200' => 'The Compilation.',
+        '403' => 'The caller may not read this Compilation, as when a guest asks for a private one.',
+        '404' => 'No Compilation has that NOID.'
+      )
       produces 'application/json'
       description 'Per-row visibility: owner, explicit read/edit grants, or public. ' \
                   'Public Sets are readable by unauthenticated (guest) callers — the CERES case.'
@@ -310,6 +326,10 @@ RSpec.describe 'Compilations', type: :request, default_auth: false do
 
     patch 'Update a compilation' do
       tags 'Compilations'
+      response_texts(
+        '200' => 'The updated Compilation.',
+        '403' => 'The caller neither owns the Compilation nor holds an edit grant on it.'
+      )
       consumes 'application/json'
       produces 'application/json'
       description <<~D
@@ -387,6 +407,11 @@ RSpec.describe 'Compilations', type: :request, default_auth: false do
 
     delete 'Destroy a compilation' do
       tags 'Compilations'
+      response_texts(
+        '204' => 'The Compilation is destroyed.',
+        '403' => 'The caller neither owns the Compilation nor holds an edit grant on it.',
+        '404' => 'No Compilation has that NOID.'
+      )
       description 'Owner (or edit-grantee / admin) only. Join rows cascade.'
 
       response '204', 'compilation destroyed' do
@@ -432,6 +457,11 @@ RSpec.describe 'Compilations', type: :request, default_auth: false do
 
       post 'Include a Collection (transitive)' do
         tags 'Compilations'
+        response_texts(
+          '200' => 'The updated Compilation; including a Collection already included changes nothing.',
+          '403' => 'The caller may not edit this Compilation.',
+          '422' => '`collection_id` does not name a Collection, such as when it names a Community.'
+        )
         consumes 'application/json'
         produces 'application/json'
         description 'Adds an include-collection recipe line. The noid must resolve to a ' \
@@ -487,6 +517,9 @@ RSpec.describe 'Compilations', type: :request, default_auth: false do
 
       delete 'Remove an included Collection' do
         tags 'Compilations'
+        response_texts(
+          '200' => 'The updated Compilation; removing a Collection that was not included changes nothing.'
+        )
         produces 'application/json'
         description 'Idempotent: removing an absent inclusion is a 200 no-op.'
 
@@ -513,6 +546,11 @@ RSpec.describe 'Compilations', type: :request, default_auth: false do
 
       post 'Include a Work individually' do
         tags 'Compilations'
+        response_texts(
+          '200' => 'The updated Compilation.',
+          '403' => 'The caller may not edit this Compilation, as when a guest tries to change a public one.',
+          '422' => '`work_id` does not name a Work, such as when it names a Collection.'
+        )
         consumes 'application/json'
         produces 'application/json'
         description 'Adds an include-work recipe line. The noid must resolve to a Work. Idempotent.'
@@ -555,6 +593,9 @@ RSpec.describe 'Compilations', type: :request, default_auth: false do
 
       delete 'Remove an included Work' do
         tags 'Compilations'
+        response_texts(
+          '200' => 'The updated Compilation; removing a Work that was not included changes nothing.'
+        )
         produces 'application/json'
         description 'Idempotent: removing an absent inclusion is a 200 no-op.'
 
@@ -576,6 +617,9 @@ RSpec.describe 'Compilations', type: :request, default_auth: false do
 
       post 'Set a Work aside' do
         tags 'Compilations'
+        response_texts(
+          '200' => 'The updated Compilation, with the Work set aside.'
+        )
         consumes 'application/json'
         produces 'application/json'
         description 'Adds a set-aside recipe line: the Work is subtracted from the resolved ' \
@@ -605,6 +649,9 @@ RSpec.describe 'Compilations', type: :request, default_auth: false do
 
       delete 'Clear a set-aside' do
         tags 'Compilations'
+        response_texts(
+          '200' => 'The updated Compilation; clearing a set-aside that was absent changes nothing.'
+        )
         produces 'application/json'
         description 'Idempotent: clearing an absent set-aside is a 200 no-op.'
 
@@ -626,6 +673,10 @@ RSpec.describe 'Compilations', type: :request, default_auth: false do
 
       post 'Publish the Set to OAI-PMH' do
         tags 'Compilations'
+        response_texts(
+          '200' => 'The Compilation, now published.',
+          '403' => 'The caller is not an admin, even if they own the Compilation.'
+        )
         produces 'application/json'
         description <<~D
           Makes the Set an OAI-PMH set: `GET /oai?verb=ListSets` lists it, and any
@@ -659,6 +710,9 @@ RSpec.describe 'Compilations', type: :request, default_auth: false do
 
       delete 'Remove the Set from OAI-PMH' do
         tags 'Compilations'
+        response_texts(
+          '200' => 'The Compilation, no longer published.'
+        )
         produces 'application/json'
         description 'Clears the flag; ListSets stops advertising it. Admin-only. ' \
                     'Harvesters that already copied the Set are NOT told — OAI ' \
@@ -795,6 +849,11 @@ RSpec.describe 'Compilations', type: :request, default_auth: false do
 
       get 'Resolve a compilation into its current contents' do
         tags 'Compilations'
+        response_texts(
+          '200' => 'One page of the Works the Compilation resolves to, limited to those the caller may read.',
+          '403' => 'The caller may not read this Compilation, as when a guest asks for a private one.',
+          '404' => 'No Compilation has that NOID.'
+        )
         produces 'application/json'
         description <<~D
           Resolves the recipe against the live index: works beneath any

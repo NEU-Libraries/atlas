@@ -14,6 +14,11 @@ RSpec.describe 'Delegates', type: :request do
 
     get 'Retrieve a Delegate' do
       tags 'Delegates'
+      response_texts(
+        '200' => 'The Delegate.',
+        '410' => 'The Delegate or the Work it belongs to is tombstoned. An admin or delegated admin gets the full ' \
+                 'Delegate, everyone else the `Tombstoned` error.'
+      )
       produces 'application/json'
       description <<~DESC
         Returns a binary-less Delegate resource — carries the same

@@ -22,6 +22,9 @@ RSpec.describe 'User accounts', type: :request do
   path '/users/by_nuid/{nuid}/accounts' do
     get 'List the accounts sharing a NUID' do
       tags 'User'
+      response_texts(
+        '200' => 'Every account sharing the NUID.'
+      )
       no_not_found
       produces 'application/json'
       description <<~D
@@ -50,6 +53,10 @@ RSpec.describe 'User accounts', type: :request do
   path '/users/by_nuid/{nuid}/preferred_account' do
     put 'Set the preferred (default) account for a NUID' do
       tags 'User'
+      response_texts(
+        '200' => 'The account, now preferred.',
+        '404' => 'The `email` is not one of this NUID\'s accounts.'
+      )
       consumes 'application/json'
       produces 'application/json'
       description <<~D

@@ -4189,7 +4189,7 @@ paths:
           is null. A page below 1 is page 1, and a page past the end is empty.
       responses:
         '200':
-          description: files listed
+          description: One page of Blobs.
           content:
             application/json:
               schema:
@@ -4313,7 +4313,8 @@ paths:
               - binary
       responses:
         '200':
-          description: idempotent replay returns existing blob
+          description: The new Blob, or the Blob an earlier request with the same
+            `Idempotency-Key` created.
           content:
             application/json:
               schema:
@@ -4340,13 +4341,14 @@ paths:
                   tombstoned_resource_id:
                   tombstoned_resource_type:
         '422':
-          description: verify-on-ingest rejects a digest mismatch (nothing persisted)
+          description: The `expected_digest` does not match the uploaded bytes; nothing
+            is stored.
           content:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Error"
         '410':
-          description: idempotent replay on a tombstoned blob
+          description: The `Idempotency-Key` replays a request whose Blob is now tombstoned.
           content:
             application/json:
               schema:
@@ -4376,7 +4378,7 @@ paths:
         record, and everyone else gets the `Tombstoned` body.
       responses:
         '200':
-          description: file found
+          description: The Blob's metadata.
           content:
             application/json:
               schema:
@@ -4403,8 +4405,8 @@ paths:
                   tombstoned_resource_id:
                   tombstoned_resource_type:
         '410':
-          description: 'tombstoned: the Blob to admins and delegated admins, Tombstoned
-            to everyone else'
+          description: The Blob or its FileSet is tombstoned. An admin or delegated
+            admin gets the full Blob; everyone else gets the `Tombstoned` body.
           content:
             application/json:
               schema:
@@ -4479,7 +4481,7 @@ paths:
               - binary
       responses:
         '200':
-          description: revision appended
+          description: The Blob, with the new revision as its current content.
           content:
             application/json:
               schema:
@@ -4507,7 +4509,7 @@ paths:
                   tombstoned_resource_id:
                   tombstoned_resource_type:
         '404':
-          description: file not found
+          description: No Blob has that NOID.
         '401':
           "$ref": "#/components/responses/Unauthorized"
         '403':
@@ -4526,7 +4528,7 @@ paths:
         Admin only.
       responses:
         '204':
-          description: file destroyed
+          description: The Blob is destroyed.
         '401':
           "$ref": "#/components/responses/Unauthorized"
         '403':
@@ -4577,29 +4579,31 @@ paths:
           type: string
       responses:
         '200':
-          description: content streamed (whole body)
+          description: The whole file's bytes.
           content:
             application/octet-stream:
               schema:
                 type: string
                 format: binary
         '206':
-          description: partial content (byte range)
+          description: The bytes in the requested `Range`, with `Content-Range`.
           content:
             application/octet-stream:
               schema:
                 type: string
                 format: binary
         '416':
-          description: range not satisfiable
+          description: The `Range` lies outside the file.
         '410':
-          description: content withheld by a tombstoned Work
+          description: The Blob, its FileSet or its Work is tombstoned, so the bytes
+            are withheld; the `Tombstoned` body names the tombstoned resource.
           content:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Tombstoned"
         '403':
-          description: content withheld by an embargo or a tier reservation
+          description: The Work is under embargo, or the file's tier is reserved to
+            groups the caller is not in.
           content:
             application/json:
               schema:
@@ -4631,7 +4635,7 @@ paths:
         an orphan blob with no FileSet parent).
       responses:
         '200':
-          description: ancestry resolved
+          description: The NOIDs of the Blob's parent FileSet and containing Work.
           content:
             application/json:
               schema:
@@ -4642,7 +4646,7 @@ paths:
                 file_set_tombstoned: false
                 work_tombstoned: false
         '404':
-          description: unknown blob
+          description: No Blob has that NOID.
         '401':
           "$ref": "#/components/responses/Unauthorized"
         '403':
@@ -4679,7 +4683,7 @@ paths:
         `403`.
       responses:
         '200':
-          description: versions listed (newest first)
+          description: The Blob's retained versions, newest first.
           content:
             application/json:
               schema:
@@ -4697,7 +4701,7 @@ paths:
                   size: 102400
                   original_filename: example.bin
         '404':
-          description: unknown blob
+          description: No Blob has that NOID.
         '401':
           "$ref": "#/components/responses/Unauthorized"
         '403':
@@ -4730,7 +4734,8 @@ paths:
       parameters: []
       responses:
         '200':
-          description: empty id list returns an empty array
+          description: One version history for each id that names a Blob, in no particular
+            order; an empty list for no ids.
           content:
             application/json:
               schema:
@@ -4803,16 +4808,17 @@ paths:
         withhold the current one.
       responses:
         '200':
-          description: version content streamed
+          description: The bytes of that version.
           content:
             application/octet-stream:
               schema:
                 type: string
                 format: binary
         '404':
-          description: unknown version
+          description: The Blob has no version with that label.
         '403':
-          description: version content withheld by an embargo or a tier reservation
+          description: The Work is under embargo, or the file's tier is reserved to
+            groups the caller is not in.
           content:
             application/json:
               schema:
@@ -4840,7 +4846,7 @@ paths:
       parameters: []
       responses:
         '200':
-          description: rolled back (new revision appended)
+          description: The Blob, with the reinstated bytes as a new current revision.
           content:
             application/json:
               schema:
@@ -4868,7 +4874,7 @@ paths:
                   tombstoned_resource_id:
                   tombstoned_resource_type:
         '404':
-          description: unknown version
+          description: The Blob has no version with that `version_id`.
         '401':
           "$ref": "#/components/responses/Unauthorized"
         '403':
@@ -4905,7 +4911,7 @@ paths:
           is null. A page below 1 is page 1, and a page past the end is empty.
       responses:
         '200':
-          description: collections listed
+          description: One page of Collections.
           content:
             application/json:
               schema:
@@ -4999,7 +5005,7 @@ paths:
       parameters: []
       responses:
         '200':
-          description: create with explicit depositor stamps the resource
+          description: The new Collection.
           content:
             application/json:
               schema:
@@ -5033,15 +5039,15 @@ paths:
                   featured: false
                   personal_root: false
         '403':
-          description: caller holds no edit rights on the parent
+          description: The caller holds no edit rights on the parent.
           content:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Error"
         '404':
-          description: parent_id missing or unresolvable
+          description: The `parent_id` is missing or names nothing.
         '422':
-          description: the parent is tombstoned
+          description: The parent is tombstoned.
           content:
             application/json:
               schema:
@@ -5087,7 +5093,7 @@ paths:
         a stub that names the Collection as purged, to every caller.
       responses:
         '200':
-          description: collection found
+          description: The Collection.
           content:
             application/json:
               schema:
@@ -5121,8 +5127,9 @@ paths:
                   featured: false
                   personal_root: false
         '410':
-          description: 'tombstoned: the Collection to admins and delegated admins,
-            CollectionTombstone to everyone else; purged: CollectionPurged to everyone'
+          description: The Collection is tombstoned or purged. For a tombstoned Collection
+            an admin or delegated admin gets the full record and everyone else a stub;
+            a purged one answers everyone with a stub that says so.
           content:
             application/json:
               schema:
@@ -5159,14 +5166,14 @@ paths:
         to everyone but admins and delegated admins.
       responses:
         '410':
-          description: withheld by a tombstone from everyone but admins and delegated
-            admins
+          description: The Collection is tombstoned; its metadata is withheld from
+            everyone but admins and delegated admins.
           content:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Tombstoned"
         '200':
-          description: mods returned
+          description: The Collection's descriptive metadata, in the format requested.
           content:
             application/json:
               schema:
@@ -5328,7 +5335,7 @@ paths:
       parameters: []
       responses:
         '200':
-          description: flag set
+          description: The Collection, with its new `featured` value.
           content:
             application/json:
               schema:
@@ -5362,7 +5369,7 @@ paths:
                   featured: true
                   personal_root: false
         '404':
-          description: unknown id
+          description: No Collection has that NOID.
         '401':
           "$ref": "#/components/responses/Unauthorized"
         '403':
@@ -5398,7 +5405,7 @@ paths:
         full record, and everyone else gets a stub.
       responses:
         '200':
-          description: children listed
+          description: The NOIDs of the Collection's direct children.
           content:
             application/json:
               schema:
@@ -5407,8 +5414,8 @@ paths:
                   type: string
               example: []
         '410':
-          description: 'tombstoned: the Collection to admins and delegated admins,
-            CollectionTombstone to everyone else'
+          description: The Collection is tombstoned. An admin or delegated admin gets
+            the full Collection record; everyone else gets a stub.
           content:
             application/json:
               schema:
@@ -5442,7 +5449,7 @@ paths:
           is null. A page below 1 is page 1, and a page past the end is empty.
       responses:
         '200':
-          description: communities listed
+          description: One page of Communities.
           content:
             application/json:
               schema:
@@ -5534,7 +5541,7 @@ paths:
       parameters: []
       responses:
         '200':
-          description: create with explicit depositor stamps the resource
+          description: The new Community.
           content:
             application/json:
               schema:
@@ -5562,15 +5569,15 @@ paths:
                   proxy_uploader: '000000004'
                   system_container: false
         '403':
-          description: caller holds no edit rights on the parent Community
+          description: The caller may not create a Community inside that parent.
           content:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Error"
         '404':
-          description: parent_id given but unresolvable
+          description: The `parent_id` names nothing.
         '422':
-          description: the parent Community is tombstoned
+          description: The parent Community is tombstoned.
           content:
             application/json:
               schema:
@@ -5610,7 +5617,7 @@ paths:
         a stub that names the Community as purged, to every caller.
       responses:
         '200':
-          description: community found
+          description: The Community.
           content:
             application/json:
               schema:
@@ -5638,8 +5645,8 @@ paths:
                   proxy_uploader:
                   system_container: false
         '410':
-          description: 'tombstoned: the Community to admins and delegated admins,
-            CommunityTombstone to everyone else; purged: CommunityPurged to everyone'
+          description: The Community is tombstoned or purged. An admin or delegated
+            admin gets the full record, everyone else a stub.
           content:
             application/json:
               schema:
@@ -5676,14 +5683,15 @@ paths:
         to everyone but admins and delegated admins.
       responses:
         '410':
-          description: withheld by a tombstone from everyone but admins and delegated
-            admins
+          description: The Community is tombstoned, so its metadata is withheld from
+            everyone but admins and delegated admins.
           content:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Tombstoned"
         '200':
-          description: mods returned
+          description: 'The Community''s descriptive metadata: the JSON access copy
+            by default, MODS XML with `.xml`.'
           content:
             application/json:
               schema:
@@ -5844,7 +5852,7 @@ paths:
         full record, and everyone else gets a stub.
       responses:
         '200':
-          description: children listed
+          description: The NOIDs of the Community's direct children.
           content:
             application/json:
               schema:
@@ -5853,8 +5861,8 @@ paths:
                   type: string
               example: []
         '410':
-          description: 'tombstoned: the Community to admins and delegated admins,
-            CommunityTombstone to everyone else'
+          description: The Community is tombstoned. An admin or delegated admin gets
+            the full record, everyone else a stub.
           content:
             application/json:
               schema:
@@ -5923,7 +5931,9 @@ paths:
         block describes the filtered, ordered result.
       responses:
         '200':
-          description: editable-by-me listing (edit grants, owned excluded)
+          description: 'One page of Compilations, ordered by title: the caller''s
+            own, another owner''s, or those granted to the caller, as `owner` and
+            `scope` select.'
           content:
             application/json:
               schema:
@@ -6000,13 +6010,13 @@ paths:
                   series:
                   - '1'
         '400':
-          description: unknown scope value
+          description: "`scope` is neither `editable` nor `shared`."
           content:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Error"
         '403':
-          description: cross-owner listing as a non-admin
+          description: A non-admin caller names another user in `owner`.
           content:
             application/json:
               schema:
@@ -6023,7 +6033,7 @@ paths:
       parameters: []
       responses:
         '201':
-          description: compilation created
+          description: The new Compilation, owned by the caller.
           content:
             application/json:
               schema:
@@ -6044,13 +6054,14 @@ paths:
                   created_at: '2026-01-15T12:00:00Z'
                   updated_at: '2026-01-15T12:00:00Z'
         '403':
-          description: guest cannot create
+          description: 'The caller may not create a Compilation: a guest, the system
+            token or a read-only token.'
           content:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Error"
         '422':
-          description: missing title
+          description: The body has no `title`.
           content:
             application/json:
               schema:
@@ -6086,7 +6097,7 @@ paths:
         Public Sets are readable by unauthenticated (guest) callers — the CERES case.'
       responses:
         '200':
-          description: guest reads a public set
+          description: The Compilation.
           content:
             application/json:
               schema:
@@ -6107,13 +6118,14 @@ paths:
                   created_at: '2026-01-15T12:00:00Z'
                   updated_at: '2026-01-15T12:00:00Z'
         '403':
-          description: guest cannot read a private set
+          description: The caller may not read this Compilation, as when a guest asks
+            for a private one.
           content:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Error"
         '404':
-          description: unknown noid
+          description: No Compilation has that NOID.
         '401':
           "$ref": "#/components/responses/Unauthorized"
       operationId: compilations_show
@@ -6129,7 +6141,7 @@ paths:
       parameters: []
       responses:
         '200':
-          description: edit_users grant lets a non-owner update
+          description: The updated Compilation.
           content:
             application/json:
               schema:
@@ -6151,7 +6163,8 @@ paths:
                   created_at: '2026-01-15T12:00:00Z'
                   updated_at: '2026-01-15T12:00:00Z'
         '403':
-          description: non-owner without a grant
+          description: The caller neither owns the Compilation nor holds an edit grant
+            on it.
           content:
             application/json:
               schema:
@@ -6193,15 +6206,16 @@ paths:
       description: Owner (or edit-grantee / admin) only. Join rows cascade.
       responses:
         '204':
-          description: compilation destroyed
+          description: The Compilation is destroyed.
         '403':
-          description: non-owner cannot destroy
+          description: The caller neither owns the Compilation nor holds an edit grant
+            on it.
           content:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Error"
         '404':
-          description: unknown noid
+          description: No Compilation has that NOID.
         '401':
           "$ref": "#/components/responses/Unauthorized"
       operationId: compilations_destroy
@@ -6223,7 +6237,8 @@ paths:
       parameters: []
       responses:
         '200':
-          description: collection included (idempotent)
+          description: The updated Compilation; including a Collection already included
+            changes nothing.
           content:
             application/json:
               schema:
@@ -6245,13 +6260,14 @@ paths:
                   created_at: '2026-01-15T12:00:00Z'
                   updated_at: '2026-01-15T12:00:00Z'
         '422':
-          description: community noid rejected (no top-node includes)
+          description: "`collection_id` does not name a Collection, such as when it
+            names a Community."
           content:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Error"
         '403':
-          description: non-owner cannot mutate the recipe
+          description: The caller may not edit this Compilation.
           content:
             application/json:
               schema:
@@ -6293,7 +6309,8 @@ paths:
       description: 'Idempotent: removing an absent inclusion is a 200 no-op.'
       responses:
         '200':
-          description: inclusion removed (or was already absent)
+          description: The updated Compilation; removing a Collection that was not
+            included changes nothing.
           content:
             application/json:
               schema:
@@ -6337,7 +6354,7 @@ paths:
       parameters: []
       responses:
         '200':
-          description: work included
+          description: The updated Compilation.
           content:
             application/json:
               schema:
@@ -6359,13 +6376,14 @@ paths:
                   created_at: '2026-01-15T12:00:00Z'
                   updated_at: '2026-01-15T12:00:00Z'
         '422':
-          description: collection noid rejected where a Work is expected
+          description: "`work_id` does not name a Work, such as when it names a Collection."
           content:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Error"
         '403':
-          description: guest cannot mutate the recipe
+          description: The caller may not edit this Compilation, as when a guest tries
+            to change a public one.
           content:
             application/json:
               schema:
@@ -6407,7 +6425,8 @@ paths:
       description: 'Idempotent: removing an absent inclusion is a 200 no-op.'
       responses:
         '200':
-          description: inclusion removed
+          description: The updated Compilation; removing a Work that was not included
+            changes nothing.
           content:
             application/json:
               schema:
@@ -6451,7 +6470,7 @@ paths:
       parameters: []
       responses:
         '200':
-          description: work set aside
+          description: The updated Compilation, with the Work set aside.
           content:
             application/json:
               schema:
@@ -6511,7 +6530,8 @@ paths:
       description: 'Idempotent: clearing an absent set-aside is a 200 no-op.'
       responses:
         '200':
-          description: set-aside cleared
+          description: The updated Compilation; clearing a set-aside that was absent
+            changes nothing.
           content:
             application/json:
               schema:
@@ -6560,7 +6580,7 @@ paths:
         because a Work entering or leaving the feed is a curatorial act.
       responses:
         '200':
-          description: set published
+          description: The Compilation, now published.
           content:
             application/json:
               schema:
@@ -6581,7 +6601,7 @@ paths:
                   created_at: '2026-01-15T12:00:00Z'
                   updated_at: '2026-01-15T12:00:00Z'
         '403':
-          description: owner without admin is refused
+          description: The caller is not an admin, even if they own the Compilation.
           content:
             application/json:
               schema:
@@ -6600,7 +6620,7 @@ paths:
         this removes the set, not its Works.
       responses:
         '200':
-          description: set removed
+          description: The Compilation, no longer published.
           content:
             application/json:
               schema:
@@ -6669,7 +6689,8 @@ paths:
           gives the default.
       responses:
         '200':
-          description: pagination envelope (Solr-side start/rows)
+          description: One page of the Works the Compilation resolves to, limited
+            to those the caller may read.
           content:
             application/json:
               schema:
@@ -6707,13 +6728,14 @@ paths:
                   per_page: 25
                   pages: 1
         '403':
-          description: guest cannot resolve a private set
+          description: The caller may not read this Compilation, as when a guest asks
+            for a private one.
           content:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Error"
         '404':
-          description: unknown noid
+          description: No Compilation has that NOID.
         '401':
           "$ref": "#/components/responses/Unauthorized"
       operationId: compilations_contents
@@ -6746,14 +6768,15 @@ paths:
         `metadata_formats` says whether to call this.
       responses:
         '410':
-          description: withheld by a tombstone from everyone but admins and delegated
-            admins
+          description: The Work is tombstoned, and its content is withheld from everyone
+            but admins and delegated admins.
           content:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Tombstoned"
         '200':
-          description: darwin core returned
+          description: The Work's Darwin Core record, as JSON, the stored XML or an
+            HTML display block.
           content:
             application/json:
               schema:
@@ -6791,7 +6814,8 @@ paths:
               schema:
                 "$ref": "#/components/schemas/WorkDarwinCore"
         '404':
-          description: the work holds no record, or the id is not a work
+          description: The Work holds no Darwin Core record, its record is tombstoned,
+            or the NOID is not a Work.
         '401':
           "$ref": "#/components/responses/Unauthorized"
         '403':
@@ -6846,7 +6870,7 @@ paths:
                     looks like.
       responses:
         '200':
-          description: darwin core replaced
+          description: The Work's new Darwin Core record.
           content:
             application/json:
               schema:
@@ -6878,9 +6902,10 @@ paths:
                     eventDate: '2026-01-15'
                     scientificName: Perognathus inornatus inornatus
         '404':
-          description: unknown id, or not a work
+          description: No Work has that NOID.
         '422':
-          description: the document breaks a shape rule
+          description: The document breaks a shape rule, named in `error`, or no `binary`
+            was sent.
           content:
             application/json:
               schema:
@@ -6902,9 +6927,10 @@ paths:
         NOID that is not a Work. Gated by `:update` on the Work.
       responses:
         '204':
-          description: record tombstoned
+          description: The Darwin Core record is tombstoned.
         '404':
-          description: nothing to tombstone
+          description: The Work holds no Darwin Core record, or the NOID is not a
+            Work.
         '401':
           "$ref": "#/components/responses/Unauthorized"
         '403':
@@ -6931,7 +6957,7 @@ paths:
         `404`.
       responses:
         '200':
-          description: versions listed (newest first)
+          description: The Work's Darwin Core versions, newest first.
           content:
             application/json:
               schema:
@@ -6976,16 +7002,16 @@ paths:
         Unknown version, or no record ever written, answers 404.
       responses:
         '410':
-          description: withheld by a tombstone from everyone but admins and delegated
-            admins
+          description: The Work is tombstoned, and its content is withheld from everyone
+            but admins and delegated admins.
           content:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Tombstoned"
         '200':
-          description: historical darwin core returned
+          description: The stored Darwin Core XML as of that version.
         '404':
-          description: unknown version
+          description: The Work has no such Darwin Core version.
         '401':
           "$ref": "#/components/responses/Unauthorized"
         '403':
@@ -7010,7 +7036,7 @@ paths:
         (an IIIF URL for image roles).
       responses:
         '200':
-          description: delegate found
+          description: The Delegate.
           content:
             application/json:
               schema:
@@ -7030,8 +7056,9 @@ paths:
                   tombstoned_by:
                   updated_at: '2026-01-15T12:00:00Z'
         '410':
-          description: 'tombstoned: the Delegate to admins and delegated admins, Tombstoned
-            to everyone else'
+          description: The Delegate or the Work it belongs to is tombstoned. An admin
+            or delegated admin gets the full Delegate, everyone else the `Tombstoned`
+            error.
           content:
             application/json:
               schema:
@@ -7065,7 +7092,7 @@ paths:
           is null. A page below 1 is page 1, and a page past the end is empty.
       responses:
         '200':
-          description: file sets listed
+          description: One page of FileSets.
           content:
             application/json:
               schema:
@@ -7185,7 +7212,8 @@ paths:
           type: string
       responses:
         '200':
-          description: idempotent replay returns existing file set
+          description: The new FileSet, or the FileSet an earlier request with the
+            same `Idempotency-Key` created.
           content:
             application/json:
               schema:
@@ -7201,7 +7229,8 @@ paths:
                   tombstone_reason:
                   updated_at: '2026-01-15T12:00:00Z'
         '410':
-          description: idempotent replay on a tombstoned file set
+          description: The `Idempotency-Key` replays a request whose FileSet is now
+            tombstoned.
           content:
             application/json:
               schema:
@@ -7250,7 +7279,7 @@ paths:
         full record, and everyone else gets the `Tombstoned` body.
       responses:
         '200':
-          description: file set found
+          description: The FileSet.
           content:
             application/json:
               schema:
@@ -7266,8 +7295,8 @@ paths:
                   tombstone_reason:
                   updated_at: '2026-01-15T12:00:00Z'
         '410':
-          description: 'tombstoned: the FileSet to admins and delegated admins, Tombstoned
-            to everyone else'
+          description: The FileSet is tombstoned. An admin or delegated admin gets
+            the full FileSet; everyone else gets the `Tombstoned` body.
           content:
             application/json:
               schema:
@@ -7326,7 +7355,8 @@ paths:
               - binary
       responses:
         '200':
-          description: idempotent replay does not recopy bytes
+          description: The FileSet with its attached Blob. A repeat with the same
+            `Idempotency-Key` returns it without copying the bytes again.
           content:
             application/json:
               schema:
@@ -7342,13 +7372,13 @@ paths:
                   tombstone_reason:
                   updated_at: '2026-01-15T12:00:00Z'
         '422':
-          description: verify-on-ingest rejects a digest mismatch
+          description: The `expected_digest` does not match the uploaded bytes.
           content:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Error"
         '404':
-          description: file set not found
+          description: No FileSet has that NOID.
         '401':
           "$ref": "#/components/responses/Unauthorized"
         '403':
@@ -7367,7 +7397,7 @@ paths:
         Admin only.
       responses:
         '204':
-          description: file set destroyed
+          description: The FileSet is destroyed.
         '401':
           "$ref": "#/components/responses/Unauthorized"
         '403':
@@ -7402,7 +7432,8 @@ paths:
       parameters: []
       responses:
         '200':
-          description: re-PATCHing upserts in place — one Delegate, latest URI
+          description: The FileSet. A repeat request replaces the stored URI rather
+            than adding a second one.
           content:
             application/json:
               schema:
@@ -7418,9 +7449,10 @@ paths:
                   tombstone_reason:
                   updated_at: '2026-01-15T12:00:00Z'
         '404':
-          description: unknown file set
+          description: No FileSet has that NOID.
         '409':
-          description: optimistic-lock conflict survived the internal retry budget
+          description: Concurrent writes to the FileSet kept conflicting after Atlas
+            retried; the request can be sent again.
           content:
             application/json:
               schema:
@@ -7456,14 +7488,14 @@ paths:
       description: Returns the JSON projection of the FileSet structural (METS) metadata.
       responses:
         '410':
-          description: withheld by a tombstone from everyone but admins and delegated
-            admins
+          description: The FileSet is tombstoned; its metadata is withheld from everyone
+            but admins and delegated admins.
           content:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Tombstoned"
         '200':
-          description: mets returned
+          description: The FileSet's METS metadata as JSON.
           content:
             application/json:
               schema:
@@ -7507,7 +7539,8 @@ paths:
         has booted and touches no dependency.
       responses:
         '200':
-          description: every required dependency answers
+          description: 'Every required dependency answers; a cache outage alone reports
+            `status: "degraded"`.'
           content:
             application/json:
               schema:
@@ -7519,7 +7552,8 @@ paths:
                 storage: ok
                 cache: disabled
         '503':
-          description: a required dependency is unavailable
+          description: The database, the Solr index or the OCFL storage is unavailable;
+            the body names which.
           content:
             application/json:
               schema:
@@ -7539,7 +7573,7 @@ paths:
         `503` carrying `error: "read_only_mode"` and a `Retry-After` header.
       responses:
         '200':
-          description: window state
+          description: The state of the read-only window.
           content:
             application/json:
               schema:
@@ -7602,7 +7636,8 @@ paths:
           gives the default.
       responses:
         '200':
-          description: search by q, paginated over the matches
+          description: 'The Persons: one page of all of them, those matching `q`,
+            or, with `nuids`, every Person found for those NUIDs.'
           content:
             application/json:
               schema:
@@ -7696,7 +7731,7 @@ paths:
         '
       responses:
         '200':
-          description: person found
+          description: The Person.
           content:
             application/json:
               schema:
@@ -7712,7 +7747,7 @@ paths:
                   affiliated_community_ids: []
                   personal_root_id: d0000002x
         '404':
-          description: unknown noid
+          description: No Person has that NOID.
         '401':
           "$ref": "#/components/responses/Unauthorized"
         '403':
@@ -7733,7 +7768,7 @@ paths:
       parameters: []
       responses:
         '200':
-          description: a person edits their own profile
+          description: The updated Person.
           content:
             application/json:
               schema:
@@ -7749,19 +7784,21 @@ paths:
                   affiliated_community_ids: []
                   personal_root_id: d0000002x
         '403':
-          description: a person cannot edit someone else's profile
+          description: The caller may not edit this Person, as when one person edits
+            another's profile.
           content:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Error"
         '422':
-          description: an orcid that fails its checksum is refused
+          description: 'A field is invalid: `display_name` is blank, `bio` is too
+            long, or `orcid` is not a valid ORCID iD.'
           content:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Error"
         '404':
-          description: unknown noid
+          description: No Person has that NOID.
         '401':
           "$ref": "#/components/responses/Unauthorized"
       requestBody:
@@ -7808,7 +7845,8 @@ paths:
           type: string
       responses:
         '200':
-          description: a live container lists live and tombstoned children alike
+          description: The container's direct children, live and tombstoned, each
+            flagged with `tombstoned`.
           content:
             application/json:
               schema:
@@ -7827,7 +7865,7 @@ paths:
                 thumbnail:
                 tombstoned: true
         '404':
-          description: a Work, which is not a container
+          description: No Community or Collection has that NOID.
         '401':
           "$ref": "#/components/responses/Unauthorized"
         '403':
@@ -7854,7 +7892,7 @@ paths:
         /compilations/{id} instead.
       responses:
         '302':
-          description: redirect to typed resource
+          description: A redirect to the resource's typed endpoint, such as `/works/{id}`.
         '401':
           "$ref": "#/components/responses/Unauthorized"
         '403':
@@ -7888,15 +7926,16 @@ paths:
         Admin only.
       responses:
         '204':
-          description: resource purged
+          description: The resource is purged.
         '422':
-          description: top-level community
+          description: A Community, Collection or Work is still a member of the resource,
+            or the resource is a Community with no parent.
           content:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Error"
         '404':
-          description: unknown id
+          description: No resource has that NOID.
         '401':
           "$ref": "#/components/responses/Unauthorized"
         '403':
@@ -7928,7 +7967,7 @@ paths:
         there" is a dead link.
       responses:
         '200':
-          description: permissions returned
+          description: The resource's ACL envelope.
           content:
             application/json:
               schema:
@@ -7944,20 +7983,20 @@ paths:
                   - northeastern:drs:repository:staff
                   type: Work
         '410':
-          description: withheld by a tombstone from everyone but admins and delegated
-            admins
+          description: The resource is tombstoned, so its permissions are withheld
+            from everyone but admins and delegated admins.
           content:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Tombstoned"
         '403':
-          description: caller may not read the resource
+          description: The caller may not read the resource.
           content:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Error"
         '404':
-          description: unknown id
+          description: No resource has that NOID.
         '401':
           "$ref": "#/components/responses/Unauthorized"
       operationId: resources_permissions
@@ -7985,7 +8024,7 @@ paths:
       parameters: []
       responses:
         '200':
-          description: acl adjusted
+          description: The resource, in its own typed shape, with the adjusted ACL.
           content:
             application/json:
               schema:
@@ -8028,7 +8067,7 @@ paths:
                   incomplete_reason:
                   metadata_formats: []
         '404':
-          description: unknown id
+          description: No resource has that NOID.
         '401':
           "$ref": "#/components/responses/Unauthorized"
         '403':
@@ -8087,14 +8126,15 @@ paths:
         non-Modsable resource, or one with no MODS.
       responses:
         '410':
-          description: withheld by a tombstone from everyone but admins and delegated
-            admins
+          description: The resource is tombstoned, so its metadata is withheld from
+            everyone but admins and delegated admins.
           content:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Tombstoned"
         '200':
-          description: current mods returned
+          description: 'The resource''s descriptive metadata: the JSON access copy
+            by default, MODS XML with `.xml`.'
           content:
             application/json:
               schema:
@@ -8229,7 +8269,8 @@ paths:
                     use_and_reproduction_display_label:
                     restriction_on_access_display_label:
         '404':
-          description: unknown id / non-Modsable / no MODS
+          description: No resource has that NOID, its type holds no MODS, or it has
+            no MODS document.
         '401':
           "$ref": "#/components/responses/Unauthorized"
         '403':
@@ -8274,7 +8315,7 @@ paths:
                     looks like.
       responses:
         '200':
-          description: mods replaced
+          description: The resource, in its own typed shape, with its new MODS applied.
           content:
             application/json:
               schema:
@@ -8323,11 +8364,12 @@ paths:
                   incomplete_reason:
                   metadata_formats: []
         '404':
-          description: unknown id, or a type that holds no MODS
+          description: No resource has that NOID, or its type holds no MODS.
         '422':
-          description: no document attached
+          description: No `binary` file is attached.
         '409':
-          description: optimistic-lock conflict (surfaced immediately, not retried)
+          description: Another write changed the resource first. The conflict is not
+            retried.
           content:
             application/json:
               schema:
@@ -8366,7 +8408,7 @@ paths:
         `403`.
       responses:
         '200':
-          description: versions listed (newest first)
+          description: The resource's retained MODS versions, newest first.
           content:
             application/json:
               schema:
@@ -8411,16 +8453,17 @@ paths:
         is not version-recoverable. Unknown version or absent MODS → 404.
       responses:
         '410':
-          description: withheld by a tombstone from everyone but admins and delegated
-            admins
+          description: The resource is tombstoned, so its metadata is withheld from
+            everyone but admins and delegated admins.
           content:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Tombstoned"
         '200':
-          description: historical MODS XML returned
+          description: The MODS XML as it stood at that version.
         '404':
-          description: unknown version
+          description: No resource has that NOID, it has no MODS, or its MODS has
+            no version with that label.
         '401':
           "$ref": "#/components/responses/Unauthorized"
         '403':
@@ -8459,7 +8502,8 @@ paths:
       parameters: []
       responses:
         '200':
-          description: preview attached with its size and placeholder
+          description: The resource, in its own typed shape, with the thumbnail Delegates
+            and any preview size and placeholder attached.
           content:
             application/json:
               schema:
@@ -8502,14 +8546,15 @@ paths:
                   incomplete_reason:
                   metadata_formats: []
         '422':
-          description: preview size or placeholder malformed, or sent without the
-            preview
+          description: "`preview_width`, `preview_height` or `preview_placeholder`
+            is malformed, the width or height is sent without the other, or any of
+            them is sent without `preview`."
           content:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Error"
         '404':
-          description: unknown id
+          description: No resource has that NOID.
         '401':
           "$ref": "#/components/responses/Unauthorized"
         '403':
@@ -8574,7 +8619,7 @@ paths:
       parameters: []
       responses:
         '200':
-          description: resource moved
+          description: The moved resource, in its own typed shape, with its new ancestors.
           content:
             application/json:
               schema:
@@ -8617,9 +8662,10 @@ paths:
                   incomplete_reason:
                   metadata_formats: []
         '404':
-          description: unknown id
+          description: No resource has that NOID.
         '422':
-          description: no parent given
+          description: "`parent_id` is missing or names nothing, the resource is a
+            Community with no parent, or the move is otherwise structurally invalid."
           content:
             application/json:
               schema:
@@ -8681,7 +8727,7 @@ paths:
       parameters: []
       responses:
         '200':
-          description: resource tombstoned
+          description: The tombstoned resource, in its own typed shape.
           content:
             application/json:
               schema:
@@ -8725,13 +8771,15 @@ paths:
                   incomplete_reason:
                   metadata_formats: []
         '422':
-          description: reason is not a policy removal note
+          description: The resource still holds a live Community, Collection or Work,
+            is a Community with no parent, or `reason` is not one of the allowed removal
+            notes.
           content:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Error"
         '404':
-          description: unknown id
+          description: No resource has that NOID.
         '401':
           "$ref": "#/components/responses/Unauthorized"
         '403':
@@ -8779,7 +8827,7 @@ paths:
         `read_after`. A FileSet reads through its Work and is not narrowed.
       responses:
         '200':
-          description: resource restored
+          description: The restored resource, in its own typed shape.
           content:
             application/json:
               schema:
@@ -8822,13 +8870,13 @@ paths:
                   incomplete_reason:
                   metadata_formats: []
         '422':
-          description: parent is still tombstoned
+          description: The resource's parent is still tombstoned.
           content:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Error"
         '404':
-          description: unknown id
+          description: No resource has that NOID.
         '401':
           "$ref": "#/components/responses/Unauthorized"
         '403':
@@ -8857,7 +8905,7 @@ paths:
               - binary
       responses:
         '200':
-          description: preview rendered
+          description: The HTML preview rendered from the MODS XML.
         '401':
           "$ref": "#/components/responses/Unauthorized"
         '403':
@@ -8880,7 +8928,8 @@ paths:
       parameters: []
       responses:
         '200':
-          description: empty id list returns an empty array
+          description: A digest for each resolvable id, unordered, with tombstoned
+            resources flagged. An empty `ids` list gives an empty array.
           content:
             application/json:
               schema:
@@ -8971,7 +9020,8 @@ paths:
           type: boolean
       responses:
         '200':
-          description: descendant works (transitively flattened, gated, paginated)
+          description: One page of the Works beneath the resource that the caller
+            may read.
           content:
             application/json:
               schema:
@@ -8989,7 +9039,7 @@ paths:
                   per_page: 25
                   pages: 1
         '404':
-          description: unknown id
+          description: No resource has that NOID.
         '401':
           "$ref": "#/components/responses/Unauthorized"
         '403':
@@ -9053,7 +9103,8 @@ paths:
           gives the default.
       responses:
         '200':
-          description: narrowed to one type
+          description: One page of matching resources, most relevant first, narrowed
+            to one type when `type` is given.
           content:
             application/json:
               schema:
@@ -9078,7 +9129,7 @@ paths:
                   per_page: 25
                   pages: 1
         '400':
-          description: unknown type
+          description: "`type` is not a type the search returns."
           content:
             application/json:
               schema:
@@ -9107,7 +9158,7 @@ paths:
         description: The person's NUID.
       responses:
         '200':
-          description: accounts listed
+          description: Every account sharing the NUID.
           content:
             application/json:
               schema:
@@ -9152,7 +9203,7 @@ paths:
         description: The person's NUID.
       responses:
         '200':
-          description: preferred account set
+          description: The account, now preferred.
           content:
             application/json:
               schema:
@@ -9169,7 +9220,7 @@ paths:
                   affiliation: student
                   preferred: true
         '404':
-          description: email is not one of this NUID's accounts
+          description: The `email` is not one of this NUID's accounts.
         '401':
           "$ref": "#/components/responses/Unauthorized"
         '403':
@@ -9222,7 +9273,8 @@ paths:
           type: string
       responses:
         '200':
-          description: resolved directory entries (batch)
+          description: The matching directory entries, from a `q` search or a `nuids`
+            batch.
           content:
             application/json:
               schema:
@@ -9256,7 +9308,7 @@ paths:
         description: The person's NUID.
       responses:
         '200':
-          description: directory entry found
+          description: The directory entry for that NUID.
           content:
             application/json:
               schema:
@@ -9266,7 +9318,8 @@ paths:
                 name: Doe, Jane
                 display_name:
         '404':
-          description: unknown or excluded NUID
+          description: No directory entry has that NUID, or its role is excluded from
+            the directory.
         '401':
           "$ref": "#/components/responses/Unauthorized"
         '403':
@@ -9292,7 +9345,8 @@ paths:
           type: string
       responses:
         '200':
-          description: user returned
+          description: The account the token names, or the shared guest account when
+            there is no token.
           content:
             application/json:
               schema:
@@ -9356,7 +9410,8 @@ paths:
         Only an admin may call this; anyone else gets `403`.
       responses:
         '200':
-          description: the two filters combine — finished but degraded
+          description: One page of Works, narrowed by `in_progress` and `incomplete`
+            when either is given.
           content:
             application/json:
               schema:
@@ -9466,7 +9521,8 @@ paths:
           type: string
       responses:
         '200':
-          description: idempotent replay returns existing work
+          description: The new Work, or the Work an earlier request with the same
+            `Idempotency-Key` created.
           content:
             application/json:
               schema:
@@ -9509,21 +9565,23 @@ paths:
                   incomplete_reason:
                   metadata_formats: []
         '410':
-          description: idempotent replay on a tombstoned work
+          description: The `Idempotency-Key` replays a create whose Work has since
+            been tombstoned; the body is the tombstone payload that `GET /works/{id}`
+            returns.
           content:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Work"
         '403':
-          description: caller holds no edit rights on the parent Collection
+          description: The caller holds no edit rights on the parent Collection.
           content:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Error"
         '404':
-          description: collection_id missing or unresolvable
+          description: The `collection_id` is blank or names nothing.
         '422':
-          description: the parent Collection is tombstoned
+          description: The parent Collection is tombstoned.
           content:
             application/json:
               schema:
@@ -9566,7 +9624,8 @@ paths:
         stub that names the Work as purged, to every caller.
       responses:
         '200':
-          description: ancestors flag the People Community and the personal root
+          description: The Work, with its ancestors root-first, its depositor and
+            proxy uploader, and its thumbnails.
           content:
             application/json:
               schema:
@@ -9609,8 +9668,8 @@ paths:
                   incomplete_reason:
                   metadata_formats: []
         '410':
-          description: 'tombstoned: the Work to admins and delegated admins, WorkTombstone
-            to everyone else; purged: WorkPurged to everyone'
+          description: The Work is tombstoned or purged. An admin or delegated admin
+            gets the full record of a tombstoned Work, everyone else a stub.
           content:
             application/json:
               schema:
@@ -9652,7 +9711,8 @@ paths:
         a search link; which axes it links is its own policy.
       responses:
         '200':
-          description: mods returned
+          description: 'The Work''s descriptive metadata: the JSON access copy by
+            default, MODS XML with `.xml`, or the rendered display with `.html`.'
           content:
             application/json:
               schema:
@@ -9787,8 +9847,8 @@ paths:
                     use_and_reproduction_display_label:
                     restriction_on_access_display_label:
         '410':
-          description: withheld by a tombstone from everyone but admins and delegated
-            admins
+          description: The Work is tombstoned, so its metadata is withheld from everyone
+            but admins and delegated admins.
           content:
             application/json:
               schema:
@@ -9820,14 +9880,15 @@ paths:
         have never been completed.
       responses:
         '410':
-          description: withheld by a tombstone from everyone but admins and delegated
-            admins
+          description: The Work is tombstoned, so its METS is withheld from everyone
+            but admins and delegated admins.
           content:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Tombstoned"
         '200':
-          description: work mets returned
+          description: The Work's METS structural metadata, with its page order under
+            `mets.pages`.
           content:
             application/json:
               schema:
@@ -9845,7 +9906,7 @@ paths:
                     created_at_iso: '2026-01-15T12:00:00Z'
                     structure_label: work
         '404':
-          description: work never completed — no METS yet
+          description: The Work has never been completed, so it has no METS yet.
         '401':
           "$ref": "#/components/responses/Unauthorized"
         '403':
@@ -9879,13 +9940,16 @@ paths:
         delegated admins, as do `/file_sets` and `/file_revisions`.
       responses:
         '410':
-          description: work tombstoned
+          description: The Work is tombstoned, so its assets are withheld from everyone
+            but admins and delegated admins.
           content:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Tombstoned"
         '200':
-          description: the gate also surfaces on held Blob entries (original / pdf)
+          description: The Work's downloadable Blobs and Delegates, each with its
+            `kind` and its effective `gated` and `permission`; thumbnails are left
+            out.
           content:
             application/json:
               schema:
@@ -9938,7 +10002,8 @@ paths:
         `403`.
       responses:
         '200':
-          description: tombstoned assets listed
+          description: The assets of the Work's tombstoned FileSets, each with its
+            `file_set`, `tombstoned_at` and `tombstoned_by`.
           content:
             application/json:
               schema:
@@ -9961,7 +10026,7 @@ paths:
                 tombstoned_at: '2026-01-15T12:00:00Z'
                 tombstoned_by: '000000004'
         '404':
-          description: work not found
+          description: No Work has that NOID.
         '401':
           "$ref": "#/components/responses/Unauthorized"
         '403':
@@ -9992,7 +10057,8 @@ paths:
         A Work whose files were never replaced answers `[]`.
       responses:
         '200':
-          description: no file was ever replaced
+          description: The Work's replaced Blobs, each with its revisions newest first;
+            an empty array when no file was ever replaced.
           content:
             application/json:
               schema:
@@ -10005,7 +10071,7 @@ paths:
                 - revision: 1
                   created: '2026-01-15T12:00:00Z'
         '404':
-          description: work not found
+          description: No Work has that NOID.
         '401':
           "$ref": "#/components/responses/Unauthorized"
         '403':
@@ -10050,7 +10116,7 @@ paths:
         `403`.
       responses:
         '200':
-          description: health graded
+          description: The Work's health grade, its findings and its fixity summary.
           content:
             application/json:
               schema:
@@ -10086,7 +10152,7 @@ paths:
                   subject: d0000001x
                   message: deposit still open since 2026-01-15
         '404':
-          description: work not found
+          description: No Work has that NOID.
         '401':
           "$ref": "#/components/responses/Unauthorized"
         '403':
@@ -10114,7 +10180,8 @@ paths:
         assembly needs the whole sequence in one read.
       responses:
         '200':
-          description: assets stay grouped under their page
+          description: The Work's page FileSets in order, each with its downloadable
+            assets nested under it.
           content:
             application/json:
               schema:
@@ -10136,7 +10203,7 @@ paths:
                 tombstoned: false
                 assets: []
         '404':
-          description: work not found
+          description: No Work has that NOID.
         '401':
           "$ref": "#/components/responses/Unauthorized"
         '403':
@@ -10167,7 +10234,7 @@ paths:
       parameters: []
       responses:
         '200':
-          description: all three image-derivative keys land in one PATCH
+          description: The Work, with the given image-derivative Delegates stored.
           content:
             application/json:
               schema:
@@ -10210,7 +10277,8 @@ paths:
                   incomplete_reason:
                   metadata_formats: []
         '409':
-          description: optimistic-lock conflict survived the internal retry budget
+          description: The Work kept changing under concurrent writes until the internal
+            retries ran out.
           content:
             application/json:
               schema:
@@ -10276,7 +10344,7 @@ paths:
       parameters: []
       responses:
         '200':
-          description: accepts the per-classification tiers
+          description: The Work, with the stored policy under `derivative_permissions`.
           content:
             application/json:
               schema:
@@ -10323,14 +10391,15 @@ paths:
                   incomplete_reason:
                   metadata_formats: []
         '422':
-          description: an unknown tier key is rejected
+          description: The policy makes a tier more visible than the Work, widens
+            visibility as image resolution grows, or names an unknown tier.
           content:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Error"
         '409':
-          description: optimistic-lock conflict surfaces (permission edits are not
-            retried)
+          description: The Work changed under a concurrent write; permission edits
+            are not retried.
           content:
             application/json:
               schema:
@@ -10446,7 +10515,7 @@ paths:
       parameters: []
       responses:
         '200':
-          description: full text stored and projected to full_text_tesimv
+          description: The Work, without the stored text.
           content:
             application/json:
               schema:
@@ -10489,7 +10558,8 @@ paths:
                   incomplete_reason:
                   metadata_formats: []
         '409':
-          description: optimistic-lock conflict survived the internal retry budget
+          description: The Work kept changing under concurrent writes until the internal
+            retries ran out.
           content:
             application/json:
               schema:
@@ -10532,14 +10602,14 @@ paths:
         structural parent (that's `a_member_of`, surfaced via ancestors).
       responses:
         '410':
-          description: withheld by a tombstone from everyone but admins and delegated
-            admins
+          description: The Work is tombstoned, so its linked Collections are withheld
+            from everyone but admins and delegated admins.
           content:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Tombstoned"
         '200':
-          description: linked collections listed
+          description: The NOIDs of the Collections the Work is linked into.
           content:
             application/json:
               schema:
@@ -10573,7 +10643,7 @@ paths:
       parameters: []
       responses:
         '200':
-          description: work linked into the collection
+          description: The NOIDs of the Collections the Work is now linked into.
           content:
             application/json:
               schema:
@@ -10583,7 +10653,8 @@ paths:
               example:
               - d0000001x
         '422':
-          description: rejects a non-Collection target
+          description: The target is not a Collection, the Work or the target is tombstoned,
+            or the target is already the Work's structural home.
           content:
             application/json:
               schema:
@@ -10631,7 +10702,7 @@ paths:
         updated list of linked collection NOIDs. Permissions are never changed.
       responses:
         '200':
-          description: work unlinked from the collection
+          description: The NOIDs of the Collections the Work is still linked into.
           content:
             application/json:
               schema:
@@ -10676,14 +10747,15 @@ paths:
         Not part of the Work show payload — fetch it here when you need it.
       responses:
         '410':
-          description: withheld by a tombstone from everyone but admins and delegated
-            admins
+          description: The Work is tombstoned, so its associations are withheld from
+            everyone but admins and delegated admins.
           content:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Tombstoned"
         '200':
-          description: associations listed
+          description: The Work's associations, `outbound` and `inbound`, keyed by
+            predicate.
           content:
             application/json:
               schema:
@@ -10725,7 +10797,7 @@ paths:
       parameters: []
       responses:
         '200':
-          description: work associated
+          description: The Work's associations after the new one, `outbound` and `inbound`.
           content:
             application/json:
               schema:
@@ -10736,7 +10808,7 @@ paths:
                   - d0000001x
                 inbound: {}
         '422':
-          description: rejects an unknown relationship type
+          description: The `type` is not one of the five relationship predicates.
           content:
             application/json:
               schema:
@@ -10805,7 +10877,7 @@ paths:
         the updated associations from both ends.
       responses:
         '200':
-          description: association removed
+          description: The Work's remaining associations, `outbound` and `inbound`.
           content:
             application/json:
               schema:
@@ -10839,7 +10911,8 @@ paths:
         already-complete Work simply re-saves with in_progress: false.
       responses:
         '200':
-          description: completing builds the Work-level METS structMap
+          description: The Work, with `in_progress` false; its METS structMap is built
+            from its pages.
           content:
             application/json:
               schema:
@@ -10882,7 +10955,8 @@ paths:
                   incomplete_reason:
                   metadata_formats: []
         '409':
-          description: optimistic-lock conflict survived the internal retry budget
+          description: The Work kept changing under concurrent writes until the internal
+            retries ran out.
           content:
             application/json:
               schema:
@@ -10930,7 +11004,8 @@ paths:
       parameters: []
       responses:
         '200':
-          description: a body-less call still sets the flag, with a null reason
+          description: The Work, with `incomplete` true and `incomplete_reason` set
+            to the latest reason, or null when none was sent.
           content:
             application/json:
               schema:
@@ -10973,9 +11048,10 @@ paths:
                   incomplete_reason: pdf_rendition_gave_up
                   metadata_formats: []
         '404':
-          description: no such work
+          description: No Work has that NOID.
         '409':
-          description: optimistic-lock conflict survived the internal retry budget
+          description: The Work kept changing under concurrent writes until the internal
+            retries ran out.
           content:
             application/json:
               schema:
@@ -11006,7 +11082,7 @@ paths:
         Idempotent — clearing a Work that was never flagged is a no-op.
       responses:
         '200':
-          description: clearing a work that was never flagged is a no-op
+          description: The Work, with `incomplete` false and `incomplete_reason` null.
           content:
             application/json:
               schema:
@@ -11049,7 +11125,7 @@ paths:
                   incomplete_reason:
                   metadata_formats: []
         '404':
-          description: no such work
+          description: No Work has that NOID.
         '401':
           "$ref": "#/components/responses/Unauthorized"
         '403':

@@ -628,7 +628,7 @@ paths:
         description: Earliest release date to consider. Defaults to seven days ago.
       responses:
         '200':
-          description: lapsed embargoes recorded
+          description: The NOIDs of the Works that gained a release row.
           content:
             application/json:
               schema:
@@ -637,7 +637,7 @@ paths:
                 released:
                 - d0000001x
         '400':
-          description: since is not an ISO 8601 date
+          description: "`since` is not an ISO 8601 date."
           content:
             application/json:
               schema:
@@ -677,7 +677,7 @@ paths:
       parameters: []
       responses:
         '201':
-          description: check recorded
+          description: The recorded check.
           content:
             application/json:
               schema:
@@ -696,7 +696,7 @@ paths:
                   recorded_by: '000000098'
                   latest: true
         '200':
-          description: the same check posted again; nothing added
+          description: The check, which was already recorded; nothing is added.
           content:
             application/json:
               schema:
@@ -715,16 +715,16 @@ paths:
                   recorded_by: '000000098'
                   latest: true
         '422':
-          description: malformed, or names a version the object does not have; nothing
-            written
+          description: The check is malformed, names a version the object does not
+            have, or names a resource with no OCFL object; nothing is written.
           content:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Error"
         '404':
-          description: no resource holds the object
+          description: No resource holds the named OCFL object.
         '403':
-          description: not the fixity checker or an admin
+          description: The caller is neither the fixity checker nor an admin.
           content:
             application/json:
               schema:
@@ -837,7 +837,8 @@ paths:
         description: List only objects not checked since this time
       responses:
         '200':
-          description: objects due, never checked first
+          description: The objects due a check, never-checked ones first, then the
+            oldest check first.
           content:
             application/json:
               schema:
@@ -881,13 +882,13 @@ paths:
                   bytes: 3120
                   last_checked_at: '2026-01-15T12:00:00Z'
         '400':
-          description: checked_before is not a timestamp
+          description: "`checked_before` is not a timestamp."
           content:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Error"
         '403':
-          description: not the fixity checker or an admin
+          description: The caller is neither the fixity checker nor an admin.
           content:
             application/json:
               schema:
@@ -923,7 +924,7 @@ paths:
           type: string
       responses:
         '200':
-          description: the Solr document
+          description: The object's Solr document, as Solr stores it.
           content:
             application/json:
               schema:
@@ -1085,7 +1086,8 @@ paths:
                   _version_: 0
                   timestamp: '2026-01-15T12:00:00Z'
         '404':
-          description: the object has no Solr document
+          description: 'No indexed object has that NOID: it is unknown, it is a Compilation,
+            which is never indexed, or Solr holds no document for it (`error: not_indexed`).'
           content:
             application/json:
               schema:
@@ -1115,7 +1117,7 @@ paths:
       parameters: []
       responses:
         '200':
-          description: window opened
+          description: The state of the read-only window after the request.
           content:
             application/json:
               schema:
@@ -1168,7 +1170,7 @@ paths:
         harnesses and developer-environment seeders.
       responses:
         '204':
-          description: state reset
+          description: The development or test state is wiped and reseeded.
   "/metrics/latency":
     get:
       summary: Report Atlas's own request latency
@@ -1201,7 +1203,7 @@ paths:
         answer.
       responses:
         '200':
-          description: latency for the window
+          description: Request latency figures for the window.
           content:
             application/json:
               schema:
@@ -1222,7 +1224,7 @@ paths:
                   calls: 1
                   p95_ms: 49
         '503':
-          description: Redis, which holds the figures, does not answer
+          description: Redis, which holds the figures, does not answer.
         '401':
           "$ref": "#/components/responses/Unauthorized"
         '403':
@@ -1238,7 +1240,7 @@ paths:
       parameters: []
       responses:
         '201':
-          description: created
+          description: The new Person, with its personal root Collection.
           content:
             application/json:
               schema:
@@ -1254,13 +1256,13 @@ paths:
                   affiliated_community_ids: []
                   personal_root_id: d0000002x
         '409':
-          description: duplicate nuid
+          description: A Person already has that NUID.
           content:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Error"
         '403':
-          description: non-system/admin caller is rejected
+          description: The caller is neither the system nor an admin.
           content:
             application/json:
               schema:
@@ -1301,7 +1303,7 @@ paths:
       parameters: []
       responses:
         '200':
-          description: affiliation added
+          description: The Person, with the Community among its affiliations.
           content:
             application/json:
               schema:
@@ -1318,7 +1320,7 @@ paths:
                   - d0000002x
                   personal_root_id: d0000003x
         '422':
-          description: unknown community
+          description: "`community_id` names no Community."
           content:
             application/json:
               schema:
@@ -1363,7 +1365,7 @@ paths:
         audit event.
       responses:
         '200':
-          description: affiliation removed
+          description: The Person, without that Community among its affiliations.
           content:
             application/json:
               schema:
@@ -1410,11 +1412,12 @@ paths:
         header; any non-system caller is rejected (401/403). Unknown id → 404.
       responses:
         '204':
-          description: resource re-projected from current state
+          description: The resource's Solr document is re-projected from its current
+            state.
         '404':
-          description: unknown id
+          description: No resource has that NOID.
         '403':
-          description: non-system caller is rejected
+          description: The caller is neither the system user nor an admin.
           content:
             application/json:
               schema:
@@ -1449,7 +1452,8 @@ paths:
         Non-system callers are rejected (401/403); unknown id → 404.
       responses:
         '200':
-          description: subtree re-projected; descendant Works refreshed
+          description: 'The number of resources re-projected: the root, its descendant
+            containers and the Works beneath them.'
           content:
             application/json:
               schema:
@@ -1462,7 +1466,7 @@ paths:
               example:
                 reindexed: 2
         '404':
-          description: unknown id
+          description: No resource has that NOID.
         '401':
           "$ref": "#/components/responses/Unauthorized"
         '403':
@@ -1509,7 +1513,8 @@ paths:
           type: string
       responses:
         '200':
-          description: the object does not match
+          description: Solr's explanation of how the object scores for `q`, whether
+            it matches or not.
           content:
             application/json:
               schema:
@@ -3227,13 +3232,14 @@ paths:
                   reason: full_text
                   highlights: []
         '400':
-          description: blank q
+          description: "`q` is blank."
           content:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Error"
         '404':
-          description: the object has no Solr document
+          description: 'No Work, Collection or Community has that NOID, or Solr holds
+            no document for it (`error: not_indexed`).'
           content:
             application/json:
               schema:
@@ -3264,7 +3270,7 @@ paths:
       parameters: []
       responses:
         '200':
-          description: read-only token minted
+          description: The new JWT, read-only when `read_only` was true.
           content:
             application/json:
               schema:
@@ -3277,7 +3283,7 @@ paths:
               example:
                 token: "<redacted>"
         '403':
-          description: caller is not the system user
+          description: The caller is neither the system user nor an admin.
           content:
             application/json:
               schema:
@@ -3316,9 +3322,9 @@ paths:
       parameters: []
       responses:
         '204':
-          description: tokens revoked
+          description: Every token the user held is revoked.
         '403':
-          description: caller is not the system user
+          description: The caller is neither the system user nor an admin.
           content:
             application/json:
               schema:
@@ -3359,7 +3365,7 @@ paths:
         description: The person's NUID.
       responses:
         '200':
-          description: user upserted
+          description: The user, found or created, with the supplied groups.
           content:
             application/json:
               schema:
@@ -3377,7 +3383,7 @@ paths:
                   affiliation:
                   preferred: false
         '403':
-          description: caller is not the system user
+          description: The caller is neither the system user nor an admin.
           content:
             application/json:
               schema:
@@ -3421,7 +3427,7 @@ paths:
           type: string
       responses:
         '200':
-          description: user upserted
+          description: The user, found or created, with the supplied groups.
           content:
             application/json:
               schema:
@@ -3438,7 +3444,7 @@ paths:
                   affiliation: staff
                   preferred: false
         '403':
-          description: caller is not the system user
+          description: The caller is neither the system user nor an admin.
           content:
             application/json:
               schema:

@@ -15,6 +15,10 @@ RSpec.describe 'People', type: :request do
   path '/people' do
     get 'List or batch-resolve people' do
       tags 'People'
+      response_texts(
+        '200' => 'The Persons: one page of all of them, those matching `q`, or, with `nuids`, every Person found for ' \
+                 'those NUIDs.'
+      )
       produces 'application/json'
       description <<~DESC
         Without params: a paginated list of all Persons (`?page`, `?per_page`) —
@@ -94,6 +98,11 @@ RSpec.describe 'People', type: :request do
     post 'Create a person (system/admin)' do
       internal_operation!
       tags 'People'
+      response_texts(
+        '201' => 'The new Person, with its personal root Collection.',
+        '403' => 'The caller is neither the system nor an admin.',
+        '409' => 'A Person already has that NUID.'
+      )
       consumes 'application/json'
       produces 'application/json'
       description <<~DESC
@@ -188,6 +197,10 @@ RSpec.describe 'People', type: :request do
 
     get 'Fetch a person by NOID' do
       tags 'People'
+      response_texts(
+        '200' => 'The Person.',
+        '404' => 'No Person has that NOID.'
+      )
       produces 'application/json'
       description <<~DESC
         Returns a Person's record. An unknown NOID answers `404` with no body.
@@ -213,6 +226,12 @@ RSpec.describe 'People', type: :request do
 
     patch 'Edit profile fields (system/admin, or the person themself)' do
       tags 'People'
+      response_texts(
+        '200' => 'The updated Person.',
+        '403' => 'The caller may not edit this Person, as when one person edits another\'s profile.',
+        '404' => 'No Person has that NOID.',
+        '422' => 'A field is invalid: `display_name` is blank, `bio` is too long, or `orcid` is not a valid ORCID iD.'
+      )
       consumes 'application/json'
       produces 'application/json'
       description <<~DESC
@@ -301,6 +320,10 @@ RSpec.describe 'People', type: :request do
 
     post 'Add a community affiliation (audited, system/admin)' do
       tags 'People'
+      response_texts(
+        '200' => 'The Person, with the Community among its affiliations.',
+        '422' => '`community_id` names no Community.'
+      )
       consumes 'application/json'
       produces 'application/json'
       description 'Idempotent. Emits an add_affiliation audit event.'
@@ -336,6 +359,9 @@ RSpec.describe 'People', type: :request do
 
     delete 'Remove a community affiliation (audited, system/admin)' do
       tags 'People'
+      response_texts(
+        '200' => 'The Person, without that Community among its affiliations.'
+      )
       produces 'application/json'
       description 'Tolerant — removing an absent affiliation is a no-op. Emits a remove_affiliation audit event.'
 

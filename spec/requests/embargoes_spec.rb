@@ -23,6 +23,10 @@ RSpec.describe 'Embargoes', type: :request do
   path '/embargoes/release', openapi_spec: OpenapiDocument::INTERNAL do
     post 'Record the embargoes that have lapsed (system-only)' do
       tags 'Resources'
+      response_texts(
+        '200' => 'The NOIDs of the Works that gained a release row.',
+        '400' => '`since` is not an ISO 8601 date.'
+      )
       produces 'application/json'
       description <<~DESC
         Writes one `release_embargo` audit row for each Work whose embargo has

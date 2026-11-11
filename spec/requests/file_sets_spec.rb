@@ -16,6 +16,9 @@ RSpec.describe 'FileSets', type: :request do
   path '/file_sets' do
     get 'List file sets' do
       tags 'FileSets'
+      response_texts(
+        '200' => 'One page of FileSets.'
+      )
       produces 'application/json'
       description <<~DESC
         Lists every FileSet, one page at a time.
@@ -33,6 +36,10 @@ RSpec.describe 'FileSets', type: :request do
 
     post 'Create a file set' do
       tags 'FileSets'
+      response_texts(
+        '200' => 'The new FileSet, or the FileSet an earlier request with the same `Idempotency-Key` created.',
+        '410' => 'The `Idempotency-Key` replays a request whose FileSet is now tombstoned.'
+      )
       consumes 'application/json'
       produces 'application/json'
       description <<~DESC
@@ -113,6 +120,11 @@ RSpec.describe 'FileSets', type: :request do
 
     get 'Retrieve a file set' do
       tags 'FileSets'
+      response_texts(
+        '200' => 'The FileSet.',
+        '410' => 'The FileSet is tombstoned. An admin or delegated admin gets the full FileSet; everyone else gets the ' \
+                 '`Tombstoned` body.'
+      )
       produces 'application/json'
       description <<~DESC
         Returns a FileSet's record: its type, its position in the Work, and its
@@ -138,6 +150,12 @@ RSpec.describe 'FileSets', type: :request do
 
     patch 'Append binary content to a file set' do
       tags 'FileSets'
+      response_texts(
+        '200' => 'The FileSet with its attached Blob. A repeat with the same `Idempotency-Key` returns it without ' \
+                 'copying the bytes again.',
+        '422' => 'The `expected_digest` does not match the uploaded bytes.',
+        '404' => 'No FileSet has that NOID.'
+      )
       consumes 'multipart/form-data'
       produces 'application/json'
       description <<~DESC
@@ -229,6 +247,9 @@ RSpec.describe 'FileSets', type: :request do
 
     delete 'Destroy a file set' do
       tags 'FileSets'
+      response_texts(
+        '204' => 'The FileSet is destroyed.'
+      )
       description <<~DESC
         Permanently removes the FileSet, cascades into its Blobs, and removes
         the OCFL objects that hold the preserved bytes — every retained
@@ -253,6 +274,11 @@ RSpec.describe 'FileSets', type: :request do
 
     patch 'Attach the IIIF image-service Delegate URI to a file set' do
       tags 'FileSets'
+      response_texts(
+        '200' => 'The FileSet. A repeat request replaces the stored URI rather than adding a second one.',
+        '404' => 'No FileSet has that NOID.',
+        '409' => 'Concurrent writes to the FileSet kept conflicting after Atlas retried; the request can be sent again.'
+      )
       consumes 'application/json'
       produces 'application/json'
       description <<~DESC
@@ -339,6 +365,10 @@ RSpec.describe 'FileSets', type: :request do
 
     get 'Retrieve METS metadata for a file set' do
       tags 'FileSets'
+      response_texts(
+        '410' => 'The FileSet is tombstoned; its metadata is withheld from everyone but admins and delegated admins.',
+        '200' => 'The FileSet\'s METS metadata as JSON.'
+      )
       produces 'application/json'
       description 'Returns the JSON projection of the FileSet structural (METS) metadata.'
 

@@ -35,6 +35,11 @@ RSpec.describe 'Darwin Core records', type: :request do
 
     get "Retrieve a work's Darwin Core record" do
       tags 'Works'
+      response_texts(
+        '410' => 'The Work is tombstoned, and its content is withheld from everyone but admins and delegated admins.',
+        '200' => 'The Work\'s Darwin Core record, as JSON, the stored XML or an HTML display block.',
+        '404' => 'The Work holds no Darwin Core record, its record is tombstoned, or the NOID is not a Work.'
+      )
       produces 'application/json', 'application/xml', 'text/html'
       description <<~DESC
         The Work's Darwin Core record. JSON by default: each term of the single
@@ -82,6 +87,11 @@ RSpec.describe 'Darwin Core records', type: :request do
 
     put "Replace a work's Darwin Core record" do
       tags 'Resources'
+      response_texts(
+        '200' => 'The Work\'s new Darwin Core record.',
+        '404' => 'No Work has that NOID.',
+        '422' => 'The document breaks a shape rule, named in `error`, or no `binary` was sent.'
+      )
       consumes 'multipart/form-data'
       produces 'application/json'
       description <<~DESC
@@ -133,6 +143,10 @@ RSpec.describe 'Darwin Core records', type: :request do
 
     delete "Tombstone a work's Darwin Core record" do
       tags 'Resources'
+      response_texts(
+        '204' => 'The Darwin Core record is tombstoned.',
+        '404' => 'The Work holds no Darwin Core record, or the NOID is not a Work.'
+      )
       description <<~DESC
         Tombstones the record: `GET /works/{id}/dwc` answers 404 and the Work
         JSON drops `dwc` from `metadata_formats`. Nothing is purged. The
@@ -159,6 +173,9 @@ RSpec.describe 'Darwin Core records', type: :request do
 
     get "List a work's Darwin Core version history" do
       tags 'Resources'
+      response_texts(
+        '200' => 'The Work\'s Darwin Core versions, newest first.'
+      )
       produces 'application/json'
       description <<~DESC
         Newest-first list of the retained Darwin Core versions, in the same
@@ -186,6 +203,11 @@ RSpec.describe 'Darwin Core records', type: :request do
 
     get 'Fetch Darwin Core XML as of a specific version' do
       tags 'Resources'
+      response_texts(
+        '410' => 'The Work is tombstoned, and its content is withheld from everyone but admins and delegated admins.',
+        '200' => 'The stored Darwin Core XML as of that version.',
+        '404' => 'The Work has no such Darwin Core version.'
+      )
       produces 'application/xml'
       description <<~DESC
         The stored dwc.xml as of the given OCFL version. XML only, because the

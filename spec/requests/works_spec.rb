@@ -26,6 +26,9 @@ RSpec.describe 'Works', type: :request do
   path '/works' do
     get 'List works' do
       tags 'Works'
+      response_texts(
+        '200' => 'One page of Works, narrowed by `in_progress` and `incomplete` when either is given.'
+      )
       produces 'application/json'
       paginated
       description <<~DESC
@@ -142,6 +145,14 @@ RSpec.describe 'Works', type: :request do
 
     post 'Create a work' do
       tags 'Works'
+      response_texts(
+        '200' => 'The new Work, or the Work an earlier request with the same `Idempotency-Key` created.',
+        '410' => 'The `Idempotency-Key` replays a create whose Work has since been tombstoned; the body is the ' \
+                 'tombstone payload that `GET /works/{id}` returns.',
+        '403' => 'The caller holds no edit rights on the parent Collection.',
+        '404' => 'The `collection_id` is blank or names nothing.',
+        '422' => 'The parent Collection is tombstoned.'
+      )
       consumes 'application/json'
       produces 'application/json'
       description <<~DESC
@@ -248,6 +259,11 @@ RSpec.describe 'Works', type: :request do
 
     get 'Retrieve a work' do
       tags 'Works'
+      response_texts(
+        '200' => 'The Work, with its ancestors root-first, its depositor and proxy uploader, and its thumbnails.',
+        '410' => 'The Work is tombstoned or purged. An admin or delegated admin gets the full record of a tombstoned ' \
+                 'Work, everyone else a stub.'
+      )
       produces 'application/json'
       description <<~DESC
         Returns a Work's record: its title and description, its ancestors, its
@@ -347,6 +363,11 @@ RSpec.describe 'Works', type: :request do
 
     get 'Retrieve MODS metadata for a work' do
       tags 'Works'
+      response_texts(
+        '200' => 'The Work\'s descriptive metadata: the JSON access copy by default, MODS XML with `.xml`, or the ' \
+                 'rendered display with `.html`.',
+        '410' => 'The Work is tombstoned, so its metadata is withheld from everyone but admins and delegated admins.'
+      )
       produces 'application/xml', 'application/json'
       description <<~DESC
         Returns the Work's descriptive metadata. By default the body is the
@@ -387,6 +408,11 @@ RSpec.describe 'Works', type: :request do
 
     get 'Retrieve METS structural metadata for a work' do
       tags 'Works'
+      response_texts(
+        '410' => 'The Work is tombstoned, so its METS is withheld from everyone but admins and delegated admins.',
+        '200' => 'The Work\'s METS structural metadata, with its page order under `mets.pages`.',
+        '404' => 'The Work has never been completed, so it has no METS yet.'
+      )
       produces 'application/json'
       description <<~DESC
         JSON projection of the Work-level structural (METS) metadata. The
@@ -436,6 +462,11 @@ RSpec.describe 'Works', type: :request do
 
     get 'List downloadable assets attached to a work' do
       tags 'Works'
+      response_texts(
+        '410' => 'The Work is tombstoned, so its assets are withheld from everyone but admins and delegated admins.',
+        '200' => 'The Work\'s downloadable Blobs and Delegates, each with its `kind` and its effective `gated` and ' \
+                 '`permission`; thumbnails are left out.'
+      )
       produces 'application/json'
       description <<~DESC
         Returns a polymorphic array of downloadable assets attached to the
@@ -571,6 +602,11 @@ RSpec.describe 'Works', type: :request do
 
     get "List the assets of a work's tombstoned FileSets" do
       tags 'Works'
+      response_texts(
+        '200' => 'The assets of the Work\'s tombstoned FileSets, each with its `file_set`, `tombstoned_at` and ' \
+                 '`tombstoned_by`.',
+        '404' => 'No Work has that NOID.'
+      )
       produces 'application/json'
       description <<~DESC
         The assets of the Work's tombstoned FileSets, which `/works/{id}/assets`
@@ -681,6 +717,11 @@ RSpec.describe 'Works', type: :request do
 
     get "List the revision dates of a work's replaced files" do
       tags 'Works'
+      response_texts(
+        '200' => 'The Work\'s replaced Blobs, each with its revisions newest first; an empty array when no file was ever ' \
+                 'replaced.',
+        '404' => 'No Work has that NOID.'
+      )
       produces 'application/json'
       description <<~DESC
         One entry per Blob on the Work that has been replaced at least once,
@@ -787,6 +828,10 @@ RSpec.describe 'Works', type: :request do
 
     get "Grade a work's health green, yellow or red" do
       tags 'Works'
+      response_texts(
+        '200' => 'The Work\'s health grade, its findings and its fixity summary.',
+        '404' => 'No Work has that NOID.'
+      )
       produces 'application/json'
       description <<~DESC
         Whether the Work is viable, needs repair, or has lost bytes. `green` is
@@ -913,6 +958,10 @@ RSpec.describe 'Works', type: :request do
 
     get "List a work's page FileSets in order" do
       tags 'Works'
+      response_texts(
+        '200' => 'The Work\'s page FileSets in order, each with its downloadable assets nested under it.',
+        '404' => 'No Work has that NOID.'
+      )
       produces 'application/json'
       description <<~DESC
         Ordered page listing for multipage Works: one entry per page-bearing
@@ -981,6 +1030,10 @@ RSpec.describe 'Works', type: :request do
 
     patch 'Attach sized-image IIIF Delegate URIs to a work' do
       tags 'Works'
+      response_texts(
+        '200' => 'The Work, with the given image-derivative Delegates stored.',
+        '409' => 'The Work kept changing under concurrent writes until the internal retries ran out.'
+      )
       consumes 'application/json'
       produces 'application/json'
       description <<~DESC
@@ -1047,6 +1100,12 @@ RSpec.describe 'Works', type: :request do
 
     patch "Set a work's per-asset derivative-visibility policy" do
       tags 'Works'
+      response_texts(
+        '200' => 'The Work, with the stored policy under `derivative_permissions`.',
+        '422' => 'The policy makes a tier more visible than the Work, widens visibility as image resolution grows, or ' \
+                 'names an unknown tier.',
+        '409' => 'The Work changed under a concurrent write; permission edits are not retried.'
+      )
       consumes 'application/json'
       produces 'application/json'
       description <<~DESC
@@ -1199,6 +1258,10 @@ RSpec.describe 'Works', type: :request do
 
     patch 'Store a work’s derived full-document text' do
       tags 'Works'
+      response_texts(
+        '200' => 'The Work, without the stored text.',
+        '409' => 'The Work kept changing under concurrent writes until the internal retries ran out.'
+      )
       consumes 'application/json'
       produces 'application/json'
       description <<~DESC
@@ -1257,6 +1320,11 @@ RSpec.describe 'Works', type: :request do
 
     get 'List the collections a work is linked into' do
       tags 'Works'
+      response_texts(
+        '410' => 'The Work is tombstoned, so its linked Collections are withheld from everyone but admins and delegated ' \
+                 'admins.',
+        '200' => 'The NOIDs of the Collections the Work is linked into.'
+      )
       produces 'application/json'
       description <<~DESC
         Returns the NOIDs of the Collections this Work is a *linked* member of
@@ -1286,6 +1354,11 @@ RSpec.describe 'Works', type: :request do
 
     post 'Link a work into an additional collection' do
       tags 'Works'
+      response_texts(
+        '200' => 'The NOIDs of the Collections the Work is now linked into.',
+        '422' => 'The target is not a Collection, the Work or the target is tombstoned, or the target is already the ' \
+                 'Work\'s structural home.'
+      )
       consumes 'application/json'
       produces 'application/json'
       description <<~DESC
@@ -1335,6 +1408,9 @@ RSpec.describe 'Works', type: :request do
 
     delete 'Unlink a work from a collection' do
       tags 'Works'
+      response_texts(
+        '200' => 'The NOIDs of the Collections the Work is still linked into.'
+      )
       produces 'application/json'
       description <<~DESC
         Removes a linked membership (idempotent — removing an absent link is a
@@ -1365,6 +1441,11 @@ RSpec.describe 'Works', type: :request do
 
     get 'List a work\'s associations' do
       tags 'Works'
+      response_texts(
+        '410' => 'The Work is tombstoned, so its associations are withheld from everyone but admins and delegated ' \
+                 'admins.',
+        '200' => 'The Work\'s associations, `outbound` and `inbound`, keyed by predicate.'
+      )
       produces 'application/json'
       description <<~DESC
         Returns the typed relationships between this Work and other Works
@@ -1405,6 +1486,10 @@ RSpec.describe 'Works', type: :request do
 
     post 'Associate a work with another work' do
       tags 'Works'
+      response_texts(
+        '200' => 'The Work\'s associations after the new one, `outbound` and `inbound`.',
+        '422' => 'The `type` is not one of the five relationship predicates.'
+      )
       consumes 'application/json'
       produces 'application/json'
       description <<~DESC
@@ -1466,6 +1551,9 @@ RSpec.describe 'Works', type: :request do
 
     delete 'Remove an association between two works' do
       tags 'Works'
+      response_texts(
+        '200' => 'The Work\'s remaining associations, `outbound` and `inbound`.'
+      )
       produces 'application/json'
       description <<~DESC
         Retracts one typed relationship. Idempotent — retracting an edge that
@@ -1502,6 +1590,10 @@ RSpec.describe 'Works', type: :request do
 
     post 'Mark a work complete' do
       tags 'Works'
+      response_texts(
+        '200' => 'The Work, with `in_progress` false; its METS structMap is built from its pages.',
+        '409' => 'The Work kept changing under concurrent writes until the internal retries ran out.'
+      )
       produces 'application/json'
       description <<~DESC
         Flips `in_progress` to false. Cerberus calls this after its
@@ -1555,6 +1647,12 @@ RSpec.describe 'Works', type: :request do
 
     post 'Flag a work whose pipeline gave up' do
       tags 'Works'
+      response_texts(
+        '200' => 'The Work, with `incomplete` true and `incomplete_reason` set to the latest reason, or null when none ' \
+                 'was sent.',
+        '404' => 'No Work has that NOID.',
+        '409' => 'The Work kept changing under concurrent writes until the internal retries ran out.'
+      )
       consumes 'application/json'
       produces 'application/json'
       description <<~DESC
@@ -1649,6 +1747,10 @@ RSpec.describe 'Works', type: :request do
 
     delete 'Clear the incomplete flag' do
       tags 'Works'
+      response_texts(
+        '200' => 'The Work, with `incomplete` false and `incomplete_reason` null.',
+        '404' => 'No Work has that NOID.'
+      )
       produces 'application/json'
       description <<~DESC
         Clears `incomplete` and `incomplete_reason` together. Cerberus calls

@@ -6,6 +6,9 @@ RSpec.describe 'Maintenance', type: :request do
   path '/maintenance' do
     get 'Read the repository-wide read-only window' do
       tags 'Maintenance'
+      response_texts(
+        '200' => 'The state of the read-only window.'
+      )
       operationId 'maintenance_show'
       produces 'application/json'
       description <<~D
@@ -28,6 +31,9 @@ RSpec.describe 'Maintenance', type: :request do
     put 'Open or close the repository-wide read-only window' do
       internal_operation!
       tags 'Maintenance'
+      response_texts(
+        '200' => 'The state of the read-only window after the request.'
+      )
       operationId 'maintenance_update'
       consumes 'application/json'
       produces 'application/json'
@@ -71,6 +77,9 @@ RSpec.describe 'Maintenance', type: :request do
   path '/reset', openapi_spec: OpenapiDocument::INTERNAL do
     get 'Reset development/test state' do
       tags 'Maintenance'
+      response_texts(
+        '204' => 'The development or test state is wiped and reseeded.'
+      )
       operationId 'maintenance_reset'
       security []
       description <<~D

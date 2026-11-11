@@ -46,6 +46,14 @@ module Rswag
         metadata[:operation][:requestBody] = body
       end
 
+      # Inside a verb block: the published description of each status this
+      # operation declares, one sentence a client reads, kept apart from the
+      # response blocks' names, which stay test names. The formatter fails
+      # generation when a declared status has none. See docs/openapi.md.
+      def response_texts(texts)
+        metadata[:operation][OpenapiResponseTexts::KEY] = texts.transform_keys(&:to_s)
+      end
+
       # Inside a verb block: this operation belongs in the internal document. A
       # whole path can pass `openapi_spec: OpenapiDocument::INTERNAL` instead.
       # Set before the response blocks, which copy their parent's metadata.

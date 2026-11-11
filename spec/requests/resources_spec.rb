@@ -23,6 +23,9 @@ RSpec.describe 'Resources', type: :request do
 
     get 'Resolve a resource by NOID' do
       tags 'Resources'
+      response_texts(
+        '302' => 'A redirect to the resource\'s typed endpoint, such as `/works/{id}`.'
+      )
       produces 'application/json'
       description <<~DESC
         Generic resolver. Issues a 302 redirect to the typed endpoint, keyed
@@ -42,6 +45,12 @@ RSpec.describe 'Resources', type: :request do
 
     delete 'Purge a resource' do
       tags 'Resources'
+      response_texts(
+        '204' => 'The resource is purged.',
+        '422' => 'A Community, Collection or Work is still a member of the resource, or the resource is a Community ' \
+                 'with no parent.',
+        '404' => 'No resource has that NOID.'
+      )
       produces 'application/json'
       description <<~DESC
         Permanently removes the resource. This is a purge, not a tombstone: it
@@ -100,6 +109,13 @@ RSpec.describe 'Resources', type: :request do
 
     get 'Permission flags for a resource' do
       tags 'Resources'
+      response_texts(
+        '200' => 'The resource\'s ACL envelope.',
+        '410' => 'The resource is tombstoned, so its permissions are withheld from everyone but admins and delegated ' \
+                 'admins.',
+        '403' => 'The caller may not read the resource.',
+        '404' => 'No resource has that NOID.'
+      )
       produces 'application/json'
       description <<~DESC
         The resource's own ACL envelope, gated on the caller's `:read` right
@@ -158,6 +174,10 @@ RSpec.describe 'Resources', type: :request do
 
     patch "Adjust a resource's ACL" do
       tags 'Resources'
+      response_texts(
+        '200' => 'The resource, in its own typed shape, with the adjusted ACL.',
+        '404' => 'No resource has that NOID.'
+      )
       consumes 'application/json'
       produces 'application/json'
       description <<~DESC
@@ -216,6 +236,12 @@ RSpec.describe 'Resources', type: :request do
 
     get 'Retrieve current MODS metadata for any resource' do
       tags 'Resources'
+      response_texts(
+        '410' => 'The resource is tombstoned, so its metadata is withheld from everyone but admins and delegated ' \
+                 'admins.',
+        '200' => 'The resource\'s descriptive metadata: the JSON access copy by default, MODS XML with `.xml`.',
+        '404' => 'No resource has that NOID, its type holds no MODS, or it has no MODS document.'
+      )
       produces 'application/xml', 'application/json'
       description <<~DESC
         Type-agnostic current MODS: resolves the NOID and returns the resource's
@@ -247,6 +273,12 @@ RSpec.describe 'Resources', type: :request do
 
     put "Replace a resource's MODS document" do
       tags 'Resources'
+      response_texts(
+        '200' => 'The resource, in its own typed shape, with its new MODS applied.',
+        '404' => 'No resource has that NOID, or its type holds no MODS.',
+        '422' => 'No `binary` file is attached.',
+        '409' => 'Another write changed the resource first. The conflict is not retried.'
+      )
       consumes 'multipart/form-data'
       produces 'application/json'
       description <<~DESC
@@ -362,6 +394,9 @@ RSpec.describe 'Resources', type: :request do
 
     get 'List MODS version history for a resource' do
       tags 'Resources'
+      response_texts(
+        '200' => 'The resource\'s retained MODS versions, newest first.'
+      )
       produces 'application/json'
       description <<~DESC
         Reverse-chronological list of retained MODS versions for any Modsable
@@ -401,6 +436,12 @@ RSpec.describe 'Resources', type: :request do
 
     get 'Fetch MODS XML as of a specific version' do
       tags 'Resources'
+      response_texts(
+        '410' => 'The resource is tombstoned, so its metadata is withheld from everyone but admins and delegated ' \
+                 'admins.',
+        '200' => 'The MODS XML as it stood at that version.',
+        '404' => 'No resource has that NOID, it has no MODS, or its MODS has no version with that label.'
+      )
       produces 'application/xml'
       description <<~DESC
         Returns the raw historical descMetadata.xml as of the given OCFL
@@ -433,6 +474,13 @@ RSpec.describe 'Resources', type: :request do
 
     patch 'Attach thumbnail-family IIIF Delegate URIs to a resource' do
       tags 'Resources'
+      response_texts(
+        '200' => 'The resource, in its own typed shape, with the thumbnail Delegates and any preview size and ' \
+                 'placeholder attached.',
+        '422' => '`preview_width`, `preview_height` or `preview_placeholder` is malformed, the width or height is sent ' \
+                 'without the other, or any of them is sent without `preview`.',
+        '404' => 'No resource has that NOID.'
+      )
       consumes 'application/json'
       produces 'application/json'
       description <<~DESC
@@ -511,6 +559,12 @@ RSpec.describe 'Resources', type: :request do
 
     patch 'Re-parent a resource' do
       tags 'Resources'
+      response_texts(
+        '200' => 'The moved resource, in its own typed shape, with its new ancestors.',
+        '404' => 'No resource has that NOID.',
+        '422' => '`parent_id` is missing or names nothing, the resource is a Community with no parent, or the move is ' \
+                 'otherwise structurally invalid.'
+      )
       consumes 'application/json'
       produces 'application/json'
       description <<~DESC
@@ -583,6 +637,12 @@ RSpec.describe 'Resources', type: :request do
 
     post 'Tombstone a resource' do
       tags 'Resources'
+      response_texts(
+        '200' => 'The tombstoned resource, in its own typed shape.',
+        '422' => 'The resource still holds a live Community, Collection or Work, is a Community with no parent, or ' \
+                 '`reason` is not one of the allowed removal notes.',
+        '404' => 'No resource has that NOID.'
+      )
       produces 'application/json'
       description <<~DESC
         Tombstones the resource. Everything stays in storage and the tombstone
@@ -670,6 +730,11 @@ RSpec.describe 'Resources', type: :request do
 
     post 'Restore a tombstoned resource' do
       tags 'Resources'
+      response_texts(
+        '200' => 'The restored resource, in its own typed shape.',
+        '422' => 'The resource\'s parent is still tombstoned.',
+        '404' => 'No resource has that NOID.'
+      )
       produces 'application/json'
       description <<~DESC
         Reverses a tombstone: reads stop answering `410`, and
@@ -789,6 +854,9 @@ RSpec.describe 'Resources', type: :request do
   path '/resources/preview' do
     post 'Render a temporary resource preview' do
       tags 'Resources'
+      response_texts(
+        '200' => 'The HTML preview rendered from the MODS XML.'
+      )
       consumes 'multipart/form-data'
       produces 'text/html'
       description 'Given raw MODS XML, renders an HTML preview without persisting. Used by the loader/editor surface.'
@@ -808,6 +876,10 @@ RSpec.describe 'Resources', type: :request do
   path '/resources/find_many' do
     post 'Resolve many resources by id in one round-trip' do
       tags 'Resources'
+      response_texts(
+        '200' => 'A digest for each resolvable id, unordered, with tombstoned resources flagged. An empty `ids` list ' \
+                 'gives an empty array.'
+      )
       consumes 'application/json'
       produces 'application/json'
       description <<~DESC
@@ -875,6 +947,11 @@ RSpec.describe 'Resources', type: :request do
 
     post 'Re-project a resource\'s Solr doc (system-only)' do
       tags 'Resources'
+      response_texts(
+        '204' => 'The resource\'s Solr document is re-projected from its current state.',
+        '404' => 'No resource has that NOID.',
+        '403' => 'The caller is neither the system user nor an admin.'
+      )
       produces 'application/json'
       description <<~DESC
         Operational, **system-gated** Solr re-projection. Re-derives the
@@ -942,6 +1019,10 @@ RSpec.describe 'Resources', type: :request do
 
     post 'Re-project a resource and its full descendant subtree (system-only)' do
       tags 'Resources'
+      response_texts(
+        '200' => 'The number of resources re-projected: the root, its descendant containers and the Works beneath them.',
+        '404' => 'No resource has that NOID.'
+      )
       produces 'application/json'
       description <<~DESC
         Operational, **system-gated** subtree Solr re-projection. Gathers the
@@ -1003,6 +1084,10 @@ RSpec.describe 'Resources', type: :request do
 
     get 'Every Work beneath a resource, flattened (gated, paginated)' do
       tags 'Resources'
+      response_texts(
+        '200' => 'One page of the Works beneath the resource that the caller may read.',
+        '404' => 'No resource has that NOID.'
+      )
       produces 'application/json'
       description <<~DESC
         Resolves a resource's full descendant subtree to the Works it contains,

@@ -13,6 +13,10 @@ RSpec.describe 'Health', type: :request do
   path '/health' do
     get 'Report whether Atlas can reach its dependencies' do
       tags 'Health'
+      response_texts(
+        '200' => 'Every required dependency answers; a cache outage alone reports `status: "degraded"`.',
+        '503' => 'The database, the Solr index or the OCFL storage is unavailable; the body names which.'
+      )
       operationId 'health_show'
       security []
       produces 'application/json'

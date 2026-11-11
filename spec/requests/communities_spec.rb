@@ -8,6 +8,9 @@ RSpec.describe 'Communities', type: :request do
   path '/communities' do
     get 'List communities' do
       tags 'Communities'
+      response_texts(
+        '200' => 'One page of Communities.'
+      )
       produces 'application/json'
       description <<~DESC
         Lists every Community, one page at a time.
@@ -25,6 +28,12 @@ RSpec.describe 'Communities', type: :request do
 
     post 'Create a community' do
       tags 'Communities'
+      response_texts(
+        '200' => 'The new Community.',
+        '403' => 'The caller may not create a Community inside that parent.',
+        '404' => 'The `parent_id` names nothing.',
+        '422' => 'The parent Community is tombstoned.'
+      )
       consumes 'application/json'
       produces 'application/json'
       description <<~DESC
@@ -99,6 +108,11 @@ RSpec.describe 'Communities', type: :request do
 
     get 'Retrieve a community' do
       tags 'Communities'
+      response_texts(
+        '200' => 'The Community.',
+        '410' => 'The Community is tombstoned or purged. An admin or delegated admin gets the full record, everyone ' \
+                 'else a stub.'
+      )
       produces 'application/json'
       description <<~DESC
         Returns a Community's record: its metadata, its ancestors and its state.
@@ -126,6 +140,11 @@ RSpec.describe 'Communities', type: :request do
 
     get 'Retrieve MODS metadata for a community' do
       tags 'Communities'
+      response_texts(
+        '200' => 'The Community\'s descriptive metadata: the JSON access copy by default, MODS XML with `.xml`.',
+        '410' => 'The Community is tombstoned, so its metadata is withheld from everyone but admins and delegated ' \
+                 'admins.'
+      )
       produces 'application/xml', 'application/json'
       description <<~DESC
         Returns the Community's descriptive metadata. By default the body is the
@@ -156,6 +175,10 @@ RSpec.describe 'Communities', type: :request do
 
     get 'List child noids of a community' do
       tags 'Communities'
+      response_texts(
+        '200' => 'The NOIDs of the Community\'s direct children.',
+        '410' => 'The Community is tombstoned. An admin or delegated admin gets the full record, everyone else a stub.'
+      )
       produces 'application/json'
       description <<~DESC
         Returns the NOIDs of the Community's direct children, Collections and

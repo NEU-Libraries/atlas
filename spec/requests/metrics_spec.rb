@@ -13,6 +13,10 @@ RSpec.describe 'Metrics', type: :request do
   path '/metrics/latency', openapi_spec: OpenapiDocument::INTERNAL do
     get "Report Atlas's own request latency" do
       tags 'Metrics'
+      response_texts(
+        '200' => 'Request latency figures for the window.',
+        '503' => 'Redis, which holds the figures, does not answer.'
+      )
       operationId 'metrics_latency'
       produces 'application/json'
       parameter name: :minutes, in: :query, type: :integer, required: false,

@@ -13,6 +13,11 @@ RSpec.describe 'Solr documents', type: :request do
   path '/resources/{id}/solr', openapi_spec: OpenapiDocument::INTERNAL do
     get "An object's Solr document" do
       tags 'Resources'
+      response_texts(
+        '200' => 'The object\'s Solr document, as Solr stores it.',
+        '404' => 'No indexed object has that NOID: it is unknown, it is a Compilation, which is never ' \
+                 'indexed, or Solr holds no document for it (`error: not_indexed`).'
+      )
       produces 'application/json'
       description <<~DESC
         The object's Solr document exactly as Solr stores it, for debugging the

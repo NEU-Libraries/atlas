@@ -21,6 +21,10 @@ RSpec.describe 'Resource children', type: :request do
   path '/resources/{id}/children' do
     get "A container's children, tombstoned ones included" do
       tags 'Resources'
+      response_texts(
+        '200' => 'The container\'s direct children, live and tombstoned, each flagged with `tombstoned`.',
+        '404' => 'No Community or Collection has that NOID.'
+      )
       produces 'application/json'
       description <<~DESC
         Every Community, Collection and Work directly beneath a Community or

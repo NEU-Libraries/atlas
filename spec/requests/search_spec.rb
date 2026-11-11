@@ -21,6 +21,10 @@ RSpec.describe 'Search', type: :request do
   path '/resources/search' do
     get 'Search the catalog' do
       tags 'Resources'
+      response_texts(
+        '200' => 'One page of matching resources, most relevant first, narrowed to one type when `type` is given.',
+        '400' => '`type` is not a type the search returns.'
+      )
       produces 'application/json'
       description <<~DESC
         Keyword search over Works, Collections, Communities and People, ranked

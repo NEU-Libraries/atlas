@@ -22,6 +22,9 @@ RSpec.describe 'User directory', type: :request do
   path '/users' do
     get 'Search the user directory' do
       tags 'User'
+      response_texts(
+        '200' => 'The matching directory entries, from a `q` search or a `nuids` batch.'
+      )
       produces 'application/json'
       description <<~D
         Read-only user directory. Two modes, same response shape:
@@ -79,6 +82,10 @@ RSpec.describe 'User directory', type: :request do
   path '/users/by_nuid/{nuid}' do
     get 'Resolve a NUID to a directory entry' do
       tags 'User'
+      response_texts(
+        '200' => 'The directory entry for that NUID.',
+        '404' => 'No directory entry has that NUID, or its role is excluded from the directory.'
+      )
       produces 'application/json'
       description <<~D
         Single NUID to `{ nuid, name, display_name }`. Unknown NUIDs and rows with role

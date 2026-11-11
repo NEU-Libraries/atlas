@@ -20,6 +20,12 @@ RSpec.describe 'Search explanations', type: :request do
   path '/resources/{id}/search_explanation', openapi_spec: OpenapiDocument::INTERNAL do
     get 'How the catalog search scores one object' do
       tags 'Resources'
+      response_texts(
+        '200' => 'Solr\'s explanation of how the object scores for `q`, whether it matches or not.',
+        '400' => '`q` is blank.',
+        '404' => 'No Work, Collection or Community has that NOID, or Solr holds no document for it (`error: ' \
+                 'not_indexed`).'
+      )
       produces 'application/json'
       description <<~DESC
         Solr's own account of how the catalog search scores one Work, Collection

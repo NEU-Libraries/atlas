@@ -24,6 +24,14 @@ RSpec.describe 'Fixity checks', type: :request do
   path '/fixity_checks', openapi_spec: OpenapiDocument::INTERNAL do
     post 'Record one fixity check result for an OCFL object (fixity checker and admin only)' do
       tags 'Resources'
+      response_texts(
+        '201' => 'The recorded check.',
+        '200' => 'The check, which was already recorded; nothing is added.',
+        '422' => 'The check is malformed, names a version the object does not have, or names a resource with no OCFL ' \
+                 'object; nothing is written.',
+        '404' => 'No resource holds the named OCFL object.',
+        '403' => 'The caller is neither the fixity checker nor an admin.'
+      )
       consumes 'application/json'
       produces 'application/json'
       description <<~DESC
@@ -128,6 +136,11 @@ RSpec.describe 'Fixity checks', type: :request do
   path '/fixity_checks/due', openapi_spec: OpenapiDocument::INTERNAL do
     get 'List the OCFL objects most in need of a fixity check (fixity checker and admin only)' do
       tags 'Resources'
+      response_texts(
+        '200' => 'The objects due a check, never-checked ones first, then the oldest check first.',
+        '400' => '`checked_before` is not a timestamp.',
+        '403' => 'The caller is neither the fixity checker nor an admin.'
+      )
       produces 'application/json'
       description <<~DESC
         The objects to check next: never checked first, then oldest check

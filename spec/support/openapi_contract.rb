@@ -40,35 +40,15 @@ module OpenapiContract
         OpenapiJsonBodies.document(response)
       end
     end
-    disambiguate!(doc)
-    OpenapiExamples.attach(doc)
-    prune_schemas!(doc)
+    whole_document_rules!(doc)
     doc
   end
 
-  # Both documents start from the whole schema map, so each keeps only the
-  # schemas its own operations reach. Otherwise the public document would
-  # publish the shapes of the internal operations it leaves out.
-  def prune_schemas!(doc)
-    schemas = doc.dig('components', 'schemas') || {}
-    queue   = schema_refs(doc['paths']) + schema_refs(doc.dig('components', 'responses'))
-    used    = Set.new
-    while (name = queue.shift)
-      queue.concat(schema_refs(schemas[name])) if used.add?(name)
-    end
-    schemas.select! { |name, _| used.include?(name) }
-  end
-
-  def schema_refs(node)
-    case node
-    when Hash  then node.flat_map { |key, value| key == '$ref' ? schema_ref_name(value) : schema_refs(value) }
-    when Array then node.flat_map { |value| schema_refs(value) }
-    else []
-    end
-  end
-
-  def schema_ref_name(ref)
-    ref.to_s.start_with?('#/components/schemas/') ? [ref.delete_prefix('#/components/schemas/')] : []
+  def whole_document_rules!(doc)
+    OpenapiResponseTexts.apply!(doc)
+    disambiguate!(doc)
+    OpenapiExamples.attach(doc)
+    OpenapiSchemaPruning.apply!(doc)
   end
 
   def operations(doc)
@@ -138,6 +118,13 @@ end
 # the one place that sees a whole document, after rswag's own clean-up, before
 # it reaches disk.
 module OpenapiContractFormatter
+  # Every document is finished once before rswag opens a file: a document that
+  # fails a rule then raises before any committed YAML is truncated.
+  def stop(notification = nil)
+    @config.openapi_specs.each_value { |doc| OpenapiContract.finish(doc) }
+    super
+  end
+
   private
 
     def pretty_generate(doc)

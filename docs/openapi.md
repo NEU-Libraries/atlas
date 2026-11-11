@@ -8,7 +8,8 @@ Source files:
 
 - `spec/support/openapi_document.rb` — each document's frame: `info`,
   security, tags, shared responses
-- `spec/support/openapi_contract.rb` — the rules applied to every operation
+- `spec/support/openapi_contract.rb` — the rules applied to every operation,
+  with `openapi_response_texts.rb` and `openapi_schema_pruning.rb`
 - `spec/support/openapi_error_bodies.rb` — which 4xx responses carry an `Error`
   body, and the hook that checks it
 - `spec/support/openapi_examples.rb`, `spec/openapi_examples/` and
@@ -30,11 +31,30 @@ The generator runs RSpec with `--dry-run`. No example executes and no hook
 fires, so anything the documents carry must come from spec metadata or from
 the formatter, never from a response a spec received.
 
-The same design explains the document's typical faults. The string in
-`response '200', '<text>'` is both the example group's name and the published
-description, so a scenario name such as "the two filters combine" becomes what
-a client author reads. And a schema exists only where a spec author wrote one,
-so a shape that no spec pins down stays loose.
+A schema exists only where a spec author wrote one, so a shape that no spec
+pins down stays loose; the rules below close the common gaps.
+
+### What a client reads for each status
+
+The string in `response '200', '<name>'` names a test, such as "the two filters
+combine — finished but degraded". It is not what the document publishes. Each
+verb block maps every status it declares to one sentence a client reads:
+
+```ruby
+post 'Create a community' do
+  tags 'Communities'
+  response_texts(
+    '200' => 'The new Community.',
+    '422' => 'The parent Community is tombstoned.'
+  )
+```
+
+One sentence covers every response block that shares a status, which matters
+because rswag merges them into one documented response. A 2xx says what the body
+is; a 4xx says the condition that causes it. `bin/openapi` fails, naming the
+operation and status, when a declared status has no sentence, so a test name is
+never published. The shared `401`, `403` and `404` responses carry their own text
+and need none.
 
 ## Two documents
 

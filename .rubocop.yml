@@ -120,6 +120,8 @@ Rails/UnknownEnv:
 Rails/DynamicFindBy:
   Whitelist:
     - find_by_alternate_identifier
+    # atlas_rb's lookup by v1 pid, not an ActiveRecord finder.
+    - find_by_legacy_pid
 Layout/IndentationConsistency:
   EnforcedStyle: indented_internal_methods
 Layout/HashAlignment:

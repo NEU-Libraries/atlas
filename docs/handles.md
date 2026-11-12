@@ -123,6 +123,10 @@ URLs. Any future re-point path must skip a Work whose `handle_source` is
 `supplied`. A handle minted here is `minted`, and a handle with no source
 predates the field and was minted.
 
+A repository reset follows the same rule. It deletes the handles Atlas minted
+and never sends a request for a supplied one
+([`availability.md`](availability.md#why-the-minted-handles-are-deleted)).
+
 The rules for the write:
 
 | Rule | Why |

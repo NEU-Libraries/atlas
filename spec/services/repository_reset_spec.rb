@@ -149,15 +149,17 @@ RSpec.describe RepositoryReset do
     let(:solr) { instance_double(RSolr::Client, delete_by_query: nil, commit: nil) }
 
     before do
-      %i[delete_all_rows! purge_storage! seed_fixture_users! seed_fixture_people!].each do |step|
+      %i[delete_minted_handles! delete_all_rows! purge_storage! seed_fixture_users! seed_fixture_people!].each do |step|
         allow(reset).to receive(step)
       end
       allow(RSolr).to receive(:connect).and_return(solr)
     end
 
-    it 'wipes the rows, the index and the storage before it re-seeds' do
+    # The handle delete reads the Work rows, so it must come before the wipe.
+    it 'deletes the minted handles, then wipes the rows, the index and the storage before it re-seeds' do
       reset.call
 
+      expect(reset).to have_received(:delete_minted_handles!).ordered
       expect(reset).to have_received(:delete_all_rows!).ordered
       expect(solr).to have_received(:delete_by_query).with('*:*').ordered
       expect(reset).to have_received(:purge_storage!).ordered
@@ -175,6 +177,7 @@ RSpec.describe RepositoryReset do
       allow(MaintenanceMode).to receive(:read_only?).and_return(true)
 
       expect { reset.call }.to raise_error(Exceptions::ReadOnlyMode)
+      expect(reset).not_to have_received(:delete_minted_handles!)
       expect(reset).not_to have_received(:delete_all_rows!)
     end
 
@@ -182,7 +185,69 @@ RSpec.describe RepositoryReset do
       allow(Rails).to receive(:env).and_return(ActiveSupport::StringInquirer.new('production'))
 
       expect { reset.call }.to raise_error(/must not be production/)
+      expect(reset).not_to have_received(:delete_minted_handles!)
       expect(reset).not_to have_received(:delete_all_rows!)
+    end
+  end
+
+  # Real Work rows, so the jsonb query is exercised; the handle server is a
+  # double. The Works reach Solr and OCFL, hence the wipe.
+  describe '#delete_minted_handles!' do
+    subject(:reset) { described_class.new(handle_client: client) }
+
+    let(:client) { instance_double(HandleClient, configured?: true, prefix: 'DRSDEV', delete: nil) }
+    let(:collection) { CollectionCreator.call(parent_id: CommunityCreator.call.noid) }
+
+    after { Atlas.persister.wipe! }
+
+    def own_handle = ->(work) { "DRSDEV/#{work.noid}" }
+
+    def work_with(handle: nil, source: nil, supplied: nil)
+      work = WorkCreator.call(parent_id: collection.noid, handle: supplied)
+      return work if handle.nil?
+
+      work.handle        = handle.call(work)
+      work.handle_source = source
+      Atlas.persister.save(resource: work)
+    end
+
+    it 'deletes a minted handle, and one with no source, but never a supplied or foreign one' do
+      minted = work_with(handle: own_handle, source: 'minted')
+      legacy = work_with(handle: own_handle)
+      work_with(supplied: '2047/test-reset-1')
+      work_with(handle: own_handle, source: 'supplied')
+      work_with(handle: ->(_) { 'DRSDEV/someone-else' }, source: 'minted')
+      work_with
+
+      reset.send(:delete_minted_handles!)
+
+      expect(client).to have_received(:delete).with("DRSDEV/#{minted.noid}")
+      expect(client).to have_received(:delete).with("DRSDEV/#{legacy.noid}")
+      expect(client).to have_received(:delete).twice
+    end
+
+    it 'logs each failed delete and the total, and does not raise' do
+      ok   = work_with(handle: own_handle, source: 'minted')
+      down = work_with(handle: own_handle, source: 'minted')
+      allow(client).to receive(:delete).with("DRSDEV/#{down.noid}")
+                                       .and_raise(HandleClient::Error, 'handle server unreachable')
+      allow(Rails.logger).to receive(:warn)
+      allow(Rails.logger).to receive(:info)
+
+      expect { reset.send(:delete_minted_handles!) }.not_to raise_error
+
+      expect(client).to have_received(:delete).with("DRSDEV/#{ok.noid}")
+      expect(Rails.logger).to have_received(:warn).with(%r{DRSDEV/#{down.noid} not deleted})
+      expect(Rails.logger).to have_received(:info).with('RepositoryReset: deleted 1 minted handles; 1 failed')
+    end
+
+    it 'sends nothing when the handle client is not configured' do
+      allow(client).to receive(:configured?).and_return(false)
+      work_with(handle: own_handle, source: 'minted')
+
+      reset.send(:delete_minted_handles!)
+
+      expect(client).not_to have_received(:delete)
     end
   end
 

@@ -23,12 +23,18 @@ class RepositoryReset < ApplicationService
 
   def self.resettable? = RESETTABLE_ENVS.include?(Rails.env.to_s)
 
+  def initialize(handle_client: HandleClient.new)
+    @handle_client = handle_client
+  end
+
   def call
     raise "Wrong env - #{Rails.env} - must not be production" unless self.class.resettable?
     # A caller that skips authorize! never meets the maintenance floor, so the
     # most destructive write Atlas has checks it here, for every caller.
     raise Exceptions::ReadOnlyMode if MaintenanceMode.read_only?
 
+    # Reads the Work rows, so it must run before they are deleted.
+    delete_minted_handles!
     delete_all_rows!
     wipe_index!
     purge_storage!
@@ -40,6 +46,43 @@ class RepositoryReset < ApplicationService
   private
 
     def resettable_env? = self.class.resettable?
+
+    # The wipe rewinds the NOID minter, so a handle left behind resolves to
+    # whichever Work next takes its NOID. Best-effort: a dev handle server that
+    # is down must not block a reset. See docs/availability.md.
+    def delete_minted_handles!
+      return unless @handle_client.configured?
+
+      handles = minted_handles
+      failed  = handles.count { |handle| !delete_handle(handle) }
+      Rails.logger.info("RepositoryReset: deleted #{handles.size - failed} minted handles; #{failed} failed")
+    end
+
+    # A supplied handle is a v1 identity that Atlas must never touch. The
+    # prefix-and-NOID match also guards against a wrong handle_source.
+    def minted_handles
+      prefix = @handle_client.prefix
+      minted_handle_rows.filter_map do |noid, handle, source|
+        handle if source != 'supplied' && noid.present? && handle == "#{prefix}/#{noid}"
+      end
+    end
+
+    # One query rather than a Valkyrie load per Work: a staging reset can cover
+    # many Works. Valkyrie stores every attribute as an array.
+    def minted_handle_rows
+      ActiveRecord::Base.connection.select_rows(<<~SQL.squish)
+        SELECT metadata->'alternate_ids'->0->>'id', metadata->'handle'->>0, metadata->'handle_source'->>0
+        FROM orm_resources WHERE internal_resource = 'Work' AND metadata ? 'handle'
+      SQL
+    end
+
+    def delete_handle(handle)
+      @handle_client.delete(handle)
+      true
+    rescue HandleClient::Error => e
+      Rails.logger.warn("RepositoryReset: handle #{handle} not deleted — #{e.message}")
+      false
+    end
 
     # NOT database_cleaner: reset is reachable in staging, and that gem sits
     # in the :development, :test bundle group, so the constant is undefined

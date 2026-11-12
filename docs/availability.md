@@ -161,8 +161,9 @@ database's behalf.
 ## `GET /reset` and `rake reset:clean`
 
 The test and dev bootstrap escape hatch, and the most destructive write Atlas
-has. It wipes every table, empties Solr, purges the OCFL storage roots, clears
-the response cache, and re-seeds the fixture users and fixture Persons.
+has. It deletes the handles Atlas minted, wipes every table, empties Solr,
+purges the OCFL storage roots, clears the response cache, and re-seeds the
+fixture users and fixture Persons.
 
 **Both doors run one service, `RepositoryReset`.** The route calls it from a
 request; the rake task calls it in-process, so a reset needs no running Puma.
@@ -172,7 +173,7 @@ Collection and Work.
 **A reset must never be written a second way.** A wipe that clears Postgres
 and Solr but skips the storage rewinds the minter and leaves every object in
 place, so the reseed's reminted NOIDs stack onto other resources' objects. One
-service is what keeps every door doing all five steps.
+service is what keeps every door doing every step.
 
 ### It runs unauthenticated, on purpose
 
@@ -203,6 +204,29 @@ OCFL state is cumulative. So each run's `descMetadata.xml` and binaries would
 stack onto the prior run's object, **polluting a resource's MODS history with
 other resources' content across runs.** Emptying the storage root makes every
 reseeded object start at v1 with only its own content.
+
+### Why the minted handles are deleted
+
+The handle server is a separate service with its own data store, so the wipe
+never reaches it. **Without a delete, every handle the last run minted
+survives, and the rewound minter hands its NOID to a new Work.** The old record
+then resolves to the wrong Work, a check that "nothing was minted" fails
+although nothing was, and the next mint silently re-points the record.
+
+`delete_minted_handles!` runs first, because it reads the Work rows that the
+wipe deletes. It follows these rules:
+
+| Rule | Why |
+|---|---|
+| Delete only a handle equal to `<HANDLE_PREFIX>/<noid>` whose `handle_source` is not `supplied` | A supplied handle is a v1 identity ([`handles.md`](handles.md#a-work-can-bring-its-own-handle)). The prefix-and-NOID match also protects one whose source is wrong |
+| Skip the step when `HandleClient#configured?` is false | Nothing was minted, and a test run is never configured |
+| Log each failed delete and the total, and carry on | A dev handle server that is down must not block a reset |
+| Read every Work in one jsonb query | A staging reset can cover many Works |
+
+The step cannot see a record whose Work an earlier reset already wiped. Clear
+those once by recreating the handle server's data volume. Do that on dev only,
+unless staging's handle server is known to hold nothing but staging's own
+minted handles.
 
 ### Why the response cache is cleared
 

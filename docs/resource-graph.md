@@ -90,6 +90,7 @@ attributes land on different sides of it.
 | Attribute | In the OCFL envelope? | Why |
 |---|---|---|
 | `handle` | **Yes**, schema v5 | An external Handle service holds the other half of the binding and the outside world cites it. **Nothing in the repository can re-derive it**, so a rebuild that lost it would break every outside citation. |
+| `handle_source` | **Yes**, schema v9 | Whether the handle was minted here or supplied at create. Atlas must never mint or re-point a supplied handle, and a supplied suffix need not be a NOID, so nothing can tell the two apart once this is lost. Null beside a handle means minted. |
 | `full_text` | No | A regenerable search aid, re-sent on any re-ingest. Postgres only, so `FullTextIndexer` re-reads and re-projects it on every reindex. |
 | `derivative_permissions` | **Yes**, schema v8, in `permissions.json` | An access policy a person sets, which Atlas enforces on Blob bytes and Cerberus and the IIIF layer on image tiers. Nothing else records it, so a rebuild that lost it would serve every reserved original publicly. |
 | `tombstoned_at`, `tombstoned_by`, `tombstone_reason` | **Yes**, schema v7, as one `tombstone` block | A tombstone is a person's decision that nothing else records. A rebuild that lost it would bring tombstoned objects back into view, and drop the removal note the library's removal policy requires. |
@@ -111,7 +112,7 @@ resource's own NOID-keyed OCFL object. **The bus-factor test: a librarian with
 disk access alone can rebuild the resource graph and the ACLs without Atlas,
 Postgres or Solr.**
 
-`ENVELOPE_SCHEMA_VERSION` is 8, and each bump records one decision:
+`ENVELOPE_SCHEMA_VERSION` is 9, and each bump records one decision:
 
 | Version | Change |
 |---|---|
@@ -122,6 +123,7 @@ Postgres or Solr.**
 | v5 → v6 | Added a Blob's `language`, `track_label` and `revision_filenames` |
 | v6 → v7 | Added `tombstone` — `at`, `by` and `reason` while tombstoned, null while live |
 | v7 → v8 | Added a Work's `derivative_permissions` to `permissions.json` — the tier map, `{}` when nothing is reserved |
+| v8 → v9 | Added a Work's `handle_source` — `minted` or `supplied`, null when there is no handle or it predates the field |
 
 **`position` is additive even though the Work-level METS structMap is the
 canonical record of order.** It keeps each FileSet's own OCFL object

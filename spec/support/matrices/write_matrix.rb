@@ -36,6 +36,7 @@ module WriteMatrix
     reindex:          ->(c) { c.admin? || c.tier == :system },
     # A Work needs an edit grant on its Collection; :system may never create one.
     create_work:      ->(c) { c.admin? || MatrixTree::CONTAINER_EDITORS.include?(c.tier) },
+    supply_handle:    ->(c) { c.operator? && (c.admin? || MatrixTree::CONTAINER_EDITORS.include?(c.tier)) },
     create_container: ->(c) { c.admin? || c.tier == :system || MatrixTree::CONTAINER_EDITORS.include?(c.tier) },
     link_member:      ->(c) { c.admin? || (c.tier == :system && c.options[:system_scoped]) }
   }.freeze
@@ -124,6 +125,7 @@ module WriteMatrix
     'works#remove_association'            => [:operator, { on:   :work,
                                                            path: ->(w) { { type: 'is_figure_for', work_id: w.other_work.noid } } }],
     'works#create'                        => [:create_work, { on: :collection, gate: false, params: ->(w) { { collection_id: w.collection.noid } } }],
+    'works#create@handle'                 => [:supply_handle, { on: :collection, gate: false, params: ->(w) { { collection_id: w.collection.noid, handle: "2047/m-#{SecureRandom.hex(4)}" } } }], # unique per cell, or a success makes the next one 409
     'collections#create'                  => [:create_container, { on: :sub_community, gate: false, refuses: %i[sub_community],
                                                                      params: ->(w) { { parent_id: w.sub_community.noid } } }],
     'communities#create'                  => [:create_container, { on: :sub_community, gate: false, refuses: %i[sub_community],

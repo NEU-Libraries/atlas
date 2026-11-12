@@ -7,6 +7,8 @@ Source files:
 
 - `app/services/handle_minter.rb`
 - `app/lib/handle_client.rb`
+- `app/lib/handle_identifier.rb`
+- `app/services/work_creator.rb`, for a supplied handle
 
 ## The handle is `<prefix>/<noid>`
 
@@ -101,10 +103,45 @@ what it has, and the disagreement is logged.
 **Adoption is deliberately not the answer.** Reading an identity back out of a
 document any caller can assemble would spread one fixture's handle across every
 Work built from it. The migrator setting `handle` on ingest is what stops the
-second mint.
+second mint — see the next section.
 
-`handle_in` strips any host, because v1 wrote `http://hdl.handle.net` and a
+`HandleIdentifier.bare` strips any host, because v1 wrote `http://hdl.handle.net` and a
 deployment can resolve through its own proxy.
+
+## A Work can bring its own handle
+
+A migrated v1 Work already has a registered handle, and published citations rest
+on it. `POST /works` therefore takes an optional `handle`. Atlas records it on
+the Work with `handle_source: "supplied"`, and `/complete` then mints nothing,
+because `call` skips a Work that already carries a handle.
+
+**Atlas never re-points a supplied handle.** A mint is "create or re-point" on
+the handle server, so a rehearsal that re-pointed v1 handles would send live
+citations to a non-production host. Re-pointing them is a cutover decision. It
+is also unneeded: v2 takes over the v1 hostname, and Cerberus redirects the old
+URLs. Any future re-point path must skip a Work whose `handle_source` is
+`supplied`. A handle minted here is `minted`, and a handle with no source
+predates the field and was minted.
+
+The rules for the write:
+
+| Rule | Why |
+|---|---|
+| Admins and devolved admins only (`:supply_handle`), else `403` before anything is created | A handle is an identity claim, like an association ([`authorization.md`](authorization.md)) |
+| `<prefix>/<suffix>` only, after `HandleIdentifier.bare` strips a resolver host; else `422 invalid_handle` | The same rule `keep_existing?` reads a document's identifier with |
+| Unique across live and tombstoned Works; else `409 handle_taken` | A minted handle embeds the NOID and cannot collide, but a supplied one can. A tombstoned Work's handle still resolves |
+| No call to the handle server | A rehearsal environment may not reach it, and a create must not depend on it |
+| Set at create only | A later change would invite a re-mint or a silent change of identity |
+
+**The uniqueness check runs under a Postgres advisory lock** keyed on the
+handle, so two concurrent creates with the same handle cannot both pass it. The
+lock is per session rather than a transaction, because the create also writes
+Solr and OCFL, which no rollback could undo.
+
+The handle goes on the Work's first save, and `handle_source` rides the envelope
+(schema v9, see [`resource-graph.md`](resource-graph.md)). An idempotent replay
+returns the original Work before any parameter is read, so a replay cannot
+change the handle.
 
 ## A no-op write is skipped
 

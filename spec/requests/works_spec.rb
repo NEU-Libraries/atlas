@@ -149,9 +149,11 @@ RSpec.describe 'Works', type: :request do
         '200' => 'The new Work, or the Work an earlier request with the same `Idempotency-Key` created.',
         '410' => 'The `Idempotency-Key` replays a create whose Work has since been tombstoned; the body is the ' \
                  'tombstone payload that `GET /works/{id}` returns.',
-        '403' => 'The caller holds no edit rights on the parent Collection.',
+        '403' => 'The caller holds no edit rights on the parent Collection, or sent a `handle` without being an ' \
+                 'admin or delegated admin.',
         '404' => 'The `collection_id` is blank or names nothing.',
-        '422' => 'The parent Collection is tombstoned.'
+        '409' => 'Another Work, live or tombstoned, already holds the `handle`.',
+        '422' => 'The parent Collection is tombstoned, or the `handle` is not `<prefix>/<suffix>`.'
       )
       consumes 'application/json'
       produces 'application/json'
@@ -170,12 +172,24 @@ RSpec.describe 'Works', type: :request do
         originally-created Work instead of creating a new one. If the
         underlying Work has since been tombstoned, the replay returns
         410 with the tombstone payload (same body shape as GET).
+
+        `handle` is for a Work that already owns a registered handle, such as
+        a migrated v1 record. Only an admin or a delegated admin may send
+        it; anyone else gets `403` and no Work is created. Atlas strips a
+        resolver host, records the bare handle as supplied, and never mints
+        or re-points it, so `POST /works/{id}/complete` registers nothing.
+        Atlas does not contact the handle server to check it. A value that
+        is not `<prefix>/<suffix>` is `422 invalid_handle`; a handle another
+        Work holds is `409 handle_taken`. There is no way to change it
+        after the create.
       DESC
       parameter name: :body, in: :body, schema: {
         type:       :object,
         properties: {
           collection_id: { type: :string, description: 'NOID of the parent Collection' },
-          depositor:     { type: :string, description: 'NUID to stamp as the Work depositor (optional)' }
+          depositor:     { type: :string, description: 'NUID to stamp as the Work depositor (optional)' },
+          handle:        { type: :string, example: '2047/d20001234',
+                           description: 'A handle the Work already owns. Admin and delegated admin only.' }
         },
         required:   %w[collection_id]
       }
@@ -231,6 +245,84 @@ RSpec.describe 'Works', type: :request do
         let(:'Idempotency-Key') { nil }
         let(:Authorization)     { "Bearer #{DefaultAuthHeaders.assertion_for('009999997')}" }
         run_test!
+      end
+
+      response '200', 'work created with a handle it already owns' do
+        let(:body)              { { collection_id: collection.noid, handle: 'https://hdl.handle.net/2047/d20001234' } }
+        let(:'Idempotency-Key') { nil }
+        schema '$ref' => '#/components/schemas/Work'
+        run_test! do |response|
+          work = Work.find(response.parsed_body.dig('work', 'id'))
+          expect(response.parsed_body.dig('work', 'handle')).to eq('2047/d20001234')
+          expect(work.handle_source).to eq('supplied')
+        end
+      end
+
+      response '200', 'a delegated admin may supply a handle' do
+        let!(:delegate) do
+          User.create!(email: 'delegate-handle@example.invalid', password: SecureRandom.hex(16),
+                       nuid: '000000043', name: 'Delegate, Handle', role: :privileged,
+                       groups: [Permissions::ADMIN_GROUP, Permissions::STAFF_EDIT_GROUP])
+        end
+        let(:body)              { { collection_id: collection.noid, handle: '2047/d20001235' } }
+        let(:'Idempotency-Key') { nil }
+        let(:Authorization)     { "Bearer #{DefaultAuthHeaders.assertion_for('000000043')}" }
+        schema '$ref' => '#/components/schemas/Work'
+        run_test! do |response|
+          expect(response.parsed_body.dig('work', 'handle')).to eq('2047/d20001235')
+        end
+      end
+
+      response '200', 'an idempotent replay ignores a handle and returns the original work unchanged' do
+        let(:body) { { collection_id: collection.noid, handle: '2047/d20001236' } }
+        let(:idempotency_key) { SecureRandom.uuid }
+        let(:'Idempotency-Key') { idempotency_key }
+        let!(:existing) do
+          w = WorkCreator.call(parent_id: collection.noid)
+          IdempotencyKey.create!(user: User.find_by(nuid: '000000004'), key: idempotency_key,
+                                 resource_type: 'Work', resource_noid: w.noid)
+          w
+        end
+        schema '$ref' => '#/components/schemas/Work'
+        run_test! do |response|
+          expect(response.parsed_body.dig('work', 'id')).to eq(existing.noid)
+          expect(Work.find(existing.id).handle).to be_nil
+        end
+      end
+
+      # The caller can create Works here, so the 403 is the handle gate's alone.
+      response '403', 'a handle from a caller who is not an admin or delegated admin' do
+        let!(:staff) do
+          User.create!(email: 'staff-handle@example.invalid', password: SecureRandom.hex(16),
+                       nuid: '009999996', name: 'Staff, Handle', role: :standard,
+                       groups: [Permissions::STAFF_EDIT_GROUP])
+        end
+        let(:body)              { { collection_id: collection.noid, handle: '2047/d20001237' } }
+        let(:'Idempotency-Key') { nil }
+        let(:Authorization)     { "Bearer #{DefaultAuthHeaders.assertion_for('009999996')}" }
+        run_test! do |response|
+          expect(response.parsed_body['action']).to eq('supply_handle')
+          expect(collection.children.grep(Work)).to be_empty
+        end
+      end
+
+      response '409', 'another work already holds the handle' do
+        let(:body)              { { collection_id: collection.noid, handle: '2047/d20001238' } }
+        let(:'Idempotency-Key') { nil }
+        before { WorkCreator.call(parent_id: collection.noid, handle: '2047/d20001238') }
+        run_test! do |response|
+          expect(response.parsed_body['error']).to eq('handle_taken')
+          expect(collection.children.grep(Work).size).to eq(1)
+        end
+      end
+
+      response '422', 'the handle is not <prefix>/<suffix>' do
+        let(:body)              { { collection_id: collection.noid, handle: 'd20001239' } }
+        let(:'Idempotency-Key') { nil }
+        run_test! do |response|
+          expect(response.parsed_body['error']).to eq('invalid_handle')
+          expect(collection.children.grep(Work)).to be_empty
+        end
       end
 
       response '404', 'collection_id missing or unresolvable' do

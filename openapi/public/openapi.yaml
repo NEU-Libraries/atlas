@@ -9848,6 +9848,16 @@ paths:
         originally-created Work instead of creating a new one. If the
         underlying Work has since been tombstoned, the replay returns
         410 with the tombstone payload (same body shape as GET).
+
+        `handle` is for a Work that already owns a registered handle, such as
+        a migrated v1 record. Only an admin or a delegated admin may send
+        it; anyone else gets `403` and no Work is created. Atlas strips a
+        resolver host, records the bare handle as supplied, and never mints
+        or re-points it, so `POST /works/{id}/complete` registers nothing.
+        Atlas does not contact the handle server to check it. A value that
+        is not `<prefix>/<suffix>` is `422 invalid_handle`; a handle another
+        Work holds is `409 handle_taken`. There is no way to change it
+        after the create.
       parameters:
       - name: Idempotency-Key
         in: header
@@ -9911,19 +9921,27 @@ paths:
               schema:
                 "$ref": "#/components/schemas/Work"
         '403':
-          description: The caller holds no edit rights on the parent Collection.
+          description: The caller holds no edit rights on the parent Collection, or
+            sent a `handle` without being an admin or delegated admin.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        '409':
+          description: Another Work, live or tombstoned, already holds the `handle`.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        '422':
+          description: The parent Collection is tombstoned, or the `handle` is not
+            `<prefix>/<suffix>`.
           content:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Error"
         '404':
           description: The `collection_id` is blank or names nothing.
-        '422':
-          description: The parent Collection is tombstoned.
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/Error"
         '401':
           "$ref": "#/components/responses/Unauthorized"
         '503':
@@ -9940,6 +9958,11 @@ paths:
                 depositor:
                   type: string
                   description: NUID to stamp as the Work depositor (optional)
+                handle:
+                  type: string
+                  example: 2047/d20001234
+                  description: A handle the Work already owns. Admin and delegated
+                    admin only.
               required:
               - collection_id
       operationId: works_create

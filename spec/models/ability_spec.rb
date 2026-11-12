@@ -316,6 +316,10 @@ RSpec.describe Ability do
       expect(subject).to be_able_to(:read_health, stranger_work)
     end
 
+    it 'grants :supply_handle on Work, the migration create that keeps a v1 handle' do
+      expect(subject).to be_able_to(:supply_handle, Work)
+    end
+
     # The tier reads the fixity summary on the health check but records none:
     # a result is a checker's output, not a person's.
     it 'does not grant :record on fixity checks' do
@@ -348,6 +352,7 @@ RSpec.describe Ability do
       expect(subject).not_to be_able_to(:read_tombstoned, Blob.new(edit_groups: [Permissions::STAFF_EDIT_GROUP]))
       expect(subject).not_to be_able_to(:read_health, Work.new(edit_groups: [Permissions::STAFF_EDIT_GROUP]))
       expect(subject).not_to be_able_to(:read_history, Work)
+      expect(subject).not_to be_able_to(:supply_handle, Work)
     end
   end
 
@@ -358,6 +363,7 @@ RSpec.describe Ability do
         ability = described_class.new(user)
         expect(ability).not_to be_able_to(:reparent,      Collection.new)
         expect(ability).not_to be_able_to(:create,        AuditEvent)
+        expect(ability).not_to be_able_to(:supply_handle, Work)
         expect(ability).not_to be_able_to(:read_versions, Blob)
         expect(ability).not_to be_able_to(:read_versions, Work)
         expect(ability).not_to be_able_to(:read_tombstoned, Work)

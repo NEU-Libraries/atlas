@@ -81,7 +81,7 @@ declaration per class.
 tier because the same Cerberus job that deposits a Work is the one that reports
 its pipeline gave up, and that job already holds `:update`.
 
-**Four verbs are deliberately not aliased**, and non-admin humans get none of
+**Five verbs are deliberately not aliased**, and non-admin humans get none of
 them through edit rights:
 
 | Verb | Why it is not an edit-rights verb |
@@ -90,6 +90,7 @@ them through edit rights:
 | `:link_member` | Same, with one narrow `:system` exception below |
 | `:restore` | Reversing a tombstone is an operator action, though `:tombstone` does ride edit rights |
 | `:associate` | The claim renders on **both** Works, including a target the asserter may hold no rights over |
+| `:supply_handle` | A handle is an identity claim the outside world cites, and Atlas does not check it with the handle server |
 
 `:associate` is the subtlest. Edit rights on the asserting Work would otherwise
 let anyone hang an inbound link off a well-known Work whose owner never asked for
@@ -402,6 +403,9 @@ Each grant is a named carve-out beneath the wildcard, not a promotion:
   the findings describe damage that only these tiers can repair, so edit rights
   on the Work do not reach it.
 - **`:associate` on `Work`.** See the alias table above.
+- **`:supply_handle` on `Work`.** `POST /works` with a `handle`, the migration's
+  way to keep a v1 Work's existing handle ([`handles.md`](handles.md#a-work-can-bring-its-own-handle)).
+  The caller also needs the usual `:create_child` on the parent Collection.
 - **`:create` on `AuditEvent`.** Unblocks Cerberus's impersonation session-start
   write; view-as and acting-as both call it before establishing a session.
   Unscoped rather than conditioned on `mode`, because `POST /audit_events` has

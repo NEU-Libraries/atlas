@@ -11,7 +11,7 @@
 module Preservable
   extend ActiveSupport::Concern
 
-  ENVELOPE_SCHEMA_VERSION = 8
+  ENVELOPE_SCHEMA_VERSION = 9
 
   def graph_payload
     {
@@ -21,6 +21,7 @@ module Preservable
       classification: respond_to?(:type) ? type : nil,
       position:       respond_to?(:position) ? position : nil,
       handle:         respond_to?(:handle) ? handle : nil,
+      handle_source:  respond_to?(:handle_source) ? handle_source : nil,
       a_member_of:    parent_noids,
       member_ids:     member_noids,
       associations:   association_noids,

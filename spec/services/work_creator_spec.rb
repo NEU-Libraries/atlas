@@ -177,4 +177,60 @@ RSpec.describe WorkCreator do
         .not_to change(AuditEvent, :count)
     end
   end
+
+  describe 'a supplied handle' do
+    it 'records it as supplied, on the Work and in the envelope' do
+      work = described_class.call(parent_id: collection.noid, handle: '2047/d20001234')
+
+      expect(Work.find(work.id)).to have_attributes(handle: '2047/d20001234', handle_source: 'supplied')
+      expect(on_disk_envelope(work)).to include('handle' => '2047/d20001234', 'handle_source' => 'supplied')
+    end
+
+    it 'strips a resolver host, the rule the minter reads a document with' do
+      work = described_class.call(parent_id: collection.noid, handle: ' http://hdl.handle.net/2047/d20001234 ')
+
+      expect(work.handle).to eq('2047/d20001234')
+    end
+
+    it 'refuses a value that is not <prefix>/<suffix>, before creating anything' do
+      ['d20001234', '2047/', 'abc/d20001234', '2047/has space'].each do |bad|
+        expect { described_class.call(parent_id: collection.noid, handle: bad) }
+          .to raise_error(Exceptions::SuppliedHandleError) { |e| expect(e.code).to eq(:invalid_handle) }
+      end
+      expect(collection.children.grep(Work)).to be_empty
+    end
+
+    it 'refuses a blank value rather than minting later' do
+      expect { described_class.call(parent_id: collection.noid, handle: '') }
+        .to raise_error(Exceptions::SuppliedHandleError) { |e| expect(e.code).to eq(:invalid_handle) }
+    end
+
+    it 'refuses a handle a tombstoned Work holds' do
+      holder = described_class.call(parent_id: collection.noid, handle: '2047/d20001234')
+      holder.tombstone(by: '000000004')
+      Atlas.persister.save(resource: holder)
+
+      expect { described_class.call(parent_id: collection.noid, handle: '2047/d20001234') }
+        .to raise_error(Exceptions::SuppliedHandleError) { |e| expect(e.code).to eq(:handle_taken) }
+      expect(collection.children.grep(Work).size).to eq(1)
+    end
+
+    it 'refuses a handle the minter recorded on another Work' do
+      minted = described_class.call(parent_id: collection.noid)
+      minted.handle = "2047/#{minted.noid}"
+      Atlas.persister.save(resource: minted)
+
+      expect { described_class.call(parent_id: collection.noid, handle: "2047/#{minted.noid}") }
+        .to raise_error(Exceptions::SuppliedHandleError) { |e| expect(e.code).to eq(:handle_taken) }
+    end
+
+    it 'releases the advisory lock, so a later create with the same handle is refused by the check, not blocked' do
+      described_class.call(parent_id: collection.noid, handle: '2047/d20001234')
+      held = ActiveRecord::Base.connection.select_value(
+        "SELECT count(*) FROM pg_locks WHERE locktype = 'advisory' AND pid = pg_backend_pid()"
+      )
+
+      expect(held).to eq(0)
+    end
+  end
 end

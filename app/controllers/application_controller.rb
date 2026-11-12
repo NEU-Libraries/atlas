@@ -170,6 +170,15 @@ class ApplicationController < ActionController::API
     }, status: :unprocessable_content
   end
 
+  # A create refusal, so there is no resource_id to name. The status rides the
+  # code: 422 for a malformed handle, 409 for one another Work holds.
+  rescue_from Exceptions::SuppliedHandleError do |exception|
+    render json: {
+      error:   exception.code,
+      message: exception.message
+    }, status: exception.status
+  end
+
   # The tombstoned resource can be an ancestor of the one requested, so the body
   # names it: a client tells a removed file from a suppressed Work by its type.
   rescue_from Exceptions::Tombstoned do |exception|

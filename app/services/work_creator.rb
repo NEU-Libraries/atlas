@@ -9,9 +9,15 @@ class WorkCreator < ApplicationService
   # Each kwarg is a distinct dimension of "what this create is" (parent,
   # body, provenance, audit attribution). Compressing into a hash would
   # hide the public contract.
+  #
+  # `handle:` is a handle the Work already owns, recorded as supplied so that
+  # /complete mints nothing for it. Who may send one is the controller's
+  # decision; the shape and uniqueness rules live here so every caller gets
+  # them. See docs/handles.md.
   def initialize(parent_id:, mods_xml: nil, proxy_uploader: nil,
-                 depositor: nil, actor_nuid: nil, on_behalf_of_nuid: nil)
+                 depositor: nil, actor_nuid: nil, on_behalf_of_nuid: nil, handle: nil)
     @parent_id = resolve_id(parent_id)
+    @handle    = handle.nil? ? nil : HandleIdentifier.bare(handle)
     @mods_xml          = mods_xml.nil? ? mods_template : mods_xml
     @proxy_uploader    = proxy_uploader
     @depositor         = depositor
@@ -20,13 +26,21 @@ class WorkCreator < ApplicationService
   end
 
   def call
-    create_work
+    return create_work if @handle.nil?
+
+    refuse_invalid_handle!
+    with_handle_lock do
+      refuse_taken_handle!
+      create_work
+    end
   end
 
   private
 
+    # The handle goes on the FIRST save, so no moment exists in which the Work
+    # is visible without it.
     def create_work
-      work = Atlas.persister.save(resource: Work.new(a_member_of: @parent_id))
+      work = Atlas.persister.save(resource: Work.new(a_member_of: @parent_id, **handle_attributes))
 
       FileSetCreator.call(work_id: work.id, classification: Classification.descriptive_metadata)
 
@@ -68,6 +82,44 @@ class WorkCreator < ApplicationService
       work.proxy_uploader = nil
       work.depositor      = @depositor if @depositor
       work.depositor    ||= @on_behalf_of_nuid
+    end
+
+    def handle_attributes
+      return {} if @handle.nil?
+
+      { handle: @handle, handle_source: 'supplied' }
+    end
+
+    def refuse_invalid_handle!
+      return if HandleIdentifier.valid?(@handle)
+
+      raise Exceptions::SuppliedHandleError.new(
+        :invalid_handle, "#{@handle.inspect} is not a handle; send <prefix>/<suffix>, e.g. 2047/d20001234"
+      )
+    end
+
+    # Tombstoned Works count: their handles still resolve, and citations rest
+    # on them.
+    def refuse_taken_handle!
+      holder = Atlas.query.custom_queries.find_works_by_handle(handle: @handle).first
+      return if holder.nil?
+
+      raise Exceptions::SuppliedHandleError.new(:handle_taken, "Work #{holder.noid} already holds #{@handle}")
+    end
+
+    # Serializes creates that bring the SAME handle, so two concurrent ones
+    # cannot both pass the uniqueness check. A session lock and not a
+    # transaction: the create also writes Solr and OCFL, which no Postgres
+    # rollback could undo.
+    def with_handle_lock
+      connection = ActiveRecord::Base.connection
+      key = ActiveRecord::Base.sanitize_sql_array(['hashtext(?), hashtext(?)', 'work_handle', @handle])
+      connection.execute("SELECT pg_advisory_lock(#{key})")
+      begin
+        yield
+      ensure
+        connection.execute("SELECT pg_advisory_unlock(#{key})")
+      end
     end
 
     def emit_audit_event!(work)

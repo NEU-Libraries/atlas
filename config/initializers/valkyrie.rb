@@ -191,6 +191,12 @@ Rails.application.config.to_prepare do
     Valkyrie::MetadataAdapter.find(:postgres).query_service
                              .custom_queries.register_query_handler(FindPageOfModel)
 
+    # Works by handle (app/queries/find_works_by_handle.rb): the uniqueness
+    # check a create with a supplied handle runs. Same shared postgres query
+    # service.
+    Valkyrie::MetadataAdapter.find(:postgres).query_service
+                             .custom_queries.register_query_handler(FindWorksByHandle)
+
   module Atlas
     def self.persister
       Valkyrie.config.metadata_adapter.persister

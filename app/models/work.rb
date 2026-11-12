@@ -34,8 +34,13 @@ class Work < Resource
   attribute :incomplete_reason, Valkyrie::Types::String.optional
 
   # Unlike the fields below this one IS preservation-relevant: nothing here
-  # can re-derive the binding, so it rides the OCFL envelope (schema v5).
+  # can re-derive the binding, so it rides the OCFL envelope.
   attribute :handle, Valkyrie::Types::String.optional
+
+  # 'minted' or 'supplied'. Atlas must never mint or re-point a supplied
+  # handle, and nothing can re-derive which kind a handle is, so this rides
+  # the envelope too. nil beside a handle means minted. See docs/handles.md.
+  attribute :handle_source, Valkyrie::Types::String.optional
 
   # A regenerable search aid, NOT a preservation artifact, so it is omitted
   # from the OCFL envelope. Unbounded-ish in size.

@@ -40,6 +40,23 @@ RSpec.describe HandleMinter do
       .with(work.noid, url: "https://repository.example.edu/works/#{work.noid}")
   end
 
+  it 'marks a handle it mints as minted, in Postgres and the envelope' do
+    mint
+
+    expect(Work.find(work.id).handle_source).to eq('minted')
+    expect(on_disk_envelope(work)['handle_source']).to eq('minted')
+  end
+
+  # A supplied handle is live elsewhere; a mint would re-point it at this host.
+  it 'neither mints nor re-points a supplied handle' do
+    supplied = WorkCreator.call(parent_id: home.id, handle: '2047/d20001234')
+
+    mint(supplied)
+
+    expect(client).not_to have_received(:mint)
+    expect(Work.find(supplied.id)).to have_attributes(handle: '2047/d20001234', handle_source: 'supplied')
+  end
+
   it 'mints once — a second call leaves the existing handle alone' do
     mint
     mint(Work.find(work.id))

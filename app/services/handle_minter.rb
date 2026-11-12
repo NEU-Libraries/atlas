@@ -41,7 +41,8 @@ class HandleMinter < ApplicationService
     # the handle's only record on disk, so a rebuild without it loses the
     # binding every outside citation rests on.
     def mint(work)
-      work.handle = @client.mint(work.noid, url: target_url(work))
+      work.handle        = @client.mint(work.noid, url: target_url(work))
+      work.handle_source = 'minted'
       Atlas.persister.save(resource: work).tap(&:write_preservation_envelope!)
     rescue HandleClient::Error => e
       Rails.logger.warn("HandleMinter: #{work.noid} not minted — #{e.message}")
@@ -81,18 +82,12 @@ class HandleMinter < ApplicationService
     def keep_existing?(work, node)
       current = node.text.strip
       return false if current.empty? || current == work.handle
-      return true if handle_in(current) == work.handle
+      return true if HandleIdentifier.bare(current) == work.handle
 
       Rails.logger.warn(
         "HandleMinter: #{work.noid} MODS carries handle #{current}, left in place over #{work.handle}"
       )
       true
-    end
-
-    # ANY host counts: v1 wrote http://hdl.handle.net, and a deployment can
-    # resolve through its own proxy.
-    def handle_in(text)
-      text.sub(%r{\Ahttps?://[^/]+/}i, '')
     end
 
     # The template ships an hdl identifier, but a caller-assembled document

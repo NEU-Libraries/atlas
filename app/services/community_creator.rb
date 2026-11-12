@@ -4,10 +4,12 @@ class CommunityCreator < ApplicationService
   # Provenance kwargs mirror WorkCreator — see app/services/work_creator.rb.
   # Communities can be roots, so parent_id and the parent.permissions copy
   # are both conditional; provenance stamping happens whether or not a
-  # parent is present.
+  # parent is present. `legacy_pid:` is a v1 pid, checked by LegacyPid.claim
+  # so every caller gets the shape and uniqueness rules.
   def initialize(parent_id: nil, mods_xml: nil, proxy_uploader: nil,
-                 depositor: nil, actor_nuid: nil, on_behalf_of_nuid: nil)
+                 depositor: nil, actor_nuid: nil, on_behalf_of_nuid: nil, legacy_pid: nil)
     @parent_id = resolve_id(parent_id) if parent_id.present?
+    @legacy_pid        = legacy_pid
     @mods_xml          = mods_xml.nil? ? mods_template : mods_xml
     @proxy_uploader    = proxy_uploader
     @depositor         = depositor
@@ -16,13 +18,14 @@ class CommunityCreator < ApplicationService
   end
 
   def call
-    create_community
+    LegacyPid.claim(@legacy_pid) { create_community }
   end
 
   private
 
+    # The pid goes on the FIRST save, so the Community is never visible without it.
     def create_community
-      community = Atlas.persister.save(resource: Community.new(a_member_of: @parent_id))
+      community = Atlas.persister.save(resource: Community.new(a_member_of: @parent_id, legacy_pid: @legacy_pid))
 
       FileSetCreator.call(work_id: community.id, classification: Classification.descriptive_metadata)
 

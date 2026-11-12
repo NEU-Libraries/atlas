@@ -346,6 +346,11 @@ components:
               description: 'When this record last changed: its metadata, permissions
                 or state. Adding or replacing a file changes the file''s own record,
                 not its Work''s.'
+            legacy_pid:
+              type: string
+              nullable: true
+              description: The v1 pid this resource migrated from, e.g. "neu:1234".
+                Set at create only; null for a resource born in v2.
             depositor:
               type: string
               nullable: true
@@ -427,6 +432,7 @@ components:
           - tombstoned_by
           - tombstone_reason
           - updated_at
+          - legacy_pid
           - depositor
           - proxy_uploader
           - in_progress
@@ -538,6 +544,11 @@ components:
               description: 'When this record last changed: its metadata, permissions
                 or state. Adding or replacing a file changes the file''s own record,
                 not its Work''s.'
+            legacy_pid:
+              type: string
+              nullable: true
+              description: The v1 pid this resource migrated from, e.g. "neu:1234".
+                Set at create only; null for a resource born in v2.
             depositor:
               type: string
               nullable: true
@@ -575,6 +586,7 @@ components:
           - tombstoned_by
           - tombstone_reason
           - updated_at
+          - legacy_pid
           - depositor
           - proxy_uploader
           - featured
@@ -680,6 +692,11 @@ components:
               description: 'When this record last changed: its metadata, permissions
                 or state. Adding or replacing a file changes the file''s own record,
                 not its Work''s.'
+            legacy_pid:
+              type: string
+              nullable: true
+              description: The v1 pid this resource migrated from, e.g. "neu:1234".
+                Set at create only; null for a resource born in v2.
             depositor:
               type: string
               nullable: true
@@ -715,6 +732,7 @@ components:
           - tombstoned_by
           - tombstone_reason
           - updated_at
+          - legacy_pid
           - depositor
           - proxy_uploader
           - system_container
@@ -3485,6 +3503,31 @@ components:
       - tombstoned_resource_id
       - tombstoned_resource_type
       - message
+    LegacyPidHolder:
+      type: object
+      properties:
+        resource:
+          type: object
+          properties:
+            id:
+              type: string
+              description: NOID of the resource that holds the pid
+            type:
+              type: string
+              enum:
+              - Community
+              - Collection
+              - Work
+            tombstoned:
+              type: boolean
+              description: True when the holder is tombstoned. It still holds the
+                pid.
+          required:
+          - id
+          - type
+          - tombstoned
+      required:
+      - resource
     TombstoneReason:
       type: string
       nullable: true
@@ -5110,6 +5153,12 @@ paths:
         owner — the same anonymous-batch configuration shape that
         `WorksController#create` supports for inheriting Work-level
         depositors.
+
+        `legacy_pid` is the v1 pid a migrated Collection came from, such as
+        `neu:5678`. Only an admin may send it. A value that is not a v1 pid
+        is `422 invalid_legacy_pid`. A pid any resource holds, live or
+        tombstoned, is `409 legacy_pid_taken`, and the body's `resource_id`
+        names the holder. There is no way to change it after the create.
       parameters: []
       responses:
         '200':
@@ -5137,6 +5186,7 @@ paths:
                   title: ''
                   description: ''
                   permanent_url:
+                  legacy_pid:
                   tombstoned: false
                   tombstoned_at:
                   updated_at: '2026-01-15T12:00:00Z'
@@ -5147,7 +5197,8 @@ paths:
                   featured: false
                   personal_root: false
         '403':
-          description: The caller holds no edit rights on the parent.
+          description: The caller holds no edit rights on the parent, or sent a `legacy_pid`
+            without being an admin.
           content:
             application/json:
               schema:
@@ -5155,7 +5206,13 @@ paths:
         '404':
           description: The `parent_id` is missing or names nothing.
         '422':
-          description: The parent is tombstoned.
+          description: The parent is tombstoned, or the `legacy_pid` is not a v1 pid.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        '409':
+          description: Another resource, live or tombstoned, already holds the `legacy_pid`.
           content:
             application/json:
               schema:
@@ -5179,6 +5236,10 @@ paths:
                 featured:
                   type: boolean
                   description: Mark as a genre-showcase ("Featured") Collection (optional)
+                legacy_pid:
+                  type: string
+                  example: neu:5678
+                  description: The v1 pid the Collection migrated from. Admin only.
               required:
               - parent_id
       operationId: collections_create
@@ -5227,6 +5288,7 @@ paths:
                   title: ''
                   description: ''
                   permanent_url:
+                  legacy_pid:
                   tombstoned: false
                   tombstoned_at:
                   updated_at: '2026-01-15T12:00:00Z'
@@ -5477,6 +5539,7 @@ paths:
                   title: ''
                   description: ''
                   permanent_url:
+                  legacy_pid:
                   tombstoned: false
                   tombstoned_at:
                   updated_at: '2026-01-15T12:00:00Z'
@@ -5668,6 +5731,12 @@ paths:
 
         Optional `depositor` is the NUID to stamp as the intellectual
         owner (mirrors the same surface on Collection/Work creates).
+
+        `legacy_pid` is the v1 pid a migrated Community came from, such as
+        `neu:1`. Only an admin may send it. A value that is not a v1 pid is
+        `422 invalid_legacy_pid`. A pid any resource holds, live or
+        tombstoned, is `409 legacy_pid_taken`, and the body's `resource_id`
+        names the holder. There is no way to change it after the create.
       parameters: []
       responses:
         '200':
@@ -5690,6 +5759,7 @@ paths:
                   title: ''
                   description: ''
                   permanent_url:
+                  legacy_pid:
                   tombstoned: false
                   tombstoned_at:
                   updated_at: '2026-01-15T12:00:00Z'
@@ -5699,7 +5769,8 @@ paths:
                   proxy_uploader: '000000004'
                   system_container: false
         '403':
-          description: The caller may not create a Community inside that parent.
+          description: The caller may not create a Community inside that parent, or
+            sent a `legacy_pid` without being an admin.
           content:
             application/json:
               schema:
@@ -5707,7 +5778,14 @@ paths:
         '404':
           description: The `parent_id` names nothing.
         '422':
-          description: The parent Community is tombstoned.
+          description: The parent Community is tombstoned, or the `legacy_pid` is
+            not a v1 pid.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        '409':
+          description: Another resource, live or tombstoned, already holds the `legacy_pid`.
           content:
             application/json:
               schema:
@@ -5728,6 +5806,10 @@ paths:
                 depositor:
                   type: string
                   description: NUID to stamp as the Community depositor (optional)
+                legacy_pid:
+                  type: string
+                  example: neu:1
+                  description: The v1 pid the Community migrated from. Admin only.
       operationId: communities_create
   "/communities/{id}":
     parameters:
@@ -5768,6 +5850,7 @@ paths:
                   title: ''
                   description: ''
                   permanent_url:
+                  legacy_pid:
                   tombstoned: false
                   tombstoned_at:
                   updated_at: '2026-01-15T12:00:00Z'
@@ -7323,7 +7406,7 @@ paths:
                   tombstone_reason:
                   updated_at: '2026-01-15T12:00:00Z'
                 - id: d0000002x
-                  type: File
+                  type: Descriptive Metadata
                   position:
                   tombstoned: false
                   tombstoned_at:
@@ -7339,7 +7422,7 @@ paths:
                   tombstone_reason:
                   updated_at: '2026-01-15T12:00:00Z'
                 - id: d0000004x
-                  type: Descriptive Metadata
+                  type: File
                   position:
                   tombstoned: false
                   tombstoned_at:
@@ -7795,6 +7878,54 @@ paths:
                 "$ref": "#/components/schemas/Health"
         '304':
           "$ref": "#/components/responses/NotModified"
+  "/resources/legacy/{pid}":
+    parameters:
+    - name: pid
+      in: path
+      example: neu:1234
+      description: A v1 pid, `neu:` prefix included
+      required: true
+      schema:
+        type: string
+    get:
+      summary: Find the resource a v1 pid became
+      tags:
+      - Resources
+      description: |
+        Answers which Community, Collection or Work a v1 pid migrated to, so a
+        client can redirect an old v1 URL to the new object.
+
+        A tombstoned holder still answers, with `tombstoned: true`: the old URL
+        should land on its tombstone page. A caller who may not read the holder
+        gets the same `404` as an unknown pid, so the lookup never reveals the
+        NOID of something the caller cannot see. The system token reads past the
+        per-resource gate, so a client resolving on a visitor's behalf can use it.
+
+        The answer is not cached: a repository reset reuses NOIDs.
+      responses:
+        '200':
+          description: The NOID and type of the resource that holds the pid.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/LegacyPidHolder"
+              example:
+                resource:
+                  id: d0000001x
+                  type: Work
+                  tombstoned: false
+        '404':
+          description: No resource holds the pid, or the caller may not read the one
+            that does.
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
+        '304':
+          "$ref": "#/components/responses/NotModified"
+      operationId: legacy_pids_show
   "/maintenance":
     get:
       summary: Read the repository-wide read-only window
@@ -8319,6 +8450,7 @@ paths:
                   description: ''
                   permanent_url:
                   handle:
+                  legacy_pid:
                   tombstoned: false
                   tombstoned_at:
                   updated_at: '2026-01-15T12:00:00Z'
@@ -8624,6 +8756,7 @@ paths:
                     emerges in the most stressful moments.
                   permanent_url: http://hdl.handle.net/2047/D20254217
                   handle:
+                  legacy_pid:
                   tombstoned: false
                   tombstoned_at:
                   updated_at: '2026-01-15T12:00:00Z'
@@ -8818,6 +8951,7 @@ paths:
                   description: ''
                   permanent_url:
                   handle:
+                  legacy_pid:
                   tombstoned: false
                   tombstoned_at:
                   updated_at: '2026-01-15T12:00:00Z'
@@ -8938,6 +9072,7 @@ paths:
                   description: ''
                   permanent_url:
                   handle:
+                  legacy_pid:
                   tombstoned: false
                   tombstoned_at:
                   updated_at: '2026-01-15T12:00:00Z'
@@ -9050,6 +9185,7 @@ paths:
                   description: ''
                   permanent_url:
                   handle:
+                  legacy_pid:
                   tombstoned: true
                   tombstoned_at: '2026-01-15T12:00:00Z'
                   updated_at: '2026-01-15T12:00:00Z'
@@ -9154,6 +9290,7 @@ paths:
                   description: ''
                   permanent_url:
                   handle:
+                  legacy_pid:
                   tombstoned: false
                   tombstoned_at:
                   updated_at: '2026-01-15T12:00:00Z'
@@ -9858,6 +9995,12 @@ paths:
         is not `<prefix>/<suffix>` is `422 invalid_handle`; a handle another
         Work holds is `409 handle_taken`. There is no way to change it
         after the create.
+
+        `legacy_pid` is the v1 pid a migrated Work came from, such as
+        `neu:1234`. Only an admin may send it. A value that is not a v1 pid is
+        `422 invalid_legacy_pid`. A pid any resource holds, live or
+        tombstoned, is `409 legacy_pid_taken`, and the body's `resource_id`
+        names the holder. There is no way to change it after the create.
       parameters:
       - name: Idempotency-Key
         in: header
@@ -9899,6 +10042,7 @@ paths:
                   description: ''
                   permanent_url:
                   handle:
+                  legacy_pid: neu:1234
                   tombstoned: false
                   tombstoned_at:
                   updated_at: '2026-01-15T12:00:00Z'
@@ -9921,21 +10065,23 @@ paths:
               schema:
                 "$ref": "#/components/schemas/Work"
         '403':
-          description: The caller holds no edit rights on the parent Collection, or
-            sent a `handle` without being an admin or delegated admin.
+          description: The caller holds no edit rights on the parent Collection, sent
+            a `handle` without being an admin or delegated admin, or sent a `legacy_pid`
+            without being an admin.
           content:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Error"
         '409':
-          description: Another Work, live or tombstoned, already holds the `handle`.
+          description: Another Work, live or tombstoned, already holds the `handle`,
+            or another resource holds the `legacy_pid`.
           content:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Error"
         '422':
-          description: The parent Collection is tombstoned, or the `handle` is not
-            `<prefix>/<suffix>`.
+          description: The parent Collection is tombstoned, the `handle` is not `<prefix>/<suffix>`,
+            or the `legacy_pid` is not a v1 pid.
           content:
             application/json:
               schema:
@@ -9963,6 +10109,10 @@ paths:
                   example: 2047/d20001234
                   description: A handle the Work already owns. Admin and delegated
                     admin only.
+                legacy_pid:
+                  type: string
+                  example: neu:1234
+                  description: The v1 pid the Work migrated from. Admin only.
               required:
               - collection_id
       operationId: works_create
@@ -10019,6 +10169,7 @@ paths:
                   description: ''
                   permanent_url:
                   handle:
+                  legacy_pid:
                   tombstoned: false
                   tombstoned_at:
                   updated_at: '2026-01-15T12:00:00Z'
@@ -10745,6 +10896,7 @@ paths:
                   description: ''
                   permanent_url:
                   handle:
+                  legacy_pid:
                   tombstoned: false
                   tombstoned_at:
                   updated_at: '2026-01-15T12:00:00Z'
@@ -10863,6 +11015,7 @@ paths:
                   description: ''
                   permanent_url:
                   handle:
+                  legacy_pid:
                   tombstoned: false
                   tombstoned_at:
                   updated_at: '2026-01-15T12:00:00Z'
@@ -11034,6 +11187,7 @@ paths:
                   description: ''
                   permanent_url:
                   handle:
+                  legacy_pid:
                   tombstoned: false
                   tombstoned_at:
                   updated_at: '2026-01-15T12:00:00Z'
@@ -11451,6 +11605,7 @@ paths:
                   description: ''
                   permanent_url:
                   handle:
+                  legacy_pid:
                   tombstoned: false
                   tombstoned_at:
                   updated_at: '2026-01-15T12:00:00Z'
@@ -11548,6 +11703,7 @@ paths:
                   description: ''
                   permanent_url:
                   handle:
+                  legacy_pid:
                   tombstoned: false
                   tombstoned_at:
                   updated_at: '2026-01-15T12:00:00Z'
@@ -11629,6 +11785,7 @@ paths:
                   description: ''
                   permanent_url:
                   handle:
+                  legacy_pid:
                   tombstoned: false
                   tombstoned_at:
                   updated_at: '2026-01-15T12:00:00Z'

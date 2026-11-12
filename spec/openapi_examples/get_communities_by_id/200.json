@@ -12,6 +12,7 @@
     "title": "",
     "description": "",
     "permanent_url": null,
+    "legacy_pid": null,
     "tombstoned": false,
     "tombstoned_at": null,
     "updated_at": "2026-01-15T12:00:00Z",

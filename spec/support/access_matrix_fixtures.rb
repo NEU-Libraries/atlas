@@ -110,8 +110,9 @@ class AccessMatrixFixtures
       Work.find(work.noid).darwin_core_xml = File.read(DWC)
     end
 
+    # The pid is what the legacy-pid lookup row resolves to this Work.
     def build_work!
-      @work = described!(public_work! { |work| grant_work!(work) }, MARKERS[:work])
+      @work = described!(public_work!(legacy_pid: AccessMatrix::LEGACY_PID) { |work| grant_work!(work) }, MARKERS[:work])
     end
 
     # The three ways a Work grants edit beyond the staff group: a named
@@ -167,8 +168,8 @@ class AccessMatrixFixtures
       @sub_community = described!(Atlas.persister.save(resource: sub), MARKERS[:sub_community])
     end
 
-    def public_work!
-      work = WorkCreator.call(parent_id: collection.noid)
+    def public_work!(legacy_pid: nil)
+      work = WorkCreator.call(parent_id: collection.noid, legacy_pid: legacy_pid)
       work.publicize
       yield work if block_given?
       Atlas.persister.save(resource: work)

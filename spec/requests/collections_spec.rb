@@ -32,9 +32,10 @@ RSpec.describe 'Collections', type: :request do
       tags 'Collections'
       response_texts(
         '200' => 'The new Collection.',
-        '403' => 'The caller holds no edit rights on the parent.',
+        '403' => 'The caller holds no edit rights on the parent, or sent a `legacy_pid` without being an admin.',
         '404' => 'The `parent_id` is missing or names nothing.',
-        '422' => 'The parent is tombstoned.'
+        '409' => 'Another resource, live or tombstoned, already holds the `legacy_pid`.',
+        '422' => 'The parent is tombstoned, or the `legacy_pid` is not a v1 pid.'
       )
       consumes 'application/json'
       produces 'application/json'
@@ -51,13 +52,20 @@ RSpec.describe 'Collections', type: :request do
         owner — the same anonymous-batch configuration shape that
         `WorksController#create` supports for inheriting Work-level
         depositors.
+
+        `legacy_pid` is the v1 pid a migrated Collection came from, such as
+        `neu:5678`. Only an admin may send it. A value that is not a v1 pid
+        is `422 invalid_legacy_pid`. A pid any resource holds, live or
+        tombstoned, is `409 legacy_pid_taken`, and the body's `resource_id`
+        names the holder. There is no way to change it after the create.
       DESC
       parameter name: :body, in: :body, schema: {
         type:       :object,
         properties: {
-          parent_id: { type: :string, description: 'NOID of the parent Community or Collection' },
-          depositor: { type: :string, description: 'NUID to stamp as the Collection depositor (optional)' },
-          featured:  { type: :boolean, description: 'Mark as a genre-showcase ("Featured") Collection (optional)' }
+          parent_id:  { type: :string, description: 'NOID of the parent Community or Collection' },
+          depositor:  { type: :string, description: 'NUID to stamp as the Collection depositor (optional)' },
+          featured:   { type: :boolean, description: 'Mark as a genre-showcase ("Featured") Collection (optional)' },
+          legacy_pid: { type: :string, example: 'neu:5678', description: 'The v1 pid the Collection migrated from. Admin only.' }
         },
         required:   %w[parent_id]
       }
@@ -112,6 +120,46 @@ RSpec.describe 'Collections', type: :request do
         end
         run_test! do |response|
           expect(response.parsed_body['code']).to eq('tombstoned_parent')
+          expect(community.children.grep(Collection)).to be_empty
+        end
+      end
+
+      response '200', 'collection created with the v1 pid it migrated from' do
+        let(:body) { { parent_id: community.noid, legacy_pid: 'neu:5678' } }
+        schema '$ref' => '#/components/schemas/Collection'
+        run_test! do |response|
+          expect(response.parsed_body.dig('collection', 'legacy_pid')).to eq('neu:5678')
+        end
+      end
+
+      response '403', 'a legacy_pid from a caller who is not an admin' do
+        let!(:delegate) do
+          User.create!(email: 'delegate-pid-coll@example.invalid', password: SecureRandom.hex(16),
+                       nuid: '000000046', name: 'Delegate, Pid', role: :privileged,
+                       groups: [Permissions::ADMIN_GROUP, Permissions::STAFF_EDIT_GROUP])
+        end
+        let(:body)          { { parent_id: community.noid, legacy_pid: 'neu:5679' } }
+        let(:Authorization) { "Bearer #{DefaultAuthHeaders.assertion_for('000000046')}" }
+        run_test! do |response|
+          expect(response.parsed_body['action']).to eq('supply_legacy_pid')
+          expect(community.children.grep(Collection)).to be_empty
+        end
+      end
+
+      response '409', 'another resource already holds the legacy_pid' do
+        let!(:holder) { WorkCreator.call(parent_id: CollectionCreator.call(parent_id: community.noid).noid, legacy_pid: 'neu:5680') }
+        let(:body)    { { parent_id: community.noid, legacy_pid: 'neu:5680' } }
+        schema '$ref' => '#/components/schemas/LegacyPidRefusal'
+        run_test! do |response|
+          expect(response.parsed_body).to include('error' => 'legacy_pid_taken', 'resource_id' => holder.noid)
+        end
+      end
+
+      response '422', 'the legacy_pid is not a v1 pid' do
+        let(:body) { { parent_id: community.noid, legacy_pid: 'neu:a/b' } }
+        schema '$ref' => '#/components/schemas/LegacyPidRefusal'
+        run_test! do |response|
+          expect(response.parsed_body['error']).to eq('invalid_legacy_pid')
           expect(community.children.grep(Collection)).to be_empty
         end
       end

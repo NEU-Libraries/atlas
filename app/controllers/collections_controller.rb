@@ -6,6 +6,7 @@ class CollectionsController < ApplicationController
   include Auditable
   include CachedResponses
   include ParentScopedCreate
+  include SuppliedLegacyPid
 
   # Container creation is intentionally left open to :system so the seed task
   # can bootstrap Communities + Collections. The :system carve-out for :create
@@ -38,7 +39,8 @@ class CollectionsController < ApplicationController
   # a 404 rather than a create with no home.
   def create
     authorize! :create, Collection
-    parent = authorized_create_parent(params[:parent_id])
+    legacy_pid = supplied_legacy_pid(Collection)
+    parent     = authorized_create_parent(params[:parent_id])
     return head(:not_found) if parent.nil?
 
     # TODO: XML
@@ -48,7 +50,8 @@ class CollectionsController < ApplicationController
       proxy_uploader:    proxy_uploader_nuid,
       depositor:         depositor_nuid,
       actor_nuid:        @current_user&.nuid,
-      on_behalf_of_nuid: @on_behalf_of
+      on_behalf_of_nuid: @on_behalf_of,
+      legacy_pid:        legacy_pid
     )
   end
 

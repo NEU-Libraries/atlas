@@ -332,6 +332,14 @@ RSpec.describe Ability do
       expect(subject).not_to be_able_to(:destroy,     Work.new)
       expect(subject).not_to be_able_to(:manage,      :all)
     end
+
+    # Unlike a handle, a v1 pid is admin-only: the migration runs as an admin,
+    # and no human deposit has one.
+    it 'does not grant :supply_legacy_pid on any type' do
+      [Community, Collection, Work].each do |model|
+        expect(subject).not_to be_able_to(:supply_legacy_pid, model)
+      end
+    end
   end
 
   describe 'devolved-admin tier negative control: :privileged role without the admin group' do
@@ -694,6 +702,7 @@ RSpec.describe Ability do
 
     # Wildcard.
     it { is_expected.to be_able_to(:manage, :all) }
+    it { is_expected.to be_able_to(:supply_legacy_pid, Community) }
     it { is_expected.to be_able_to(:update_profile, Person.new(nuid: '009990000')) }
     it { is_expected.to be_able_to(:read,       public_resource) }
     it { is_expected.to be_able_to(:read,       private_resource) }

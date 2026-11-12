@@ -68,6 +68,8 @@ module OpenapiSchemas
       Latency:                 latency,
       EmbargoRelease:          embargo_release,
       Tombstoned:              tombstoned_error,
+      LegacyPidRefusal:        legacy_pid_refusal,
+      LegacyPidHolder:         legacy_pid_holder,
       TombstoneReason:         tombstone_reason,
       BlobAsset:               blob_asset,
       DelegateAsset:           delegate_asset,
@@ -1087,6 +1089,7 @@ module OpenapiSchemas
   # split out for Work-specific keys.
   def provenance_props
     {
+      legacy_pid:     { type: :string, nullable: true, description: 'The v1 pid this resource migrated from, e.g. "neu:1234". Set at create only; null for a resource born in v2.' },
       depositor:      { type: :string, nullable: true, description: 'NUID of the intellectual owner (the named depositor; may differ from the hands-on-keyboard actor). Null for a guest.' },
       proxy_uploader: { type: :string, nullable: true, description: 'NUID of the hands-on-keyboard actor for the most-recent create. Equals depositor for self-deposit; differs in the librarian-on-behalf (proxy-deposit) case. Left null under acting-as impersonation (On-Behalf-Of header present) — the operator is recorded only in the AuditEvent, not on the resource. Null for a guest.' }
     }
@@ -1473,6 +1476,24 @@ module OpenapiSchemas
       },
       required:   %w[error resource_id tombstoned_resource_id tombstoned_resource_type message]
     }
+  end
+
+  # Mirrors the LegacyPidError rescue in ApplicationController.
+  def legacy_pid_refusal
+    bare({
+           error:       { type: :string, enum: %w[invalid_legacy_pid legacy_pid_taken] },
+           resource_id: { type: :string, nullable: true,
+                          description: 'NOID of the resource that already holds the pid on a 409; null on a 422.' },
+           message:     { type: :string }
+         })
+  end
+
+  def legacy_pid_holder
+    wrapped(:resource, {
+              id:         { type: :string, description: 'NOID of the resource that holds the pid' },
+              type:       { type: :string, enum: %w[Community Collection Work] },
+              tombstoned: { type: :boolean, description: 'True when the holder is tombstoned. It still holds the pid.' }
+            })
   end
 
   def summary_props

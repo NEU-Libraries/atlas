@@ -14,9 +14,10 @@ class Ability
 
   # Machine-set derived-metadata verbs that ride :update for ACL gating.
   #
-  # :reparent, :link_member, :restore, :associate and :supply_handle are
-  # deliberately absent and must stay absent — they are operator verbs, and
-  # adding one here would grant it to every principal holding edit rights.
+  # :reparent, :link_member, :restore, :associate, :supply_handle and
+  # :supply_legacy_pid are deliberately absent and must stay absent — they are
+  # operator verbs, and adding one here would grant it to every principal
+  # holding edit rights. :supply_legacy_pid is granted to no one below :admin.
   UPDATE_ALIASES = %i[update_thumbnails update_image_derivatives update_derivative_permissions
                       update_iiif_service update_full_text complete
                       mark_incomplete clear_incomplete].freeze

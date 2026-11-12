@@ -179,6 +179,17 @@ class ApplicationController < ActionController::API
     }, status: exception.status
   end
 
+  # Unlike the handle refusal, a 409 names the holder in resource_id; it is
+  # null on a 422. A migration recovering from a crash needs the NOID, and must
+  # not parse the message for it.
+  rescue_from Exceptions::LegacyPidError do |exception|
+    render json: {
+      error:       exception.code,
+      resource_id: exception.holder_id,
+      message:     exception.message
+    }, status: exception.status
+  end
+
   # The tombstoned resource can be an ancestor of the one requested, so the body
   # names it: a client tells a removed file from a suppressed Work by its type.
   rescue_from Exceptions::Tombstoned do |exception|

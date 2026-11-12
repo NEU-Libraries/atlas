@@ -4,10 +4,12 @@ class CollectionCreator < ApplicationService
   # Provenance kwargs mirror WorkCreator — see app/services/work_creator.rb
   # for the rationale. Optional so direct callers (specs, reset.rake) work
   # without synthesizing an authenticated identity; the HTTP path supplies
-  # them for every real-world create.
+  # them for every real-world create. `legacy_pid:` is a v1 pid, checked by
+  # LegacyPid.claim so every caller gets the shape and uniqueness rules.
   def initialize(parent_id:, mods_xml: nil, featured: false, proxy_uploader: nil,
-                 depositor: nil, actor_nuid: nil, on_behalf_of_nuid: nil)
+                 depositor: nil, actor_nuid: nil, on_behalf_of_nuid: nil, legacy_pid: nil)
     @parent_id = resolve_id(parent_id)
+    @legacy_pid        = legacy_pid
     @mods_xml          = mods_xml.nil? ? mods_template : mods_xml
     @featured          = featured
     @proxy_uploader    = proxy_uploader
@@ -17,13 +19,15 @@ class CollectionCreator < ApplicationService
   end
 
   def call
-    create_collection
+    LegacyPid.claim(@legacy_pid) { create_collection }
   end
 
   private
 
+    # The pid goes on the FIRST save, so the Collection is never visible without it.
     def create_collection
-      collection = Atlas.persister.save(resource: Collection.new(a_member_of: @parent_id, featured: @featured))
+      collection = Atlas.persister.save(resource: Collection.new(a_member_of: @parent_id, featured: @featured,
+                                                                 legacy_pid: @legacy_pid))
 
       FileSetCreator.call(work_id: collection.id, classification: Classification.descriptive_metadata)
 

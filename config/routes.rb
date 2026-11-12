@@ -120,6 +120,9 @@ Rails.application.routes.draw do
     # Generics
     # Before /resources/:id, which would otherwise read "search" as an id.
     get '/resources/search', to: 'search#index', as: 'resource_search'
+    # No constraint on purpose: a value that is not a pid finds no holder and
+    # answers 404, as the shared 404 contract expects. See docs/legacy-pids.md.
+    get '/resources/legacy/:pid', to: 'legacy_pids#show', as: 'legacy_pid', format: false
     get '/resources/:id', to: 'resources#show'
     get '/resources/:id/permissions', to: 'resources#permissions'
     get '/resources/:id/history', to: 'audit_events#index', as: 'resource_history'

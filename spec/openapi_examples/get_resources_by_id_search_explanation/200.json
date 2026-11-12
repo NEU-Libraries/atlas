@@ -4,7 +4,7 @@
   "matched": true,
   "score": 1.982391119003296,
   "hidden_by": [],
-  "parsed_query": "FunctionScoreQuery(+((((title_tsim:coastal)^10.0 | (description_kstem_tesim:coastal)^2.5 | (description_tsim:coastal)^5.0 | title_plain_tsim:coastal | (title_stem_tesim:coastal)^5.0 | identifier_tesim:coastal | dwc_scientific_name_tesim:coastal | (alternate_ids_tsim:coastal)^3.0 | (descriptive_keywords_tesim:coastal)^2.0 | subject_title_tesim:coastal | full_text_tesimv:coastal | (description_stem_tesim:coastal)^2.5 | title_split_tesim:coastal | contents_tesim:coastal | (title_variant_tesim:coastal)^4.0 | (title_kstem_tesim:coastal)^5.0 | name_variant_teim:coastal)~0.01 ((title_tsim:surveys)^10.0 | dwc_scientific_name_tesim:survey | full_text_tesimv:survey | (description_stem_tesim:survey)^2.5 | (title_variant_tesim:survey)^4.0 | (title_stem_tesim:survey)^5.0 | identifier_tesim:survey | title_split_tesim:surveys | (alternate_ids_tsim:surveys)^3.0 | (description_kstem_tesim:survey)^2.5 | (descriptive_keywords_tesim:survey)^2.0 | name_variant_teim:survey | (description_tsim:surveys)^5.0 | subject_title_tesim:survey | contents_tesim:survey | (title_kstem_tesim:survey)^5.0 | title_plain_tsim:surveys)~0.01)~2) ((full_text_tesimv:\"coastal survey\"~2)^10.0 | (title_tsim:\"coastal surveys\"~2)^20.0)~0.01, scored by boost(if(exists(query(internal_resource_tesim:person,def=0.0)),const(0.9),const(1))))",
+  "parsed_query": "FunctionScoreQuery(+((((title_tsim:coastal)^10.0 | full_text_tesimv:coastal | title_plain_tsim:coastal | (title_stem_tesim:coastal)^5.0 | (title_variant_tesim:coastal)^4.0 | (alternate_ids_tsim:coastal)^3.0 | dwc_scientific_name_tesim:coastal | subject_title_tesim:coastal | contents_tesim:coastal | name_variant_teim:coastal | (descriptive_keywords_tesim:coastal)^2.0 | (description_tsim:coastal)^5.0 | title_split_tesim:coastal | (description_kstem_tesim:coastal)^2.5 | identifier_tesim:coastal | (description_stem_tesim:coastal)^2.5 | (title_kstem_tesim:coastal)^5.0)~0.01 (full_text_tesimv:survey | dwc_scientific_name_tesim:survey | (alternate_ids_tsim:surveys)^3.0 | (description_tsim:surveys)^5.0 | contents_tesim:survey | (title_kstem_tesim:survey)^5.0 | (description_kstem_tesim:survey)^2.5 | title_plain_tsim:surveys | (title_stem_tesim:survey)^5.0 | name_variant_teim:survey | subject_title_tesim:survey | title_split_tesim:surveys | (title_tsim:surveys)^10.0 | (description_stem_tesim:survey)^2.5 | identifier_tesim:survey | (title_variant_tesim:survey)^4.0 | (descriptive_keywords_tesim:survey)^2.0)~0.01)~2) ((full_text_tesimv:\"coastal survey\"~2)^10.0 | (title_tsim:\"coastal surveys\"~2)^20.0)~0.01, scored by boost(if(exists(query(internal_resource_tesim:person,def=0.0)),const(0.9),const(1))))",
   "handler": {
     "qf": {
       "title_tsim": 10.0,
@@ -36,7 +36,7 @@
   "explanation": {
     "match": true,
     "value": 1.982391119003296,
-    "description": "weight(FunctionScoreQuery(+(+((title_tsim:coastal)^10.0 | (description_kstem_tesim:coastal)^2.5 | (description_tsim:coastal)^5.0 | title_plain_tsim:coastal | (title_stem_tesim:coastal)^5.0 | identifier_tesim:coastal | dwc_scientific_name_tesim:coastal | (alternate_ids_tsim:coastal)^3.0 | (descriptive_keywords_tesim:coastal)^2.0 | subject_title_tesim:coastal | full_text_tesimv:coastal | (description_stem_tesim:coastal)^2.5 | title_split_tesim:coastal | contents_tesim:coastal | (title_variant_tesim:coastal)^4.0 | (title_kstem_tesim:coastal)^5.0 | name_variant_teim:coastal)~0.01 +((title_tsim:surveys)^10.0 | dwc_scientific_name_tesim:survey | full_text_tesimv:survey | (description_stem_tesim:survey)^2.5 | (title_variant_tesim:survey)^4.0 | (title_stem_tesim:survey)^5.0 | identifier_tesim:survey | title_split_tesim:surveys | (alternate_ids_tsim:surveys)^3.0 | (description_kstem_tesim:survey)^2.5 | (descriptive_keywords_tesim:survey)^2.0 | name_variant_teim:survey | (description_tsim:surveys)^5.0 | subject_title_tesim:survey | contents_tesim:survey | (title_kstem_tesim:survey)^5.0 | title_plain_tsim:surveys)~0.01) ((full_text_tesimv:\"coastal survey\"~2)^10.0 | (title_tsim:\"coastal surveys\"~2)^20.0)~0.01, scored by boost(if(exists(query(internal_resource_tesim:person,def=0.0)),const(0.9),const(1))))), result of:",
+    "description": "weight(FunctionScoreQuery(+(+((title_tsim:coastal)^10.0 | full_text_tesimv:coastal | title_plain_tsim:coastal | (title_stem_tesim:coastal)^5.0 | (title_variant_tesim:coastal)^4.0 | (alternate_ids_tsim:coastal)^3.0 | dwc_scientific_name_tesim:coastal | subject_title_tesim:coastal | contents_tesim:coastal | name_variant_teim:coastal | (descriptive_keywords_tesim:coastal)^2.0 | (description_tsim:coastal)^5.0 | title_split_tesim:coastal | (description_kstem_tesim:coastal)^2.5 | identifier_tesim:coastal | (description_stem_tesim:coastal)^2.5 | (title_kstem_tesim:coastal)^5.0)~0.01 +(full_text_tesimv:survey | dwc_scientific_name_tesim:survey | (alternate_ids_tsim:surveys)^3.0 | (description_tsim:surveys)^5.0 | contents_tesim:survey | (title_kstem_tesim:survey)^5.0 | (description_kstem_tesim:survey)^2.5 | title_plain_tsim:surveys | (title_stem_tesim:survey)^5.0 | name_variant_teim:survey | subject_title_tesim:survey | title_split_tesim:surveys | (title_tsim:surveys)^10.0 | (description_stem_tesim:survey)^2.5 | identifier_tesim:survey | (title_variant_tesim:survey)^4.0 | (descriptive_keywords_tesim:survey)^2.0)~0.01) ((full_text_tesimv:\"coastal survey\"~2)^10.0 | (title_tsim:\"coastal surveys\"~2)^20.0)~0.01, scored by boost(if(exists(query(internal_resource_tesim:person,def=0.0)),const(0.9),const(1))))), result of:",
     "details": [
       {
         "match": true,
@@ -335,7 +335,7 @@
                       {
                         "match": true,
                         "value": 0.6538229,
-                        "description": "weight(title_stem_tesim:survey in 8) [SchemaSimilarity], result of:",
+                        "description": "weight(title_kstem_tesim:survey in 8) [SchemaSimilarity], result of:",
                         "details": [
                           {
                             "match": true,
@@ -403,7 +403,7 @@
                       {
                         "match": true,
                         "value": 0.6538229,
-                        "description": "weight(title_kstem_tesim:survey in 8) [SchemaSimilarity], result of:",
+                        "description": "weight(title_stem_tesim:survey in 8) [SchemaSimilarity], result of:",
                         "details": [
                           {
                             "match": true,

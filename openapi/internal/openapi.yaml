@@ -867,39 +867,39 @@ paths:
                 due:
                 - key: d0000001x
                   object: urn:neu-drs:d0000001x
-                  bytes: 6244
+                  bytes: 3155
                   last_checked_at:
                 - key: d0000002x
                   object: urn:neu-drs:d0000002x
-                  bytes: 3106
+                  bytes: 6891
                   last_checked_at:
                 - key: d0000003x
                   object: urn:neu-drs:d0000003x
-                  bytes: 6889
+                  bytes: 3090
                   last_checked_at:
                 - key: d0000004x
                   object: urn:neu-drs:d0000004x
-                  bytes: 6244
+                  bytes: 6341
                   last_checked_at:
                 - key: d0000005x
                   object: urn:neu-drs:d0000005x
-                  bytes: 6889
+                  bytes: 6891
                   last_checked_at:
                 - key: d0000006x
                   object: urn:neu-drs:d0000006x
-                  bytes: 6244
+                  bytes: 6891
                   last_checked_at:
                 - key: d0000007x
                   object: urn:neu-drs:d0000007x
-                  bytes: 3041
+                  bytes: 6341
                   last_checked_at:
                 - key: d0000008x
                   object: urn:neu-drs:d0000008x
-                  bytes: 6889
+                  bytes: 6341
                   last_checked_at:
                 - key: d0000009x
                   object: urn:neu-drs:d0000009x
-                  bytes: 3120
+                  bytes: 3169
                   last_checked_at: '2026-01-15T12:00:00Z'
         '400':
           description: "`checked_before` is not a timestamp."
@@ -1104,7 +1104,7 @@ paths:
                       <mods:identifier type="hdl" displayLabel="Permanent URL"/>
                     </mods:mods>
                   mods_updated_at_dtsi: '2026-01-15T12:00:00Z'
-                  storage_bytes_ls: 13133
+                  storage_bytes_ls: 13232
                   work_fixity_objects_isi: 3
                   work_fixity_never_checked_isi: 3
                   _version_: 0
@@ -1571,20 +1571,20 @@ paths:
                 matched: true
                 score: 1.982391119003296
                 hidden_by: []
-                parsed_query: FunctionScoreQuery(+((((title_tsim:coastal)^10.0 | (description_kstem_tesim:coastal)^2.5
-                  | (description_tsim:coastal)^5.0 | title_plain_tsim:coastal | (title_stem_tesim:coastal)^5.0
-                  | identifier_tesim:coastal | dwc_scientific_name_tesim:coastal |
-                  (alternate_ids_tsim:coastal)^3.0 | (descriptive_keywords_tesim:coastal)^2.0
-                  | subject_title_tesim:coastal | full_text_tesimv:coastal | (description_stem_tesim:coastal)^2.5
-                  | title_split_tesim:coastal | contents_tesim:coastal | (title_variant_tesim:coastal)^4.0
-                  | (title_kstem_tesim:coastal)^5.0 | name_variant_teim:coastal)~0.01
-                  ((title_tsim:surveys)^10.0 | dwc_scientific_name_tesim:survey |
-                  full_text_tesimv:survey | (description_stem_tesim:survey)^2.5 |
-                  (title_variant_tesim:survey)^4.0 | (title_stem_tesim:survey)^5.0
-                  | identifier_tesim:survey | title_split_tesim:surveys | (alternate_ids_tsim:surveys)^3.0
-                  | (description_kstem_tesim:survey)^2.5 | (descriptive_keywords_tesim:survey)^2.0
-                  | name_variant_teim:survey | (description_tsim:surveys)^5.0 | subject_title_tesim:survey
-                  | contents_tesim:survey | (title_kstem_tesim:survey)^5.0 | title_plain_tsim:surveys)~0.01)~2)
+                parsed_query: FunctionScoreQuery(+((((title_tsim:coastal)^10.0 | full_text_tesimv:coastal
+                  | title_plain_tsim:coastal | (title_stem_tesim:coastal)^5.0 | (title_variant_tesim:coastal)^4.0
+                  | (alternate_ids_tsim:coastal)^3.0 | dwc_scientific_name_tesim:coastal
+                  | subject_title_tesim:coastal | contents_tesim:coastal | name_variant_teim:coastal
+                  | (descriptive_keywords_tesim:coastal)^2.0 | (description_tsim:coastal)^5.0
+                  | title_split_tesim:coastal | (description_kstem_tesim:coastal)^2.5
+                  | identifier_tesim:coastal | (description_stem_tesim:coastal)^2.5
+                  | (title_kstem_tesim:coastal)^5.0)~0.01 (full_text_tesimv:survey
+                  | dwc_scientific_name_tesim:survey | (alternate_ids_tsim:surveys)^3.0
+                  | (description_tsim:surveys)^5.0 | contents_tesim:survey | (title_kstem_tesim:survey)^5.0
+                  | (description_kstem_tesim:survey)^2.5 | title_plain_tsim:surveys
+                  | (title_stem_tesim:survey)^5.0 | name_variant_teim:survey | subject_title_tesim:survey
+                  | title_split_tesim:surveys | (title_tsim:surveys)^10.0 | (description_stem_tesim:survey)^2.5
+                  | identifier_tesim:survey | (title_variant_tesim:survey)^4.0 | (descriptive_keywords_tesim:survey)^2.0)~0.01)~2)
                   ((full_text_tesimv:"coastal survey"~2)^10.0 | (title_tsim:"coastal
                   surveys"~2)^20.0)~0.01, scored by boost(if(exists(query(internal_resource_tesim:person,def=0.0)),const(0.9),const(1))))
                 handler:
@@ -1616,23 +1616,22 @@ paths:
                   match: true
                   value: 1.982391119003296
                   description: 'weight(FunctionScoreQuery(+(+((title_tsim:coastal)^10.0
-                    | (description_kstem_tesim:coastal)^2.5 | (description_tsim:coastal)^5.0
-                    | title_plain_tsim:coastal | (title_stem_tesim:coastal)^5.0 |
-                    identifier_tesim:coastal | dwc_scientific_name_tesim:coastal |
-                    (alternate_ids_tsim:coastal)^3.0 | (descriptive_keywords_tesim:coastal)^2.0
-                    | subject_title_tesim:coastal | full_text_tesimv:coastal | (description_stem_tesim:coastal)^2.5
-                    | title_split_tesim:coastal | contents_tesim:coastal | (title_variant_tesim:coastal)^4.0
-                    | (title_kstem_tesim:coastal)^5.0 | name_variant_teim:coastal)~0.01
-                    +((title_tsim:surveys)^10.0 | dwc_scientific_name_tesim:survey
-                    | full_text_tesimv:survey | (description_stem_tesim:survey)^2.5
-                    | (title_variant_tesim:survey)^4.0 | (title_stem_tesim:survey)^5.0
-                    | identifier_tesim:survey | title_split_tesim:surveys | (alternate_ids_tsim:surveys)^3.0
-                    | (description_kstem_tesim:survey)^2.5 | (descriptive_keywords_tesim:survey)^2.0
-                    | name_variant_teim:survey | (description_tsim:surveys)^5.0 |
-                    subject_title_tesim:survey | contents_tesim:survey | (title_kstem_tesim:survey)^5.0
-                    | title_plain_tsim:surveys)~0.01) ((full_text_tesimv:"coastal
-                    survey"~2)^10.0 | (title_tsim:"coastal surveys"~2)^20.0)~0.01,
-                    scored by boost(if(exists(query(internal_resource_tesim:person,def=0.0)),const(0.9),const(1))))),
+                    | full_text_tesimv:coastal | title_plain_tsim:coastal | (title_stem_tesim:coastal)^5.0
+                    | (title_variant_tesim:coastal)^4.0 | (alternate_ids_tsim:coastal)^3.0
+                    | dwc_scientific_name_tesim:coastal | subject_title_tesim:coastal
+                    | contents_tesim:coastal | name_variant_teim:coastal | (descriptive_keywords_tesim:coastal)^2.0
+                    | (description_tsim:coastal)^5.0 | title_split_tesim:coastal |
+                    (description_kstem_tesim:coastal)^2.5 | identifier_tesim:coastal
+                    | (description_stem_tesim:coastal)^2.5 | (title_kstem_tesim:coastal)^5.0)~0.01
+                    +(full_text_tesimv:survey | dwc_scientific_name_tesim:survey |
+                    (alternate_ids_tsim:surveys)^3.0 | (description_tsim:surveys)^5.0
+                    | contents_tesim:survey | (title_kstem_tesim:survey)^5.0 | (description_kstem_tesim:survey)^2.5
+                    | title_plain_tsim:surveys | (title_stem_tesim:survey)^5.0 | name_variant_teim:survey
+                    | subject_title_tesim:survey | title_split_tesim:surveys | (title_tsim:surveys)^10.0
+                    | (description_stem_tesim:survey)^2.5 | identifier_tesim:survey
+                    | (title_variant_tesim:survey)^4.0 | (descriptive_keywords_tesim:survey)^2.0)~0.01)
+                    ((full_text_tesimv:"coastal survey"~2)^10.0 | (title_tsim:"coastal
+                    surveys"~2)^20.0)~0.01, scored by boost(if(exists(query(internal_resource_tesim:person,def=0.0)),const(0.9),const(1))))),
                     result of:'
                   details:
                   - match: true
@@ -1830,7 +1829,7 @@ paths:
                           details:
                           - match: true
                             value: 0.6538229
-                            description: 'weight(title_stem_tesim:survey in 8) [SchemaSimilarity],
+                            description: 'weight(title_kstem_tesim:survey in 8) [SchemaSimilarity],
                               result of:'
                             details:
                             - match: true
@@ -1874,7 +1873,7 @@ paths:
                                   description: avgdl, average length of field
                           - match: true
                             value: 0.6538229
-                            description: 'weight(title_kstem_tesim:survey in 8) [SchemaSimilarity],
+                            description: 'weight(title_stem_tesim:survey in 8) [SchemaSimilarity],
                               result of:'
                             details:
                             - match: true

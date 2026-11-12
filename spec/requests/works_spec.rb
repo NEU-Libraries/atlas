@@ -149,11 +149,13 @@ RSpec.describe 'Works', type: :request do
         '200' => 'The new Work, or the Work an earlier request with the same `Idempotency-Key` created.',
         '410' => 'The `Idempotency-Key` replays a create whose Work has since been tombstoned; the body is the ' \
                  'tombstone payload that `GET /works/{id}` returns.',
-        '403' => 'The caller holds no edit rights on the parent Collection, or sent a `handle` without being an ' \
-                 'admin or delegated admin.',
+        '403' => 'The caller holds no edit rights on the parent Collection, sent a `handle` without being an ' \
+                 'admin or delegated admin, or sent a `legacy_pid` without being an admin.',
         '404' => 'The `collection_id` is blank or names nothing.',
-        '409' => 'Another Work, live or tombstoned, already holds the `handle`.',
-        '422' => 'The parent Collection is tombstoned, or the `handle` is not `<prefix>/<suffix>`.'
+        '409' => 'Another Work, live or tombstoned, already holds the `handle`, or another resource holds the ' \
+                 '`legacy_pid`.',
+        '422' => 'The parent Collection is tombstoned, the `handle` is not `<prefix>/<suffix>`, or the ' \
+                 '`legacy_pid` is not a v1 pid.'
       )
       consumes 'application/json'
       produces 'application/json'
@@ -182,6 +184,12 @@ RSpec.describe 'Works', type: :request do
         is not `<prefix>/<suffix>` is `422 invalid_handle`; a handle another
         Work holds is `409 handle_taken`. There is no way to change it
         after the create.
+
+        `legacy_pid` is the v1 pid a migrated Work came from, such as
+        `neu:1234`. Only an admin may send it. A value that is not a v1 pid is
+        `422 invalid_legacy_pid`. A pid any resource holds, live or
+        tombstoned, is `409 legacy_pid_taken`, and the body's `resource_id`
+        names the holder. There is no way to change it after the create.
       DESC
       parameter name: :body, in: :body, schema: {
         type:       :object,
@@ -189,7 +197,9 @@ RSpec.describe 'Works', type: :request do
           collection_id: { type: :string, description: 'NOID of the parent Collection' },
           depositor:     { type: :string, description: 'NUID to stamp as the Work depositor (optional)' },
           handle:        { type: :string, example: '2047/d20001234',
-                           description: 'A handle the Work already owns. Admin and delegated admin only.' }
+                           description: 'A handle the Work already owns. Admin and delegated admin only.' },
+          legacy_pid:    { type: :string, example: 'neu:1234',
+                           description: 'The v1 pid the Work migrated from. Admin only.' }
         },
         required:   %w[collection_id]
       }
@@ -322,6 +332,51 @@ RSpec.describe 'Works', type: :request do
         run_test! do |response|
           expect(response.parsed_body['error']).to eq('invalid_handle')
           expect(collection.children.grep(Work)).to be_empty
+        end
+      end
+
+      response '200', 'work created with the v1 pid it migrated from' do
+        let(:body)              { { collection_id: collection.noid, legacy_pid: 'neu:1234' } }
+        let(:'Idempotency-Key') { nil }
+        schema '$ref' => '#/components/schemas/Work'
+        run_test! do |response|
+          expect(response.parsed_body.dig('work', 'legacy_pid')).to eq('neu:1234')
+        end
+      end
+
+      # A delegated admin may supply a handle, but not a pid.
+      response '403', 'a legacy_pid from a caller who is not an admin' do
+        let!(:delegate) do
+          User.create!(email: 'delegate-pid@example.invalid', password: SecureRandom.hex(16),
+                       nuid: '000000044', name: 'Delegate, Pid', role: :privileged,
+                       groups: [Permissions::ADMIN_GROUP, Permissions::STAFF_EDIT_GROUP])
+        end
+        let(:body)              { { collection_id: collection.noid, legacy_pid: 'neu:1235' } }
+        let(:'Idempotency-Key') { nil }
+        let(:Authorization)     { "Bearer #{DefaultAuthHeaders.assertion_for('000000044')}" }
+        run_test! do |response|
+          expect(response.parsed_body['action']).to eq('supply_legacy_pid')
+          expect(collection.children.grep(Work)).to be_empty
+        end
+      end
+
+      response '409', 'another resource already holds the legacy_pid' do
+        let(:body)              { { collection_id: collection.noid, legacy_pid: 'neu:1236' } }
+        let(:'Idempotency-Key') { nil }
+        let!(:holder)           { CommunityCreator.call(legacy_pid: 'neu:1236') }
+        schema '$ref' => '#/components/schemas/LegacyPidRefusal'
+        run_test! do |response|
+          expect(response.parsed_body).to include('error' => 'legacy_pid_taken', 'resource_id' => holder.noid)
+          expect(collection.children.grep(Work)).to be_empty
+        end
+      end
+
+      response '422', 'the legacy_pid is not a v1 pid' do
+        let(:body)              { { collection_id: collection.noid, legacy_pid: '1237' } }
+        let(:'Idempotency-Key') { nil }
+        schema '$ref' => '#/components/schemas/LegacyPidRefusal'
+        run_test! do |response|
+          expect(response.parsed_body).to include('error' => 'invalid_legacy_pid', 'resource_id' => nil)
         end
       end
 

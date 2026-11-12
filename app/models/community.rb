@@ -15,4 +15,7 @@ class Community < Resource
   # at find-or-create and projected to system_container_bsi for discovery (mirrors
   # `personal_root`), not MODS.
   attribute :system_container, Valkyrie::Types::Bool.default(false)
+
+  # Set on create only. See docs/legacy-pids.md.
+  attribute :legacy_pid, Valkyrie::Types::String.optional
 end

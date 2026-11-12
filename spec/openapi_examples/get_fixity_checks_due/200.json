@@ -3,55 +3,55 @@
     {
       "key": "d0000001x",
       "object": "urn:neu-drs:d0000001x",
-      "bytes": 6244,
+      "bytes": 3155,
       "last_checked_at": null
     },
     {
       "key": "d0000002x",
       "object": "urn:neu-drs:d0000002x",
-      "bytes": 3106,
+      "bytes": 6891,
       "last_checked_at": null
     },
     {
       "key": "d0000003x",
       "object": "urn:neu-drs:d0000003x",
-      "bytes": 6889,
+      "bytes": 3090,
       "last_checked_at": null
     },
     {
       "key": "d0000004x",
       "object": "urn:neu-drs:d0000004x",
-      "bytes": 6244,
+      "bytes": 6341,
       "last_checked_at": null
     },
     {
       "key": "d0000005x",
       "object": "urn:neu-drs:d0000005x",
-      "bytes": 6889,
+      "bytes": 6891,
       "last_checked_at": null
     },
     {
       "key": "d0000006x",
       "object": "urn:neu-drs:d0000006x",
-      "bytes": 6244,
+      "bytes": 6891,
       "last_checked_at": null
     },
     {
       "key": "d0000007x",
       "object": "urn:neu-drs:d0000007x",
-      "bytes": 3041,
+      "bytes": 6341,
       "last_checked_at": null
     },
     {
       "key": "d0000008x",
       "object": "urn:neu-drs:d0000008x",
-      "bytes": 6889,
+      "bytes": 6341,
       "last_checked_at": null
     },
     {
       "key": "d0000009x",
       "object": "urn:neu-drs:d0000009x",
-      "bytes": 3120,
+      "bytes": 3169,
       "last_checked_at": "2026-01-15T12:00:00Z"
     }
   ]

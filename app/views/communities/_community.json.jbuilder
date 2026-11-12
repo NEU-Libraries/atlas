@@ -10,6 +10,7 @@ json.community do
   json.title @community.plain_title
   json.description @community.plain_description
   json.permanent_url @community.mods&.permanent_url
+  json.legacy_pid @community.legacy_pid
   json.tombstoned @community.tombstoned
   json.tombstoned_at @community.tombstoned_at&.to_s
   json.updated_at @community.updated_at&.utc&.iso8601

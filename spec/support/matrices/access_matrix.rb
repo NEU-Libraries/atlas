@@ -25,6 +25,7 @@ module AccessMatrix
   PRIVATE_SUBJECTS = MatrixTree::PRIVATE_SUBJECTS
   MARKERS = MatrixTree::MARKERS
   RESERVED_GROUP = MatrixTree::RESERVED_GROUP
+  LEGACY_PID = 'neu:matrix-work'
 
   # Subjects whose URL a state withholds while the record stays readable: an
   # embargo keeps the gated full-resolution URL from everyone outside
@@ -102,6 +103,9 @@ module AccessMatrix
     operator:      ->(c) { c.operator? ? 200 : 403 },
     operator_read: ->(c) { c.operator? ? c.gated { 200 } : 403 },
     admin:         ->(c) { c.admin? ? 200 : 403 },
+    # A lookup answers an unreadable holder as it answers an unknown key, and a
+    # tombstoned one as found.
+    lookup:        ->(c) { c.readable? ? 200 : 404 },
     # A list or a container no state here tombstones: always served, and the
     # marker check alone says whether it leaks a withheld subject.
     open:          ->(_) { 200 }
@@ -153,6 +157,8 @@ module AccessMatrix
     'search#index'               => [:open, { query: { q: MARKERS.values.join(' OR ') } }],
     # A POST that reads: the batch resolver, asked for every subject at once.
     'resources#find_many'        => [:open, { post: :all_subjects }],
+    # The Work carries LEGACY_PID, which the runner puts in the path.
+    'legacy_pids#show'           => [:lookup, { on: :work }],
     'collections#show'           => [:record, { on: :empty_collection, purged: 410 }],
     'collections#mods'           => [:withheld, { on: :empty_collection }],
     'collections#children'       => [:record, { on: :empty_collection }],

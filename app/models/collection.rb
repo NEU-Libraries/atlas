@@ -17,4 +17,7 @@ class Collection < Resource
   # time; projected to personal_root_bsi for discovery (mirrors `featured`), not
   # MODS.
   attribute :personal_root, Valkyrie::Types::Bool.default(false)
+
+  # Set on create only. See docs/legacy-pids.md.
+  attribute :legacy_pid, Valkyrie::Types::String.optional
 end

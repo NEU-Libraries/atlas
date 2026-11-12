@@ -91,6 +91,7 @@ them through edit rights:
 | `:restore` | Reversing a tombstone is an operator action, though `:tombstone` does ride edit rights |
 | `:associate` | The claim renders on **both** Works, including a target the asserter may hold no rights over |
 | `:supply_handle` | A handle is an identity claim the outside world cites, and Atlas does not check it with the handle server |
+| `:supply_legacy_pid` | A v1 pid binds an old public URL to the new object. Admin only, through `manage :all`: the migration runs as an admin, and no human deposit has one ([`legacy-pids.md`](legacy-pids.md)) |
 
 `:associate` is the subtlest. Edit rights on the asserting Work would otherwise
 let anyone hang an inbound link off a well-known Work whose owner never asked for

@@ -30,9 +30,11 @@ RSpec.describe 'Communities', type: :request do
       tags 'Communities'
       response_texts(
         '200' => 'The new Community.',
-        '403' => 'The caller may not create a Community inside that parent.',
+        '403' => 'The caller may not create a Community inside that parent, or sent a `legacy_pid` without ' \
+                 'being an admin.',
         '404' => 'The `parent_id` names nothing.',
-        '422' => 'The parent Community is tombstoned.'
+        '409' => 'Another resource, live or tombstoned, already holds the `legacy_pid`.',
+        '422' => 'The parent Community is tombstoned, or the `legacy_pid` is not a v1 pid.'
       )
       consumes 'application/json'
       produces 'application/json'
@@ -47,12 +49,19 @@ RSpec.describe 'Communities', type: :request do
 
         Optional `depositor` is the NUID to stamp as the intellectual
         owner (mirrors the same surface on Collection/Work creates).
+
+        `legacy_pid` is the v1 pid a migrated Community came from, such as
+        `neu:1`. Only an admin may send it. A value that is not a v1 pid is
+        `422 invalid_legacy_pid`. A pid any resource holds, live or
+        tombstoned, is `409 legacy_pid_taken`, and the body's `resource_id`
+        names the holder. There is no way to change it after the create.
       DESC
       parameter name: :body, in: :body, schema: {
         type:       :object,
         properties: {
-          parent_id: { type: :string, nullable: true },
-          depositor: { type: :string, description: 'NUID to stamp as the Community depositor (optional)' }
+          parent_id:  { type: :string, nullable: true },
+          depositor:  { type: :string, description: 'NUID to stamp as the Community depositor (optional)' },
+          legacy_pid: { type: :string, example: 'neu:1', description: 'The v1 pid the Community migrated from. Admin only.' }
         }
       }
 
@@ -98,6 +107,45 @@ RSpec.describe 'Communities', type: :request do
         run_test! do |response|
           expect(response.parsed_body['code']).to eq('tombstoned_parent')
           expect(parent.children.grep(Community)).to be_empty
+        end
+      end
+
+      response '200', 'community created with the v1 pid it migrated from' do
+        let(:body) { { legacy_pid: 'neu:1' } }
+        schema '$ref' => '#/components/schemas/Community'
+        run_test! do |response|
+          expect(response.parsed_body.dig('community', 'legacy_pid')).to eq('neu:1')
+        end
+      end
+
+      response '403', 'a legacy_pid from a caller who is not an admin' do
+        let!(:delegate) do
+          User.create!(email: 'delegate-pid-comm@example.invalid', password: SecureRandom.hex(16),
+                       nuid: '000000045', name: 'Delegate, Pid', role: :privileged,
+                       groups: [Permissions::ADMIN_GROUP, Permissions::STAFF_EDIT_GROUP])
+        end
+        let(:body)          { { legacy_pid: 'neu:2' } }
+        let(:Authorization) { "Bearer #{DefaultAuthHeaders.assertion_for('000000045')}" }
+        run_test! do |response|
+          expect(response.parsed_body['action']).to eq('supply_legacy_pid')
+          expect(LegacyPid.holder('neu:2')).to be_nil
+        end
+      end
+
+      response '409', 'another resource already holds the legacy_pid' do
+        let!(:holder) { CommunityCreator.call(legacy_pid: 'neu:3') }
+        let(:body)    { { legacy_pid: 'neu:3' } }
+        schema '$ref' => '#/components/schemas/LegacyPidRefusal'
+        run_test! do |response|
+          expect(response.parsed_body).to include('error' => 'legacy_pid_taken', 'resource_id' => holder.noid)
+        end
+      end
+
+      response '422', 'the legacy_pid is not a v1 pid' do
+        let(:body) { { legacy_pid: '4' } }
+        schema '$ref' => '#/components/schemas/LegacyPidRefusal'
+        run_test! do |response|
+          expect(response.parsed_body['error']).to eq('invalid_legacy_pid')
         end
       end
     end

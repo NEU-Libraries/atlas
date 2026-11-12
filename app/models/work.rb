@@ -42,6 +42,9 @@ class Work < Resource
   # the envelope too. nil beside a handle means minted. See docs/handles.md.
   attribute :handle_source, Valkyrie::Types::String.optional
 
+  # Set on create only. See docs/legacy-pids.md.
+  attribute :legacy_pid, Valkyrie::Types::String.optional
+
   # A regenerable search aid, NOT a preservation artifact, so it is omitted
   # from the OCFL envelope. Unbounded-ish in size.
   attribute :full_text, Valkyrie::Types::String

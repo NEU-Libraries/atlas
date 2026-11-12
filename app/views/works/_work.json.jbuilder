@@ -16,6 +16,7 @@ json.work do
   json.description @work.plain_description
   json.permanent_url @work.mods&.permanent_url
   json.handle @work.handle
+  json.legacy_pid @work.legacy_pid
   json.tombstoned @work.tombstoned
   json.tombstoned_at @work.tombstoned_at&.to_s
   json.updated_at @work.updated_at&.utc&.iso8601

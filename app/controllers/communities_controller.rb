@@ -5,6 +5,7 @@ class CommunitiesController < ApplicationController
   include LazyPagination
   include CachedResponses
   include ParentScopedCreate
+  include SuppliedLegacyPid
 
   # Container creation is intentionally left open to :system so the seed task
   # can bootstrap Communities + Collections. The :system carve-out for :create
@@ -37,7 +38,8 @@ class CommunitiesController < ApplicationController
   # parent_id creates a root; a given-but-unresolvable one is still a 404.
   def create
     authorize! :create, Community
-    parent = authorized_create_parent(params[:parent_id])
+    legacy_pid = supplied_legacy_pid(Community)
+    parent     = authorized_create_parent(params[:parent_id])
     return head(:not_found) if parent.nil? && params[:parent_id].present?
 
     # TODO: XML
@@ -46,7 +48,8 @@ class CommunitiesController < ApplicationController
       proxy_uploader:    proxy_uploader_nuid,
       depositor:         depositor_nuid,
       actor_nuid:        @current_user&.nuid,
-      on_behalf_of_nuid: @on_behalf_of
+      on_behalf_of_nuid: @on_behalf_of,
+      legacy_pid:        legacy_pid
     )
   end
 

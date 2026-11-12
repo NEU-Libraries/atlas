@@ -15,6 +15,7 @@ class WorksController < ApplicationController
   include Auditable
   include ParentScopedCreate
   include CachedResponses
+  include SuppliedLegacyPid
 
   # The operator monitoring filters on GET /works, each an exact match on a
   # Work lifecycle flag. An absent param means "no filtering" on that flag, so
@@ -60,11 +61,12 @@ class WorksController < ApplicationController
       return render_idempotent_resource(@work)
     end
 
-    handle = supplied_handle
-    parent = authorized_create_parent(params[:collection_id])
+    handle     = supplied_handle
+    legacy_pid = supplied_legacy_pid(Work)
+    parent     = authorized_create_parent(params[:collection_id])
     return head(:not_found) if parent.nil?
 
-    @work = create_work(parent, handle)
+    @work = create_work(parent, handle, legacy_pid)
     record_idempotency_key!(@work.noid, Work)
   end
 
@@ -355,14 +357,15 @@ class WorksController < ApplicationController
     # authenticated caller is the proxy_uploader. (The creator also nulls it
     # defensively to defeat parent-permission inheritance.)
     # TODO: XML
-    def create_work(parent, handle)
+    def create_work(parent, handle, legacy_pid)
       WorkCreator.call(
         parent_id:         parent.noid,
         proxy_uploader:    proxy_uploader_nuid,
         depositor:         depositor_nuid(parent),
         actor_nuid:        @current_user&.nuid,
         on_behalf_of_nuid: @on_behalf_of,
-        handle:            handle
+        handle:            handle,
+        legacy_pid:        legacy_pid
       )
     end
 

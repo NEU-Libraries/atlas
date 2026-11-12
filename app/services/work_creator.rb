@@ -13,11 +13,13 @@ class WorkCreator < ApplicationService
   # `handle:` is a handle the Work already owns, recorded as supplied so that
   # /complete mints nothing for it. Who may send one is the controller's
   # decision; the shape and uniqueness rules live here so every caller gets
-  # them. See docs/handles.md.
-  def initialize(parent_id:, mods_xml: nil, proxy_uploader: nil,
-                 depositor: nil, actor_nuid: nil, on_behalf_of_nuid: nil, handle: nil)
+  # them. See docs/handles.md. `legacy_pid:` follows the same split; see
+  # docs/legacy-pids.md.
+  def initialize(parent_id:, mods_xml: nil, proxy_uploader: nil, depositor: nil,
+                 actor_nuid: nil, on_behalf_of_nuid: nil, handle: nil, legacy_pid: nil)
     @parent_id = resolve_id(parent_id)
     @handle    = handle.nil? ? nil : HandleIdentifier.bare(handle)
+    @legacy_pid        = legacy_pid
     @mods_xml          = mods_xml.nil? ? mods_template : mods_xml
     @proxy_uploader    = proxy_uploader
     @depositor         = depositor
@@ -26,21 +28,26 @@ class WorkCreator < ApplicationService
   end
 
   def call
-    return create_work if @handle.nil?
-
-    refuse_invalid_handle!
-    with_handle_lock do
-      refuse_taken_handle!
-      create_work
-    end
+    LegacyPid.claim(@legacy_pid) { create_with_handle }
   end
 
   private
 
-    # The handle goes on the FIRST save, so no moment exists in which the Work
-    # is visible without it.
+    def create_with_handle
+      return create_work if @handle.nil?
+
+      refuse_invalid_handle!
+      with_handle_lock do
+        refuse_taken_handle!
+        create_work
+      end
+    end
+
+    # The handle and the pid go on the FIRST save, so no moment exists in which
+    # the Work is visible without them.
     def create_work
-      work = Atlas.persister.save(resource: Work.new(a_member_of: @parent_id, **handle_attributes))
+      work = Atlas.persister.save(resource: Work.new(a_member_of: @parent_id, legacy_pid: @legacy_pid,
+                                                     **handle_attributes))
 
       FileSetCreator.call(work_id: work.id, classification: Classification.descriptive_metadata)
 

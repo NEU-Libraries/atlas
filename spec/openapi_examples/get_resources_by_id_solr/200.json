@@ -177,7 +177,7 @@
     "oai_datestamp_dtsi": "2026-01-15T12:00:00Z",
     "mods_xml_ss": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<mods:mods xmlns:drs=\"https://repository.neu.edu/spec/v1\" xmlns:mods=\"http://www.loc.gov/mods/v3\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:niec=\"http://repository.neu.edu/schema/niec\" xmlns:dcterms=\"http://purl.org/dc/terms/\" xmlns:dwc=\"http://rs.tdwg.org/dwc/terms/\" xmlns:dwr=\"http://rs.tdwg.org/dwc/xsd/simpledarwincore/\" xsi:schemaLocation=\"http://www.loc.gov/mods/v3 http://www.loc.gov/standards/mods/v3/mods-3-8.xsd\">\n  <mods:titleInfo usage=\"primary\">\n    <mods:title/>\n  </mods:titleInfo>\n  <mods:identifier type=\"hdl\" displayLabel=\"Permanent URL\"/>\n</mods:mods>\n",
     "mods_updated_at_dtsi": "2026-01-15T12:00:00Z",
-    "storage_bytes_ls": 13133,
+    "storage_bytes_ls": 13232,
     "work_fixity_objects_isi": 3,
     "work_fixity_never_checked_isi": 3,
     "_version_": 0,

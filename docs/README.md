@@ -41,6 +41,7 @@ because a developer needs it before any of the other pages make sense.
 | [`fixity.md`](fixity.md) | Fixity checks: the object log, the latest-check cache, the Work summary, the rolling checker service |
 | [`work-health.md`](work-health.md) | The green/yellow/red grade, the offline OCFL check, the Atlas check, the probe behind the rubric |
 | [`handles.md`](handles.md) | Minting the persistent identifier and recording it in MODS |
+| [`legacy-pids.md`](legacy-pids.md) | Recording a migrated object's v1 pid, and finding an object by it |
 | [`oai.md`](oai.md) | The harvest endpoint, its paging, and the `oai_dc` crosswalk |
 | [`compilations.md`](compilations.md) | Sets: the recipe, the grant-scoped listings, membership mutations |
 | [`people.md`](people.md) | A Person as curatorial identity, and the personal root |

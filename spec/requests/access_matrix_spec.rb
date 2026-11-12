@@ -42,6 +42,7 @@ RSpec.describe 'Access matrix', type: :request, default_auth: false do
   def path_for(route, subject)
     path = route.path.spec.to_s.sub('(.:format)', '')
     path = path.sub(':id', world.public_send(subject).noid) if subject
+    path = path.sub(':pid', world.public_send(subject).legacy_pid) if subject && path.include?(':pid')
     return path unless path.include?(':version_id')
 
     get path.sub(%r{/:version_id.*}, ''), headers: headers_for(:admin)

@@ -197,6 +197,11 @@ Rails.application.config.to_prepare do
     Valkyrie::MetadataAdapter.find(:postgres).query_service
                              .custom_queries.register_query_handler(FindWorksByHandle)
 
+    # A resource by v1 pid (app/queries/find_resource_by_legacy_pid.rb): the
+    # uniqueness check a create with a pid runs, and the pid lookup.
+    Valkyrie::MetadataAdapter.find(:postgres).query_service
+                             .custom_queries.register_query_handler(FindResourceByLegacyPid)
+
   module Atlas
     def self.persister
       Valkyrie.config.metadata_adapter.persister

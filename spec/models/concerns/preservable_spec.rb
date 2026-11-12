@@ -15,7 +15,7 @@ RSpec.describe Preservable do
     context 'on a root Community' do
       it 'reports type, empty a_member_of, empty member_ids' do
         payload = community.graph_payload
-        expect(payload[:schema_version]).to eq(9)
+        expect(payload[:schema_version]).to eq(10)
         expect(payload[:noid]).to eq(community.noid)
         expect(payload[:type]).to eq('Community')
         expect(payload[:classification]).to eq('Community')
@@ -30,6 +30,13 @@ RSpec.describe Preservable do
 
         expect(payload).to have_key(:handle)
         expect(payload[:handle]).to be_nil
+      end
+
+      # A rebuild from disk must keep the v1 correspondence, or every old URL
+      # loses its target.
+      it 'carries the v1 pid, and a null one for a resource born in v2' do
+        expect(CommunityCreator.call(legacy_pid: 'neu:1').graph_payload[:legacy_pid]).to eq('neu:1')
+        expect(community.graph_payload).to include(legacy_pid: nil)
       end
     end
 
@@ -129,7 +136,7 @@ RSpec.describe Preservable do
       it 'reports the role-bearing fields needed for preservation' do
         payload = mods_blob.graph_payload
 
-        expect(payload[:schema_version]).to eq(9)
+        expect(payload[:schema_version]).to eq(10)
         expect(payload[:noid]).to eq(mods_blob.noid)
         expect(payload[:type]).to eq('Blob')
         expect(payload[:use]).to eq(Role.descriptive_metadata.name)
@@ -195,7 +202,7 @@ RSpec.describe Preservable do
     it 'mirrors the keys Permissions#permissions= consumes' do
       payload = work.permissions_payload
 
-      expect(payload[:schema_version]).to eq(9)
+      expect(payload[:schema_version]).to eq(10)
       expect(payload[:noid]).to eq(work.noid)
       expect(payload).to have_key(:embargo)
       expect(payload).to have_key(:depositor)

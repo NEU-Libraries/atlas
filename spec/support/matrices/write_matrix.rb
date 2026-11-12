@@ -130,6 +130,13 @@ module WriteMatrix
                                                                      params: ->(w) { { parent_id: w.sub_community.noid } } }],
     'communities#create'                  => [:create_container, { on: :sub_community, gate: false, refuses: %i[sub_community],
                                                                      params: ->(w) { { parent_id: w.sub_community.noid } } }],
+    # A v1 pid is admin-only on every create. Unique per cell, or a success
+    # makes the next one 409.
+    'works#create@legacy_pid'             => [:admin, { on: :collection, gate: false, params: ->(w) { { collection_id: w.collection.noid, legacy_pid: "neu:m-#{SecureRandom.hex(4)}" } } }],
+    'collections#create@legacy_pid'       => [:admin, { on: :sub_community, gate: false, refuses: %i[sub_community],
+                                                        params: ->(w) { { parent_id: w.sub_community.noid, legacy_pid: "neu:m-#{SecureRandom.hex(4)}" } } }],
+    'communities#create@legacy_pid'       => [:admin, { on: :sub_community, gate: false, refuses: %i[sub_community],
+                                                        params: ->(w) { { parent_id: w.sub_community.noid, legacy_pid: "neu:m-#{SecureRandom.hex(4)}" } } }],
     'collections#update_featured'         => [:edit, { on: :empty_collection, json: true, params: ->(_) { { featured: false } } }],
     'file_sets#create'                    => [:edit, { on: :work, json: true, params: ->(w) { { work_id: w.work.noid, classification: 'generic' } } }],
     'file_sets#update'                    => [:edit, { on:     :file_set,

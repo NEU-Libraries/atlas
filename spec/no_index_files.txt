@@ -60,6 +60,7 @@ spec/integration/user_directory_atlas_rb_spec.rb
 spec/integration/work_associations_atlas_rb_spec.rb
 spec/integration/work_citation_atlas_rb_spec.rb
 spec/integration/work_file_revisions_atlas_rb_spec.rb
+spec/integration/work_supplied_handle_atlas_rb_spec.rb
 spec/integration/write_status_guard_atlas_rb_spec.rb
 spec/lib/acl_coverage_spec.rb
 spec/lib/cerberus_signing_keys_spec.rb

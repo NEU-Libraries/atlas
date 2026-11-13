@@ -106,7 +106,14 @@ RSpec.describe LegacyPid do
   describe 'two concurrent creates with the same pid' do
     self.use_transactional_tests = false
 
-    after { Atlas.persister.wipe! }
+    # These creates commit, so the rows a wipe! leaves behind outlive the
+    # example. A ledger row naming an object a later example removes reads as
+    # stale to StorageFootprintRebuilder.
+    after do
+      Atlas.persister.wipe!
+      StorageFootprint.delete_all
+      Metadata::MODS.delete_all
+    end
 
     it 'lets exactly one take it, and tells the other who did' do
       allow(described_class).to receive(:holder).and_wrap_original do |original, pid|

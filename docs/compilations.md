@@ -28,6 +28,11 @@ The recipe is three NOID lists:
 no membership table of resolved Works**, so a Collection gaining a Work changes
 every Set that includes it, with no write anywhere.
 
+`GET /compilations/:id/search` runs a keyword search, filters and facets over
+the same resolved Works. It hides embargoed, in-progress and incomplete Works
+from every caller, which `/contents` does not; see
+[`search.md`](search.md#searching-within-a-scope).
+
 ## Deliberately ActiveRecord, not Valkyrie
 
 A Compilation is ephemeral and non-preservation, so it has no OCFL envelope, no

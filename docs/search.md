@@ -8,7 +8,11 @@ Source files:
 - `app/queries/search_query.rb` — `GET /resources/search`
 - `app/controllers/search_controller.rb` — its action
 - `app/queries/concerns/solr_read_gate.rb` — the per-document read gate
-- `app/queries/work_digest_query.rb` — Set contents and descendant works
+- `app/queries/work_digest_query.rb` — Set contents, descendant works and the
+  scoped search routes
+- `app/queries/scoped_search.rb` and
+  `app/controllers/concerns/scoped_search_params.rb` — the scoped search's
+  keyword, filters, facets and sort
 - `app/queries/search_explanation_query.rb`, `search_explanation_fields.rb`,
   `solr_field_analysis.rb` and `solr_schema.rb` — `GET /resources/:id/search_explanation`
 - `app/controllers/search_explanations_controller.rb` — its action
@@ -65,6 +69,56 @@ Cerberus reads the date.
 `can :read, :catalog` holds for every principal except `:anonymous`, including a
 guest and a read-only token. That grant only opens the endpoint. **Which documents
 come back is the read gate's decision, per document, inside the query.**
+
+## Searching within a scope
+
+`GET /compilations/:id/search`, `GET /collections/:id/search` and
+`GET /communities/:id/search` search the Works of one Set, or of one container's
+whole subtree. They exist for CERES, the WordPress plugin that shows DRS items on
+library sites, and replace v1's `/api/v1/search/:id`. The parameters and the
+response are in [`openapi.yaml`](../openapi/public/openapi.yaml). What the schema
+cannot say follows.
+
+**They are `/contents` and `/descendant_works` with a search on top.** The same
+`WorkDigestQuery` resolves the scope, with the membership clauses in `fq` and the
+read gate below. A `ScopedSearch` adds `q`, the filters, the facets and the sort.
+The scope is checked first, as on the typed `children` routes: a Set the caller
+may not read answers `403`, an id of the wrong type answers `404`, and a
+tombstoned container answers `410`.
+
+**They hide three states from every caller, admins included.** CERES is a public
+feed, so these routes drop each Work that is embargoed
+(`-embargo_release_date_dtsi:[NOW TO *]`), in progress (`-in_progress_bsi:true`)
+or incomplete (`-incomplete_bsi:true`). `/contents`, `/descendant_works` and
+`/resources/search` do not, so the same Work can appear there and not here. The
+three filters are separate `fq` lines. v1 joined them with `OR`, and Lucene
+reads every clause of such a line as MUST_NOT, so it ran as an AND anyway. An
+exemption for curators can come later, if a client needs one.
+
+**Only the allowlisted fields can be faceted or filtered.** A facet count shows
+values the digest never carries. Faceting on `depositor_ssi` would list NUIDs,
+and faceting on the ACL fields would list who holds access. A filter on such a
+field can probe a value through the count it returns. So `facet[]` and the keys
+of `f` take only `ScopedSearch::FACET_FIELDS`, and any other field answers
+`400`. **The list copies the facets in Cerberus's `CatalogController`, and the
+two must change together.** A field CERES needs that Cerberus does not facet on
+needs an indexer change first.
+
+**Filter values match exactly.** Each value is a quoted phrase against a string
+field, quoted as the read gate quotes its values. Values in one field are joined
+with `OR`, and each field is its own `fq`, so the fields are joined with `AND`.
+
+**The facet counts cover the whole result.** They count every matching Work in
+the scope after the filters, not just the page. A field's own filter narrows its
+counts too: filter on one genre and `genre_ssim` counts only that genre. Values
+come most frequent first, with zero counts dropped, up to `facet_limit` (20 by
+default, at most 100). v1 sent no limit, which the routes do not allow, because a
+creator facet over a large Community can run to thousands of values.
+
+**The sorts are named.** `relevance` is `score desc, id asc`, `title` sorts on
+`title_ssi`, and `date` sorts on `date_ssi`, newest first. With no `sort`, a
+query with `q` sorts by relevance and one without sorts by `id`, as `/contents`
+does. Solr sort syntax is never taken from the caller.
 
 ## Explaining one object: `GET /resources/:id/search_explanation`
 

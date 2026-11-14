@@ -19,7 +19,9 @@
 # container, Works only, not tombstoned, ACL-gated — with Solr-side pagination
 # (start/rows). The ACL fq is SolrReadGate, which admits what Ability's :read rule
 # admits, edit rights included. Cerberus does not gate on embargo state at the
-# discovery layer, so neither does this query.
+# discovery layer, so neither does this query, unless it is given a
+# ScopedSearch: the search routes are a public feed, and hide embargoed,
+# in-progress and incomplete Works from every caller (docs/search.md).
 class WorkDigestQuery
   include SolrRefs
   include SolrReadGate
@@ -27,22 +29,24 @@ class WorkDigestQuery
   DEFAULT_PER_PAGE = 25
   MAX_PER_PAGE     = 100
 
-  Result = Struct.new(:digests, :pagination, keyword_init: true)
+  Result = Struct.new(:digests, :pagination, :facets, keyword_init: true)
 
-  def initialize(user:, page:, per_page:)
+  def initialize(user:, page: nil, per_page: nil, search: nil)
     @user     = user
+    @search   = search
     @page     = [page.to_i, 1].max
     @per_page = per_page.to_i.positive? ? per_page.to_i.clamp(1, MAX_PER_PAGE) : DEFAULT_PER_PAGE
   end
 
   def call
     union = membership_union
-    return Result.new(digests: [], pagination: pagination(0)) if union.blank?
+    return Result.new(digests: [], pagination: pagination(0), facets: @search&.facet_counts) if union.blank?
 
     response = connection.get('select', params: work_query_params(union))
     docs  = response.dig('response', 'docs') || []
     total = response.dig('response', 'numFound').to_i
-    Result.new(digests: docs.map { |doc| digest(doc) }, pagination: pagination(total))
+    Result.new(digests: docs.map { |doc| digest(doc) }, pagination: pagination(total),
+               facets: @search&.facet_counts(response))
   end
 
   private
@@ -59,7 +63,7 @@ class WorkDigestQuery
     end
 
     def work_query_params(union)
-      {
+      params = {
         q:     '*:*',
         fq:    work_filters(union),
         start: (@page - 1) * @per_page,
@@ -68,11 +72,13 @@ class WorkDigestQuery
         fl:    'id,alternate_ids_ssim,internal_resource_tesim,title_tsim,thumbnail_ssi,creator_ssim,pub_date_ssim,' \
                'embargo_release_date_dtsi'
       }
+      @search ? params.merge(@search.solr_params) : params
     end
 
     def work_filters(union)
       fq = ["(#{union})", 'internal_resource_tesim:Work', '-tombstoned_bsi:true']
       fq.concat(extra_work_filters)
+      fq.concat(@search.filter_queries) if @search
       gate = read_gate_fq(@user)
       fq << gate if gate
       fq

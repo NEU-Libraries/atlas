@@ -8,8 +8,8 @@
 class CompilationContentsQuery < WorkDigestQuery
   include CompilationRecipe
 
-  def self.call(compilation:, user:, page: nil, per_page: nil)
-    new(compilation: compilation, user: user, page: page, per_page: per_page).call
+  def self.call(compilation:, user:, **)
+    new(compilation: compilation, user: user, **).call
   end
 
   def initialize(compilation:, **)

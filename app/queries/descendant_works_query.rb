@@ -21,9 +21,8 @@
 # with include_linked (?include_linked=true), which ORs a_linked_member_of_ssim
 # back in. The structural parent is scalar, so no dedup is needed.
 class DescendantWorksQuery < WorkDigestQuery
-  def self.call(resource:, user:, page: nil, per_page: nil, include_linked: false)
-    new(resource: resource, user: user, page: page, per_page: per_page,
-        include_linked: include_linked).call
+  def self.call(resource:, user:, **)
+    new(resource: resource, user: user, **).call
   end
 
   def initialize(resource:, include_linked: false, **)

@@ -7,6 +7,7 @@ class CollectionsController < ApplicationController
   include CachedResponses
   include ParentScopedCreate
   include SuppliedLegacyPid
+  include ScopedSearchParams
 
   # Container creation is intentionally left open to :system so the seed task
   # can bootstrap Communities + Collections. The :system carve-out for :create
@@ -97,6 +98,25 @@ class CollectionsController < ApplicationController
     return render(:show, status: :gone) if @collection.tombstoned
 
     @children = readable(@collection.filtered_child_resources).map { |child| child.noid.to_s }
+  end
+
+  # Every Work beneath the Collection, searched, filtered and faceted. See
+  # docs/search.md#searching-within-a-scope.
+  def search
+    resource = Collection.find(params.expect(:id))
+    authorize! :read, resource || Collection
+    return head(:not_found) if resource.nil?
+    return render_tombstone_stub(resource, root: :collection) if tombstone_withheld?(resource)
+
+    @collection = resource.decorate
+    return render(:show, status: :gone) if @collection.tombstoned
+
+    render_scoped_search(DescendantWorksQuery.call(
+                           resource: resource, user: @current_user,
+                           page: params[:page], per_page: params[:per_page],
+                           include_linked: ActiveModel::Type::Boolean.new.cast(params[:include_linked]),
+                           search: scoped_search
+                         ))
   end
 
   private

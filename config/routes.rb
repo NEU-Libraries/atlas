@@ -103,6 +103,7 @@ Rails.application.routes.draw do
     resources :compilations do
       member do
         get    :contents
+        get    :search
         post   'included_collections',                to: 'compilations#add_included_collection'
         delete 'included_collections/:collection_id', to: 'compilations#remove_included_collection'
         post   'included_works',                      to: 'compilations#add_included_work'
@@ -206,9 +207,11 @@ Rails.application.routes.draw do
     # Metadata
     get '/communities/:id/mods', to: 'communities#mods', as: 'community_mods'
     get '/communities/:id/children', to: 'communities#children', as: 'community_children'
+    get '/communities/:id/search', to: 'communities#search', as: 'community_search'
 
     get '/collections/:id/mods', to: 'collections#mods', as: 'collection_mods'
     get '/collections/:id/children', to: 'collections#children', as: 'collection_children'
+    get '/collections/:id/search', to: 'collections#search', as: 'collection_search'
 
     get '/works/:id/mods', to: 'works#mods', as: 'work_mods'
     # The Work's citation as CSL-JSON, built from the MODS access copy.

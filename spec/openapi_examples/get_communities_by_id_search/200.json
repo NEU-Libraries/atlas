@@ -1,0 +1,50 @@
+{
+  "works": [
+    {
+      "id": "d0000001x",
+      "noid": "d0000001x",
+      "klass": "Work",
+      "title": "Albatross range. How We Respond to Disaster. Episode 1",
+      "thumbnail": null,
+      "creators": [
+        "Cohen, Daniel J.(Daniel Jared), 1968-",
+        "Northeastern University (Boston, Mass.) Libraries"
+      ],
+      "year": "2017",
+      "embargoed": false
+    },
+    {
+      "id": "d0000002x",
+      "noid": "d0000002x",
+      "klass": "Work",
+      "title": "Albatross at sea. How We Respond to Disaster. Episode 1",
+      "thumbnail": null,
+      "creators": [
+        "Cohen, Daniel J.(Daniel Jared), 1968-",
+        "Northeastern University (Boston, Mass.) Libraries"
+      ],
+      "year": "2017",
+      "embargoed": false
+    },
+    {
+      "id": "d0000003x",
+      "noid": "d0000003x",
+      "klass": "Work",
+      "title": "Albatross ashore. How We Respond to Disaster. Episode 1",
+      "thumbnail": null,
+      "creators": [
+        "Cohen, Daniel J.(Daniel Jared), 1968-",
+        "Northeastern University (Boston, Mass.) Libraries"
+      ],
+      "year": "2017",
+      "embargoed": false
+    }
+  ],
+  "pagination": {
+    "total": 3,
+    "page": 1,
+    "per_page": 25,
+    "pages": 1
+  },
+  "facets": {}
+}

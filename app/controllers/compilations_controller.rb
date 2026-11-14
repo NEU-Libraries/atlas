@@ -10,6 +10,7 @@ class CompilationsController < ApplicationController
   include PageParam
   include Auditable
   include CompilationMemberships
+  include ScopedSearchParams
 
   # Grant-scoped listing modes. Default (no `?scope=`) is owner-scoped and
   # backward compatible.
@@ -88,6 +89,18 @@ class CompilationsController < ApplicationController
     )
     @contents   = result.digests
     @pagination = result.pagination
+  end
+
+  # GET /compilations/:id/search — /contents with a keyword, filters and
+  # facets. See docs/search.md#searching-within-a-scope.
+  def search
+    @compilation = find_compilation
+    authorize! :read, @compilation
+
+    render_scoped_search(CompilationContentsQuery.call(
+                           compilation: @compilation, user: @current_user,
+                           page: params[:page], per_page: params[:per_page], search: scoped_search
+                         ))
   end
 
   # POST /compilations/:id/published — make the Set an OAI-PMH set, listed by

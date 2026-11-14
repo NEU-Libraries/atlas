@@ -3321,6 +3321,76 @@ components:
       required:
       - works
       - pagination
+    ScopedSearchResults:
+      type: object
+      properties:
+        works:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                description: NOID
+              noid:
+                type: string
+                description: NOID (same value as id; find_many digest parity)
+              klass:
+                type: string
+                description: Resolved resource class name (always Work here)
+              title:
+                type: string
+                nullable: true
+                description: Plain-text title off the Solr doc
+              thumbnail:
+                type: string
+                nullable: true
+                description: IIIF URL of the thumbnail tier, or null
+              creators:
+                type: array
+                items:
+                  type: string
+                description: The creators, as search reports them
+              year:
+                type: string
+                nullable: true
+                description: The created date's year, as search reports it
+              embargoed:
+                type: boolean
+                description: Whether an embargo withholds the Work's files now
+            required:
+            - id
+            - noid
+            - klass
+            - title
+            - thumbnail
+            - creators
+            - year
+            - embargoed
+        pagination:
+          "$ref": "#/components/schemas/SearchPagination"
+        facets:
+          type: object
+          description: One list per field named in `facet[]`, most frequent value
+            first. Counts cover the whole result, not this page.
+          additionalProperties:
+            type: array
+            items:
+              type: object
+              properties:
+                value:
+                  type: string
+                  description: The indexed value, as `f[field][]` takes it back.
+                count:
+                  type: integer
+                  description: Works in the result that carry the value.
+              required:
+              - value
+              - count
+      required:
+      - works
+      - pagination
+      - facets
     SearchResults:
       type: object
       properties:
@@ -9492,6 +9562,550 @@ paths:
         '304':
           "$ref": "#/components/responses/NotModified"
       operationId: resources_descendant_works
+  "/compilations/{id}/search":
+    parameters:
+    - name: id
+      in: path
+      description: Compilation NOID
+      required: true
+      schema:
+        type: string
+    get:
+      summary: Search within a compilation
+      tags:
+      - Compilations
+      description: |
+        Searches the Works that `GET /compilations/{id}/contents` resolves to.
+
+        Gated per Work to what the caller may read, as on
+        `GET /resources/{id}/descendant_works`. A caller with no token sees public
+        Works only. Every caller, admins included, never sees a tombstoned,
+        embargoed, in-progress or incomplete Work here.
+
+        `facet[]` and the keys of `f` take only the listed fields; any other answers
+        `400`, and so does an unknown `sort`. Facet counts cover the whole result,
+        within the scope and after the filters, not only this page.
+      parameters:
+      - name: q
+        in: query
+        required: false
+        description: Search text. Omit to list the whole scope.
+        schema:
+          type: string
+      - name: f
+        in: query
+        required: false
+        style: deepObject
+        explode: true
+        schema:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+        description: 'Filters, as `f[field][]=value`. Values in one field match any;
+          fields must all match. Fields: type_ssim, classification_ssim, genre_ssim,
+          creator_ssim, contributor_ssim, pub_date_ssim, subject_ssim, subject_geo_ssim,
+          subject_era_ssim, subject_person_ssim, subject_corporate_ssim, place_ssim,
+          publisher_ssim, language_ssim, photo_category_ssim.'
+      - name: sort
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - relevance
+          - title
+          - date
+        description: "`relevance`, `title` (A to Z) or `date` (newest first). Omit
+          for relevance when `q` is given, and a stable order otherwise."
+      - name: facet[]
+        in: query
+        required: false
+        style: form
+        explode: true
+        schema:
+          type: array
+          items:
+            type: string
+            enum:
+            - type_ssim
+            - classification_ssim
+            - genre_ssim
+            - creator_ssim
+            - contributor_ssim
+            - pub_date_ssim
+            - subject_ssim
+            - subject_geo_ssim
+            - subject_era_ssim
+            - subject_person_ssim
+            - subject_corporate_ssim
+            - place_ssim
+            - publisher_ssim
+            - language_ssim
+            - photo_category_ssim
+        description: The fields to count values for. Omit for no counts.
+      - name: facet_limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+        description: Values per facet, at most 100. A value that is not a positive
+          number gives 20.
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+        description: The page to return, from 1. Stop when `pagination.page` reaches
+          `pagination.pages`. A page below 1 is page 1, and a page past the end is
+          empty.
+      - name: per_page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+        description: Items per page, at most 100. A value that is not a positive number
+          gives the default.
+      responses:
+        '200':
+          description: One page of the matching Works the Compilation resolves to,
+            with the requested facet counts.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ScopedSearchResults"
+              example:
+                works:
+                - id: d0000001x
+                  noid: d0000001x
+                  klass: Work
+                  title: Albatross range. How We Respond to Disaster. Episode 1
+                  thumbnail:
+                  creators:
+                  - Cohen, Daniel J.(Daniel Jared), 1968-
+                  - Northeastern University (Boston, Mass.) Libraries
+                  year: '2017'
+                  embargoed: false
+                - id: d0000002x
+                  noid: d0000002x
+                  klass: Work
+                  title: Albatross at sea. How We Respond to Disaster. Episode 1
+                  thumbnail:
+                  creators:
+                  - Cohen, Daniel J.(Daniel Jared), 1968-
+                  - Northeastern University (Boston, Mass.) Libraries
+                  year: '2017'
+                  embargoed: false
+                pagination:
+                  total: 2
+                  page: 1
+                  per_page: 25
+                  pages: 1
+                facets:
+                  genre_ssim:
+                  - value: Maps
+                    count: 1
+                  - value: Photographs
+                    count: 1
+        '400':
+          description: A facet or filter names a field off the list, or `sort` is
+            unknown.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        '404':
+          description: No Compilation has that NOID.
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
+        '304':
+          "$ref": "#/components/responses/NotModified"
+      operationId: compilations_search
+  "/collections/{id}/search":
+    parameters:
+    - name: id
+      in: path
+      description: Collection NOID
+      required: true
+      schema:
+        type: string
+    get:
+      summary: Search within a collection
+      tags:
+      - Collections
+      description: |
+        Searches every Work beneath the Collection, at any depth.
+
+        Gated per Work to what the caller may read, as on
+        `GET /resources/{id}/descendant_works`. A caller with no token sees public
+        Works only. Every caller, admins included, never sees a tombstoned,
+        embargoed, in-progress or incomplete Work here.
+
+        `facet[]` and the keys of `f` take only the listed fields; any other answers
+        `400`, and so does an unknown `sort`. Facet counts cover the whole result,
+        within the scope and after the filters, not only this page.
+      parameters:
+      - name: q
+        in: query
+        required: false
+        description: Search text. Omit to list the whole scope.
+        schema:
+          type: string
+      - name: f
+        in: query
+        required: false
+        style: deepObject
+        explode: true
+        schema:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+        description: 'Filters, as `f[field][]=value`. Values in one field match any;
+          fields must all match. Fields: type_ssim, classification_ssim, genre_ssim,
+          creator_ssim, contributor_ssim, pub_date_ssim, subject_ssim, subject_geo_ssim,
+          subject_era_ssim, subject_person_ssim, subject_corporate_ssim, place_ssim,
+          publisher_ssim, language_ssim, photo_category_ssim.'
+      - name: sort
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - relevance
+          - title
+          - date
+        description: "`relevance`, `title` (A to Z) or `date` (newest first). Omit
+          for relevance when `q` is given, and a stable order otherwise."
+      - name: facet[]
+        in: query
+        required: false
+        style: form
+        explode: true
+        schema:
+          type: array
+          items:
+            type: string
+            enum:
+            - type_ssim
+            - classification_ssim
+            - genre_ssim
+            - creator_ssim
+            - contributor_ssim
+            - pub_date_ssim
+            - subject_ssim
+            - subject_geo_ssim
+            - subject_era_ssim
+            - subject_person_ssim
+            - subject_corporate_ssim
+            - place_ssim
+            - publisher_ssim
+            - language_ssim
+            - photo_category_ssim
+        description: The fields to count values for. Omit for no counts.
+      - name: facet_limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+        description: Values per facet, at most 100. A value that is not a positive
+          number gives 20.
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+        description: The page to return, from 1. Stop when `pagination.page` reaches
+          `pagination.pages`. A page below 1 is page 1, and a page past the end is
+          empty.
+      - name: per_page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+        description: Items per page, at most 100. A value that is not a positive number
+          gives the default.
+      - name: include_linked
+        in: query
+        required: false
+        description: Also search Works linked into the subtree from elsewhere; false
+          by default
+        schema:
+          type: boolean
+      responses:
+        '200':
+          description: One page of the matching Works beneath the Collection, with
+            the requested facet counts.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ScopedSearchResults"
+              example:
+                works:
+                - id: d0000001x
+                  noid: d0000001x
+                  klass: Work
+                  title: Albatross at sea. How We Respond to Disaster. Episode 1
+                  thumbnail:
+                  creators:
+                  - Cohen, Daniel J.(Daniel Jared), 1968-
+                  - Northeastern University (Boston, Mass.) Libraries
+                  year: '2017'
+                  embargoed: false
+                - id: d0000002x
+                  noid: d0000002x
+                  klass: Work
+                  title: Harbor at dusk. How We Respond to Disaster. Episode 1
+                  thumbnail:
+                  creators:
+                  - Cohen, Daniel J.(Daniel Jared), 1968-
+                  - Northeastern University (Boston, Mass.) Libraries
+                  year: '1998'
+                  embargoed: false
+                pagination:
+                  total: 2
+                  page: 1
+                  per_page: 25
+                  pages: 1
+                facets:
+                  pub_date_ssim:
+                  - value: '1998'
+                    count: 1
+                  - value: '2017'
+                    count: 1
+        '400':
+          description: A facet or filter names a field off the list, or `sort` is
+            unknown.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        '404':
+          description: No Collection has that NOID.
+        '410':
+          description: The Collection is tombstoned. An admin or delegated admin gets
+            the full Collection record; everyone else gets a stub.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                - "$ref": "#/components/schemas/Collection"
+                - "$ref": "#/components/schemas/CollectionTombstone"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
+        '304':
+          "$ref": "#/components/responses/NotModified"
+      operationId: collections_search
+  "/communities/{id}/search":
+    parameters:
+    - name: id
+      in: path
+      description: Community NOID
+      required: true
+      schema:
+        type: string
+    get:
+      summary: Search within a community
+      tags:
+      - Communities
+      description: |
+        Searches every Work beneath the Community, at any depth.
+
+        Gated per Work to what the caller may read, as on
+        `GET /resources/{id}/descendant_works`. A caller with no token sees public
+        Works only. Every caller, admins included, never sees a tombstoned,
+        embargoed, in-progress or incomplete Work here.
+
+        `facet[]` and the keys of `f` take only the listed fields; any other answers
+        `400`, and so does an unknown `sort`. Facet counts cover the whole result,
+        within the scope and after the filters, not only this page.
+      parameters:
+      - name: q
+        in: query
+        required: false
+        description: Search text. Omit to list the whole scope.
+        schema:
+          type: string
+      - name: f
+        in: query
+        required: false
+        style: deepObject
+        explode: true
+        schema:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+        description: 'Filters, as `f[field][]=value`. Values in one field match any;
+          fields must all match. Fields: type_ssim, classification_ssim, genre_ssim,
+          creator_ssim, contributor_ssim, pub_date_ssim, subject_ssim, subject_geo_ssim,
+          subject_era_ssim, subject_person_ssim, subject_corporate_ssim, place_ssim,
+          publisher_ssim, language_ssim, photo_category_ssim.'
+      - name: sort
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - relevance
+          - title
+          - date
+        description: "`relevance`, `title` (A to Z) or `date` (newest first). Omit
+          for relevance when `q` is given, and a stable order otherwise."
+      - name: facet[]
+        in: query
+        required: false
+        style: form
+        explode: true
+        schema:
+          type: array
+          items:
+            type: string
+            enum:
+            - type_ssim
+            - classification_ssim
+            - genre_ssim
+            - creator_ssim
+            - contributor_ssim
+            - pub_date_ssim
+            - subject_ssim
+            - subject_geo_ssim
+            - subject_era_ssim
+            - subject_person_ssim
+            - subject_corporate_ssim
+            - place_ssim
+            - publisher_ssim
+            - language_ssim
+            - photo_category_ssim
+        description: The fields to count values for. Omit for no counts.
+      - name: facet_limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+        description: Values per facet, at most 100. A value that is not a positive
+          number gives 20.
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+        description: The page to return, from 1. Stop when `pagination.page` reaches
+          `pagination.pages`. A page below 1 is page 1, and a page past the end is
+          empty.
+      - name: per_page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+        description: Items per page, at most 100. A value that is not a positive number
+          gives the default.
+      - name: include_linked
+        in: query
+        required: false
+        description: Also search Works linked into the subtree from elsewhere; false
+          by default
+        schema:
+          type: boolean
+      responses:
+        '200':
+          description: One page of the matching Works beneath the Community, with
+            the requested facet counts.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ScopedSearchResults"
+              example:
+                works:
+                - id: d0000001x
+                  noid: d0000001x
+                  klass: Work
+                  title: Albatross range. How We Respond to Disaster. Episode 1
+                  thumbnail:
+                  creators:
+                  - Cohen, Daniel J.(Daniel Jared), 1968-
+                  - Northeastern University (Boston, Mass.) Libraries
+                  year: '2017'
+                  embargoed: false
+                - id: d0000002x
+                  noid: d0000002x
+                  klass: Work
+                  title: Albatross at sea. How We Respond to Disaster. Episode 1
+                  thumbnail:
+                  creators:
+                  - Cohen, Daniel J.(Daniel Jared), 1968-
+                  - Northeastern University (Boston, Mass.) Libraries
+                  year: '2017'
+                  embargoed: false
+                - id: d0000003x
+                  noid: d0000003x
+                  klass: Work
+                  title: Albatross ashore. How We Respond to Disaster. Episode 1
+                  thumbnail:
+                  creators:
+                  - Cohen, Daniel J.(Daniel Jared), 1968-
+                  - Northeastern University (Boston, Mass.) Libraries
+                  year: '2017'
+                  embargoed: false
+                pagination:
+                  total: 3
+                  page: 1
+                  per_page: 25
+                  pages: 1
+                facets: {}
+        '400':
+          description: A facet or filter names a field off the list, or `sort` is
+            unknown.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        '404':
+          description: No Community has that NOID.
+        '410':
+          description: The Community is tombstoned. An admin or delegated admin gets
+            the full Community record; everyone else gets a stub.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                - "$ref": "#/components/schemas/Community"
+                - "$ref": "#/components/schemas/CommunityTombstone"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
+        '304':
+          "$ref": "#/components/responses/NotModified"
+      operationId: communities_search
   "/resources/search":
     get:
       summary: Search the catalog

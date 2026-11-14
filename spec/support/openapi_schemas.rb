@@ -59,6 +59,7 @@ module OpenapiSchemas
       BlobVersionsBatch:       blob_versions_batch,
       BlobAncestry:            blob_ancestry,
       DescendantWorks:         descendant_works,
+      ScopedSearchResults:     scoped_search_results,
       SearchResults:           search_results,
       IndexDocument:           index_document,
       SearchExplanation:       search_explanation,
@@ -686,6 +687,36 @@ module OpenapiSchemas
         pagination: { '$ref' => '#/components/schemas/SearchPagination' }
       },
       required:   %w[works pagination]
+    }
+  end
+
+  # GET /compilations|collections|communities/{id}/search (mirrors
+  # scoped_searches/search). Facet keys are the requested fields, so the map
+  # stays open; ScopedSearch::FACET_FIELDS bounds it.
+  def scoped_search_results
+    {
+      type:       :object,
+      properties: {
+        works:      { type: :array, items: work_digest },
+        pagination: { '$ref' => '#/components/schemas/SearchPagination' },
+        facets:     {
+          type:                 :object,
+          description:          'One list per field named in `facet[]`, most frequent value first. ' \
+                                'Counts cover the whole result, not this page.',
+          additionalProperties: {
+            type:  :array,
+            items: {
+              type:       :object,
+              properties: {
+                value: { type: :string, description: 'The indexed value, as `f[field][]` takes it back.' },
+                count: { type: :integer, description: 'Works in the result that carry the value.' }
+              },
+              required:   %w[value count]
+            }
+          }
+        }
+      },
+      required:   %w[works pagination facets]
     }
   end
 

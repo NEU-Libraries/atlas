@@ -162,9 +162,11 @@ module AccessMatrix
     'collections#show'           => [:record, { on: :empty_collection, purged: 410 }],
     'collections#mods'           => [:withheld, { on: :empty_collection }],
     'collections#children'       => [:record, { on: :empty_collection }],
+    'collections#search'         => [:record, { on: :empty_collection }],
     'communities#show'           => [:record, { on: :sub_community }],
     'communities#mods'           => [:withheld, { on: :sub_community }],
-    'communities#children'       => [:record, { on: :sub_community }]
+    'communities#children'       => [:record, { on: :sub_community }],
+    'communities#search'         => [:record, { on: :sub_community }]
   }.freeze
 
   # Every route the matrices reach has a row in one of them. A route none can

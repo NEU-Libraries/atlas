@@ -41,6 +41,7 @@ module SetMatrix
     'compilations#index'                      => [:list, { allowed: LISTERS }],
     'compilations#show'                       => [:read, { allowed: READ }],
     'compilations#contents'                   => [:read, { allowed: READ }],
+    'compilations#search'                     => [:read, { allowed: READ }],
     'compilations#create'                     => [:create, { allowed: HUMANS, write: true, ok: 201, json: true,
                                                              params: ->(_, _) { { title: 'Matrix Set' } } }],
     'compilations#update'                     => [:edit, { allowed: EDITORS, write: true, json: true,

@@ -73,11 +73,12 @@ come back is the read gate's decision, per document, inside the query.**
 ## Searching within a scope
 
 `GET /compilations/:id/search`, `GET /collections/:id/search` and
-`GET /communities/:id/search` search the Works of one Set, or of one container's
-whole subtree. They exist for CERES, the WordPress plugin that shows DRS items on
-library sites, and replace v1's `/api/v1/search/:id`. The parameters and the
-response are in [`openapi.yaml`](../openapi/public/openapi.yaml). What the schema
-cannot say follows.
+`GET /communities/:id/search` search the Works of one Set, or the Works and
+Collections of one container's whole subtree. They exist for CERES, the WordPress
+plugin that shows DRS items on library sites, and replace v1's
+`/api/v1/search/:id`. The parameters and the response are in
+[`openapi.yaml`](../openapi/public/openapi.yaml). What the schema cannot say
+follows.
 
 **They are `/contents` and `/descendant_works` with a search on top.** The same
 `WorkDigestQuery` resolves the scope, with the membership clauses in `fq` and the
@@ -85,6 +86,21 @@ read gate below. A `ScopedSearch` adds `q`, the filters, the facets and the sort
 The scope is checked first, as on the typed `children` routes: a Set the caller
 may not read answers `403`, an id of the wrong type answers `404`, and a
 tombstoned container answers `410`.
+
+**The container routes return Collections too, because v1 did.** v1's scope
+clause named each descendant Collection by its own id, and no filter dropped the
+model, so a Collection was a hit beside the Works. The two container routes keep
+that: they add every Collection whose `ancestor_ids_ssim` holds the scope, so the
+scope itself is never a row. The Collections get the read gate and the tombstone
+filter the Works get, and lose the featured, personal-root and system containers
+the global catalog drops. A row tells the two apart by `klass`. The Set route
+stays Works only: a Set's Collections are a recipe for its Works, not items in
+it. `/descendant_works` stays Works only too; the search routes ask for the
+Collections with `DescendantWorksQuery`'s `include_collections`.
+
+A Collection carries none of the Work values the filters match, so any `f` drops
+every Collection. It has no created date either, so `sort=date` puts the
+Collections last.
 
 **They hide three states from every caller, admins included.** CERES is a public
 feed, so these routes drop each Work that is embargoed
@@ -108,7 +124,7 @@ needs an indexer change first.
 field, quoted as the read gate quotes its values. Values in one field are joined
 with `OR`, and each field is its own `fq`, so the fields are joined with `AND`.
 
-**The facet counts cover the whole result.** They count every matching Work in
+**The facet counts cover the whole result.** They count every matching row in
 the scope after the filters, not just the page. A field's own filter narrows its
 counts too: filter on one genre and `genre_ssim` counts only that genre. Values
 come most frequent first, with zero counts dropped, up to `facet_limit` (20 by

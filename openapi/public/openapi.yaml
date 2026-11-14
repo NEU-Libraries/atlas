@@ -3324,7 +3324,7 @@ components:
     ScopedSearchResults:
       type: object
       properties:
-        works:
+        results:
           type: array
           items:
             type: object
@@ -3337,7 +3337,10 @@ components:
                 description: NOID (same value as id; find_many digest parity)
               klass:
                 type: string
-                description: Resolved resource class name (always Work here)
+                enum:
+                - Work
+                - Collection
+                description: Work, or Collection on the Collection and Community routes
               title:
                 type: string
                 nullable: true
@@ -3357,7 +3360,8 @@ components:
                 description: The created date's year, as search reports it
               embargoed:
                 type: boolean
-                description: Whether an embargo withholds the Work's files now
+                description: Whether an embargo withholds the Work's files now; always
+                  false for a Collection
             required:
             - id
             - noid
@@ -3383,12 +3387,12 @@ components:
                   description: The indexed value, as `f[field][]` takes it back.
                 count:
                   type: integer
-                  description: Works in the result that carry the value.
+                  description: Rows in the result that carry the value.
               required:
               - value
               - count
       required:
-      - works
+      - results
       - pagination
       - facets
     SearchResults:
@@ -9577,9 +9581,9 @@ paths:
       description: |
         Searches the Works that `GET /compilations/{id}/contents` resolves to.
 
-        Gated per Work to what the caller may read, as on
+        Gated per row to what the caller may read, as on
         `GET /resources/{id}/descendant_works`. A caller with no token sees public
-        Works only. Every caller, admins included, never sees a tombstoned,
+        rows only. Every caller, admins included, never sees a tombstoned,
         embargoed, in-progress or incomplete Work here.
 
         `facet[]` and the keys of `f` take only the listed fields; any other answers
@@ -9681,7 +9685,7 @@ paths:
               schema:
                 "$ref": "#/components/schemas/ScopedSearchResults"
               example:
-                works:
+                results:
                 - id: d0000001x
                   noid: d0000001x
                   klass: Work
@@ -9744,11 +9748,16 @@ paths:
       tags:
       - Collections
       description: |
-        Searches every Work beneath the Collection, at any depth.
+        Searches every Work and Collection beneath the Collection, at any depth.
 
-        Gated per Work to what the caller may read, as on
+        Each row's `klass` is `Work` or `Collection`. The Collections are those at
+        any depth beneath the scope, never the scope itself, and never a tombstoned,
+        featured, personal-root or system Collection. A Collection carries none of
+        the filter fields' Work values, so a filter on `f` drops every Collection.
+
+        Gated per row to what the caller may read, as on
         `GET /resources/{id}/descendant_works`. A caller with no token sees public
-        Works only. Every caller, admins included, never sees a tombstoned,
+        rows only. Every caller, admins included, never sees a tombstoned,
         embargoed, in-progress or incomplete Work here.
 
         `facet[]` and the keys of `f` take only the listed fields; any other answers
@@ -9850,14 +9859,14 @@ paths:
           type: boolean
       responses:
         '200':
-          description: One page of the matching Works beneath the Collection, with
-            the requested facet counts.
+          description: One page of the matching Works and Collections beneath the
+            Collection, with the requested facet counts.
           content:
             application/json:
               schema:
                 "$ref": "#/components/schemas/ScopedSearchResults"
               example:
-                works:
+                results:
                 - id: d0000001x
                   noid: d0000001x
                   klass: Work
@@ -9929,11 +9938,16 @@ paths:
       tags:
       - Communities
       description: |
-        Searches every Work beneath the Community, at any depth.
+        Searches every Work and Collection beneath the Community, at any depth.
 
-        Gated per Work to what the caller may read, as on
+        Each row's `klass` is `Work` or `Collection`. The Collections are those at
+        any depth beneath the scope, never the scope itself, and never a tombstoned,
+        featured, personal-root or system Collection. A Collection carries none of
+        the filter fields' Work values, so a filter on `f` drops every Collection.
+
+        Gated per row to what the caller may read, as on
         `GET /resources/{id}/descendant_works`. A caller with no token sees public
-        Works only. Every caller, admins included, never sees a tombstoned,
+        rows only. Every caller, admins included, never sees a tombstoned,
         embargoed, in-progress or incomplete Work here.
 
         `facet[]` and the keys of `f` take only the listed fields; any other answers
@@ -10035,18 +10049,18 @@ paths:
           type: boolean
       responses:
         '200':
-          description: One page of the matching Works beneath the Community, with
-            the requested facet counts.
+          description: One page of the matching Works and Collections beneath the
+            Community, with the requested facet counts.
           content:
             application/json:
               schema:
                 "$ref": "#/components/schemas/ScopedSearchResults"
               example:
-                works:
+                results:
                 - id: d0000001x
                   noid: d0000001x
                   klass: Work
-                  title: Albatross range. How We Respond to Disaster. Episode 1
+                  title: Albatross ashore. How We Respond to Disaster. Episode 1
                   thumbnail:
                   creators:
                   - Cohen, Daniel J.(Daniel Jared), 1968-
@@ -10056,7 +10070,7 @@ paths:
                 - id: d0000002x
                   noid: d0000002x
                   klass: Work
-                  title: Albatross at sea. How We Respond to Disaster. Episode 1
+                  title: Albatross range. How We Respond to Disaster. Episode 1
                   thumbnail:
                   creators:
                   - Cohen, Daniel J.(Daniel Jared), 1968-
@@ -10066,7 +10080,7 @@ paths:
                 - id: d0000003x
                   noid: d0000003x
                   klass: Work
-                  title: Albatross ashore. How We Respond to Disaster. Episode 1
+                  title: Albatross at sea. How We Respond to Disaster. Episode 1
                   thumbnail:
                   creators:
                   - Cohen, Daniel J.(Daniel Jared), 1968-

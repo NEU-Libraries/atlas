@@ -697,7 +697,7 @@ module OpenapiSchemas
     {
       type:       :object,
       properties: {
-        works:      { type: :array, items: work_digest },
+        results:    { type: :array, items: scoped_search_row },
         pagination: { '$ref' => '#/components/schemas/SearchPagination' },
         facets:     {
           type:                 :object,
@@ -709,15 +709,29 @@ module OpenapiSchemas
               type:       :object,
               properties: {
                 value: { type: :string, description: 'The indexed value, as `f[field][]` takes it back.' },
-                count: { type: :integer, description: 'Works in the result that carry the value.' }
+                count: { type: :integer, description: 'Rows in the result that carry the value.' }
               },
               required:   %w[value count]
             }
           }
         }
       },
-      required:   %w[works pagination facets]
+      required:   %w[results pagination facets]
     }
+  end
+
+  # A scoped search row: the Work digest, which the container routes also use
+  # for the Collections beneath the scope.
+  def scoped_search_row
+    row = work_digest
+    row.merge(
+      properties: row[:properties].merge(
+        klass:     { type: :string, enum: %w[Work Collection],
+                     description: 'Work, or Collection on the Collection and Community routes' },
+        embargoed: { type: :boolean, description: 'Whether an embargo withholds the Work\'s files now; ' \
+                                                  'always false for a Collection' }
+      )
+    )
   end
 
   # GET/POST/DELETE /works/{id}/associations — the typed Work-to-Work edges

@@ -20,7 +20,7 @@ module ScopedSearchParams
     end
 
     def render_scoped_search(result)
-      @works      = result.digests
+      @results    = result.digests
       @pagination = result.pagination
       @facets     = result.facets
       render 'scoped_searches/search'

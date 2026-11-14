@@ -17,7 +17,8 @@
 #
 # Resolution is always: one lucene work query — member-of any covered
 # container, Works only, not tombstoned, ACL-gated — with Solr-side pagination
-# (start/rows). The ACL fq is SolrReadGate, which admits what Ability's :read rule
+# (start/rows). A subclass that supplies #collection_union widens it to those
+# Collections as well, under the same gate. The ACL fq is SolrReadGate, which admits what Ability's :read rule
 # admits, edit rights included. Cerberus does not gate on embargo state at the
 # discovery layer, so neither does this query, unless it is given a
 # ScopedSearch: the search routes are a public feed, and hide embargoed,
@@ -62,6 +63,12 @@ class WorkDigestQuery
       []
     end
 
+    # The Collections to return beside the Works, as one lucene clause, or nil
+    # for Works only. Subclass hook; nil by default.
+    def collection_union
+      nil
+    end
+
     def work_query_params(union)
       params = {
         q:     '*:*',
@@ -76,12 +83,24 @@ class WorkDigestQuery
     end
 
     def work_filters(union)
-      fq = ["(#{union})", 'internal_resource_tesim:Work', '-tombstoned_bsi:true']
+      fq = [*type_filters(union), '-tombstoned_bsi:true']
       fq.concat(extra_work_filters)
       fq.concat(@search.filter_queries) if @search
       gate = read_gate_fq(@user)
       fq << gate if gate
       fq
+    end
+
+    # Every clause in each group is + or -, so no group is purely negative and
+    # the OR between the groups cannot turn into an AND. The curation flags are
+    # the ones the global catalog drops (docs/search.md).
+    def type_filters(union)
+      collections = collection_union
+      return ["(#{union})", 'internal_resource_tesim:Work'] if collections.blank?
+
+      ["(+internal_resource_tesim:Work +(#{union})) OR " \
+       "(+internal_resource_tesim:Collection +(#{collections}) " \
+       '-featured_bsi:true -personal_root_bsi:true -system_container_bsi:true)']
     end
 
     # The find_many digest's vocabulary plus the citation facts a search row

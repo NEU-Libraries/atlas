@@ -2,7 +2,8 @@
 
 # A Work digest: find_many's vocabulary plus the citation facts a search row
 # carries. compilations/contents, resources/descendant_works and the scoped
-# search routes all render it.
+# search routes all render it; the container search routes render Collections
+# through it too.
 json.id digest[:noid]
 json.noid digest[:noid]
 json.klass digest[:klass]

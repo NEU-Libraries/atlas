@@ -82,7 +82,7 @@ class CommunitiesController < ApplicationController
     @children = readable(@community.filtered_child_resources).map { |child| child.noid.to_s }
   end
 
-  # Every Work beneath the Community, searched, filtered and faceted. See
+  # Every Work and Collection beneath the Community, searched, filtered and faceted. See
   # docs/search.md#searching-within-a-scope.
   def search
     resource = Community.find(params.expect(:id))
@@ -97,7 +97,7 @@ class CommunitiesController < ApplicationController
                            resource: resource, user: @current_user,
                            page: params[:page], per_page: params[:per_page],
                            include_linked: ActiveModel::Type::Boolean.new.cast(params[:include_linked]),
-                           search: scoped_search
+                           include_collections: true, search: scoped_search
                          ))
   end
 

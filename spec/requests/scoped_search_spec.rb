@@ -4,7 +4,8 @@ require 'swagger_helper'
 
 # GET /compilations/:id/search, /collections/:id/search and
 # /communities/:id/search: a keyword, filters and facets within one scope. The
-# rswag blocks drive the OpenAPI entries; the describe blocks below them pin
+# container routes return the Collections beneath the scope beside its Works.
+# The rswag blocks drive the OpenAPI entries; the describe blocks below them pin
 # who sees what, because every rule there applies to admins too.
 RSpec.describe 'Scoped search', type: :request do
   let(:mods_template) { Rails.root.join('spec/fixtures/files/work-mods.xml').read }
@@ -45,7 +46,7 @@ RSpec.describe 'Scoped search', type: :request do
   let!(:stray_photo)     { work_in(other, title: 'Albatross ashore') }
 
   def noids(response)
-    response.parsed_body['works'].pluck('noid')
+    response.parsed_body['results'].pluck('noid')
   end
 
   shared_context 'with a Set over the collection' do
@@ -93,11 +94,20 @@ RSpec.describe 'Scoped search', type: :request do
                            "positive number gives #{ScopedSearch::DEFAULT_FACET_LIMIT}."
   end
 
+  def self.collection_rules
+    <<~DESC
+      Each row's `klass` is `Work` or `Collection`. The Collections are those at
+      any depth beneath the scope, never the scope itself, and never a tombstoned,
+      featured, personal-root or system Collection. A Collection carries none of
+      the filter fields' Work values, so a filter on `f` drops every Collection.
+    DESC
+  end
+
   def self.search_rules
     <<~DESC
-      Gated per Work to what the caller may read, as on
+      Gated per row to what the caller may read, as on
       `GET /resources/{id}/descendant_works`. A caller with no token sees public
-      Works only. Every caller, admins included, never sees a tombstoned,
+      rows only. Every caller, admins included, never sees a tombstoned,
       embargoed, in-progress or incomplete Work here.
 
       `facet[]` and the keys of `f` take only the listed fields; any other answers
@@ -160,14 +170,16 @@ RSpec.describe 'Scoped search', type: :request do
     get 'Search within a collection' do
       tags 'Collections'
       response_texts(
-        '200' => 'One page of the matching Works beneath the Collection, with the requested facet counts.',
+        '200' => 'One page of the matching Works and Collections beneath the Collection, with the requested ' \
+                 'facet counts.',
         '400' => 'A facet or filter names a field off the list, or `sort` is unknown.',
         '404' => 'No Collection has that NOID.',
         '410' => 'The Collection is tombstoned. An admin or delegated admin gets the full Collection record; everyone ' \
                  'else gets a stub.'
       )
       produces 'application/json'
-      description "Searches every Work beneath the Collection, at any depth.\n\n#{search_rules}"
+      description "Searches every Work and Collection beneath the Collection, at any depth.\n\n" \
+                  "#{collection_rules}\n#{search_rules}"
       search_parameters(include_linked: true)
 
       let(:id)             { collection.noid }
@@ -210,14 +222,16 @@ RSpec.describe 'Scoped search', type: :request do
     get 'Search within a community' do
       tags 'Communities'
       response_texts(
-        '200' => 'One page of the matching Works beneath the Community, with the requested facet counts.',
+        '200' => 'One page of the matching Works and Collections beneath the Community, with the requested ' \
+                 'facet counts.',
         '400' => 'A facet or filter names a field off the list, or `sort` is unknown.',
         '404' => 'No Community has that NOID.',
         '410' => 'The Community is tombstoned. An admin or delegated admin gets the full Community record; everyone ' \
                  'else gets a stub.'
       )
       produces 'application/json'
-      description "Searches every Work beneath the Community, at any depth.\n\n#{search_rules}"
+      description "Searches every Work and Collection beneath the Community, at any depth.\n\n" \
+                  "#{collection_rules}\n#{search_rules}"
       search_parameters(include_linked: true)
 
       let(:id)             { community.noid }
@@ -265,26 +279,87 @@ RSpec.describe 'Scoped search', type: :request do
       response.parsed_body
     end
 
+    def titled_container(parent, title, **creator_attrs)
+      created = CollectionCreator.call(parent_id: parent.noid, **creator_attrs)
+      Collection.find(created.noid).mods_xml = Rails.root.join('spec/fixtures/files/collection-mods.xml').read
+                                                    .sub('Test Collection</mods:title>', "#{title}</mods:title>")
+      container = Collection.find(created.noid)
+      container.publicize
+      Atlas.persister.save(resource: container)
+    end
+
+    def collection_noids(body)
+      body['results'].select { |row| row['klass'] == 'Collection' }.pluck('noid')
+    end
+
     it 'lists the whole scope for a blank q' do
       body = search("/collections/#{collection.noid}/search")
-      expect(body['works'].pluck('noid'))
-        .to contain_exactly(albatross_photo.noid, harbor_photo.noid, albatross_map.noid)
-      expect(body['pagination']).to include('total' => 3, 'page' => 1)
+      expect(body['results'].pluck('noid'))
+        .to contain_exactly(albatross_photo.noid, harbor_photo.noid, albatross_map.noid, nested.noid)
+      expect(body['pagination']).to include('total' => 4, 'page' => 1)
+    end
+
+    it 'returns the Collections beneath a Community or a Collection, never the scope itself' do
+      community_body = search("/communities/#{community.noid}/search")
+      expect(collection_noids(community_body)).to contain_exactly(collection.noid, nested.noid, other.noid)
+      expect(community_body['results'].pluck('noid')).not_to include(community.noid)
+
+      expect(collection_noids(search("/collections/#{collection.noid}/search"))).to eq([nested.noid])
+    end
+
+    it 'matches a Collection by its title' do
+      colonies = titled_container(nested, 'Albatross colonies')
+      body = search("/communities/#{community.noid}/search", q: 'albatross')
+      expect(body['results'].find { |row| row['noid'] == colonies.noid })
+        .to include('klass' => 'Collection', 'title' => 'Albatross colonies', 'creators' => [], 'embargoed' => false)
+    end
+
+    it 'drops every Collection once a filter applies' do
+      body = search("/communities/#{community.noid}/search", f: { genre_ssim: %w[Photographs Maps] })
+      expect(body['results'].pluck('klass').uniq).to eq(['Work'])
+    end
+
+    it 'hides a private Collection from a guest, and tombstoned and featured ones from an admin too' do
+      private_one = titled_container(collection, 'Albatross private').tap do |c|
+        c.read_groups = []
+        Atlas.persister.save(resource: c)
+      end
+      tombstoned = tombstoned!(titled_container(collection, 'Albatross tombstoned'))
+      featured   = titled_container(community, 'Albatross featured', featured: true)
+
+      expect(collection_noids(search("/communities/#{community.noid}/search", q: 'albatross'))).to be_empty
+
+      get "/communities/#{community.noid}/search",
+          params: { q: 'albatross' }, headers: signed_auth_headers(ensure_default_admin!.nuid)
+      expect(collection_noids(response.parsed_body)).to eq([private_one.noid])
+      expect(response.parsed_body['results'].pluck('noid')).not_to include(tombstoned.noid, featured.noid)
+    end
+
+    it 'keeps the Compilation route and descendant_works to Works' do
+      set = Compilation.create!(title: 'Seabirds', depositor: '000000002').tap do |s|
+        s.publicize
+        s.save!
+        s.collection_inclusions.create!(resource_noid: collection.noid)
+      end
+      expect(search("/compilations/#{set.noid}/search")['results'].pluck('klass').uniq).to eq(['Work'])
+
+      get "/resources/#{community.noid}/descendant_works", headers: signed_auth_headers(nil)
+      expect(response.parsed_body['works'].pluck('klass').uniq).to eq(['Work'])
     end
 
     it 'ORs the values in one field and ANDs the fields' do
       either = search("/collections/#{collection.noid}/search", f: { genre_ssim: %w[Photographs Maps] })
-      expect(either['works'].pluck('noid'))
+      expect(either['results'].pluck('noid'))
         .to contain_exactly(albatross_photo.noid, harbor_photo.noid, albatross_map.noid)
 
       both = search("/collections/#{collection.noid}/search",
                     f: { genre_ssim: %w[Photographs], pub_date_ssim: %w[1998] })
-      expect(both['works'].pluck('noid')).to eq([harbor_photo.noid])
+      expect(both['results'].pluck('noid')).to eq([harbor_photo.noid])
     end
 
     it 'counts facets over the whole result, bounded by facet_limit' do
       body = search("/communities/#{community.noid}/search", facet: %w[genre_ssim pub_date_ssim], per_page: 1)
-      expect(body['works'].length).to eq(1)
+      expect(body['results'].length).to eq(1)
       expect(body.dig('facets', 'genre_ssim'))
         .to eq([{ 'value' => 'Photographs', 'count' => 3 }, { 'value' => 'Maps', 'count' => 1 }])
 
@@ -294,11 +369,12 @@ RSpec.describe 'Scoped search', type: :request do
 
     it 'sorts by title and by date' do
       by_title = search("/communities/#{community.noid}/search", sort: 'title')
-      expect(by_title['works'].pluck('title').first(2))
+      expect(by_title['results'].pluck('title').first(2))
         .to match([start_with('Albatross ashore'), start_with('Albatross at sea')])
 
       by_date = search("/communities/#{community.noid}/search", sort: 'date')
-      expect(by_date['works'].pluck('noid').last).to eq(harbor_photo.noid)
+      works = by_date['results'].select { |row| row['klass'] == 'Work' }
+      expect(works.pluck('noid').last).to eq(harbor_photo.noid)
     end
 
     it 'hides non-public, embargoed, in-progress and incomplete Works from a guest' do
@@ -312,8 +388,8 @@ RSpec.describe 'Scoped search', type: :request do
         work_in(collection, title: 'Albatross incomplete', incomplete: true)
       ]
       body = search("/collections/#{collection.noid}/search", q: 'albatross', facet: %w[genre_ssim])
-      expect(body['works'].pluck('noid')).to contain_exactly(albatross_photo.noid, albatross_map.noid)
-      expect(body['works'].pluck('noid')).not_to include(*hidden.map(&:noid))
+      expect(body['results'].pluck('noid')).to contain_exactly(albatross_photo.noid, albatross_map.noid)
+      expect(body['results'].pluck('noid')).not_to include(*hidden.map(&:noid))
       expect(body.dig('facets', 'genre_ssim').sum { |row| row['count'] }).to eq(2)
     end
 
@@ -334,8 +410,8 @@ RSpec.describe 'Scoped search', type: :request do
         w.a_linked_member_of = [collection.id]
         Atlas.persister.save(resource: w)
       end
-      expect(search("/collections/#{collection.noid}/search", q: 'linked')['works']).to be_empty
-      expect(search("/collections/#{collection.noid}/search", q: 'linked', include_linked: true)['works']
+      expect(search("/collections/#{collection.noid}/search", q: 'linked')['results']).to be_empty
+      expect(search("/collections/#{collection.noid}/search", q: 'linked', include_linked: true)['results']
                .pluck('noid')).to eq([linked.noid])
     end
 

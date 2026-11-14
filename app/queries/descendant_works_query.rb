@@ -20,15 +20,20 @@
 # members by design; a structural export does not, unless the caller opts in
 # with include_linked (?include_linked=true), which ORs a_linked_member_of_ssim
 # back in. The structural parent is scalar, so no dedup is needed.
+#
+# include_collections adds every Collection beneath the resource, found by
+# ancestor_ids_ssim, which the scoped search routes return beside the Works
+# (docs/search.md#searching-within-a-scope). The resource itself is never one.
 class DescendantWorksQuery < WorkDigestQuery
   def self.call(resource:, user:, **)
     new(resource: resource, user: user, **).call
   end
 
-  def initialize(resource:, include_linked: false, **)
+  def initialize(resource:, include_linked: false, include_collections: false, **)
     super(**)
-    @resource       = resource
-    @include_linked = include_linked
+    @resource            = resource
+    @include_linked      = include_linked
+    @include_collections = include_collections
   end
 
   private
@@ -41,5 +46,9 @@ class DescendantWorksQuery < WorkDigestQuery
       clauses = ["a_member_of_ssi:(#{list})"]
       clauses << "a_linked_member_of_ssim:(#{list})" if @include_linked
       clauses.join(' OR ')
+    end
+
+    def collection_union
+      %(ancestor_ids_ssim:"#{@resource.noid}") if @include_collections
     end
 end

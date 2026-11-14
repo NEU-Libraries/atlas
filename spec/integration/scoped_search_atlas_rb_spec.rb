@@ -5,7 +5,8 @@ require 'rails_helper'
 # AtlasRb::Compilation.search, Collection.search and Community.search wrap the
 # three scoped search routes. Proven through the live server: the wire shape of
 # the filters and facets, the digests and facet counts that come back, the
-# state filters that hold even for an admin, the 400 and the 404.
+# state filters that hold even for an admin, the Collection rows on the
+# container routes, the 400 and the 404.
 #
 # The gem always presents the cerberus bearer token, so the guest cases are in
 # spec/requests/scoped_search_spec.rb. Works born from the creators are
@@ -57,18 +58,26 @@ RSpec.describe 'Scoped search via atlas_rb', :atlas_rb_server do
     end
 
     expect(queries.first.split('&')).to include('f[genre_ssim][]=Photographs', 'facet[]=genre_ssim')
-    expect(result['works'].pluck('noid')).to eq([photo.noid])
+    expect(result['results'].pluck('noid')).to eq([photo.noid])
     expect(result.dig('facets', 'genre_ssim')).to eq([{ 'value' => 'Photographs', 'count' => 1 }])
-    expect(result['works'].first.resource_class).to eq(AtlasRb::Work)
+    expect(result['results'].first.resource_class).to eq(AtlasRb::Work)
   end
 
   it 'searches a Community subtree by keyword, with every facet value counted' do
     result = AtlasRb::Community.search(community.noid, q: 'albatross', facets: %w[genre_ssim],
                                                        sort: 'title', nuid: admin_nuid)
 
-    expect(result['works'].pluck('noid')).to eq([photo.noid, nested_map.noid])
+    expect(result['results'].pluck('noid')).to eq([photo.noid, nested_map.noid])
     expect(result.dig('facets', 'genre_ssim').pluck('value')).to contain_exactly('Photographs', 'Maps')
     expect(result.dig('pagination', 'total')).to eq(2)
+  end
+
+  it 'returns the Collections beneath a Community, typed by the gem' do
+    result = AtlasRb::Community.search(community.noid, nuid: admin_nuid)
+    collections = result['results'].select { |row| row.resource_class == AtlasRb::Collection }
+
+    expect(collections.pluck('noid')).to contain_exactly(collection.noid, nested.noid, other.noid)
+    expect(result.dig('pagination', 'total')).to eq(6)
   end
 
   it "searches a Set's resolved recipe" do
@@ -77,7 +86,7 @@ RSpec.describe 'Scoped search via atlas_rb', :atlas_rb_server do
     AtlasRb::Compilation.add_included_work(set['id'], stray_photo.noid, nuid: admin_nuid)
 
     result = AtlasRb::Compilation.search(set['id'], filters: { 'genre_ssim' => 'Maps' }, nuid: admin_nuid)
-    expect(result['works'].pluck('noid')).to eq([nested_map.noid])
+    expect(result['results'].pluck('noid')).to eq([nested_map.noid])
     expect(result['facets']).to eq({})
   end
 
@@ -89,7 +98,7 @@ RSpec.describe 'Scoped search via atlas_rb', :atlas_rb_server do
     ]
 
     searched = AtlasRb::Collection.search(collection.noid, q: 'albatross', nuid: admin_nuid)
-    expect(searched['works'].pluck('noid')).to contain_exactly(photo.noid, nested_map.noid)
+    expect(searched['results'].pluck('noid')).to contain_exactly(photo.noid, nested_map.noid)
 
     listed = AtlasRb::Resource.descendant_works(collection.noid, nuid: admin_nuid)
     expect(listed['works'].pluck('noid')).to include(*hidden.map(&:noid))

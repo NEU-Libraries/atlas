@@ -129,6 +129,17 @@ The table keeps the four things the attribute gave:
 removes the text with the Work. `RepositoryReset` deletes the table's rows
 itself, because it disables the triggers that carry the cascade.
 
+**Atlas compresses large values with lz4.** Postgres compresses any value over
+about 2 kB, and moves what is still too big for the row into a side table: its
+TOAST (The Oversized-Attribute Storage Technique) storage. lz4 is much faster
+than the default method, `pglz`, at a similar size. The setting is
+`default_toast_compression` in `config/database.yml`, so it applies to every
+value an Atlas session writes, here and in `orm_resources.metadata`. It cannot be
+a per-column setting in a migration: `schema.rb` does not record a column's
+compression, and Rails builds a fresh database from `schema.rb`. A value keeps
+the method it was written with, so a change to this setting affects new writes
+only.
+
 Two alternatives were rejected. Text held only in Solr would be lost by a
 reindex from Postgres. Text held as a file in Valkyrie storage would be a second
 store to keep in step, for no gain over a table.

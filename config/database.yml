@@ -29,6 +29,9 @@ default: &default
   connect_timeout: 5
   variables:
     statement_timeout: 30s
+    # Set per session rather than per column, because schema.rb cannot record a
+    # column's compression. See docs/resource-graph.md.
+    default_toast_compression: lz4
 
 development:
   <<: *default

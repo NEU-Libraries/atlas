@@ -45,4 +45,13 @@ RSpec.describe WorkFullText do
 
     expect(described_class.exists?(work_id: work.id.to_s)).to be(false)
   end
+
+  # The test database is built from schema.rb, which records no column
+  # compression, so this passes only through the session setting.
+  it 'compresses a large body with lz4' do
+    described_class.store(work_id: work.id, text: 'Running Boston ' * 1000)
+
+    method = described_class.where(work_id: work.id.to_s).pick(Arel.sql('pg_column_compression(body)'))
+    expect(method).to eq('lz4')
+  end
 end

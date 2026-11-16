@@ -13,9 +13,6 @@ class CreateWorkFullTexts < ActiveRecord::Migration[8.1]
     end
     # The cascade is what removes the text when a purge or a wipe deletes the Work.
     add_foreign_key :work_full_texts, :orm_resources, column: :work_id, on_delete: :cascade
-    # schema.rb cannot record a column's compression, so a database loaded from
-    # it uses the default. That changes the cost of a large value, never its content.
-    execute 'ALTER TABLE work_full_texts ALTER COLUMN body SET COMPRESSION lz4'
   end
 
   def down

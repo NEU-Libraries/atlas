@@ -39,6 +39,7 @@ spec/integration/history_atlas_rb_spec.rb
 spec/integration/idempotency_atlas_rb_spec.rb
 spec/integration/instrumentation_atlas_rb_spec.rb
 spec/integration/jwt_direct_atlas_rb_spec.rb
+spec/integration/legacy_pid_atlas_rb_spec.rb
 spec/integration/linked_members_atlas_rb_spec.rb
 spec/integration/maintenance_atlas_rb_spec.rb
 spec/integration/mods_versions_atlas_rb_spec.rb
@@ -85,6 +86,7 @@ spec/lib/request_timing_spec.rb
 spec/lib/response_cache_spec.rb
 spec/lib/solr_core_spec.rb
 spec/lib/spec_preflight_spec.rb
+spec/lib/statement_timeout_spec.rb
 spec/lib/tasks/mods_rake_spec.rb
 spec/lib/tasks/preservation_rake_spec.rb
 spec/lib/tasks/reset_rake_spec.rb
@@ -113,6 +115,7 @@ spec/models/person_spec.rb
 spec/models/tier_visibility_spec.rb
 spec/models/user_role_audit_spec.rb
 spec/models/user_spec.rb
+spec/models/work_full_text_spec.rb
 spec/queries/find_many_by_alternate_identifiers_spec.rb
 spec/queries/find_many_members_spec.rb
 spec/queries/find_many_parents_spec.rb
@@ -136,6 +139,7 @@ spec/requests/delegates_spec.rb
 spec/requests/docs_spec.rb
 spec/requests/file_sets_spec.rb
 spec/requests/fixity_checks_spec.rb
+spec/requests/legacy_pids_spec.rb
 spec/requests/maintenance_read_only_spec.rb
 spec/requests/maintenance_spec.rb
 spec/requests/mods_versions_spec.rb

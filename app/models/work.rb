@@ -45,14 +45,15 @@ class Work < Resource
   # Set on create only. See docs/legacy-pids.md.
   attribute :legacy_pid, Valkyrie::Types::String.optional
 
-  # A regenerable search aid, NOT a preservation artifact, so it is omitted
-  # from the OCFL envelope. Unbounded-ish in size.
-  attribute :full_text, Valkyrie::Types::String
-
   # A JSON STRING and not a Types::Hash: the metadata adapter collapses
   # single-element arrays ({"small"=>["public"]} becomes {"small"=>"public"}),
   # corrupting the group sets. Read through TierVisibility, never raw.
   attribute :derivative_permissions, Valkyrie::Types::String
+
+  # Kept out of the Valkyrie metadata on purpose. See docs/resource-graph.md.
+  def full_text
+    WorkFullText.body_for(id)
+  end
 
   # A TOTAL order even over legacy unordered data, shared by works#file_sets
   # and the METS structMap so the two cannot disagree.

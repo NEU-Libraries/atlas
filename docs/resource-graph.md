@@ -6,6 +6,7 @@ envelope that lets it be rebuilt without Atlas.
 Source files:
 
 - `app/models/work.rb` — the Work's attributes and the association edges
+- `app/models/work_full_text.rb` — the Work's extracted text, beside its row
 - `app/models/concerns/relationships.rb` — containment and traversal
 - `app/models/concerns/preservable.rb` — the on-disk envelope
 - `app/controllers/resources_controller.rb` — the generic resolver and traversals
@@ -92,12 +93,45 @@ attributes land on different sides of it.
 | `handle` | **Yes**, schema v5 | An external Handle service holds the other half of the binding and the outside world cites it. **Nothing in the repository can re-derive it**, so a rebuild that lost it would break every outside citation. |
 | `handle_source` | **Yes**, schema v9 | Whether the handle was minted here or supplied at create. Atlas must never mint or re-point a supplied handle, and a supplied suffix need not be a NOID, so nothing can tell the two apart once this is lost. Null beside a handle means minted. |
 | `legacy_pid` | **Yes**, schema v10 | The v1 pid a migrated Community, Collection or Work came from. Old public URLs and citations name it, and nothing else in the repository records which object it became ([`legacy-pids.md`](legacy-pids.md)). |
-| `full_text` | No | A regenerable search aid, re-sent on any re-ingest. Postgres only, so `FullTextIndexer` re-reads and re-projects it on every reindex. |
+| `full_text` | No | A regenerable search aid, re-sent on any re-ingest. Postgres only, in its own table, so `FullTextIndexer` re-reads and re-projects it on every reindex. |
 | `derivative_permissions` | **Yes**, schema v8, in `permissions.json` | An access policy a person sets, which Atlas enforces on Blob bytes and Cerberus and the IIIF layer on image tiers. Nothing else records it, so a rebuild that lost it would serve every reserved original publicly. |
 | `tombstoned_at`, `tombstoned_by`, `tombstone_reason` | **Yes**, schema v7, as one `tombstone` block | A tombstone is a person's decision that nothing else records. A rebuild that lost it would bring tombstoned objects back into view, and drop the removal note the library's removal policy requires. |
 
 `full_text` is omitted for the same reason the fungible thumbnail derivatives
 are: **it can be made again.**
+
+### `full_text` lives beside the Work, not in it
+
+`PATCH /works/:id/full_text` stores the text in `work_full_texts`, one row per
+Work keyed by the Work's Valkyrie id (`app/models/work_full_text.rb`).
+`Work#full_text` reads it from there. It is deliberately **not** a Valkyrie
+attribute.
+
+**A Valkyrie attribute would put the text inside `orm_resources.metadata`.**
+Postgres rewrites a `jsonb` value whole on every update. So every later save of
+the Work, such as an ACL change, a thumbnail or a tombstone, would rewrite the
+text, its TOAST chunks and its WAL, and update both GIN indexes. Valkyrie's
+finders select the whole row, so every read would carry it too: listing a
+Collection's children would load every child's text. A long PDF's text runs to
+megabytes.
+
+The table keeps the four things the attribute gave:
+
+- **The projection.** The endpoint stores the row, then saves the Work. The save
+  runs `FullTextIndexer`, which reads the row, and evicts the cached responses.
+- **The reindex.** A reindex from Postgres reads the row again, so the Solr field
+  survives `reset:data` and a rebuilt core.
+- **The embargo.** `FullTextIndexer` still leaves the text out while an embargo
+  holds ([`authorization.md`](authorization.md)).
+- **The clear.** An empty `text` deletes the row.
+
+**A foreign key to `orm_resources` cascades on delete**, so a purge or a wipe
+removes the text with the Work. `RepositoryReset` deletes the table's rows
+itself, because it disables the triggers that carry the cascade.
+
+Two alternatives were rejected. Text held only in Solr would be lost by a
+reindex from Postgres. Text held as a file in Valkyrie storage would be a second
+store to keep in step, for no gain over a table.
 
 ### `derivative_permissions` is a JSON string, not a Hash
 

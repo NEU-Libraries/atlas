@@ -20,7 +20,7 @@ RSpec.describe FullTextIndexer do
     end
 
     it "projects the Work's stored full_text onto full_text_tesimv" do
-      work.full_text = 'Running Boston Jon Masters'
+      WorkFullText.store(work_id: work.id, text: 'Running Boston Jon Masters')
       saved = Atlas.persister.save(resource: work)
 
       expect(described_class.new(resource: saved).to_solr).to eq(full_text_tesimv: 'Running Boston Jon Masters')
@@ -28,7 +28,7 @@ RSpec.describe FullTextIndexer do
 
     # A search could otherwise report which words an embargoed file contains.
     it 'leaves the text out while an embargo holds, and keeps it once the embargo has lapsed' do
-      work.full_text = 'Running Boston Jon Masters'
+      WorkFullText.store(work_id: work.id, text: 'Running Boston Jon Masters')
       work.embargo_release_date = 1.year.from_now
       expect(described_class.new(resource: work).to_solr).to eq({})
 
@@ -46,7 +46,7 @@ RSpec.describe FullTextIndexer do
 
   describe 'end-to-end through the composite indexer' do
     it 'lands full_text_tesimv on the Work doc when the Work is saved, and is body-text searchable' do
-      work.full_text = 'a quotation about the running of Boston'
+      WorkFullText.store(work_id: work.id, text: 'a quotation about the running of Boston')
       Atlas.persister.save(resource: work)
 
       # The dedicated *_tesimv field is stored + indexed in the image, so a
@@ -59,7 +59,7 @@ RSpec.describe FullTextIndexer do
     end
 
     it 're-projects on a plain re-save (survives reindex / reset:data)' do
-      work.full_text = 'persisted body text'
+      WorkFullText.store(work_id: work.id, text: 'persisted body text')
       Atlas.persister.save(resource: work)
       # A reindex re-reads full_text from Postgres (source of truth) and
       # re-projects — no re-PATCH needed.

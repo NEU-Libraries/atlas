@@ -5,8 +5,8 @@
 # queries and render the "Full Text Match" result snippet.
 #
 # The text is extracted Cerberus-side (pdftotext / Tika in a Solid Queue job)
-# and handed to Atlas via PATCH /works/:id/full_text, which stores it as the
-# Work's derived `full_text` attribute. This indexer is the storage→Solr half:
+# and handed to Atlas via PATCH /works/:id/full_text, which stores it in
+# WorkFullText, beside the Work. This indexer is the storage→Solr half:
 # it re-reads that stored value on every Work save, so the projection survives
 # reset:data / reindex (Atlas is the source of truth; Cerberus never writes Solr
 # directly). Mirrors ClassificationIndexer / ThumbnailIndexer's "project a

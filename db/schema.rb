@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_06_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_16_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "uuid-ossp"
@@ -192,8 +192,15 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_06_120000) do
     t.index ["reset_password_token"], name: "index_users_on_reset_password_token", unique: true
   end
 
+  create_table "work_full_texts", primary_key: "work_id", id: :uuid, default: nil, force: :cascade do |t|
+    t.text "body", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+  end
+
   add_foreign_key "compilation_collection_inclusions", "compilations", on_delete: :cascade
   add_foreign_key "compilation_exclusions", "compilations", on_delete: :cascade
   add_foreign_key "compilation_work_inclusions", "compilations", on_delete: :cascade
   add_foreign_key "idempotency_keys", "users"
+  add_foreign_key "work_full_texts", "orm_resources", column: "work_id", on_delete: :cascade
 end

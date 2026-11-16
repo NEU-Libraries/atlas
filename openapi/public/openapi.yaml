@@ -11772,10 +11772,10 @@ paths:
       tags:
       - Works
       description: |
-        Stores the Work-level aggregate of Cerberus-extracted document text as
-        the Work's derived `full_text` attribute. FullTextIndexer projects it
-        onto the Work's Solr doc as the dedicated `full_text_tesimv` field for
-        body-text search and the "Full Text Match" snippet.
+        Stores the Work-level aggregate of Cerberus-extracted document text
+        beside the Work. FullTextIndexer projects it onto the Work's Solr doc
+        as the dedicated `full_text_tesimv` field for body-text search and the
+        "Full Text Match" snippet. An empty `text` clears it.
 
         Same "machine-set derived metadata" seam as `/thumbnails` — a
         regenerable search aid re-sent on any re-ingest, never user-authored.

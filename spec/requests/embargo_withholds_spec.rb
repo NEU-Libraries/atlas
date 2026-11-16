@@ -39,7 +39,7 @@ RSpec.describe 'An embargo withholds the gated URLs and the full text', type: :r
   let!(:work) do
     work = WorkCreator.call(parent_id: CollectionCreator.call(parent_id: public_community!.noid).noid)
     work.publicize
-    work.full_text = "a report that mentions #{phrase} once"
+    WorkFullText.store(work_id: work.id, text: "a report that mentions #{phrase} once")
     work.depositor = depositor.nuid
     work.edit_users = [editor.nuid]
     # Search lists a finished deposit only.

@@ -22,17 +22,9 @@ class WorkMETSRebuilder < ApplicationService
   # from current state, so the retry reloads and builds again, and is a no-op
   # when the winner already wrote the same XML. See docs/write-safety.md.
   def call
-    attempts = 0
-    begin
+    StaleRetry.run("METS rebuild of Work #{@work&.noid}") do |attempt|
+      @work = reload(@work) if attempt.positive?
       rebuild
-    rescue Valkyrie::Persistence::StaleObjectError
-      attempts += 1
-      raise if attempts >= StaleObjectRetry::RETRY_MAX_ATTEMPTS
-
-      Rails.logger.info("WorkMETSRebuilder: stale METS write on #{@work.noid}, retry #{attempts}")
-      sleep(rand(0..(StaleObjectRetry::RETRY_BASE_SECONDS * (2**attempts))))
-      @work = reload(@work)
-      retry
     end
   end
 

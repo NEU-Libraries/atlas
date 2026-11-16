@@ -115,6 +115,21 @@ describe FileSetsController, type: :controller do
         pages = Metadata::METS.find_by(valkyrie_id: work.noid).pages
         expect(pages.map(&:order)).to eq([1])
       end
+
+      # The page is gone by the time the rebuild runs, so an error would report
+      # a delete that happened, and a retried DELETE would only find a 404.
+      it 'answers success when the METS rebuild keeps losing a lock race' do
+        removed = FileSetCreator.call(work_id: work.noid, classification: Classification.image, position: 1)
+        completed = Work.find(work.noid)
+        completed.in_progress = false
+        Atlas.persister.save(resource: completed)
+        allow(WorkMETSRebuilder).to receive(:call).and_raise(Valkyrie::Persistence::StaleObjectError)
+
+        delete :destroy, params: { id: removed.noid }, as: :json
+
+        expect(response).to have_http_status(:success)
+        expect(FileSet.find(removed.noid)).to be_nil
+      end
     end
   end
 end

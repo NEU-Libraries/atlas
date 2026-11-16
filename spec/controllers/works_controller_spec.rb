@@ -199,7 +199,7 @@ describe WorksController, type: :controller do
 
         before do
           FileSetCreator.call(work_id: work.noid, classification: Classification.image, position: 1)
-          allow_any_instance_of(WorkMETSRebuilder).to receive(:sleep)
+          allow(StaleRetry).to receive(:pause)
           configure_minting(client)
         end
 

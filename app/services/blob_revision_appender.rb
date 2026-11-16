@@ -24,7 +24,9 @@ class BlobRevisionAppender < ApplicationService
     saved = Atlas.persister.save(resource: @blob)
     saved.write_preservation_envelope!
     follow_classification(saved.parent) if primary?
-    METSRebuilder.call(file_set: saved.parent) if saved.parent.is_a?(FileSet)
+    if saved.parent.is_a?(FileSet)
+      StaleRetry.settle("METS rebuild after revision of #{saved.noid}") { METSRebuilder.call(file_set: saved.parent) }
+    end
     [saved, version_id]
   end
 
@@ -62,7 +64,13 @@ class BlobRevisionAppender < ApplicationService
       classification = assign_classification(@source_path, name: @name).name
       return if file_set.type == classification
 
-      file_set.type = classification
-      Atlas.persister.save(resource: file_set).write_preservation_envelope!
+      # The revision is already saved, so a conflict here would answer an error
+      # for an upload that landed. Setting the type again is idempotent.
+      saved = StaleRetry.run("reclassify #{file_set.noid}") do |attempt|
+        file_set = FileSet.find(file_set.id) if attempt.positive?
+        file_set.type = classification
+        Atlas.persister.save(resource: file_set)
+      end
+      saved.write_preservation_envelope!
     end
 end

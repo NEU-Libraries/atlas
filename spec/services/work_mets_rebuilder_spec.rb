@@ -91,7 +91,7 @@ RSpec.describe WorkMETSRebuilder do
       page(1)
       described_class.call(work: work)
       page(2)
-      allow_any_instance_of(described_class).to receive(:sleep)
+      allow(StaleRetry).to receive(:pause)
     end
 
     def race_once

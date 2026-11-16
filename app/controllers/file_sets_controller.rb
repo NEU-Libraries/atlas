@@ -132,9 +132,13 @@ class FileSetsController < ApplicationController
     def rebuild_parent_mets(parent)
       return unless parent.is_a?(Work) && parent.in_progress == false
 
-      parent = WorkMETSRebuilder.call(work: parent)
+      # The page is already purged, so a METS conflict must not answer an error
+      # for a delete that happened.
+      rebuilt = StaleRetry.settle("METS rebuild after a page left #{parent.noid}") do
+        WorkMETSRebuilder.call(work: parent)
+      end
       # Page set shrank — re-project the Work's "Content" classification facet
       # (see FileSetCreator#reproject_classification). Solr-only, no lock bump.
-      Atlas.reindex(parent)
+      Atlas.reindex(rebuilt || Work.find(parent.id))
     end
 end

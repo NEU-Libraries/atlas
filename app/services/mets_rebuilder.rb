@@ -10,18 +10,27 @@ class METSRebuilder < ApplicationService
     @file_set = reload(file_set)
   end
 
+  # Two uploads into one FileSet each rebuild its METS, and the loser's Blob
+  # save raises. As in WorkMETSRebuilder, the retry reloads and builds again.
   def call
-    return @file_set if @file_set.nil?
-    return @file_set if Classification.metadata?(@file_set.type)
-
-    new_xml = mets_for(@file_set, blobs: @file_set.content_files, created_at: existing_created_at)
-    return @file_set if new_xml == @file_set.mets_xml
-
-    @file_set.mets_xml = new_xml
-    @file_set
+    StaleRetry.run("METS rebuild of FileSet #{@file_set&.noid}") do |attempt|
+      @file_set = reload(@file_set) if attempt.positive?
+      rebuild
+    end
   end
 
   private
+
+    def rebuild
+      return @file_set if @file_set.nil?
+      return @file_set if Classification.metadata?(@file_set.type)
+
+      new_xml = mets_for(@file_set, blobs: @file_set.content_files, created_at: existing_created_at)
+      return @file_set if new_xml == @file_set.mets_xml
+
+      @file_set.mets_xml = new_xml
+      @file_set
+    end
 
     def reload(file_set)
       return nil if file_set.nil?

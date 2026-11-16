@@ -49,8 +49,10 @@ class FileSetCreator < ApplicationService
       work = file_set.parent
       return unless work.is_a?(Work) && work.in_progress == false
 
-      work = WorkMETSRebuilder.call(work: work)
-      reproject_classification(work)
+      rebuilt = StaleRetry.settle("METS rebuild after #{file_set.noid} joined #{work.noid}") do
+        WorkMETSRebuilder.call(work: work)
+      end
+      reproject_classification(rebuilt || Work.find(work.id))
     end
 
     # The page set of a completed Work just changed, so its content-type

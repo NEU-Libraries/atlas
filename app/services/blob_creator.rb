@@ -31,7 +31,7 @@ class BlobCreator < ApplicationService
       blob = save_initial_blob
       attach_to_file_set(fs, blob)
       blob = upload_and_save(blob)
-      METSRebuilder.call(file_set: fs)
+      StaleRetry.settle("METS rebuild after upload to #{fs.noid}") { METSRebuilder.call(file_set: fs) }
       blob
     end
 
@@ -58,9 +58,14 @@ class BlobCreator < ApplicationService
       )
     end
 
+    # A concurrent upload into the same FileSet moves its lock token. Losing
+    # here would leave the Blob attached to nothing, so the attach retries.
     def attach_to_file_set(file_set, blob)
-      file_set.member_ids += [blob.id]
-      file_set = Atlas.persister.save(resource: file_set)
+      file_set = StaleRetry.run("attach Blob to #{file_set.noid}") do |attempt|
+        file_set = FileSet.find(file_set.id) if attempt.positive?
+        file_set.member_ids += [blob.id]
+        Atlas.persister.save(resource: file_set)
+      end
       file_set.write_preservation_envelope!
     end
 

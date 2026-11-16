@@ -201,7 +201,7 @@ rest of the design follows from.
 
 ## Stack
 
-- Ruby 3.4, Rails 8.1, Postgres 14, Solr (Blacklight image)
+- Ruby 3.4, Rails 8.1, Postgres 17, Solr (Blacklight image)
 - [Valkyrie](https://github.com/samvera/valkyrie) for the metadata persistence
   abstraction; a custom Valkyrie [OCFL](https://ocfl.io) storage adapter
   (`app/lib/valkyrie/storage/ocfl.rb`) for binary storage

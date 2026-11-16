@@ -11,7 +11,10 @@ volumes:
   handle-data:
 services:
   db:
-    image: postgres:14
+    # Postgres cannot open a data directory written by an older major version.
+    # A change to the major version here means recreating the db volume, which
+    # the entrypoint's db:create and db:migrate then rebuild.
+    image: postgres:17
     volumes:
       - db:/var/lib/postgresql/data/pgdata
     restart: always

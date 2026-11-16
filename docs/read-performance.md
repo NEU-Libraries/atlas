@@ -190,6 +190,25 @@ and carries **descendants only**. The roots are added explicitly through
 Branching lives among the roughly three thousand collections, and **works never
 appear here**, so that bound covers the fan-out.
 
+## One GIN index on `orm_resources.metadata`
+
+The Valkyrie engine's migrations create two GIN indexes on the metadata: the
+default `jsonb_ops` one and a `jsonb_path_ops` one. Atlas drops the `jsonb_ops`
+index and keeps the other
+(`db/migrate/20261116120100_remove_orm_resources_jsonb_ops_index.rb`).
+
+**Every containment query (`@>`) can use `jsonb_path_ops`,** and the planner
+chose it for the `a_member_of` and `alternate_ids` lookups. That covers Valkyrie's
+query service and every batched query on this page. `jsonb_ops` adds only the
+key-exists operators `?`, `?|` and `?&`. Measured on dev, it served 12 scans to
+the other index's 14,382, yet it was larger than the table itself, and every
+write paid to update it.
+
+The one query that uses `?` is `RepositoryReset#minted_handle_rows`
+(`metadata ? 'handle'`). Containment cannot say "the key exists", so it keeps
+`?` and scans the table. That is acceptable for an administrative reset. **A new
+request-path query should use containment,** or it scans every row.
+
 ## Benchmarking honestly
 
 A cached read measures the cache, not the query. When timing a change to any of

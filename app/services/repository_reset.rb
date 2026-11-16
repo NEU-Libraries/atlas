@@ -98,8 +98,11 @@ class RepositoryReset < ApplicationService
       conn   = ActiveRecord::Base.connection
       tables = conn.tables - RETAINED_TABLES
 
-      conn.disable_referential_integrity do
-        tables.each { |table| conn.execute("DELETE FROM #{conn.quote_table_name(table)}") }
+      # One DELETE covers a whole table, which can outlast the statement timeout.
+      StatementTimeout.lifted(conn) do
+        conn.disable_referential_integrity do
+          tables.each { |table| conn.execute("DELETE FROM #{conn.quote_table_name(table)}") }
+        end
       end
     end
 

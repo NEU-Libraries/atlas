@@ -23,6 +23,12 @@ default: &default
   # For details on connection pooling, see Rails configuration guide
   # https://guides.rubyonrails.org/configuring.html#database-pooling
   pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
+  # Without these, a wedged database holds a connect attempt or a query until
+  # the client gives up. A statement that legitimately runs longer sets its own
+  # timeout; see docs/availability.md.
+  connect_timeout: 5
+  variables:
+    statement_timeout: 30s
 
 development:
   <<: *default

@@ -9,6 +9,8 @@ Source files:
 - `app/controllers/maintenance_controller.rb` — the endpoints
 - `app/services/repository_reset.rb` and `lib/tasks/reset.rake` — the reset
 - `app/lib/system_health.rb` and `app/controllers/health_controller.rb` — `GET /health`
+- `config/database.yml` — the connect and statement timeouts
+- `app/lib/statement_timeout.rb` — lifting the statement timeout for one block
 
 The floors that enforce the window live in `ApplicationController#authorize!` —
 see [`authentication.md`](authentication.md). The 503 shape is
@@ -269,6 +271,13 @@ non-directory, or dangerously shallow root. The real roots —
 deep, **so a root with fewer than two path segments signals a misconfiguration
 that must not be `rm_rf`'d against.**
 
+### It lifts the statement timeout for its own wipe
+
+Each `DELETE` in the wipe empties a whole table, which on a staging-sized
+repository can outlast the 30-second statement timeout (see
+[below](#database-timeouts)), so `delete_all_rows!` runs the wipe inside
+`StatementTimeout.lifted`.
+
 ### Why not `database_cleaner`
 
 Reset is reachable in **staging**, and that gem sits in the `:development, :test`
@@ -307,3 +316,35 @@ People Community.
   depositor with no workspace.
 - **The rswag example for `GET /reset` wipes after itself.** The Persons reach
   Solr and OCFL, which the fixture transaction does not roll back.
+
+## Database timeouts
+
+`config/database.yml` sets two limits for every environment:
+
+| Setting | Value | What it bounds |
+|---|---|---|
+| `connect_timeout` | 5 seconds | Opening a connection to Postgres |
+| `statement_timeout` | 30 seconds | Any one SQL statement |
+
+**Without them, a wedged database holds a request until the client gives up.**
+A connect attempt to an unresponsive server waits on the operating system rather
+than on the pool's `checkout_timeout`, and a statement can run for as long as the
+caller stays connected. With them, the request fails fast, and the database
+probe in `GET /health` fails within five seconds instead of hanging.
+
+The values match Cerberus's. Thirty seconds bounds one statement, not one task:
+a reindex or a fixity sweep runs many short statements, so the limit does not
+reach it. The heaviest single statements on the request path are the storage
+footprint's recursive query (see [`binaries.md`](binaries.md)) and the batched
+containment lookups (see [`read-performance.md`](read-performance.md)).
+
+**A statement that legitimately runs longer lifts the limit for itself:** the
+reset's wipe, above, and a migration that changes an index concurrently, which
+waits for every open transaction on the table. Application code does this with
+`StatementTimeout.lifted { ... }`. It sets the timeout to zero for the block,
+then puts the configured value back, because the connection returns to the pool
+and the next request on it must still be bounded. It restores the value it read
+rather than issuing `RESET`, which would restore the server's default of no
+limit. A migration carries its own copy of the same steps, because a migration
+must not depend on application code that can later change. Lift the limit for
+one block rather than raising it for everyone.

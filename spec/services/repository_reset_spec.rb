@@ -108,6 +108,22 @@ RSpec.describe RepositoryReset do
       expect { reset.send(:delete_all_rows!) }.not_to raise_error
       expect(IdempotencyKey.count).to eq(0)
     end
+
+    # The wipe lifts the timeout for itself only. The connection goes back to
+    # the pool afterwards, and the next request on it must still be bounded.
+    it 'runs without a statement timeout, and restores the configured one afterwards' do
+      conn = ActiveRecord::Base.connection
+      seen = nil
+      allow(conn).to receive(:disable_referential_integrity).and_wrap_original do |original, &block|
+        seen = conn.select_value('SHOW statement_timeout')
+        original.call(&block)
+      end
+
+      reset.send(:delete_all_rows!)
+
+      expect(seen).to eq('0')
+      expect(conn.select_value('SHOW statement_timeout')).to eq('30s')
+    end
   end
 
   describe '#guard_storage_root! (refuses a dangerous target)' do

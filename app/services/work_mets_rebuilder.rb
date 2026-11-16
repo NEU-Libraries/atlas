@@ -17,17 +17,36 @@ class WorkMETSRebuilder < ApplicationService
     @work = reload(work)
   end
 
+  # Two rebuilds of one Work race whenever a page lands while the Work is being
+  # finalized, and the loser's METS Blob save raises. The rebuild is derived
+  # from current state, so the retry reloads and builds again, and is a no-op
+  # when the winner already wrote the same XML. See docs/write-safety.md.
   def call
-    return @work if @work.nil?
+    attempts = 0
+    begin
+      rebuild
+    rescue Valkyrie::Persistence::StaleObjectError
+      attempts += 1
+      raise if attempts >= StaleObjectRetry::RETRY_MAX_ATTEMPTS
 
-    new_xml = mets_for_work(@work, file_sets: @work.page_file_sets, created_at: existing_created_at)
-    return @work if new_xml == @work.mets_xml
-
-    @work.mets_xml = new_xml
-    Work.find(@work.id) # reload: mets_xml= mutated children via persister, so the local work is stale
+      Rails.logger.info("WorkMETSRebuilder: stale METS write on #{@work.noid}, retry #{attempts}")
+      sleep(rand(0..(StaleObjectRetry::RETRY_BASE_SECONDS * (2**attempts))))
+      @work = reload(@work)
+      retry
+    end
   end
 
   private
+
+    def rebuild
+      return @work if @work.nil?
+
+      new_xml = mets_for_work(@work, file_sets: @work.page_file_sets, created_at: existing_created_at)
+      return @work if new_xml == @work.mets_xml
+
+      @work.mets_xml = new_xml
+      Work.find(@work.id) # reload: mets_xml= mutated children via persister, so the local work is stale
+    end
 
     def reload(work)
       return nil if work.nil?

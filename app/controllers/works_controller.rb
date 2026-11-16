@@ -253,10 +253,10 @@ class WorksController < ApplicationController
       @work.in_progress = false
       @work = Atlas.persister.save(resource: @work).decorate
     end
-    # Finalize-time build of the Work-level METS structMap (the
-    # preservation record of page order). Unreached on a stale-object
-    # 409 — retry exhaustion re-raises out of the block above.
-    WorkMETSRebuilder.call(work: @work)
+    # The Work is saved complete from here on, so a METS conflict must not
+    # abandon the handle and the audit row: it is held and raised last, and a
+    # second call rebuilds the METS. See docs/write-safety.md.
+    mets_conflict = rebuild_mets_holding_conflict
     # Mint the persistent identifier last, and reassign because the response
     # renders the handle. HandleMinter is best-effort: it reloads past the
     # METS write, skips a Work that already has a handle, and swallows a
@@ -264,6 +264,7 @@ class WorksController < ApplicationController
     # external service it does not need to have succeeded.
     @work = HandleMinter.call(work: @work).decorate
     audit!(resource: @work, action: 'complete', change_type: 'lifecycle')
+    raise mets_conflict if mets_conflict
   end
 
   # Flag a Work whose enrichment pipeline gave up (see Work#incomplete). The
@@ -306,6 +307,13 @@ class WorksController < ApplicationController
   end
 
   private
+
+    def rebuild_mets_holding_conflict
+      WorkMETSRebuilder.call(work: @work)
+      nil
+    rescue Valkyrie::Persistence::StaleObjectError => e
+      e
+    end
 
     # Pair each downloadable member with its FileSet so the flattened view can
     # surface the FileSet's NOID and classification per asset. Members come

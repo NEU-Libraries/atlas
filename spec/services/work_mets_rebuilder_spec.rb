@@ -84,6 +84,48 @@ RSpec.describe WorkMETSRebuilder do
     expect(work_mets_doc.at_xpath('//m:metsHdr/@CREATEDATE', m: METSBuilder::METS_NS).value).to eq(created)
   end
 
+  # The finalize race: a page's eager rebuild saves the METS Blob between this
+  # rebuild's read of it and its own save, so this save raises for real.
+  describe 'when a concurrent rebuild wins the METS Blob save' do
+    before do
+      page(1)
+      described_class.call(work: work)
+      page(2)
+      allow_any_instance_of(described_class).to receive(:sleep)
+    end
+
+    def race_once
+      raced = false
+      allow(Atlas.persister).to receive(:save).and_wrap_original do |original, resource:, **rest|
+        if !raced && resource.is_a?(Blob) && resource.persisted? && resource.use == Role.structural_metadata.name
+          raced = true
+          described_class.call(work: work)
+        end
+        original.call(resource: resource, **rest)
+      end
+    end
+
+    it 'reloads, finds the winner already wrote the same XML, and adds nothing of its own' do
+      race_once
+      versions_before = Work.find(work.noid).mets_blob.file_identifiers.length
+
+      expect { described_class.call(work: work) }.not_to raise_error
+
+      expect(page_divs(work_mets_doc).length).to eq(2)
+      expect(Work.find(work.noid).mets_blob.file_identifiers.length).to eq(versions_before + 1)
+    end
+
+    it 'gives up after the retry budget and re-raises' do
+      allow(Atlas.persister).to receive(:save).and_wrap_original do |original, resource:, **rest|
+        raise Valkyrie::Persistence::StaleObjectError if resource.is_a?(Blob) && resource.persisted?
+
+        original.call(resource: resource, **rest)
+      end
+
+      expect { described_class.call(work: work) }.to raise_error(Valkyrie::Persistence::StaleObjectError)
+    end
+  end
+
   it 'projects the structMap into Metadata::METS pages' do
     fs = page(1)
     described_class.call(work: work)

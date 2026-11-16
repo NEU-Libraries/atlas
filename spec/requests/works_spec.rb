@@ -1800,14 +1800,24 @@ RSpec.describe 'Works', type: :request do
       tags 'Works'
       response_texts(
         '200' => 'The Work, with `in_progress` false; its METS structMap is built from its pages.',
-        '409' => 'The Work kept changing under concurrent writes until the internal retries ran out.'
+        '409' => 'The Work or its METS kept changing under concurrent writes until the internal retries ran ' \
+                 'out. The Work may already be complete, with its handle and audit row; call again to finish ' \
+                 'the METS.'
       )
       produces 'application/json'
       description <<~DESC
-        Flips `in_progress` to false. Cerberus calls this after its
+        Flips `in_progress` to false, builds the Work's METS structMap from
+        its pages, and mints its handle. Cerberus calls this after its
         per-record Solid Queue job confirms all expected children
         (FileSets / Blobs) are deposited. Idempotent — calling on an
-        already-complete Work simply re-saves with in_progress: false.
+        already-complete Work re-saves it, rebuilds the METS only if it
+        changed, and mints nothing new.
+
+        A 409 does not always mean nothing changed. When the METS write
+        loses a race with a concurrent rebuild, such as a caption FileSet
+        landing during the deposit, the Work is already complete, and Atlas
+        still mints the handle and records the audit row before it answers.
+        A retry is required, not just safe: it is what finishes the METS.
       DESC
 
       response '200', 'work marked complete' do

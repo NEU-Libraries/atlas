@@ -7,6 +7,7 @@ Source files:
 
 - `app/controllers/concerns/idempotent_create.rb` — replay-safe creates
 - `app/controllers/concerns/stale_object_retry.rb` — optimistic-lock retry
+- `app/services/work_mets_rebuilder.rb` — the METS rebuild's own retry
 - `app/controllers/concerns/auditable.rb` — provenance emission
 - `app/controllers/audit_events_controller.rb` — the history surface
 - `app/services/audit_event_writer.rb` — the row writer
@@ -113,6 +114,37 @@ lockstep-collision thundering herd deterministic backoff would cause.
 Logging is noisy on purpose. **The point of retrying is to make transient
 conflicts invisible to callers, but they must stay visible to an operator
 debugging a misbehaving coordinator.**
+
+### The METS rebuild retries inside itself
+
+`WorkMETSRebuilder` has three callers: `POST /works/:id/complete`, a page
+FileSet created under a completed Work (`FileSetCreator`), and a page FileSet
+destroyed (`FileSetsController#destroy`). **Two of them run at once whenever a
+page lands while the Work is being finalized.** Cerberus's `ConfirmDepositJob`
+and `CaptionJob` do exactly that, from the same request. Both rebuilds read the
+METS Blob, and the second one to save it raises `StaleObjectError`.
+
+The rebuild is derived entirely from current state, so retrying it is safe in
+the sense above. The retry lives in `WorkMETSRebuilder#call`, not in a
+controller, so it covers all three callers. It reloads the Work, builds the XML
+again, and compares it with what is stored. **When the winner has already
+written the same XML, the retry writes nothing.** It uses the same budget and
+backoff as `with_stale_object_retry`, and re-raises when the budget runs out.
+
+### `complete` finishes its tail before it answers 409
+
+`complete` makes its writes in order: the Work saved with `in_progress: false`
+(inside `with_stale_object_retry`), the METS rebuild, the handle, and the
+`complete` audit row. Once the first write lands, the Work is complete, and
+nothing undoes that. So a METS conflict that outlasts the rebuild's own retries
+is held, the handle is minted and the audit row written, and only then does the
+action raise it as a 409.
+
+**This 409 does not mean nothing changed.** The OpenAPI description says so.
+A second call finishes the METS and mints nothing new, because `HandleMinter`
+skips a Work that already has a handle. Without the hold, the Work would be
+public and complete with no handle and no audit row. It would also not appear
+on the in-progress list, so nothing would flag it.
 
 ## Provenance emission
 

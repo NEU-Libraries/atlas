@@ -171,6 +171,65 @@ describe WorksController, type: :controller do
       # The finalize must not inherit the handle server's availability. A
       # bulk deposit re-finalizes routinely, and a minting outage that 500s
       # /complete would stall it.
+      # A page landing during the finalize rebuilds the same METS, and the
+      # loser's Blob save raises once.
+      context 'when the METS write loses a lock race' do
+        let(:client) do
+          instance_double(HandleClient, configured?: true).tap do |double|
+            allow(double).to receive(:mint) { |suffix, **| "DRSDEV/#{suffix}" }
+          end
+        end
+
+        def fail_mets_blob_saves(times)
+          failures = 0
+          allow(Atlas.persister).to receive(:save).and_wrap_original do |original, resource:, **rest|
+            if resource.is_a?(Blob) && resource.persisted? && resource.use == Role.structural_metadata.name &&
+               failures < times
+              failures += 1
+              raise Valkyrie::Persistence::StaleObjectError, resource.id.to_s
+            end
+
+            original.call(resource: resource, **rest)
+          end
+        end
+
+        def complete_events
+          AuditEvent.where(action: 'complete', resource_id: work.id.to_s)
+        end
+
+        before do
+          FileSetCreator.call(work_id: work.noid, classification: Classification.image, position: 1)
+          allow_any_instance_of(WorkMETSRebuilder).to receive(:sleep)
+          configure_minting(client)
+        end
+
+        it 'retries the METS write, then mints the handle and audits once' do
+          fail_mets_blob_saves(1)
+
+          post :complete, params: { id: work.noid }, as: :json
+
+          expect(response).to have_http_status(:success)
+          expect(response.parsed_body.dig('work', 'handle')).to eq("DRSDEV/#{work.noid}")
+          expect(Metadata::METS.find_by(valkyrie_id: work.noid)&.pages&.length).to eq(1)
+          expect(complete_events.count).to eq(1)
+        end
+
+        # The Work is already saved complete when the METS gives up, so the
+        # handle and the audit row must not be abandoned with it.
+        it 'still mints and audits when the METS write keeps losing, then answers 409' do
+          fail_mets_blob_saves(StaleObjectRetry::RETRY_MAX_ATTEMPTS)
+
+          post :complete, params: { id: work.noid }, as: :json
+
+          expect(response).to have_http_status(:conflict)
+          expect(response.parsed_body['error']).to eq('stale_resource')
+          reloaded = Work.find(work.noid)
+          expect(reloaded.in_progress).to be(false)
+          expect(reloaded.handle).to eq("DRSDEV/#{work.noid}")
+          expect(complete_events.count).to eq(1)
+        end
+      end
+
       it 'still completes when the handle server is unreachable' do
         client = instance_double(HandleClient, configured?: true)
         allow(client).to receive(:mint).and_raise(HandleClient::Error, 'connection refused')

@@ -21,7 +21,8 @@ module CachedResponses
 
       noid = resource.noid
 
-      if (hit = ResponseCache.read(scope: scope, noid: noid, audience: audience))
+      hit, stamp = ResponseCache.lookup(scope: scope, noid: noid, audience: audience)
+      if hit
         response.headers['X-Atlas-Cache'] = 'hit'
         render body: hit.body, status: hit.status, content_type: hit.content_type
         return
@@ -31,7 +32,7 @@ module CachedResponses
       response.headers['X-Atlas-Cache'] = 'miss'
       return unless CACHEABLE_STATUSES.include?(response.status)
 
-      ResponseCache.write(scope: scope, noid: noid, audience: audience,
+      ResponseCache.write(scope: scope, noid: noid, audience: audience, stamp: stamp,
                           status: response.status, body: response.body,
                           content_type: response.media_type)
     end

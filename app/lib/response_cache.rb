@@ -77,19 +77,30 @@ class ResponseCache
     end
 
     def read(scope:, noid:, audience: :any)
-      return nil unless enabled?
-
-      stored = Rails.cache.read(key(scope: scope, noid: noid, audience: audience))
-      return nil if stored.nil?
-
-      Entry.new(**stored)
+      lookup(scope: scope, noid: noid, audience: audience).first
     end
 
-    def write(scope:, noid:, audience: :any, **entry)
+    # The entry and the NOID's eviction stamp, in one round trip. A caller that
+    # renders on a miss hands the stamp back to #write.
+    def lookup(scope:, noid:, audience: :any)
+      return [nil, nil] unless enabled?
+
+      body_key = key(scope: scope, noid: noid, audience: audience)
+      found = Rails.cache.read_multi(body_key, stamp_key(noid))
+      [found[body_key]&.then { |stored| Entry.new(**stored) }, found[stamp_key(noid)]]
+    end
+
+    # Stores, then takes the body back out if the NOID was evicted since the
+    # caller's lookup, because the body was rendered from the state before that
+    # write. Checking after the store, not before, leaves no window: an
+    # eviction that lands after the store deletes the body itself. See
+    # docs/read-performance.md.
+    def write(scope:, noid:, stamp:, audience: :any, **entry)
       return unless enabled?
 
-      Rails.cache.write(key(scope: scope, noid: noid, audience: audience),
-                        Entry.new(**entry).to_h, expires_in: ttl)
+      body_key = key(scope: scope, noid: noid, audience: audience)
+      Rails.cache.write(body_key, Entry.new(**entry).to_h, expires_in: ttl)
+      Rails.cache.delete(body_key) unless Rails.cache.read(stamp_key(noid)) == stamp
     end
 
     # Drop every representation of a resource: all scopes, all audiences, in
@@ -103,12 +114,15 @@ class ResponseCache
     def evict_many(noids)
       return unless enabled?
 
-      keys = Array(noids).compact.flat_map do |noid|
-        SCOPES.product(AUDIENCES).map { |scope, audience| key(scope: scope, noid: noid, audience: audience) }
-      end
-      return if keys.empty?
+      noids = Array(noids).compact
+      return if noids.empty?
 
-      Rails.cache.delete_multi(keys)
+      # The stamp goes first: a render that stores after the delete still sees it.
+      Rails.cache.write_multi(noids.index_with { SecureRandom.hex(8) }.transform_keys { |noid| stamp_key(noid) },
+                              expires_in: ttl)
+      Rails.cache.delete_multi(noids.flat_map do |noid|
+        SCOPES.product(AUDIENCES).map { |scope, audience| key(scope: scope, noid: noid, audience: audience) }
+      end)
     end
 
     # Drop every entry under NAMESPACE and nothing else in the shared store;
@@ -132,6 +146,10 @@ class ResponseCache
       end
 
       "#{NAMESPACE}/#{scope}/#{noid}/#{audience}"
+    end
+
+    def stamp_key(noid)
+      "#{NAMESPACE}/evicted/#{noid}"
     end
 
     def ttl

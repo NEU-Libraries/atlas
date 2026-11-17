@@ -173,12 +173,14 @@ spec/services/creator_envelope_emission_spec.rb
 spec/services/delegate_creator_spec.rb
 spec/services/delegate_updater_spec.rb
 spec/services/derivative_permissions_updater_spec.rb
+spec/services/envelope_mods_single_writer_spec.rb
 spec/services/file_set_creator_spec.rb
 spec/services/fixity_result_rebuilder_spec.rb
 spec/services/handle_minter_spec.rb
 spec/services/linked_member_creator_spec.rb
 spec/services/linked_member_remover_spec.rb
 spec/services/mets_rebuilder_spec.rb
+spec/services/mets_single_writer_spec.rb
 spec/services/mods_preloader_spec.rb
 spec/services/mods_version_history_spec.rb
 spec/services/oai/dublin_core_spec.rb

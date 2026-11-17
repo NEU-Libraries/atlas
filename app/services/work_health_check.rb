@@ -118,9 +118,10 @@ class WorkHealthCheck < ApplicationService
     end
 
     def check_index
-      Atlas.index_adapter.query_service.find_by(id: @work.id)
-    rescue Valkyrie::Persistence::ObjectNotFoundError
-      add(:repairable, :not_indexed, 'no Solr document; search and OAI miss it until a reindex')
+      doc = IndexDocumentQuery.call(@noid)
+      return add(:repairable, :not_indexed, 'no Solr document; search and OAI miss it until a reindex') if doc.nil?
+
+      add(:repairable, :index_stale, 'Solr holds an older save than Postgres') if OAIIndexer.trails?(doc, @work)
     end
 
     # The objects Postgres names, validated in place. The pool-wide index the

@@ -28,6 +28,13 @@ class OAIIndexer
     @resource = resource
   end
 
+  # The datestamp is updated_at to the second, so a document whose datestamp
+  # is older missed a later save. See docs/work-health.md.
+  def self.trails?(doc, resource)
+    stamp = doc['oai_datestamp_dtsi']
+    stamp.present? && Time.iso8601(stamp) < resource.updated_at.utc.floor
+  end
+
   def to_solr
     return {} unless resource.is_a?(Work)
 

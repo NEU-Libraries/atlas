@@ -84,8 +84,9 @@ RSpec.describe WorkMETSRebuilder do
     expect(work_mets_doc.at_xpath('//m:metsHdr/@CREATEDATE', m: METSBuilder::METS_NS).value).to eq(created)
   end
 
-  # The finalize race: a page's eager rebuild saves the METS Blob between this
-  # rebuild's read of it and its own save, so this save raises for real.
+  # The lock keeps rebuilds in other sessions out, so this stands in for any
+  # other writer: a nested rebuild, which the re-entrant lock lets through,
+  # saves the METS Blob between this rebuild's read of it and its own save.
   describe 'when a concurrent rebuild wins the METS Blob save' do
     before do
       page(1)

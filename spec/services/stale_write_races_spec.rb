@@ -145,14 +145,14 @@ RSpec.describe 'Writes that lose an optimistic-lock race' do
   end
 
   # Runs a competing first build inside the lock window, after this build saw
-  # no Blob and before it takes the lock, as a concurrent request would.
-  def race_first_build(scope)
-    raced = false
+  # no Blob and before it takes the lock, as a concurrent request would. A
+  # rebuild holds the same lock around its first build, so `at` names which
+  # hold of the scope is the first build's.
+  def race_first_build(scope, at: 1)
+    holds = 0
     allow(AdvisoryLock).to receive(:hold).and_wrap_original do |original, lock_scope, id, &block|
-      if !raced && lock_scope == scope
-        raced = true
-        yield
-      end
+      holds += 1 if lock_scope == scope
+      yield if lock_scope == scope && holds == at
       original.call(lock_scope, id, &block)
     end
   end
@@ -162,7 +162,7 @@ RSpec.describe 'Writes that lose an optimistic-lock race' do
   describe "two first builds of a Work's METS" do
     it 'make one structural FileSet, because the second takes the Blob the first made' do
       FileSetCreator.call(work_id: work.noid, classification: Classification.image, position: 1)
-      race_first_build('work_mets') { WorkMETSRebuilder.call(work: work) }
+      race_first_build('work_mets', at: 2) { WorkMETSRebuilder.call(work: work) }
 
       WorkMETSRebuilder.call(work: work)
 

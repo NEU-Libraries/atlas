@@ -10,12 +10,16 @@ class METSRebuilder < ApplicationService
     @file_set = reload(file_set)
   end
 
-  # Two uploads into one FileSet each rebuild its METS, and the loser's Blob
-  # save raises. As in WorkMETSRebuilder, the retry reloads and builds again.
+  # Two uploads into one FileSet each rebuild its METS. As in WorkMETSRebuilder,
+  # the first build's lock runs them one at a time, each reloading under it.
   def call
-    StaleRetry.run("METS rebuild of FileSet #{@file_set&.noid}") do |attempt|
-      @file_set = reload(@file_set) if attempt.positive?
-      rebuild
+    return if @file_set.nil?
+
+    AdvisoryLock.hold('mets', @file_set.id) do
+      StaleRetry.run("METS rebuild of FileSet #{@file_set.noid}") do
+        @file_set = reload(@file_set)
+        rebuild
+      end
     end
   end
 

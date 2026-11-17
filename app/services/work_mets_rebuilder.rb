@@ -17,14 +17,19 @@ class WorkMETSRebuilder < ApplicationService
     @work = reload(work)
   end
 
-  # Two rebuilds of one Work race whenever a page lands while the Work is being
-  # finalized, and the loser's METS Blob save raises. The rebuild is derived
-  # from current state, so the retry reloads and builds again, and is a no-op
-  # when the winner already wrote the same XML. See docs/write-safety.md.
+  # A page can land while the Work is being finalized, so two rebuilds of one
+  # Work can start together. The lock its first build takes runs them one at a
+  # time, and each reloads under it, so a rebuild that waited writes nothing
+  # when the XML already matches. The retry is for writers outside the lock.
+  # See docs/write-safety.md.
   def call
-    StaleRetry.run("METS rebuild of Work #{@work&.noid}") do |attempt|
-      @work = reload(@work) if attempt.positive?
-      rebuild
+    return if @work.nil?
+
+    AdvisoryLock.hold('work_mets', @work.id) do
+      StaleRetry.run("METS rebuild of Work #{@work.noid}") do
+        @work = reload(@work)
+        rebuild
+      end
     end
   end
 

@@ -3,6 +3,8 @@
 require 'rails_helper'
 
 RSpec.describe WorkHealthCheck do
+  include ActiveSupport::Testing::TimeHelpers
+
   let(:community)  { CommunityCreator.call }
   let(:collection) { CollectionCreator.call(parent_id: community.noid) }
   let(:work) do
@@ -163,6 +165,22 @@ RSpec.describe WorkHealthCheck do
         solr.commit
       end
       expect(codes).to eq([:not_indexed])
+    end
+
+    describe 'a save that reached Postgres but not Solr' do
+      before do
+        travel 2.seconds
+        Valkyrie::MetadataAdapter.find(:postgres).persister.save(resource: reload(work))
+      end
+
+      it 'flags the Solr document as trailing Postgres' do
+        expect(codes).to eq([:index_stale])
+      end
+
+      it 'clears once the Work is reindexed' do
+        Atlas.reindex(work)
+        expect(codes).to be_empty
+      end
     end
   end
 

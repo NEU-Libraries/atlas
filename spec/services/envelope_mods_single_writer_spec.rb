@@ -113,6 +113,24 @@ RSpec.describe 'Envelope and metadata writes of one resource' do
     end
   end
 
+  describe 'a whole-document MODS write racing a mint' do
+    it 'keeps the handle the mint saves while the write holds an older copy' do
+      hdl = "/mods:mods/mods:identifier[@type='hdl']"
+      stripped = Nokogiri::XML(work.mods_xml).tap { |doc| doc.xpath(hdl, NEU::MODS::NAMESPACE).each(&:remove) }.to_s
+      client = instance_double(HandleClient, configured?: true, mint: "DRSDEV/#{work.noid}")
+      earlier = Work.find(work.noid)
+      allow(earlier).to receive(:mods_xml=).and_wrap_original { |original, xml| sleep(0.5).then { original.call(xml) } }
+
+      in_threads(
+        -> { earlier.replace_mods_xml(stripped) },
+        a_moment_later { HandleMinter.call(work: work, client: client, public_base: 'https://repository.example.edu') }
+      )
+
+      stored = Nokogiri::XML(Work.find(work.noid).mods_xml).at_xpath(hdl, NEU::MODS::NAMESPACE)
+      expect(stored&.text).to eq("https://hdl.handle.net/DRSDEV/#{work.noid}")
+    end
+  end
+
   describe 'two Darwin Core uploads to one Work' do
     it 'leave the XML and the access copy holding the same document' do
       Work.find(work.noid).darwin_core_xml = dwc

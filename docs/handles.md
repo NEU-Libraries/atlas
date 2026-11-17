@@ -6,6 +6,8 @@ two places that have to agree.
 Source files:
 
 - `app/services/handle_minter.rb`
+- `app/lib/handle_in_mods.rb`, the identifier rule both writers share
+- `Work#replace_mods_xml`, for a whole-document MODS write
 - `app/lib/handle_client.rb`
 - `app/lib/handle_identifier.rb`
 - `app/services/work_creator.rb`, for a supplied handle
@@ -44,9 +46,36 @@ record of it here, **which nothing in the repository could re-derive.**
 
 ## The MODS write runs on every call, not only on a mint
 
-A Work minted before this service existed, or one whose document was later
-replaced wholesale through `mods_xml=`, holds the attribute and not the
-identifier. **Running the reconciliation unconditionally is what heals both.**
+A Work minted before this service existed holds the attribute and not the
+identifier. **Running the reconciliation unconditionally is what heals it.**
+
+## A whole-document MODS write keeps the identifier
+
+`PUT /resources/{id}/mods` stores a document the caller assembled, and three
+Cerberus paths send one: the metadata forms, the XML editor and the XML loader.
+A document that leaves the identifier out would drop it, and the minter adds it
+back only when it runs again, at `/complete`, which a finished Work may never
+reach. The loader drops it with no race at all, whenever its document was built
+without one. The XML editor can drop it by holding a document read before
+`/complete` minted.
+
+So the PUT calls `replace_mods_xml`, and on a Work with a handle that applies
+the same rule the minter does (`HandleInMODS`) before the document is stored:
+an absent identifier is added, a bare handle becomes the resolver URL, and an
+identifier naming a different handle is kept.
+
+- **The handle is read again under the `mods` lock**, not taken from the copy
+  the request loaded. `mint` saves the handle before it takes that lock, so
+  either the PUT sees the new handle, or the minter's own MODS write comes after
+  the PUT and adds it.
+- **The stored document can differ from the upload.** The audit row records no
+  XML, so it is unaffected.
+- **The identifier cannot be removed through a PUT** while the Work holds a
+  handle, and the handle is set at create only. A permanent identifier the
+  preservation copy stops citing would be the loss this rule exists to prevent.
+
+Collections and Communities hold no handle, so their documents are stored as
+sent.
 
 ## Idempotent twice over
 
@@ -88,7 +117,7 @@ knows its own host and Atlas does not**, so the base arrives as config.
 
 ## When the document's identifier is left alone
 
-`keep_existing?` refuses to overwrite in two cases.
+`HandleInMODS#keep_existing?` refuses to overwrite in two cases.
 
 **It already resolves this handle**, whatever host it names. A migrated record's
 own resolver is therefore not rewritten. Only a bare handle is replaced, which
@@ -149,7 +178,7 @@ change the handle.
 
 ## A no-op write is skipped
 
-`mods_with_identifier` returns nil when there is nothing to change. **Every write
+`HandleInMODS#call` returns nil when there is nothing to change. **Every write
 appends an OCFL version to the descriptive metadata**, so an unconditional write
 would cut a version that says nothing new. See [`mods.md`](mods.md).
 

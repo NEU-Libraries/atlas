@@ -222,10 +222,12 @@ Rails.application.config.to_prepare do
     end
 
     # Re-projects a resource into Solr from what Postgres holds now, not from
-    # the copy passed in, in the same order as every save's Solr write. See
-    # docs/write-safety.md.
+    # the copy passed in, in the same order as every save's Solr write. Built
+    # from the two adapters, not Atlas.persister, so a reindex writes Solr
+    # whichever metadata adapter is configured. See docs/write-safety.md.
     def self.reindex(resource)
-      persister.index!(resource)
+      Valkyrie::Persistence::OrderedIndexPersister.new(Valkyrie::MetadataAdapter.find(:postgres).persister,
+                                                       index_adapter.persister).index!(resource)
     end
   end
 end

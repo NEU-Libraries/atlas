@@ -65,9 +65,11 @@ a version the disk lacks. Bytes on disk that nothing lists lose nothing, and
 The cost falls on a rebuild from disk alone. It would take the unlisted version
 as the current content. Two things keep that rare and visible:
 
-- **Most of these writes retry.** A METS rebuild that loses reloads and builds
-  again ([`write-safety.md`](write-safety.md)). When both racers built the same
-  bytes, the unlisted version holds the same content as the listed one.
+- **Most of these writes retry, and METS rebuilds do not race each other.**
+  Rebuilds of one METS run one at a time under a lock, and a write that loses
+  to another writer reloads and builds again
+  ([`write-safety.md`](write-safety.md)). When both racers built the same bytes,
+  the unlisted version holds the same content as the listed one.
 - **The work-health check reports what remains.** `unlisted_content` is an
   advisory when a Blob's OCFL head holds content that none of its listed
   versions does. It compares inventory digests, so it reads no bytes. A

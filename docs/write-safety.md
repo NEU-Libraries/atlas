@@ -8,7 +8,7 @@ Source files:
 - `app/controllers/concerns/idempotent_create.rb` — replay-safe creates
 - `app/controllers/concerns/stale_object_retry.rb` — optimistic-lock retry
 - `app/lib/stale_retry.rb` — the same retry, for services
-- `app/lib/advisory_lock.rb` — serializing a lazy first build
+- `app/lib/advisory_lock.rb` — serializing a lazy first build and the METS rebuilds
 - `app/controllers/concerns/auditable.rb` — provenance emission
 - `app/controllers/audit_events_controller.rb` — the history surface
 - `app/services/audit_event_writer.rb` — the row writer
@@ -130,7 +130,7 @@ retry cannot overwrite a concurrent caller's change:
 
 | Write | Why a retry is safe |
 |---|---|
-| The METS rebuilds, `WorkMETSRebuilder` and `METSRebuilder` | Derived from current state. A retry that finds the winner's XML already stored writes nothing |
+| The METS rebuilds, `WorkMETSRebuilder` and `METSRebuilder` | Derived from current state. Two rebuilds of one owner never overlap (see below), so the retry covers only other writers to the METS Blob or the structural FileSet |
 | Attaching a new Blob or Delegate to its FileSet | Appending one id is idempotent. Without the retry, the saved Blob or Delegate is attached to nothing, and the caller's retry saves a second one |
 | Reclassifying a FileSet after a revision | Setting the same type again is idempotent |
 | The handle save and the MODS identifier in `HandleMinter` | The handle is registered by then ([`handles.md`](handles.md)) |
@@ -159,6 +159,48 @@ lock. The second build takes the Blob the first one made. A session lock and not
 a transaction, because the build writes Solr and OCFL too, which no rollback
 could undo. The lock waits under the 30-second statement timeout
 ([`availability.md`](availability.md)).
+
+### Rebuilds of one METS run one at a time
+
+Several triggers rebuild the same METS at once. `/complete`, a page added to or
+removed from a completed Work, an upload, a revision and a Blob delete each
+rebuild a Work's METS or a FileSet's. During a deposit, Cerberus runs its jobs
+for one Work in parallel, so two of these overlapping is normal traffic.
+
+**Two rebuilds that overlap can lose a page, not just a lock race.** Each reads
+the pages, builds the XML and writes it. If the rebuild that read first writes
+last, its XML omits a page the other one saw, and no error is raised. A
+rebuild that loses the Blob save instead leaves an OCFL version that no Blob
+lists ([`binaries.md`](binaries.md)).
+
+So each rebuild holds the same `AdvisoryLock` as its owner's first build:
+`work_mets` for a Work, `mets` for a FileSet. It reloads the owner under the
+lock, so a rebuild that waited builds from what the previous one wrote. When
+the XML matches what is stored, it writes nothing. The rebuild stays
+synchronous, so when `/complete` answers, the METS lists the pages present at
+that moment.
+
+Three facts keep the lock safe:
+
+- **The first build nests inside the rebuild.** A rebuild that finds no METS
+  Blob takes the same lock again in `create_mets_blob`. A Postgres session
+  advisory lock is re-entrant within one session, and `AdvisoryLock.hold` pairs
+  every lock with its unlock, so the nested hold neither blocks nor leaks.
+- **No path holds two of these locks.** A Work rebuild never starts a FileSet
+  rebuild, and a FileSet rebuild never starts a Work rebuild. The structural
+  FileSet a Work's first build creates is not a page, so it rebuilds nothing.
+  Two locks taken in opposite orders could deadlock, so a change that nests
+  `work_mets`, `mets` or `darwin_core` must take a Work's lock before a
+  FileSet's.
+- **The lock is held briefly.** A rebuild takes about 1.2 ms per page: 0.7
+  seconds for 500 pages and 2.5 seconds for 2,000, measured in the test stack.
+  A waiter gives up at the 30-second statement timeout, which needs a queue of
+  rebuilds well past 20,000 pages. Each waiter holds its database connection
+  while it waits.
+
+The specs in `spec/services/mets_single_writer_spec.rb` race two rebuilds in
+threads with their own connections, because transactional tests share one
+connection, and the lock is re-entrant within it.
 
 ### `complete` finishes its tail before it answers 409
 

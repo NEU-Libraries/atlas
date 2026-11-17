@@ -30,13 +30,28 @@ module Modsable
     Nokogiri::XML(mods_blob.file.read, &:noblanks).to_s
   end
 
+  # The XML and the JSON access copy are written under one lock, so two writes
+  # cannot interleave and leave each copy holding a different document. The
+  # Blob is read under the lock, so a write that waited saves no stale token.
   def mods_xml=(raw_xml)
-    blob = mods_blob || create_mods_blob
-    stored = with_tmp_file(raw_xml, '.xml') { |path| create_file(path, blob, 'descMetadata.xml') }
-    blob.file_identifiers += [stored.version_id]
-    Atlas.persister.save(resource: blob)
+    AdvisoryLock.hold('mods', id) do
+      blob = mods_blob || create_mods_blob
+      stored = with_tmp_file(raw_xml, '.xml') { |path| create_file(path, blob, 'descMetadata.xml') }
+      blob.file_identifiers += [stored.version_id]
+      Atlas.persister.save(resource: blob)
 
-    self.mods_json = raw_xml
+      self.mods_json = raw_xml
+    end
+  end
+
+  # For a write built from the stored document: the read and the write share
+  # the lock, so a concurrent upload lands wholly before the read or after the
+  # write. The block answers the new XML, or nil to write nothing.
+  def update_mods_xml
+    AdvisoryLock.hold('mods', id) do
+      xml = yield mods_xml
+      self.mods_xml = xml unless xml.nil?
+    end
   end
 
   def mods_blob

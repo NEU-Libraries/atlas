@@ -63,19 +63,18 @@ class HandleMinter < ApplicationService
       return if work.handle.blank?
       return log_unwritable(work) unless work.mods_writable?
 
-      # Reads the document again on retry, so a concurrent upload's edit survives.
+      # Reads the document under the MODS lock, so a concurrent upload's edit survives.
       StaleRetry.run("record handle in MODS of #{work.noid}") do |attempt|
         work = reload(work) if attempt.positive?
-        xml = mods_with_identifier(work)
-        work.mods_xml = xml unless xml.nil?
+        work.update_mods_xml { |xml| mods_with_identifier(work, xml) }
       end
     end
 
     # nil when there is nothing to write. Skipping a no-op matters: every write
     # appends an OCFL version, so an unconditional one cuts a version that says
     # nothing new.
-    def mods_with_identifier(work)
-      doc  = Nokogiri::XML(work.mods_xml, &:noblanks)
+    def mods_with_identifier(work, xml)
+      doc  = Nokogiri::XML(xml, &:noblanks)
       node = identifier_node(doc)
       return nil if node.nil? || keep_existing?(work, node)
 

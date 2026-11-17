@@ -36,18 +36,22 @@ module MetadataRecords
 
     # Checks the document before writing anything, so a refused upload leaves
     # no OCFL version behind. A PUT onto a tombstoned record restores it.
+    #
+    # The whole write holds the first build's lock, for the reason Modsable#mods_xml= does.
     def darwin_core_xml=(raw_xml)
       terms = DarwinCoreDocument.parse(raw_xml).to_h
-      blob  = darwin_core_blob || create_darwin_core_blob
-      stored = with_tmp_file(raw_xml, '-dwc.xml') { |path| create_file(path, blob, FILENAME) }
-      blob.file_identifiers += [stored.version_id]
-      Atlas.persister.save(resource: blob)
-      restore_darwin_core_file_set
+      AdvisoryLock.hold('darwin_core', id) do
+        blob = darwin_core_blob || create_darwin_core_blob
+        stored = with_tmp_file(raw_xml, '-dwc.xml') { |path| create_file(path, blob, FILENAME) }
+        blob.file_identifiers += [stored.version_id]
+        Atlas.persister.save(resource: blob)
+        restore_darwin_core_file_set
 
-      record = Metadata::DarwinCore.find_or_create_by(valkyrie_id: noid)
-      record.update!(json_attributes: terms)
-      @darwin_core = record
-      reindex_darwin_core
+        record = Metadata::DarwinCore.find_or_create_by(valkyrie_id: noid)
+        record.update!(json_attributes: terms)
+        @darwin_core = record
+        reindex_darwin_core
+      end
     end
 
     def darwin_core_blob
@@ -63,13 +67,15 @@ module MetadataRecords
     def tombstone_darwin_core!(by:)
       return unless darwin_core?
 
-      if (file_set = darwin_core_file_set)
-        file_set.tombstone(by: by)
-        Atlas.persister.save(resource: file_set).write_preservation_envelope!
+      AdvisoryLock.hold('darwin_core', id) do
+        if (file_set = darwin_core_file_set)
+          file_set.tombstone(by: by)
+          Atlas.persister.save(resource: file_set).write_preservation_envelope!
+        end
+        Metadata::DarwinCore.find_by(valkyrie_id: noid)&.destroy!
+        @darwin_core = nil
+        reindex_darwin_core
       end
-      darwin_core.destroy!
-      @darwin_core = nil
-      reindex_darwin_core
     end
 
     # Chained through super so each format adds its own token.

@@ -8,7 +8,7 @@ Source files:
 - `app/controllers/concerns/idempotent_create.rb` — replay-safe creates
 - `app/controllers/concerns/stale_object_retry.rb` — optimistic-lock retry
 - `app/lib/stale_retry.rb` — the same retry, for services
-- `app/lib/advisory_lock.rb` — serializing a lazy first build and the METS rebuilds
+- `app/lib/advisory_lock.rb` — serializing a lazy first build, the METS rebuilds, and the envelope, MODS and Darwin Core writes
 - `app/controllers/concerns/auditable.rb` — provenance emission
 - `app/controllers/audit_events_controller.rb` — the history surface
 - `app/services/audit_event_writer.rb` — the row writer
@@ -201,6 +201,51 @@ Three facts keep the lock safe:
 The specs in `spec/services/mets_single_writer_spec.rb` race two rebuilds in
 threads with their own connections, because transactional tests share one
 connection, and the lock is re-entrant within it.
+
+### Envelope, MODS and Darwin Core writes run one at a time
+
+The METS failure has the same shape in three more places. Each write derives
+one copy from state it read, and a slower writer can store an older state
+last, with no error:
+
+| Write | What overlapping writes could leave | Lock |
+|---|---|---|
+| `PreservationEnvelopeWriter` | Disk holding an older graph or older permissions. A rebuild from disk would restore them | `envelope` |
+| `Modsable#mods_xml=` | The XML holding one upload and the JSON access copy holding the other | `mods` |
+| `darwin_core_xml=` and `tombstone_darwin_core!` | The same split between the Darwin Core XML and its JSON row | `darwin_core` |
+
+**The envelope writer reloads the resource under its lock** and serializes the
+reloaded copy, not the one its caller passed. Every caller writes the envelope
+right after a save, so the reload writes the state that was saved. It skips a
+resource that no longer exists, because a write would recreate the OCFL object
+a purge removed. **An envelope whose bytes the head already holds writes
+nothing**, as a METS rebuild does, so a writer that waited cuts no empty version
+([`resource-graph.md`](resource-graph.md)).
+
+**A MODS write holds its lock across the XML, the Blob save and the JSON row.**
+It reads the Blob under the lock, so a write that waited saves a current lock
+token and raises no conflict. A write built from the stored document, such as
+the handle identifier `HandleMinter` adds, goes through
+`Modsable#update_mods_xml`, which also holds the lock across the read. A
+concurrent upload then lands wholly before that read or after that write.
+
+**The Darwin Core write widens its first-build lock to the whole write**, and
+the tombstone takes the same lock, so a restore and a tombstone cannot cross.
+
+**The locks nest in one order.** Every one of these writes ends in an envelope
+write, so `envelope` is always the innermost lock, and the envelope writer takes
+no other lock. No path holds `mods` together with `work_mets`, `mets` or
+`darwin_core`: the FileSets a MODS or Darwin Core first build creates are
+metadata FileSets, so they build no METS. The order is therefore `work_mets`,
+`mets` or `darwin_core`, then `mods`, then `envelope`. A change that nests them
+must keep it, or two writers can deadlock.
+
+**The envelope lock is held for milliseconds.** An envelope write took 4 to 14
+ms in the test stack, also on a Work with 1,000 pages: a Work's envelope does
+not list its FileSets, because each FileSet names its Work.
+
+The specs in `spec/services/envelope_mods_single_writer_spec.rb` race each pair
+of writers in threads, as the METS specs do.
 
 ### `complete` finishes its tail before it answers 409
 

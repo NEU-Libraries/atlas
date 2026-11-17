@@ -210,6 +210,12 @@ both ([`work-health.md`](work-health.md)).
 A Derivative FileSet is the exception: it holds regenerable Delegates, so
 `FileSetCreator` writes it no envelope at all (`Classification.preserved?`).
 
+**The envelope is written from the resource as Postgres holds it**, read again
+under a lock, not from the caller's copy. **An unchanged envelope writes
+nothing**: when the head already holds the same bytes for both files, no OCFL
+version is cut, so a version always records a change. See
+[`write-safety.md`](write-safety.md).
+
 ## A minted NOID never lands on an existing object
 
 Every resource's OCFL object is keyed by its NOID, and the adapter writes a

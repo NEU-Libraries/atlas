@@ -8,19 +8,15 @@
 # and raises.
 #
 # The MODS write runs on EVERY call, not only on a call that mints -- that is
-# what heals a Work whose document was later replaced through mods_xml=.
+# what heals a Work minted before this service existed.
 class HandleMinter < ApplicationService
-  # The global proxy every registered prefix resolves through. A dev stack
-  # homes an unregistered prefix and overrides this with its own server.
-  DEFAULT_RESOLVER_BASE = 'https://hdl.handle.net'
-
   def initialize(work:, client: HandleClient.new,
                  public_base: ENV.fetch('CERBERUS_PUBLIC_BASE', nil),
                  resolver_base: ENV.fetch('HANDLE_RESOLVER_BASE', nil))
     @work          = work
     @client        = client
     @public_base   = public_base.presence
-    @resolver_base = resolver_base.presence || DEFAULT_RESOLVER_BASE
+    @resolver_base = resolver_base
   end
 
   def call
@@ -70,50 +66,8 @@ class HandleMinter < ApplicationService
       end
     end
 
-    # nil when there is nothing to write. Skipping a no-op matters: every write
-    # appends an OCFL version, so an unconditional one cuts a version that says
-    # nothing new.
     def mods_with_identifier(work, xml)
-      doc  = Nokogiri::XML(xml, &:noblanks)
-      node = identifier_node(doc)
-      return nil if node.nil? || keep_existing?(work, node)
-
-      node.content = permanent_url(work)
-      doc.to_s
-    end
-
-    # A document naming a DIFFERENT handle keeps it: both values are true, and
-    # a preservation copy does not discard a true statement. Adopting the
-    # document's value instead would spread one fixture's handle across every
-    # Work built from it.
-    #
-    # A URL for this same handle is kept whatever host it names. Only a bare
-    # handle is replaced, which heals a document written before the URL shape.
-    def keep_existing?(work, node)
-      current = node.text.strip
-      return false if current.empty? || current == work.handle
-      return true if HandleIdentifier.bare(current) == work.handle
-
-      Rails.logger.warn(
-        "HandleMinter: #{work.noid} MODS carries handle #{current}, left in place over #{work.handle}"
-      )
-      true
-    end
-
-    # The template ships an hdl identifier, but a caller-assembled document
-    # need not. MODS 3-5 puts no order on top-level elements, so appending is
-    # safe.
-    def identifier_node(doc)
-      existing = doc.at_xpath("/mods:mods/mods:identifier[@type='hdl']", NEU::MODS::NAMESPACE)
-      return existing if existing
-
-      root = doc.at_xpath('/mods:mods', NEU::MODS::NAMESPACE)
-      return nil if root.nil?
-
-      node = doc.create_element('identifier', 'type' => 'hdl', 'displayLabel' => 'Permanent URL')
-      node.namespace = root.namespace
-      root.add_child(node)
-      node
+      HandleInMODS.new(noid: work.noid, handle: work.handle, resolver_base: @resolver_base).call(xml)
     end
 
     # A minted Work with no descriptive-metadata FileSet is malformed -- every
@@ -127,11 +81,6 @@ class HandleMinter < ApplicationService
     # Cerberus knows its own host and Atlas does not, so the base is config.
     def target_url(work)
       "#{@public_base.chomp('/')}/works/#{work.noid}"
-    end
-
-    # The citable form, and what the document records.
-    def permanent_url(work)
-      "#{@resolver_base.chomp('/')}/#{work.handle}"
     end
 
     # The normal state for a test run and any stack without the handles

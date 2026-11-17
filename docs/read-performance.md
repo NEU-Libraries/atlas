@@ -71,6 +71,36 @@ invisible until the TTL expires.
 - **The owner need not be a Work.** A Collection's descriptive-metadata FileSet
   evicts the Collection, which is harmless.
 
+### A body rendered before an eviction is not stored
+
+A miss renders the body, then stores it. A write that saves the resource and
+evicts it during the render would otherwise leave the older body in the cache,
+where it serves until the next eviction or the TTL, up to an hour. Cerberus runs
+its jobs for one Work in parallel, so a read overlapping a write is normal
+traffic. The worst case is a read that overlaps the last write of a sequence,
+such as `/complete` minting the handle.
+
+So every eviction also writes a new random **eviction stamp** for the NOID,
+before it deletes the bodies. `ResponseCache.lookup` reads the body and the
+stamp in one round trip, and `cached_render` hands the stamp to `write` after
+it renders. `write` stores the body, then reads the stamp again and deletes the
+body if the stamp changed.
+
+- **The check comes after the store, so no window is left.** An eviction that
+  deletes after the store removes the body itself. One that deletes before the
+  store set its stamp first, so the check sees it.
+- **A hit costs what it did:** one round trip. A miss that stores costs one more
+  read, and an eviction one more write.
+- **`stamp:` is required on `write`.** A caller that skips the lookup cannot
+  store a body unchecked by accident; a spec that writes with no lookup passes
+  `stamp: nil`, which matches a NOID never evicted.
+- **A stamp that expires is harmless.** It shares the bodies' TTL. Losing it
+  between a lookup and its store makes the store delete a good body, which the
+  next read renders again.
+
+Authorization is unaffected: it ran against the live resource before the
+lookup, so even the race this closes never reached a caller the ACL refuses.
+
 ### The two axes a cached view varies on
 
 **A guest is told less than a signed-in caller**

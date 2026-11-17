@@ -604,6 +604,11 @@ no audit row, no minting.
 before it carries a stale projection and must be re-indexed **without abusing a
 lifecycle transition** like `POST /works/:id/complete`. Idempotent.
 
+A reindex indexes the resource as Postgres holds it, not the copy its caller
+read, so a caller holding an older copy still indexes the current state. A
+resource purged in the meantime gets no document back
+([`write-safety.md`](write-safety.md)).
+
 `reindex_subtree`'s gather is a **deliberate superset of the re-parent cascade**:
 descendant containers *plus* the Works beneath them. A reindex refreshes any
 projection, including ones that live on Works, **which the container-only

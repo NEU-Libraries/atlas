@@ -31,7 +31,9 @@ as `resource.mods`. That holds on the write path as well as the read path — se
 [`mods.md`](mods.md).
 
 `config/initializers/valkyrie.rb` composes these indexers into the
-`:composite_persister`, so they all fire on every resource save.
+`:composite_persister`, so they all fire on every resource save. Each save, and
+each `Atlas.reindex`, indexes what Postgres holds at that moment, one Solr write
+per resource at a time ([`write-safety.md`](write-safety.md)).
 
 ## The connection is kept alive
 

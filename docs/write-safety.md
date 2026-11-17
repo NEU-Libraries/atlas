@@ -233,12 +233,13 @@ concurrent upload then lands wholly before that read or after that write.
 the tombstone takes the same lock, so a restore and a tombstone cannot cross.
 
 **The locks nest in one order.** Every one of these writes ends in an envelope
-write, so `envelope` is always the innermost lock, and the envelope writer takes
-no other lock. No path holds `mods` together with `work_mets`, `mets` or
+write, so `envelope` comes after the others, and the envelope writer takes no
+other lock except `index`, which is the innermost (see the next section). No
+path holds `mods` together with `work_mets`, `mets` or
 `darwin_core`: the FileSets a MODS or Darwin Core first build creates are
 metadata FileSets, so they build no METS. The order is therefore `work_mets`,
-`mets` or `darwin_core`, then `mods`, then `envelope`. A change that nests them
-must keep it, or two writers can deadlock.
+`mets` or `darwin_core`, then `mods`, then `envelope`, then `index`. A change
+that nests them must keep it, or two writers can deadlock.
 
 **The envelope lock is held for milliseconds.** An envelope write took 4 to 14
 ms in the test stack, also on a Work with 1,000 pages: a Work's envelope does
@@ -246,6 +247,44 @@ not list its FileSets, because each FileSet names its Work.
 
 The specs in `spec/services/envelope_mods_single_writer_spec.rb` race each pair
 of writers in threads, as the METS specs do.
+
+### Solr writes of one resource run one at a time
+
+Valkyrie's `CompositePersister` saves to Postgres, then to Solr. Two saves of
+one resource are ordered in Postgres by the optimistic lock, but nothing orders
+their Solr writes. If the save that reached Postgres first reaches Solr last,
+search, facets and OAI serve the older state, and no error is raised. A reindex
+from a copy read before a later save had the same effect.
+
+So `Valkyrie::Persistence::OrderedIndexPersister` takes the composite's place.
+After the Postgres save, it holds an `index` lock for the resource, reads the
+resource from Postgres under the lock, and indexes that copy. A write that
+waited indexes the latest save, not its own. `Atlas.reindex` goes through the
+same method, so it also ignores the copy its caller passes, except for the id.
+A resource that no longer exists indexes nothing, and a delete removes the
+document under the same lock, so a late reindex cannot bring back a purged
+document.
+
+Three facts keep the lock safe:
+
+- **`index` is the innermost lock.** No indexer takes a lock or saves, so the
+  order above becomes `work_mets`, `mets` or `darwin_core`, then `mods`, then
+  `envelope`, then `index`. An envelope write can reach `index` through the
+  storage footprint reindex.
+- **It costs about 4 ms per save.** An ordered Solr write took 38 ms against
+  34 ms for a plain one in the test stack: the lock and one Postgres read. The
+  lock is held for the Solr write.
+- **A save inside an open transaction indexes its own uncommitted row.** Another
+  session reads the committed row under the lock, so its Solr write can land
+  after. No resource save runs inside a transaction today; `ResourcePurger`'s
+  transaction holds only its audit and purge rows.
+
+A Solr write that fails after its Postgres save still leaves the document
+behind. The health check reports that as `index_stale`
+([`work-health.md`](work-health.md)).
+
+The specs in `spec/services/ordered_index_spec.rb` race two saves of one Work in
+threads, as the METS specs do.
 
 ### `complete` finishes its tail before it answers 409
 

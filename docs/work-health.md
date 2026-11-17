@@ -106,6 +106,7 @@ vocabulary grows with the checks. These are the Work-level codes:
 | `no_content`, `empty_file_set`, `dangling_member`, `blob_unlinked` | repairable | Relink the bytes; the offline check shows whether disk still holds them |
 | `blob_metadata_missing` | repairable | Set the Blob's MIME type and filename |
 | `not_indexed` | repairable | `POST /resources/{id}/reindex` |
+| `index_stale` | repairable | `POST /resources/{id}/reindex`. The Solr document's OAI datestamp is older than the Work's `updated_at`, so a later save never reached Solr. Saves index in order ([`write-safety.md`](write-safety.md)), so this means a Solr write failed after its Postgres save. The datestamp holds whole seconds, so two saves in one second look the same, and a save caught between its two writes can show it for a moment |
 | `envelope_missing`, `envelope_stale` | repairable | Rewrite the envelope (`atlas:preservation:backfill_envelopes`). `envelope_stale` names each file that lags Postgres, `relationships.json` (or `properties.json`) or `permissions.json`, and the keys in it |
 | `flagged_incomplete` | repairable | Rerun the Cerberus job that set it |
 | `in_progress`, `suppressed`, `private`, `no_handle` | advisory | None; a state, not damage |
@@ -136,6 +137,7 @@ come from that matrix.
 | A content FileSet with a linked Blob | `/assets` is empty, so there is nothing to view or download | Yellow |
 | A Blob's MIME type and filename | Download falls back to the type read from the bytes and the stored file's name | Yellow |
 | The Solr document | Search and OAI miss the Work until `POST /resources/:id/reindex` recreates it | Yellow |
+| A Solr document current with Postgres | Search, facets and OAI serve the Work as an earlier save left it | Yellow |
 | The on-disk envelope, current with Postgres | Nothing a consumer sees. A rebuild from disk would lose or misplace the Work | Yellow |
 
 ### What a Work can lack and stay green

@@ -260,6 +260,22 @@ RSpec.describe 'Response cache', :response_cache, type: :request, default_auth: 
 
   # A Person's body lists its affiliated Communities, and purging one does not
   # save the Person.
+  describe 'a write that lands while a read renders' do
+    it 'keeps the body rendered before the write out of the cache' do
+      noid = public_work.noid
+      allow(ResponseCache).to receive(:write).and_wrap_original do |original, **kw|
+        Atlas.persister.save(resource: Work.find(noid).tap { |w| w.incomplete_reason = 'written later' })
+        original.call(**kw)
+      end
+
+      get "/works/#{noid}"
+      get "/works/#{noid}"
+
+      expect(response.headers['X-Atlas-Cache']).to eq('miss')
+      expect(response.parsed_body.dig('work', 'incomplete_reason')).to eq('written later')
+    end
+  end
+
   describe 'purging an affiliated Community' do
     it "drops the Person's cached body" do
       admin = ensure_default_admin!

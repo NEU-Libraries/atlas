@@ -150,7 +150,7 @@ RSpec.describe RepositoryReset do
     end
 
     it "drops the prior run's cached bodies, so a reminted NOID misses" do
-      ResponseCache.write(scope: 'resources.permissions', noid: 'reused', status: 200, body: '{}',
+      ResponseCache.write(scope: 'resources.permissions', noid: 'reused', stamp: nil, status: 200, body: '{}',
                           content_type: 'application/json')
 
       reset.call

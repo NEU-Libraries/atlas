@@ -26,10 +26,10 @@ RSpec.describe ResponseCache, :response_cache do
 
   describe '.evict' do
     it 'drops every scope and audience for the noid, and nothing else' do
-      described_class.write(scope: 'works.show',   noid: 'aaa', status: 200, body: '1', content_type: 'application/json')
-      described_class.write(scope: 'works.assets', noid: 'aaa', audience: :guest,
+      described_class.write(scope: 'works.show',   noid: 'aaa', stamp: nil, status: 200, body: '1', content_type: 'application/json')
+      described_class.write(scope: 'works.assets', noid: 'aaa', stamp: nil, audience: :guest,
                             status: 200, body: '2', content_type: 'application/json')
-      described_class.write(scope: 'works.show',   noid: 'bbb', status: 200, body: '3', content_type: 'application/json')
+      described_class.write(scope: 'works.show',   noid: 'bbb', stamp: nil, status: 200, body: '3', content_type: 'application/json')
 
       described_class.evict('aaa')
 
@@ -39,10 +39,44 @@ RSpec.describe ResponseCache, :response_cache do
     end
   end
 
+  describe '.write after a lookup' do
+    def store(stamp)
+      described_class.write(scope: 'works.show', noid: 'aaa', stamp: stamp, status: 200, body: '1',
+                            content_type: 'application/json')
+    end
+
+    it 'keeps the body when nothing evicted the noid since the lookup' do
+      _, stamp = described_class.lookup(scope: 'works.show', noid: 'aaa')
+      store(stamp)
+      expect(described_class.read(scope: 'works.show', noid: 'aaa')&.body).to eq('1')
+    end
+
+    it 'keeps the body after an eviction the lookup already saw' do
+      described_class.evict('aaa')
+      _, stamp = described_class.lookup(scope: 'works.show', noid: 'aaa')
+      store(stamp)
+      expect(described_class.read(scope: 'works.show', noid: 'aaa')&.body).to eq('1')
+    end
+
+    it 'drops a body rendered before an eviction that landed during the render' do
+      _, stamp = described_class.lookup(scope: 'works.show', noid: 'aaa')
+      described_class.evict('aaa')
+      store(stamp)
+      expect(described_class.read(scope: 'works.show', noid: 'aaa')).to be_nil
+    end
+
+    it 'leaves other noids alone' do
+      _, stamp = described_class.lookup(scope: 'works.show', noid: 'aaa')
+      described_class.evict('bbb')
+      store(stamp)
+      expect(described_class.read(scope: 'works.show', noid: 'aaa')&.body).to eq('1')
+    end
+  end
+
   describe '.clear!' do
     it 'drops every entry it owns and leaves the rest of the store alone' do
-      described_class.write(scope: 'works.show', noid: 'aaa', status: 200, body: '1', content_type: 'application/json')
-      described_class.write(scope: 'resources.permissions', noid: 'bbb', status: 200, body: '2',
+      described_class.write(scope: 'works.show', noid: 'aaa', stamp: nil, status: 200, body: '1', content_type: 'application/json')
+      described_class.write(scope: 'resources.permissions', noid: 'bbb', stamp: nil, status: 200, body: '2',
                             content_type: 'application/json')
       Rails.cache.write('atlas/other/aaa', 'keep me')
 
@@ -80,7 +114,7 @@ RSpec.describe ResponseCache, :response_cache do
 
     it 'stores nothing while disabled' do
       Rails.cache = ActiveSupport::Cache::NullStore.new
-      described_class.write(scope: 'works.show', noid: 'aaa', status: 200, body: '1',
+      described_class.write(scope: 'works.show', noid: 'aaa', stamp: nil, status: 200, body: '1',
                             content_type: 'application/json')
       expect(described_class.read(scope: 'works.show', noid: 'aaa')).to be_nil
     end

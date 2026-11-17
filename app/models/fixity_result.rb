@@ -44,11 +44,22 @@ class FixityResult < ApplicationRecord
     where(object_key: keys, result: 'fail').pluck(:object_key, :version).to_h
   end
 
-  # Replaces the row outright, for a rebuild read from the logs.
-  def self.set!(key:, checked_at:, result:, version:, checker:)
-    now = Time.current
-    upsert({ object_key: key.to_s, checked_at: checked_at, result: result, version: version, # rubocop:disable Rails/SkipsModelValidations
-             checker: checker, created_at: now, updated_at: now },
-           unique_by: :object_key)
+  # Replaces the row from its log, for a rebuild, unless a check moved it after
+  # the rebuild read it: `read` is the checked_at the rebuild saw, nil for no
+  # row. A row that moved holds a newer check than the log line the rebuild
+  # read. See docs/fixity.md.
+  def self.rebuild!(key:, read:, **logged)
+    now  = Time.current
+    line = logged.slice(:checked_at, :result, :version, :checker).merge(updated_at: now)
+    # rubocop:disable Rails/SkipsModelValidations
+    return insert({ object_key: key.to_s, created_at: now, **line }, unique_by: :object_key) if read.nil?
+
+    where(object_key: key.to_s, checked_at: read).update_all(line)
+    # rubocop:enable Rails/SkipsModelValidations
+  end
+
+  # Drops a row whose object has no log, on the same condition as rebuild!.
+  def self.drop_unmoved!(key:, read:)
+    where(object_key: key.to_s, checked_at: read).delete_all
   end
 end

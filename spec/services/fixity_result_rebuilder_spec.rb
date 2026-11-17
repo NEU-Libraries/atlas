@@ -34,9 +34,51 @@ RSpec.describe FixityResultRebuilder do
   end
 
   it 'drops a row whose object has no log' do
-    FixityResult.set!(key: 'nosuchkey', checked_at: Time.current, result: 'pass', version: 'v1', checker: 'x')
+    FixityResult.advance!(key: 'nosuchkey', checked_at: Time.current, result: 'pass', version: 'v1', checker: 'x')
     described_class.call
     expect(FixityResult.where(object_key: 'nosuchkey')).not_to exist
+  end
+
+  # The rebuild writes after its whole scan, so a check recorded meanwhile
+  # must not be stepped back to the older line the scan read.
+  describe 'a check recorded during the scan' do
+    def record_check(at, result)
+      log(at, result)
+      FixityResult.advance!(key: work.noid, checked_at: Time.iso8601(at), result: result, version: 'v1',
+                            checker: 'spec-checker 1.0')
+    end
+
+    def check_during_scan(at, result)
+      checked = false
+      allow(adapter).to receive(:read_log).and_wrap_original do |original, **kw|
+        original.call(**kw).tap do
+          next if checked || kw[:key] != work.noid
+
+          checked = true
+          record_check(at, result)
+        end
+      end
+    end
+
+    it 'keeps the newer check over the drifted row the scan queued' do
+      log('2026-10-01T03:00:00Z', 'pass')
+      FixityResult.advance!(key: work.noid, checked_at: Time.utc(2026, 9, 1, 3), result: 'pass', version: 'v1',
+                            checker: 'spec-checker 1.0')
+      check_during_scan('2026-11-01T03:00:00Z', 'fail')
+
+      described_class.call
+
+      expect(FixityResult.find(work.noid)).to have_attributes(checked_at: Time.utc(2026, 11, 1, 3), result: 'fail')
+    end
+
+    it 'keeps the first check of an object the scan found with no row' do
+      log('2026-10-01T03:00:00Z', 'pass')
+      check_during_scan('2026-11-01T03:00:00Z', 'fail')
+
+      described_class.call
+
+      expect(FixityResult.find(work.noid)).to have_attributes(checked_at: Time.utc(2026, 11, 1, 3), result: 'fail')
+    end
   end
 
   it 'changes nothing when the rows already match the logs' do

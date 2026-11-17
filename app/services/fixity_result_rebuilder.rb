@@ -19,8 +19,8 @@ class FixityResultRebuilder < ApplicationService
     changed  = logged.reject { |key, line| current?(recorded[key], line) }
     stale    = recorded.keys - logged.keys
 
-    changed.each { |key, line| FixityResult.set!(key: key, **line) }
-    FixityResult.where(object_key: stale).delete_all
+    changed.each { |key, line| FixityResult.rebuild!(key: key, read: recorded[key]&.checked_at, **line) }
+    stale.each { |key| FixityResult.drop_unmoved!(key: key, read: recorded[key].checked_at) }
     (changed.keys + stale).each { |key| reindex(key) }
 
     { logged: logged.size, corrected: changed.size, removed: stale.size, unreadable_lines: @unreadable }

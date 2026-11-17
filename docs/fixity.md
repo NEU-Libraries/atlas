@@ -65,6 +65,14 @@ checker that posts late, or a backlog replayed out of order, must not hide a
 newer result. `rake atlas:fixity:rebuild` recomputes every row from the logs,
 and it re-indexes only the resources whose rows change.
 
+**The rebuild leaves alone a row that moved during its scan.** It reads every
+row, then every log, and writes only after the whole scan, so a checker running
+meanwhile can record a newer check than the log line the rebuild read. Each
+write is therefore conditional on the row still holding the `checked_at` the
+rebuild read, or on there still being no row, and a row whose object has no log
+is dropped on the same condition. Otherwise a failed check recorded during a
+rebuild could be replaced by an older pass until the object was checked again.
+
 The row is a separate table, not an attribute on the resource, for two reasons:
 
 - **A resource save moves `updated_at`, which is the OAI datestamp.** A sweep

@@ -113,6 +113,7 @@ spec/models/idempotency_key_spec.rb
 spec/models/metadata/mets_spec.rb
 spec/models/metadata/mods_spec.rb
 spec/models/person_spec.rb
+spec/models/replace_mods_xml_spec.rb
 spec/models/tier_visibility_spec.rb
 spec/models/user_role_audit_spec.rb
 spec/models/user_spec.rb
@@ -134,6 +135,7 @@ spec/requests/binary_versions_spec.rb
 spec/requests/blobs_spec.rb
 spec/requests/collections_spec.rb
 spec/requests/communities_spec.rb
+spec/requests/compilation_member_race_spec.rb
 spec/requests/container_create_authorization_spec.rb
 spec/requests/darwin_core_spec.rb
 spec/requests/delegates_spec.rb

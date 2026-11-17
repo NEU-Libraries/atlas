@@ -45,13 +45,24 @@ module Metsable
 
   private
 
+    # Locked and checked again for the same race as Work#create_mets_blob. The
+    # envelope is written from the saved copy, which a retry may have reloaded.
     def create_mets_blob
-      blob = Atlas.persister.save(resource: Blob.new(use: Role.structural_metadata.name))
-      self.member_ids += [blob.id]
-      Atlas.persister.save(resource: self)
+      AdvisoryLock.hold('mets', id) do
+        self.class.find(id).mets_blob || build_mets_blob
+      end
+    end
+
+    def build_mets_blob
+      blob  = Atlas.persister.save(resource: Blob.new(use: Role.structural_metadata.name))
+      saved = StaleRetry.run("attach METS Blob to #{noid}") do |attempt|
+        holder = attempt.positive? ? self.class.find(id) : self
+        holder.member_ids += [blob.id]
+        Atlas.persister.save(resource: holder)
+      end
       @files = nil # invalidate cache so subsequent .files / .mets_blob reflect the new member
       blob.write_preservation_envelope!
-      write_preservation_envelope!
+      saved.write_preservation_envelope!
       blob
     end
 end

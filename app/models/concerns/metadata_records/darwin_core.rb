@@ -92,25 +92,39 @@ module MetadataRecords
         children.find { |c| c.is_a?(FileSet) && c.type == Classification.darwin_core.name }
       end
 
-      # Mirrors Work#create_mets_blob: lazy, so existing Works need no backfill.
+      # Mirrors Work#create_mets_blob: lazy, locked, and checked again under the lock.
       def create_darwin_core_blob
+        AdvisoryLock.hold('darwin_core', id) do
+          self.class.find(id).darwin_core_blob || build_darwin_core_blob
+        end
+      end
+
+      def build_darwin_core_blob
         fs = darwin_core_file_set ||
              FileSetCreator.call(work_id: id, classification: Classification.darwin_core)
         blob = Atlas.persister.save(resource: Blob.new(use: Role.darwin_core.name, mime_type: 'application/xml',
                                                        original_filename: FILENAME))
-        fs.member_ids += [blob.id]
-        Atlas.persister.save(resource: fs)
+        fs = StaleRetry.run("attach Darwin Core Blob to #{fs.noid}") do |attempt|
+          fs = FileSet.find(fs.id) if attempt.positive?
+          fs.member_ids += [blob.id]
+          Atlas.persister.save(resource: fs)
+        end
         blob.write_preservation_envelope!
         fs.write_preservation_envelope!
         blob
       end
 
+      # The new version is listed on the Blob by now, so losing to a concurrent
+      # DELETE or PUT here would answer an error for an upload that landed.
       def restore_darwin_core_file_set
-        file_set = darwin_core_file_set
-        return unless file_set&.tombstoned
+        saved = StaleRetry.run("restore Darwin Core FileSet of #{noid}") do |attempt|
+          file_set = attempt.positive? ? FileSet.find(darwin_core_file_set.id) : darwin_core_file_set
+          next nil unless file_set&.tombstoned
 
-        file_set.restore
-        Atlas.persister.save(resource: file_set).write_preservation_envelope!
+          file_set.restore
+          Atlas.persister.save(resource: file_set)
+        end
+        saved&.write_preservation_envelope!
       end
   end
 end

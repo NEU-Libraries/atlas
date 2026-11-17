@@ -84,13 +84,24 @@ class Work < Resource
       children.find { |c| c.is_a?(FileSet) && c.type == Classification.structural_metadata.name }
     end
 
-    # Lazy, so existing Works need no backfill.
+    # Lazy, so existing Works need no backfill. Two first builds race when a
+    # page lands during /complete, so the lock serializes them and the second
+    # takes the Blob the first made. See docs/write-safety.md.
     def create_mets_blob
+      AdvisoryLock.hold('work_mets', id) do
+        Work.find(id).mets_blob || build_mets_blob
+      end
+    end
+
+    def build_mets_blob
       fs = structural_metadata_file_set ||
            FileSetCreator.call(work_id: id, classification: Classification.structural_metadata)
       blob = Atlas.persister.save(resource: Blob.new(use: Role.structural_metadata.name))
-      fs.member_ids += [blob.id]
-      Atlas.persister.save(resource: fs)
+      fs = StaleRetry.run("attach METS Blob to #{fs.noid}") do |attempt|
+        fs = FileSet.find(fs.id) if attempt.positive?
+        fs.member_ids += [blob.id]
+        Atlas.persister.save(resource: fs)
+      end
       blob.write_preservation_envelope!
       fs.write_preservation_envelope!
       blob

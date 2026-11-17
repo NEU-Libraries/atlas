@@ -143,4 +143,71 @@ RSpec.describe 'Writes that lose an optimistic-lock race' do
       expect(FileSet.find(page.id)).to be_present
     end
   end
+
+  # Runs a competing first build inside the lock window, after this build saw
+  # no Blob and before it takes the lock, as a concurrent request would.
+  def race_first_build(scope)
+    raced = false
+    allow(AdvisoryLock).to receive(:hold).and_wrap_original do |original, lock_scope, id, &block|
+      if !raced && lock_scope == scope
+        raced = true
+        yield
+      end
+      original.call(lock_scope, id, &block)
+    end
+  end
+
+  def file_sets_of(type) = Work.find(work.noid).children.select { |c| c.is_a?(FileSet) && c.type == type }
+
+  describe "two first builds of a Work's METS" do
+    it 'make one structural FileSet, because the second takes the Blob the first made' do
+      FileSetCreator.call(work_id: work.noid, classification: Classification.image, position: 1)
+      race_first_build('work_mets') { WorkMETSRebuilder.call(work: work) }
+
+      WorkMETSRebuilder.call(work: work)
+
+      structural = file_sets_of(Classification.structural_metadata.name)
+      expect(structural.length).to eq(1)
+      expect(structural.first.files.compact.count { |b| b.use == Role.structural_metadata.name }).to eq(1)
+      expect(Metadata::METS.find_by(valkyrie_id: work.noid).pages.length).to eq(1)
+    end
+  end
+
+  describe 'a first METS build on a FileSet whose attach loses once' do
+    it 'attaches the one METS Blob' do
+      bare = Atlas.persister.save(resource: FileSet.new(type: Classification.text.name, a_member_of: work.id))
+      lose_saves(1) { |resource| persisted_file_set?(resource) && resource.id == bare.id }
+
+      bare.mets_xml = bare.mets_template
+
+      metadata = FileSet.find(bare.id).files.compact.select { |b| b.use == Role.structural_metadata.name }
+      expect(metadata.length).to eq(1)
+    end
+  end
+
+  describe 'Darwin Core uploads that race' do
+    let(:dwc) { File.read(fixture('dwc.xml')) }
+
+    it 'make one Darwin Core FileSet across two first builds' do
+      race_first_build('darwin_core') { Work.find(work.noid).darwin_core_xml = dwc }
+
+      Work.find(work.noid).darwin_core_xml = dwc
+
+      records = file_sets_of(Classification.darwin_core.name)
+      expect(records.length).to eq(1)
+      expect(records.first.files.compact.count { |b| b.use == Role.darwin_core.name }).to eq(1)
+    end
+
+    it 'restores a tombstoned record when the restore loses once' do
+      Work.find(work.noid).darwin_core_xml = dwc
+      Work.find(work.noid).tombstone_darwin_core!(by: '000000004')
+      record_set = file_sets_of(Classification.darwin_core.name).first
+      lose_saves(1) { |resource| persisted_file_set?(resource) && resource.id == record_set.id }
+
+      Work.find(work.noid).darwin_core_xml = dwc
+
+      expect(FileSet.find(record_set.id).tombstoned).to be_falsey
+      expect(Work.find(work.noid).darwin_core?).to be(true)
+    end
+  end
 end

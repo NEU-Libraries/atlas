@@ -78,6 +78,16 @@ class Work < Resource
     files&.compact&.find { |b| b.use == Role.structural_metadata.name }
   end
 
+  # The handle is read again under the MODS lock: a mint saves it before it
+  # takes the lock, so either this write sees it or the mint's own MODS write
+  # comes after. See docs/handles.md.
+  def replace_mods_xml(xml)
+    AdvisoryLock.hold('mods', id) do
+      handle = Work.find(id)&.handle
+      self.mods_xml = (handle.present? && HandleInMODS.new(noid: noid, handle: handle).call(xml)) || xml
+    end
+  end
+
   private
 
     def structural_metadata_file_set

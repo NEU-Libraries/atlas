@@ -54,6 +54,11 @@ module Modsable
     end
   end
 
+  # A whole document from a caller. Work keeps its handle in it.
+  def replace_mods_xml(xml)
+    self.mods_xml = xml
+  end
+
   def mods_blob
     descriptive_metadata_file_set&.files&.first
   end

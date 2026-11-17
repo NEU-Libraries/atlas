@@ -8769,6 +8769,12 @@ paths:
         exactly as the GET on this path does. A request with no `binary`
         attached is a 422.
 
+        A Work's handle survives the replace. If the Work has a handle and the
+        document has no `hdl` identifier, Atlas adds it as the resolver URL,
+        and it replaces a bare handle with that URL. An identifier naming a
+        different handle is kept as sent. So the stored document can differ
+        from the upload, and the identifier cannot be removed this way.
+
         Responds with the resource in its own typed shape, so the body matches
         what `GET /{type}/{id}` returns.
       parameters: []

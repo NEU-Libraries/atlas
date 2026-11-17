@@ -123,7 +123,7 @@ class ResourcesController < ApplicationController
     unless resource.mods_writable?
       FileSetCreator.call(work_id: resource.id, classification: Classification.descriptive_metadata)
     end
-    resource.mods_xml = File.read(uploaded_path(params[:binary]))
+    resource.replace_mods_xml(File.read(uploaded_path(params[:binary])))
     saved = resave_after_mods(resource)
     audit!(resource: saved, action: 'update', change_type: 'metadata', payload: mods_audit_payload)
     render_typed(saved, 'show')

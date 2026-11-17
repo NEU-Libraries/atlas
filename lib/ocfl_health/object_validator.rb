@@ -55,6 +55,11 @@ module OcflHealth
       head_state.values.flatten
     end
 
+    # The inventory digest of one logical path in the head version, or nil.
+    def head_digest(logical_path)
+      head_state.find { |_digest, paths| Array(paths).include?(logical_path) }&.first
+    end
+
     # One logical path's bytes in each version that holds it, oldest first.
     def each_version_of(logical_path)
       return enum_for(:each_version_of, logical_path) unless block_given?

@@ -140,7 +140,13 @@ class WorkHealthCheck < ApplicationService
         validator = OcflHealth::ObjectValidator.new(path, key: resource.noid, fixity: @fixity).call
         @findings.concat(validator.findings)
         check_envelope_current(resource, validator)
+        check_unlisted_content(resource, validator) if resource.is_a?(Blob)
       end
+    end
+
+    def check_unlisted_content(blob, validator)
+      unlisted = UnlistedContent.paths(blob, validator)
+      add(:advisory, :unlisted_content, "unlisted in the OCFL head: #{unlisted.join(', ')}", blob.noid) if unlisted.any?
     end
 
     def check_envelope_current(resource, validator)

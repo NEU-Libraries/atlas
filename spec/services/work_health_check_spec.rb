@@ -41,6 +41,38 @@ RSpec.describe WorkHealthCheck do
     expect(report[:grade]).to eq(:green)
   end
 
+  def advisories(result = report)
+    result[:findings].select { |f| f[:severity] == :advisory }.map { |f| f[:code] }
+  end
+
+  describe 'content on disk that the Blob does not list' do
+    def replace(with:, name:)
+      BlobRevisionAppender.call(blob: Blob.find(blob.id), source_path: Rails.root.join('spec/fixtures/files', with).to_s,
+                                name: name)
+    end
+
+    it 'is not reported for a Blob whose revisions all landed, under new names too' do
+      replace(with: 'example.tif', name: 'scan.tif')
+
+      expect(advisories).not_to include(:unlisted_content)
+    end
+
+    # The revision's file is written, then its Blob save loses a lock race.
+    it 'is reported, as advisory, when a revision was written but never listed' do
+      allow(Atlas.persister).to receive(:save).and_wrap_original do |original, resource:, **rest|
+        raise Valkyrie::Persistence::StaleObjectError if resource.is_a?(Blob) && resource.id == blob.id
+
+        original.call(resource: resource, **rest)
+      end
+      expect { replace(with: 'example.tif', name: 'scan.tif') }.to raise_error(Valkyrie::Persistence::StaleObjectError)
+      allow(Atlas.persister).to receive(:save).and_call_original
+
+      finding = report[:findings].find { |f| f[:code] == :unlisted_content }
+      expect(finding).to include(severity: :advisory, message: include('scan.tif'))
+      expect(report[:grade]).to eq(:green)
+    end
+  end
+
   it 'answers red for a NOID Postgres does not hold' do
     expect(described_class.call(noid: 'zzzzzzzzz')).to include(grade: :red)
   end

@@ -173,3 +173,21 @@ brought up without the handles profile.
 
 The caller's copy is stale by this point in `/complete`, because the METS rebuild
 wrote through the persister.
+
+## Both writes retry a lock conflict
+
+The two writes after the mint each retry with a reload, through `StaleRetry.run`
+([`write-safety.md`](write-safety.md)).
+
+**The Work save retries because the handle is live by then.** The handle
+server's `PUT` has registered it, so losing the save would leave a handle that
+resolves to the Work while the Work records none. Losing is likely during a
+deposit, because every Delegate write and every full-text PATCH saves the Work.
+The retry reloads the Work and keeps any handle it finds there.
+
+**The MODS write retries because a MODS upload can race it.** The retry reads
+the document again before it adds the identifier, so the upload's edit survives.
+
+A conflict that outlasts both retries still raises. A second `complete` heals
+it: the handle server's `PUT` overwrites the same handle, and the MODS write
+runs on every call.

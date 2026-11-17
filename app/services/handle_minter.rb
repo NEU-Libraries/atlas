@@ -40,10 +40,17 @@ class HandleMinter < ApplicationService
     # in the repository could re-derive. The envelope follows the save: it is
     # the handle's only record on disk, so a rebuild without it loses the
     # binding every outside citation rests on.
+    # The save retries: the handle is live by then. See docs/handles.md.
     def mint(work)
-      work.handle        = @client.mint(work.noid, url: target_url(work))
-      work.handle_source = 'minted'
-      Atlas.persister.save(resource: work).tap(&:write_preservation_envelope!)
+      handle = @client.mint(work.noid, url: target_url(work))
+      StaleRetry.run("record handle #{handle} on #{work.noid}") do |attempt|
+        work = reload(work) if attempt.positive?
+        next work if work.handle.present?
+
+        work.handle        = handle
+        work.handle_source = 'minted'
+        Atlas.persister.save(resource: work)
+      end.tap(&:write_preservation_envelope!)
     rescue HandleClient::Error => e
       Rails.logger.warn("HandleMinter: #{work.noid} not minted — #{e.message}")
       work
@@ -56,8 +63,12 @@ class HandleMinter < ApplicationService
       return if work.handle.blank?
       return log_unwritable(work) unless work.mods_writable?
 
-      xml = mods_with_identifier(work)
-      work.mods_xml = xml unless xml.nil?
+      # Reads the document again on retry, so a concurrent upload's edit survives.
+      StaleRetry.run("record handle in MODS of #{work.noid}") do |attempt|
+        work = reload(work) if attempt.positive?
+        xml = mods_with_identifier(work)
+        work.mods_xml = xml unless xml.nil?
+      end
     end
 
     # nil when there is nothing to write. Skipping a no-op matters: every write

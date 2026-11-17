@@ -75,6 +75,35 @@ RSpec.describe 'Writes that lose an optimistic-lock race' do
     end
   end
 
+  describe 'a handle mint whose writes lose once' do
+    let(:client) do
+      instance_double(HandleClient, configured?: true).tap do |double|
+        allow(double).to receive(:mint) { |suffix, **| "DRSDEV/#{suffix}" }
+      end
+    end
+
+    def mint = HandleMinter.call(work: work, client: client, public_base: 'https://repository.example.edu')
+
+    # The handle server holds the handle by the time the Work save runs.
+    it 'records the registered handle on the Work, without registering it twice' do
+      lose_saves(1) { |resource| resource.is_a?(Work) && resource.handle.present? }
+
+      mint
+
+      expect(Work.find(work.noid).handle).to eq("DRSDEV/#{work.noid}")
+      expect(client).to have_received(:mint).once
+    end
+
+    it 'records the handle in the MODS when that write loses once' do
+      mods_blob_id = work.mods_blob.id
+      lose_saves(1) { |resource| resource.is_a?(Blob) && resource.id == mods_blob_id }
+
+      mint
+
+      expect(Work.find(work.noid).mods_xml).to include("hdl.handle.net/DRSDEV/#{work.noid}")
+    end
+  end
+
   describe 'a page added to a completed Work whose METS rebuild keeps losing' do
     it 'keeps the page, because the METS is derived' do
       completed = Work.find(work.noid)

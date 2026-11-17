@@ -31,7 +31,8 @@ RSpec.describe 'Controller envelope emission' do
     render_views
 
     # Public root: the ACL examples below grant a public read, which
-    # the containment rule allows only under a public container.
+    # the containment rule allows only under a public container. The extra
+    # group makes the write a change, because an unchanged envelope cuts no version.
     let(:community)  { public_community! }
     let(:collection) { CollectionCreator.call(parent_id: community.noid) }
     let(:work)       { WorkCreator.call(parent_id: collection.noid) }
@@ -40,7 +41,7 @@ RSpec.describe 'Controller envelope emission' do
       head_before = head_version_for(work.noid)
 
       patch :update_permissions,
-            params: { id: work.noid, permissions: { read: ['public'], edit: [], edit_users: [] } },
+            params: { id: work.noid, permissions: { read: ['public', 'northeastern:readers'], edit: [], edit_users: [] } },
             as:     :json
 
       expect(head_version_for(work.noid)).not_to eq(head_before)
@@ -68,7 +69,7 @@ RSpec.describe 'Controller envelope emission' do
       head_before = head_version_for(collection.noid)
 
       patch :update_permissions,
-            params: { id: collection.noid, permissions: { read: ['public'], edit: [], edit_users: [] } },
+            params: { id: collection.noid, permissions: { read: ['public', 'northeastern:readers'], edit: [], edit_users: [] } },
             as:     :json
 
       expect(head_version_for(collection.noid)).not_to eq(head_before)

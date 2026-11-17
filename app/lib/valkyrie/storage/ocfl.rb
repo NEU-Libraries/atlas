@@ -371,6 +371,16 @@ module Valkyrie
         object_inventory(root_name, key.to_s)&.versions&.keys
       end
 
+      # Each logical path in the object's head version, with its digest. Empty
+      # when no root holds the object.
+      def head_digests(key:)
+        root_name = existing_root_name(key.to_s)
+        return {} if root_name.nil?
+
+        state = object_inventory(root_name, key.to_s)&.head_state || {}
+        state.each_with_object({}) { |(digest, paths), heads| paths.each { |path| heads[path] = digest } }
+      end
+
       # Appends one line to a log in the object's logs/ directory. Answers
       # :appended, :duplicate when the line repeats the last one (a retried
       # request), or nil when no root holds the object.

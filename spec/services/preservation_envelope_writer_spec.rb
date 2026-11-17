@@ -103,6 +103,7 @@ RSpec.describe PreservationEnvelopeWriter do
 
     it 're-raises StorageAdapter errors after logging' do
       expect(Rails.logger).to receive(:error).with(/envelope write failed.*#{work.noid}/)
+      allow_any_instance_of(Valkyrie::Storage::OCFL).to receive(:head_digests).and_return({})
       allow_any_instance_of(Valkyrie::Storage::OCFL).to receive(:upload_many).and_raise(StandardError, 'boom')
 
       expect { described_class.call(resource: work) }.to raise_error(StandardError, 'boom')
@@ -121,6 +122,39 @@ RSpec.describe PreservationEnvelopeWriter do
       head_v2 = JSON.parse(File.read(object_root_for(work.noid).join('inventory.json')))['head']
 
       expect(head_v2).not_to eq(head_v1)
+    end
+  end
+
+  describe 'when the payload or the copy is not current' do
+    def head(noid) = JSON.parse(File.read(object_root_for(noid).join('inventory.json')))['head']
+
+    it 'cuts no version when the head already holds the same bytes' do
+      described_class.call(resource: work)
+      before = head(work.noid)
+
+      described_class.call(resource: work)
+
+      expect(head(work.noid)).to eq(before)
+    end
+
+    it 'writes the saved state, not the older copy it was handed' do
+      stale = Work.find(work.noid)
+      fresh = Work.find(work.noid)
+      fresh.read_groups = ['public']
+      Atlas.persister.save(resource: fresh)
+
+      described_class.call(resource: stale)
+
+      expect(latest_content(work.noid, 'permissions.json')[:read]).to eq(['public'])
+    end
+
+    it 'writes nothing for a resource that no longer exists' do
+      blob = Atlas.persister.save(resource: Blob.new(use: Role.original_file.name))
+      Atlas.persister.delete(resource: blob)
+
+      described_class.call(resource: blob)
+
+      expect(object_root_for(blob.noid)).not_to exist
     end
   end
 

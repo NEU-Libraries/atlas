@@ -49,6 +49,31 @@ The code numbers forward, then reverses to present newest-first.
 `find_file` resolves through `file_identifiers`, **so an envelope-only version
 label never resolves.** You can only retrieve bytes the listing surfaced.
 
+### A version can be on disk and unlisted
+
+Every write of a Blob's bytes, whether a binary, a revision, METS, MODS or
+Darwin Core, has two steps. It first cuts the OCFL version, then saves the Blob
+with the new id in `file_identifiers`. **If the save loses an optimistic-lock
+race, the version stays on disk and no Blob lists it.** No read path sees it,
+because every read resolves through `file_identifiers`.
+
+The order is deliberate, and it is the lesser of two evils. The reverse order
+could commit an id for bytes that never reached the disk, so Postgres would name
+a version the disk lacks. Bytes on disk that nothing lists lose nothing, and
+`preservation.md` says the disk is the source of truth.
+
+The cost falls on a rebuild from disk alone. It would take the unlisted version
+as the current content. Two things keep that rare and visible:
+
+- **Most of these writes retry.** A METS rebuild that loses reloads and builds
+  again ([`write-safety.md`](write-safety.md)). When both racers built the same
+  bytes, the unlisted version holds the same content as the listed one.
+- **The work-health check reports what remains.** `unlisted_content` is an
+  advisory when a Blob's OCFL head holds content that none of its listed
+  versions does. It compares inventory digests, so it reads no bytes. A
+  re-upload of the intended content clears it
+  ([`work-health.md`](work-health.md)).
+
 ## Attribution is matched exactly, not by proximity
 
 A `replace_file` event stamps the exact version id it produced, so subsequent

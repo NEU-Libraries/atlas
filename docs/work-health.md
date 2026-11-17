@@ -109,6 +109,7 @@ vocabulary grows with the checks. These are the Work-level codes:
 | `envelope_missing`, `envelope_stale` | repairable | Rewrite the envelope (`atlas:preservation:backfill_envelopes`). `envelope_stale` names each file that lags Postgres, `relationships.json` (or `properties.json`) or `permissions.json`, and the keys in it |
 | `flagged_incomplete` | repairable | Rerun the Cerberus job that set it |
 | `in_progress`, `suppressed`, `private`, `no_handle` | advisory | None; a state, not damage |
+| `unlisted_content` | advisory | A Blob's OCFL head holds content that none of its listed versions does, left by a write that lost a lock race. Every read still serves the listed version. Re-upload the intended content to make disk and Postgres agree ([`binaries.md`](binaries.md)) |
 
 Every other code comes from validating an OCFL object, one per rule in
 `lib/ocfl_health/object_validator.rb` and `envelope.rb`, and its message names

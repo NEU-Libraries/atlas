@@ -7,7 +7,8 @@ Source files:
 
 - `app/controllers/concerns/idempotent_create.rb` — replay-safe creates
 - `app/controllers/concerns/stale_object_retry.rb` — optimistic-lock retry
-- `app/services/work_mets_rebuilder.rb` — the METS rebuild's own retry
+- `app/lib/stale_retry.rb` — the same retry, for services
+- `app/lib/advisory_lock.rb` — serializing a lazy first build
 - `app/controllers/concerns/auditable.rb` — provenance emission
 - `app/controllers/audit_events_controller.rb` — the history surface
 - `app/services/audit_event_writer.rb` — the row writer
@@ -115,21 +116,49 @@ Logging is noisy on purpose. **The point of retrying is to make transient
 conflicts invisible to callers, but they must stay visible to an operator
 debugging a misbehaving coordinator.**
 
-### The METS rebuild retries inside itself
+### Services retry through `StaleRetry`
 
-`WorkMETSRebuilder` has three callers: `POST /works/:id/complete`, a page
-FileSet created under a completed Work (`FileSetCreator`), and a page FileSet
-destroyed (`FileSetsController#destroy`). **Two of them run at once whenever a
-page lands while the Work is being finalized.** Cerberus's `ConfirmDepositJob`
-and `CaptionJob` do exactly that, from the same request. Both rebuilds read the
-METS Blob, and the second one to save it raises `StaleObjectError`.
+A controller's retry covers only the writes inside its block. Many writes happen
+deeper, in a service, after the write the caller asked for has landed. A
+conflict there used to answer 409 for a change that had in part happened.
+`StaleRetry` gives services the same budget and backoff in two forms.
 
-The rebuild is derived entirely from current state, so retrying it is safe in
-the sense above. The retry lives in `WorkMETSRebuilder#call`, not in a
-controller, so it covers all three callers. It reloads the Work, builds the XML
-again, and compares it with what is stored. **When the winner has already
-written the same XML, the retry writes nothing.** It uses the same budget and
-backoff as `with_stale_object_retry`, and re-raises when the budget runs out.
+**`StaleRetry.run` retries one write with a reload.** The block receives the
+attempt number and must reload what it saves when the number is above 0. Use it
+only for a write that carries no intent of its own beyond what is reloaded, so a
+retry cannot overwrite a concurrent caller's change:
+
+| Write | Why a retry is safe |
+|---|---|
+| The METS rebuilds, `WorkMETSRebuilder` and `METSRebuilder` | Derived from current state. A retry that finds the winner's XML already stored writes nothing |
+| Attaching a new Blob or Delegate to its FileSet | Appending one id is idempotent. Without the retry, the saved Blob or Delegate is attached to nothing, and the caller's retry saves a second one |
+| Reclassifying a FileSet after a revision | Setting the same type again is idempotent |
+| The handle save and the MODS identifier in `HandleMinter` | The handle is registered by then ([`handles.md`](handles.md)) |
+| Detaching a purged resource from a linking Work | Dropping one id is idempotent, and the purge is already recorded |
+| The re-save after a MODS upload | It carries no attribute of its own; it re-projects Solr |
+| Restoring a tombstoned Darwin Core FileSet on upload | Clearing a tombstone is idempotent |
+
+**`StaleRetry.settle` gives up quietly.** It is for a derived write that
+follows the write a caller asked for: the METS rebuild after an upload, a
+revision, a new page or a page delete. A conflict that outlasts the retries is
+logged rather than raised. Raising would answer an error for an upload or delete
+that landed, and a caller's retry would send a multi-gigabyte file again just to
+reach the idempotent replay. The METS stays stale until the FileSet or Work is
+next written.
+
+### A lazy first build is serialized
+
+A Work's structural FileSet and METS Blob, a FileSet's METS Blob and a Work's
+Darwin Core FileSet and Blob are built on first use. **Two first builds at once
+would each find nothing and each build**, leaving two FileSets or two Blobs for a
+read to pick between. That happens when `/complete` races a page created in the
+same deposit.
+
+So each first build holds `AdvisoryLock` on its owner and checks again under the
+lock. The second build takes the Blob the first one made. A session lock and not
+a transaction, because the build writes Solr and OCFL too, which no rollback
+could undo. The lock waits under the 30-second statement timeout
+([`availability.md`](availability.md)).
 
 ### `complete` finishes its tail before it answers 409
 

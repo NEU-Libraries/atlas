@@ -143,7 +143,11 @@ chip counts refresh from the same shape it already parses.
 
 **Adds** use `find_or_create_by` and run the join-model type validation, so a
 Community or an unknown NOID is a 422 through the standard `RecordInvalid`
-rescue.
+rescue. **Two adds of the same member at once both answer 200 and make one
+row**: when the lookup misses, `find_or_create_by!` inserts through
+`create_or_find_by!`, so the add that loses the insert to the unique index
+reads the row the other made. `spec/requests/compilation_member_race_spec.rb`
+holds that.
 
 **Removes** are idempotent too: deleting an absent row is a 200 no-op. That
 matches the remove-linked-member temperament — **there is nothing for a client to

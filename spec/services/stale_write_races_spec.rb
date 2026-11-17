@@ -104,6 +104,33 @@ RSpec.describe 'Writes that lose an optimistic-lock race' do
     end
   end
 
+  describe 'a purge whose detach from a linking Work loses once' do
+    it 'reloads the Work, drops the link and finishes the purge' do
+      target = CollectionCreator.call(parent_id: community.noid)
+      LinkedMemberCreator.call(work: Work.find(work.noid), collection: target)
+      lose_saves(1) { |resource| resource.is_a?(Work) && resource.id == work.id }
+
+      ResourcePurger.call(resource: Collection.find(target.noid))
+
+      expect(Collection.find(target.noid)).to be_nil
+      expect(Array(Work.find(work.noid).a_linked_member_of)).to be_empty
+    end
+  end
+
+  describe 'a Delegate create whose attach loses once' do
+    it 'attaches the one Delegate it saved, leaving none behind' do
+      DelegateCreator.call(resource_id: work.id, use: Role.thumbnail_image.name, uri: 'https://iiif.example/a.jpg')
+      derivative = Work.find(work.noid).children.find { |c| c.is_a?(FileSet) && c.type == Classification.derivative.name }
+      lose_saves(1) { |resource| persisted_file_set?(resource) && resource.id == derivative.id }
+
+      DelegateCreator.call(resource_id: work.id, use: Role.thumbnail_image_2x.name, uri: 'https://iiif.example/b.jpg')
+
+      members = Atlas.query.find_members(resource: FileSet.find(derivative.id)).grep(Delegate)
+      expect(members.map(&:use)).to contain_exactly(Role.thumbnail_image.name, Role.thumbnail_image_2x.name)
+      expect(Atlas.query.find_all_of_model(model: Delegate).count).to eq(2)
+    end
+  end
+
   describe 'a page added to a completed Work whose METS rebuild keeps losing' do
     it 'keeps the page, because the METS is derived' do
       completed = Work.find(work.noid)

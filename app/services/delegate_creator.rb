@@ -61,9 +61,14 @@ class DelegateCreator < ApplicationService
       Atlas.persister.save(resource: delegate)
     end
 
+    # Retried here rather than by the caller's retry, which would save a second
+    # Delegate and leave this one attached to nothing.
     def attach_to_file_set(file_set, delegate)
-      file_set.member_ids += [delegate.id]
-      Atlas.persister.save(resource: file_set)
+      StaleRetry.run("attach Delegate to #{file_set.noid}") do |attempt|
+        file_set = FileSet.find(file_set.id) if attempt.positive?
+        file_set.member_ids += [delegate.id]
+        Atlas.persister.save(resource: file_set)
+      end
     end
 
     # Re-save the parent so the composite indexer fires ThumbnailIndexer
@@ -71,6 +76,8 @@ class DelegateCreator < ApplicationService
     # (or absent) thumbnail_ssi after a Delegate mutation since Delegates
     # are graph leaves and don't trigger parent re-indexing on their own.
     def reindex_parent!
-      Atlas.persister.save(resource: Resource.find(@resource_id))
+      StaleRetry.run("re-save #{@resource_id} after a Delegate") do
+        Atlas.persister.save(resource: Resource.find(@resource_id))
+      end
     end
 end

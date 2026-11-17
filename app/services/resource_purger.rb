@@ -49,12 +49,19 @@ class ResourcePurger < ApplicationService
 
   private
 
+    # The purge is already recorded when this runs, so losing to an edit of the
+    # holder would stop it half-way. Dropping an id is idempotent, so it retries.
+    def detach!(holder, property, resource)
+      StaleRetry.run("detach #{resource.noid} from #{holder.noid}") do |attempt|
+        holder = Resource.find(holder.id) if attempt.positive?
+        holder.set_value(property, Array(holder[property]).reject { |id| id.to_s == resource.id.to_s })
+        Atlas.persister.save(resource: holder)
+      end
+    end
+
     def detach_inbound_references!(resource)
       INBOUND_PROPERTIES.each do |property|
-        holders_by(resource, property).each do |holder|
-          holder.set_value(property, Array(holder[property]).reject { |id| id.to_s == resource.id.to_s })
-          Atlas.persister.save(resource: holder)
-        end
+        holders_by(resource, property).each { |holder| detach!(holder, property, resource) }
       end
     end
 

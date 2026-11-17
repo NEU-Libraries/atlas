@@ -38,6 +38,26 @@ describe ResourcesController, type: :controller do
       expect(response.parsed_body.dig('work', 'id')).to eq(work.noid)
     end
 
+    # A thumbnail or full-text write saves the Work between the MODS write and
+    # the re-save that follows it. The MODS has landed, so this must not 409.
+    it 'retries the re-save after the MODS when another write moved the Work' do
+      work
+      allow(StaleRetry).to receive(:pause)
+      lost = false
+      allow(Atlas.persister).to receive(:save).and_wrap_original do |original, resource:, **rest|
+        if !lost && resource.is_a?(Work) && resource.persisted?
+          lost = true
+          raise Valkyrie::Persistence::StaleObjectError, resource.id.to_s
+        end
+        original.call(resource: resource, **rest)
+      end
+
+      put :put_mods, params: { id: work.noid, binary: mods }, as: :json
+
+      expect(response).to have_http_status(:success)
+      expect(AuditEvent.where(action: 'update', resource_id: work.id.to_s).count).to eq(1)
+    end
+
     it 'records the editing surface on the audit event when origin is given' do
       put :put_mods, params: { id: work.noid, binary: mods, origin: 'xml_editor' }, as: :json
 

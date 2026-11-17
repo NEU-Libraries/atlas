@@ -124,7 +124,7 @@ class ResourcesController < ApplicationController
       FileSetCreator.call(work_id: resource.id, classification: Classification.descriptive_metadata)
     end
     resource.mods_xml = File.read(uploaded_path(params[:binary]))
-    saved = Atlas.persister.save(resource: resource)
+    saved = resave_after_mods(resource)
     audit!(resource: saved, action: 'update', change_type: 'metadata', payload: mods_audit_payload)
     render_typed(saved, 'show')
   end
@@ -332,6 +332,14 @@ class ResourcesController < ApplicationController
     # The envelope carries the tombstone, so a rebuild from disk keeps it. A
     # derivative FileSet has no OCFL object of its own, and this must not
     # create one.
+    # The MODS has landed by now, and this save carries no attribute of its
+    # own, so a retry cannot overwrite anyone's edit. See docs/write-safety.md.
+    def resave_after_mods(resource)
+      StaleRetry.run("re-save #{resource.noid} after MODS") do |attempt|
+        Atlas.persister.save(resource: attempt.positive? ? Resource.find(resource.id) : resource)
+      end
+    end
+
     def save_lifecycle(resource)
       saved = Atlas.persister.save(resource: resource)
       saved.write_preservation_envelope! unless saved.is_a?(FileSet) && !Classification.preserved?(saved.type)

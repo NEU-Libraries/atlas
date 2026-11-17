@@ -86,6 +86,7 @@ spec/lib/request_timing_spec.rb
 spec/lib/response_cache_spec.rb
 spec/lib/solr_core_spec.rb
 spec/lib/spec_preflight_spec.rb
+spec/lib/stale_retry_spec.rb
 spec/lib/statement_timeout_spec.rb
 spec/lib/tasks/mods_rake_spec.rb
 spec/lib/tasks/preservation_rake_spec.rb
@@ -188,6 +189,7 @@ spec/services/personal_root_creator_spec.rb
 spec/services/preservation_envelope_writer_spec.rb
 spec/services/repository_reset_spec.rb
 spec/services/resource_purger_spec.rb
+spec/services/stale_write_races_spec.rb
 spec/services/storage_footprint_recorder_spec.rb
 spec/services/storage_root_sealer_spec.rb
 spec/services/substrate_conformance_spec.rb

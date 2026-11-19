@@ -366,8 +366,8 @@ components:
                 not on the resource. Null for a guest.
             in_progress:
               type: boolean
-              description: Cerberus-driven workflow flag; true until the bulk-deposit
-                job marks the Work complete.
+              description: Cerberus-driven workflow flag; true until Cerberus marks
+                the deposit complete.
             incomplete:
               type: boolean
               description: Pipeline-failure flag; true when a work-scoped enrichment
@@ -967,8 +967,8 @@ components:
           nullable: true
         in_progress:
           type: boolean
-          description: Cerberus-driven workflow flag; true until the bulk-deposit
-            job marks the Work complete.
+          description: Cerberus-driven workflow flag; true until Cerberus marks the
+            deposit complete.
         incomplete:
           type: boolean
           description: Pipeline-failure flag; true when a work-scoped enrichment job
@@ -7218,12 +7218,11 @@ paths:
                   description: Simple Darwin Core XML for the work
                 origin:
                   type: string
-                  description: Free-text tag naming the editing surface that produced
-                    this MODS upload (Cerberus sends `metadata_form`, `advanced_form`
-                    or `xml_editor`). Recorded verbatim on the audit event beside
-                    `source`, truncated at 64 characters. Omit it and the event carries
-                    no origin, which is what every event recorded before this field
-                    looks like.
+                  description: Free-text tag naming the surface that produced this
+                    Darwin Core upload (Cerberus sends `dwc_upload` or `xml_loader`).
+                    Recorded verbatim on the audit event beside `source`, truncated
+                    at 64 characters. Omit it and the event carries no origin, which
+                    is what every event recorded before this field looks like.
       responses:
         '200':
           description: The Work's new Darwin Core record.
@@ -7806,8 +7805,8 @@ paths:
       description: |
         Upserts the per-page IIIF image-service pointer (`service_file`
         Delegate role) on the FileSet — the Cantaloupe base URI for the
-        page's JP2, from which a viewer derives any size on demand via
-        `info.json`. The Delegate nests in a `:derivative` FileSet under
+        page's pyramidal TIFF, from which a viewer derives any size on
+        demand via `info.json`. The Delegate nests in a `:derivative` FileSet under
         the page and surfaces in `GET /works/{id}/file_sets` for IIIF
         manifest assembly.
 
@@ -7859,7 +7858,8 @@ paths:
               properties:
                 uri:
                   type: string
-                  description: IIIF image-service base URI for the page's JP2
+                  description: IIIF image-service base URI for the page's pyramidal
+                    TIFF
       operationId: file_sets_update_iiif_service
   "/file_sets/{id}/mets":
     parameters:
@@ -8792,11 +8792,12 @@ paths:
                 origin:
                   type: string
                   description: Free-text tag naming the editing surface that produced
-                    this MODS upload (Cerberus sends `metadata_form`, `advanced_form`
-                    or `xml_editor`). Recorded verbatim on the audit event beside
-                    `source`, truncated at 64 characters. Omit it and the event carries
-                    no origin, which is what every event recorded before this field
-                    looks like.
+                    this MODS upload (Cerberus sends `metadata_form`, `advanced_form`,
+                    `xml_editor`, `xml_loader` or `deposit`, and sends none for a
+                    showcase it provisions). Recorded verbatim on the audit event
+                    beside `source`, truncated at 64 characters. Omit it and the event
+                    carries no origin, which is what every event recorded before this
+                    field looks like.
       responses:
         '200':
           description: The resource, in its own typed shape, with its new MODS applied.
@@ -10141,7 +10142,8 @@ paths:
         caller's read or edit groups, the caller as an edit user, or the caller
         as the depositor. Admins see everything. Tombstoned items, featured
         Collections, personal roots and the People Community never appear. An
-        unfinished deposit appears only to its depositor and to staff.
+        unfinished deposit appears only to its depositor, its proxy uploader
+        and staff.
 
         A blank `q` browses everything the caller may read, newest first.
         `type` narrows to one type. Pagination via `page` / `per_page`

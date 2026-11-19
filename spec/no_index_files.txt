@@ -1,6 +1,7 @@
 # Spec files that run on Postgres alone, without a Solr index. Maintained by
 # bin/no-index-candidates --apply; a listed file that reads Solr fails with a
 # message naming its line. See docs/testing.md.
+spec/config/eager_load_spec.rb
 spec/config/staging_environment_spec.rb
 spec/controllers/blobs_controller_spec.rb
 spec/controllers/collections_controller_spec.rb

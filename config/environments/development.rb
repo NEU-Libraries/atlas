@@ -42,6 +42,11 @@ Rails.application.configure do
 
   config.action_mailer.perform_caching = false
 
+  # Tag each log line with the request id, as staging and production do.
+  # Cerberus sends its own id as X-Request-Id, so one page view can be found
+  # in both logs.
+  config.log_tags = [:request_id]
+
   # Print deprecation notices to the Rails logger.
   config.active_support.deprecation = :log
 

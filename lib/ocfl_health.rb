@@ -2,7 +2,9 @@
 
 require 'digest'
 require 'json'
-require 'pathname'
+# Pathname is core from Ruby 4, but this file also runs standalone on whatever
+# Ruby the operator holding the storage copy has.
+require 'pathname' # rubocop:disable Lint/RedundantRequireStatement
 require 'rexml/document'
 require 'time'
 

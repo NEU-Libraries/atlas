@@ -30,9 +30,11 @@ RSpec.describe 'atlas_rb connection reuse', :atlas_rb_server do
     count = 0
     mutex = Mutex.new
     original = TCPSocket.method(:open)
-    TCPSocket.singleton_class.send(:define_method, :open) do |host, remote_port = nil, *rest, &blk|
+    # Net::HTTP passes open_timeout: as a keyword from Ruby 4, so the stub has to
+    # forward keywords as well as positional arguments.
+    TCPSocket.singleton_class.send(:define_method, :open) do |host, remote_port = nil, *rest, **kwargs, &blk|
       mutex.synchronize { count += 1 } if remote_port.to_i == port
-      original.call(host, remote_port, *rest, &blk)
+      original.call(host, remote_port, *rest, **kwargs, &blk)
     end
     yield
     count

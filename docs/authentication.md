@@ -104,8 +104,9 @@ the unknown-principal case.
 
 ### devise-jwt — the standalone API path
 
-Minted by `POST /nuid`, which is system-gated and called by Cerberus after SSO,
-then used directly as `Authorization: Bearer <jwt>`. A one-week TTL.
+Minted by `POST /nuid`, which is system-gated. Cerberus calls this when a member
+of its API group asks for a token in My DRS, and always mints it read-only. The
+token is then used directly as `Authorization: Bearer <jwt>`. A one-week TTL.
 
 `resolve_jwt_user` routes through the warden `:jwt` strategy rather than
 hand-decoding, and that choice does real work: the strategy runs `TokenDecoder`

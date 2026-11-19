@@ -85,7 +85,7 @@ class FileSetsController < ApplicationController
   end
 
   # Persist the per-page IIIF image-service pointer (Role.service_file) —
-  # the Cantaloupe base URI for this page's JP2, which manifest assembly
+  # the Cantaloupe base URI for this page's pyramidal TIFF, which manifest assembly
   # reads back through GET /works/:id/file_sets. Upsert semantics via
   # DelegateUpdater: re-PATCHing a URI never mints a duplicate Delegate.
   def update_iiif_service

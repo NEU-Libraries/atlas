@@ -1,8 +1,7 @@
 # frozen_string_literal: true
 
-# The citation fields Cerberus needs to emit Highwire Press / Google Scholar
-# <meta> tags WITHOUT parsing MODS XML on every render -- a hard DPS design
-# constraint. Reads the JSON access copy only. See docs/solr-indexing.md.
+# Indexes the citation fields for search and facets. Reads the JSON access
+# copy only. See docs/solr-indexing.md.
 #
 # The rule for who made the Work and when lives in Citation, which
 # GET /works/{id}/citation also serves, so the facets and the citation cannot

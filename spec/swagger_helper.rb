@@ -114,13 +114,21 @@ module Rswag
   end
 end
 
-# The `origin` formData field, declared identically on every MODS PATCH
-# (Works, Collections, Communities). One constant so the three operations
-# cannot drift apart in the generated OpenAPI document.
+# The `origin` formData field on the MODS and Darwin Core uploads. The audit
+# behaviour is shared; only the surfaces Cerberus names differ per route.
+ORIGIN_PARAM_AUDIT = <<~TEXT.squish
+  Recorded verbatim on the audit event beside `source`, truncated at 64
+  characters. Omit it and the event carries no origin, which is what every
+  event recorded before this field looks like.
+TEXT
+
 ORIGIN_PARAM_DESCRIPTION = <<~TEXT.squish
   Free-text tag naming the editing surface that produced this MODS upload
-  (Cerberus sends `metadata_form`, `advanced_form` or `xml_editor`). Recorded
-  verbatim on the audit event beside `source`, truncated at 64 characters.
-  Omit it and the event carries no origin, which is what every event recorded
-  before this field looks like.
+  (Cerberus sends `metadata_form`, `advanced_form`, `xml_editor`, `xml_loader`
+  or `deposit`, and sends none for a showcase it provisions). #{ORIGIN_PARAM_AUDIT}
+TEXT
+
+DWC_ORIGIN_PARAM_DESCRIPTION = <<~TEXT.squish
+  Free-text tag naming the surface that produced this Darwin Core upload
+  (Cerberus sends `dwc_upload` or `xml_loader`). #{ORIGIN_PARAM_AUDIT}
 TEXT

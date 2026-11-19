@@ -1552,7 +1552,7 @@ module OpenapiSchemas
   def work_only_props
     {
       in_progress:       { type:        :boolean,
-                           description: 'Cerberus-driven workflow flag; true until the bulk-deposit job marks the Work complete.' },
+                           description: 'Cerberus-driven workflow flag; true until Cerberus marks the deposit complete.' },
       incomplete:        { type:        :boolean,
                            description: 'Pipeline-failure flag; true when a work-scoped enrichment job gave up ' \
                                         'after its retries. Flags only — the Work stays readable.' },

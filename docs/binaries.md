@@ -367,7 +367,7 @@ cost. So an owner's figure counts every file of every OCFL object it owns:
 
 A rolled-back revision is counted once, because OCFL stores its bytes once.
 Bytes outside OCFL are not Atlas's to count, so nothing here covers Cerberus's
-JP2s, its staged uploads or the IIIF cache.
+pyramidal TIFFs, its staged uploads or the IIIF cache.
 
 ### Bytes are counted as they are written, not walked
 

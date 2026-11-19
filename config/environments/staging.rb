@@ -9,10 +9,10 @@ require_relative '../cache_store'
 #
 # The settings that must NOT be taken from development are the code-loading
 # ones. With reloading on, Rails' reload interlock serialises concurrent
-# requests, and Cerberus issues four Atlas reads at once for a Work show page —
-# so the interlock turns that batch from a saving into a penalty. Measured, the
-# same four calls cost ~182ms concurrent with reloading on against ~85ms
-# eager-loaded. Staging forked from development.rb is the reason this file
+# requests, and Cerberus issues five to seven Atlas reads at once for a Work
+# show page — so the interlock turns that batch from a saving into a penalty.
+# Measured with four of those reads, the batch cost ~182ms concurrent with
+# reloading on against ~85ms eager-loaded. Staging forked from development.rb is the reason this file
 # exists; see ~/docs/staging-ttfb-parity.md.
 #
 # Running staging as production instead would fix the latency and break the

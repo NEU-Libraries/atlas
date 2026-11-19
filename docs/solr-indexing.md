@@ -310,19 +310,19 @@ survives the gem reading the points by attribute.
 
 ## `CitationIndexer`
 
-Projects the citation-relevant fields onto the Work's own Solr doc so Cerberus
-can emit Highwire Press and Google Scholar `<meta>` tags in the Work show
-`<head>` **without parsing MODS XML on every render** — a hard DPS design
-constraint.
+Projects the citation fields onto the Work's own Solr doc, so search can facet
+and filter on who made a Work and when. Cerberus facets on `creator_ssim` and
+`pub_date_ssim`. Its Google Scholar tags come from `GET /works/{id}/citation`,
+which reads the same `Citation` rule.
 
 The Work doc already carries title, abstract, genre and access. This indexer adds
-the three pieces Scholar needs that were missing:
+three fields:
 
 | Field | Feeds |
 |---|---|
-| `creator_ssim` | One `citation_author` each, in display form |
-| `pub_date_ssim` | `citation_publication_date`; single value, reusing Cerberus's existing "Publication Year" facet field |
-| `contributor_ssim` | No Scholar tag — see below |
+| `creator_ssim` | Cerberus's creator facet and show field, one value per creator in display form |
+| `pub_date_ssim` | Cerberus's "Publication Year" facet; single value |
+| `contributor_ssim` | A contributor facet — see below |
 
 **`contributor_ssim` rides along here rather than in `MODSIndexer` because it is
 the same filter over the same `names` projection that `creator_ssim` is, only

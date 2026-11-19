@@ -23,8 +23,9 @@
 # field at all and never false-match or render a snippet.
 #
 # The `*_tesimv` dynamic field is text_en, stored, multi-valued, with
-# termVectors/termPositions/termOffsets — i.e. FastVectorHighlighter-ready, so
-# Cerberus's `hl.method=fastVector` snippet works against it directly. For
+# termVectors/termPositions/termOffsets, so any of Solr's highlighters can use
+# it. Cerberus's "Full Text Match" snippet names it in `hl.fl` and sets no
+# `hl.method`. For
 # body-text *search* the field must be in the request handler's `qf` (the
 # blacklight-solr image owns that; it is not a copyField destination like the
 # catch-all was).

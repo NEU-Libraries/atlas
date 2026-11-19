@@ -284,7 +284,7 @@ RSpec.describe 'FileSets', type: :request do
       description <<~DESC
         Upserts the per-page IIIF image-service pointer (`service_file`
         Delegate role) on the FileSet — the Cantaloupe base URI for the
-        page's JP2, from which a viewer derives any size on demand via
+        page's pyramidal TIFF, from which a viewer derives any size on demand via
         `info.json`. The Delegate nests in a `:derivative` FileSet under
         the page and surfaces in `GET /works/{id}/file_sets` for IIIF
         manifest assembly.
@@ -298,7 +298,7 @@ RSpec.describe 'FileSets', type: :request do
         type:       :object,
         required:   %w[uri],
         properties: {
-          uri: { type: :string, description: "IIIF image-service base URI for the page's JP2" }
+          uri: { type: :string, description: "IIIF image-service base URI for the page's pyramidal TIFF" }
         }
       }
 

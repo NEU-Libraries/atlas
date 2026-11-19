@@ -3,7 +3,7 @@
 require_relative 'flat'
 
 # The account matrix's table: the user directory, a person's accounts, and the
-# token endpoints Cerberus uses after SSO. spec/requests/account_matrix_spec.rb
+# system-only provisioning and token endpoints. spec/requests/account_matrix_spec.rb
 # sends the requests. See docs/testing.md and docs/authentication.md.
 module AccountMatrix
   TIERS  = %i[guest read_only obo_refused fixity system standard other delegate admin].freeze

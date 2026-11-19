@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
 # The citation facts of a Work, read from the JSON access copy: who made it,
-# when, and what to call it. CitationIndexer indexes them for search and for
-# Cerberus's Google Scholar tags, and GET /works/{id}/citation serves them as
-# CSL-JSON, so both read one rule. See docs/citation.md.
+# when, and what to call it. CitationIndexer indexes them for search, and
+# GET /works/{id}/citation serves them as CSL-JSON, which Cerberus reads for
+# its Google Scholar tags. Both read one rule. See docs/citation.md.
 class Citation
   # Genre terms that name a CSL type outright, checked before the type of
   # resource, which is coarser. Keys are lowercase.

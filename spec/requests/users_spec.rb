@@ -61,9 +61,10 @@ RSpec.describe 'User', type: :request, default_auth: false do
       consumes 'application/json'
       produces 'application/json'
       description <<~D
-        System-only endpoint used by Cerberus (post-SSO) to mint a personal-
-        access JWT for a user. The librarian then uses the token directly
-        against Atlas (Authorization: Bearer …) from scripts. Tokens carry a
+        System-only endpoint that mints a personal-access JWT for a user.
+        Cerberus calls this when a member of its API group asks for a token
+        in My DRS, and always mints it read-only. The holder then uses the
+        token directly against Atlas (Authorization: Bearer …) from scripts. Tokens carry a
         1-week TTL. Requires the system Bearer token; non-system callers
         receive 403. An unknown NUID returns 404. Emits a mint_token audit row.
         An optional `read_only: true` mints a token that can only reach the

@@ -26,11 +26,12 @@ environment ENV.fetch('RAILS_ENV', 'development')
 # Specifies the `pidfile` that Puma will use.
 pidfile ENV.fetch('PIDFILE', 'tmp/pids/server.pid')
 
-# Cerberus fans a Work show page out into four concurrent Atlas reads, and
-# threads cannot serve those in parallel: the GVL serialises Ruby execution
+# Cerberus fans a Work show page out into five to seven concurrent Atlas reads,
+# and threads cannot serve those in parallel: the GVL serialises Ruby execution
 # within a process, and this read path is allocation-bound rather than IO-bound.
 # Only workers give the batch real parallelism, and the count has to match the
-# fan-out — two workers recover 6% of it, four recover about 45%.
+# fan-out — measured with four of those reads, two workers recover 6% of it and
+# four recover about 45%.
 #
 # The default of 0 is single mode, so development and the test suite are
 # untouched; staging and production opt in with WEB_CONCURRENCY. Each worker

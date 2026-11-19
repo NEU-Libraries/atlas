@@ -75,8 +75,8 @@ own bug rather than a race, and must stay loud.
 ## Optimistic-lock retry
 
 When two callers PATCH shared resource state inside one lock window — Cerberus's
-`ThumbnailCreationJob` and `DerivativeCreationJob` both attaching Delegates to
-the same FileSet — Valkyrie raises `StaleObjectError` on the loser.
+`DepositDerivativesJob` and `IiifAssetsJob` both attaching Delegates to the same
+FileSet — Valkyrie raises `StaleObjectError` on the loser.
 
 **For an append-style mutation the loser's intent is still valid against fresh
 state**, so rescue-reload-retry converges instead of failing. This is the pattern
@@ -325,8 +325,9 @@ is `NOT NULL`, so guest reads and unauthenticated paths write nothing.
 so the editing surface rides beside it in `origin` rather than overloading it.
 
 `origin` is whatever the caller asserts — Cerberus sends `metadata_form`,
-`advanced_form` or `xml_editor`. **Atlas stores it verbatim and never branches on
-it, so a new surface needs no Atlas change.** It is capped at
+`advanced_form`, `xml_editor`, `xml_loader` or `deposit`, and sends none for a
+showcase it provisions. The list is Cerberus's to grow. **Atlas stores it verbatim
+and never branches on it, so a new surface needs no Atlas change.** It is capped at
 `ORIGIN_MAX_LENGTH` (64) because it is free text from the wire landing in a jsonb
 column.
 

@@ -115,7 +115,7 @@ RSpec.describe 'Darwin Core records', type: :request do
       multipart_request_body(
         {
           binary: { type: :string, format: :binary, description: 'Simple Darwin Core XML for the work' },
-          origin: { type: :string, description: ORIGIN_PARAM_DESCRIPTION }
+          origin: { type: :string, description: DWC_ORIGIN_PARAM_DESCRIPTION }
         }
       )
 

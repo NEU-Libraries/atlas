@@ -4,7 +4,7 @@ require 'rails_helper'
 
 # End-to-end proof of the personal-access token lifecycle binding
 # (AtlasRb::System::Token) through the live server — the "My DRS → Programmatic
-# access" cycle Cerberus drives post-SSO: mint a 1-week JWT for a real person,
+# access" cycle Cerberus drives on request: mint a 1-week JWT for a real person,
 # prove it authenticates that person in BYO-JWT mode, then revoke and prove the
 # same token is dead. Also covers `read_only:` minting — the shape handed to a
 # non-human caller (e.g. an Atlas MCP client) — proving the resulting token

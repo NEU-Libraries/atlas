@@ -187,7 +187,8 @@ Rails.application.routes.draw do
     # beneath them) from the current Postgres/OCFL source of truth — no
     # lifecycle transition, no audit, no optimistic-lock bump. The supported
     # lever after an indexer ships/changes and finalized resources carry a
-    # stale projection. Synchronous by design; Cerberus chunks a large subtree.
+    # stale projection. Synchronous by design. SubtreeReindexer batches the walk
+    # itself; Cerberus makes one call per subtree root.
     post '/resources/:id/reindex', to: 'resources#reindex'
     post '/resources/:id/reindex_subtree', to: 'resources#reindex_subtree'
 

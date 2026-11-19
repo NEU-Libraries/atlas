@@ -16,9 +16,9 @@ Source files:
 
 `Citation` is the only place that decides who made a Work and when.
 `CitationIndexer` reads it to index `creator_ssim`, `contributor_ssim` and
-`pub_date_ssim`, which search reports as `creators` and `year` and Cerberus reads
-for its Google Scholar tags. The route reads it too, so the facet, the tags and
-the citation cannot disagree.
+`pub_date_ssim`, which search reports as `creators` and `year` and Cerberus facets
+on. The route reads it too, and Cerberus builds its Google Scholar tags from the
+route, so the facet, the tags and the citation cannot disagree.
 
 - **Creators and contributors** come from the MODS names, split on the
   `MODSBrowse` creator and contributor axes. The two lists are disjoint.

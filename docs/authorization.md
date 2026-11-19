@@ -301,9 +301,11 @@ The byte bypass is an `:admin` and a member of the staff group
   capped at 500 pixels, which serves the thumbnail and preview, and a `gated-`
   full-resolution copy, from which the small, medium, large and service-file
   Delegates are cut. Cantaloupe serves a `gated-` identifier only with a token
-  Cerberus signs, and Cerberus signs none for an embargoed Work. So the URL alone
-  opens nothing, and withholding it is defence in depth: `/works/:id/assets`,
-  `/works/:id/file_sets` and `/delegates/:id` answer `uri: null` for those roles.
+  Cerberus signs. For an embargoed Work, Cerberus's download routes sign only for
+  staff and admins. Its multipage manifest signs whatever service-file URI Atlas
+  returns, so withholding the URI is what keeps a signed URL from the other
+  callers: `/works/:id/assets`, `/works/:id/file_sets` and `/delegates/:id`
+  answer `uri: null` for those roles.
   The thumbnail and preview stay, so an embargoed Work still shows its cover.
 
   Anyone with an edit grant on the Work still receives these URLs: an edit user,
@@ -329,10 +331,10 @@ The byte bypass is an `:admin` and a member of the staff group
   apply here: an index holds one document for every caller, so nobody can
   full-text search an embargoed Work.
 
-Refusing before the stream matters to atlas_rb: `Blob.content` hands every chunk
-to its block whatever the status, so a refusal sent after the stream started
-would reach a Cerberus visitor as the file. Cerberus still refuses first, in its
-own download, media and zip paths; this gate is the one a direct API caller meets.
+atlas_rb's `Blob.content` passes only 2xx chunks to its block and returns the
+status, so a refusal does not reach a Cerberus visitor as the file. Cerberus still
+refuses first, in its own download, media and zip paths; this gate is the one a
+direct API caller meets.
 
 ## Compilations carry their own visibility
 

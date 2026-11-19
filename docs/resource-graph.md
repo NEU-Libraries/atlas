@@ -69,7 +69,7 @@ vocabulary has not changed since v1.
 
 | Attribute | Default | Who writes it |
 |---|---|---|
-| `in_progress` | `true` | Cerberus's bulk-deposit jobs leave it true until every expected child is deposited, then flip it at `POST /works/:id/complete` |
+| `in_progress` | `true` | Cerberus leaves it true until the deposit is finished: for an interactive deposit, the depositor has confirmed the metadata and the primary file exists; for a bulk deposit, every expected child is deposited. It then flips it at `POST /works/:id/complete` |
 | `incomplete` | `false` | Cerberus sets it from a give-up handler and clears it when a later run of the same job succeeds |
 | `incomplete_reason` | nil | Cerberus, as an opaque machine token |
 
@@ -501,7 +501,7 @@ Work answers for itself.
 - **Lists already drop a tombstoned resource.** Search, the collection digests,
   `descendant_works` and Set contents filter on `tombstoned_bsi`, and OAI-PMH
   answers a deleted record with its header only.
-- **Atlas cannot gate the IIIF image server.** Cantaloupe reads the JP2s without
+- **Atlas cannot gate the IIIF image server.** Cantaloupe reads the pyramidal TIFFs without
   asking Atlas, so a IIIF URL that a client already holds still works. Atlas
   stops handing the URLs out, through the file lists, the Delegate record and
   the thumbnails.

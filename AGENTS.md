@@ -177,8 +177,8 @@ signs; see `~/docs/cerberus_token_retirement_primer.html`.)
    atlas_rb's System namespace token; pairs only with `:system` (401
    otherwise). Identity comes from the header.
 3. **A valid devise-jwt → that real person (standalone-API path).** Minted by
-   `POST /nuid` (system-gated, called by Cerberus post-SSO) and used directly
-   by librarians' scripts as `Authorization: Bearer <jwt>`. Decoded via the
+   `POST /nuid` (system-gated; Cerberus mints one read-only when a member of
+   its API group asks in My DRS) and used directly by librarians' scripts as `Authorization: Bearer <jwt>`. Decoded via the
    warden `:jwt` strategy, so the JTIMatcher revocation (jti rotation) and
    `exp` (1-week TTL) checks run natively. **Identity comes from the token —
    the `User` header is ignored** — and `:system`/`:anonymous` are rejected.

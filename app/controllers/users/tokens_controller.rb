@@ -18,7 +18,8 @@ module Users
 
     # Mint a personal-access JWT for a real person. System-gated (mint_token →
     # :system only) because minting for an arbitrary NUID is "become anyone" —
-    # Cerberus calls this post-SSO and hands the token back to the librarian.
+    # Cerberus calls this when a member of its API group asks for a token in My
+    # DRS, and always mints it read-only.
     #
     # An optional `read_only` flag rides into the token as a custom claim
     # (see ApplicationController#resolve_jwt_user / #authorize!) — this is

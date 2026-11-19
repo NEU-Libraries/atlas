@@ -26,7 +26,7 @@ module DelegateUris
   }.freeze
 
   # Single-role mapping: the per-page IIIF image-service pointer (the
-  # Cantaloupe base for the page's JP2). A viewer derives any size on
+  # Cantaloupe base for the page's pyramidal TIFF). A viewer derives any size on
   # demand via info.json, so unlike the Work-level mappings there is no
   # tier family to enumerate.
   IIIF_SERVICE_ROLES = {

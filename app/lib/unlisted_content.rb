@@ -1,5 +1,9 @@
 # frozen_string_literal: true
 
+# Zeitwerk does not autoload lib/, and the constant below reads OcflHealth at
+# load time, so an eager-loading boot fails without this.
+require_relative '../../lib/ocfl_health'
+
 # The logical paths in a Blob's OCFL head whose content none of the Blob's
 # listed versions holds: what a write leaves when its Blob save loses a lock
 # race. Digests come from the inventory, so no bytes are read. See

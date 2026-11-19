@@ -42,7 +42,7 @@ It does **not** handle browser sessions or SSO — that's
 Ruby client is [atlas_rb](https://github.com/NEU-Libraries/atlas_rb), which
 the integration tests use to hit a live Puma instance.
 
-Stack: Rails 8.1 (`ActionController::API`) on Ruby 3.4, Postgres 17, Solr
+Stack: Rails 8.1 (`ActionController::API`) on Ruby 4.0, Postgres 17, Solr
 (Blacklight image), Valkyrie for metadata persistence, a custom Valkyrie
 OCFL storage adapter (`app/lib/valkyrie/storage/ocfl.rb`) for binaries,
 jbuilder for responses, devise + devise-jwt for the user-token auth path,

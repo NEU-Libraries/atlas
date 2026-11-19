@@ -1,4 +1,4 @@
-FROM ruby:3.4.13-slim
+FROM ruby:4.0.10-slim
 # update the repository sources list
 # and install dependencies
 RUN apt-get update \

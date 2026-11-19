@@ -404,8 +404,8 @@ RSpec.describe 'Auth matrix', type: :request, default_auth: false do
     end
 
     it 'resolves :system when system_token is paired with the :system NUID' do
-      put '/users/by_nuid/001234567',
-          params:  { groups: [], email: 'x@y.z', name: 'X' }.to_json,
+      put '/users/by_email/x@y.z',
+          params:  { groups: [], nuid: '001234567', name: 'X' }.to_json,
           headers: auth_headers(token: system_token, nuid: system_user.nuid).merge('Content-Type' => 'application/json')
       expect(response).to have_http_status(:ok)
     end
@@ -560,9 +560,9 @@ RSpec.describe 'Auth matrix', type: :request, default_auth: false do
       expect(response.status).to be_in([200, 201])
     end
 
-    it 'permits the :system principal on PUT /users/by_nuid/:nuid (provisioning stays system-only)' do
-      put '/users/by_nuid/001234567',
-          params:  { groups: [], email: 'x@y.z', name: 'X' }.to_json,
+    it 'permits the :system principal on PUT /users/by_email/:email (provisioning stays system-only)' do
+      put '/users/by_email/x@y.z',
+          params:  { groups: [], nuid: '001234567', name: 'X' }.to_json,
           headers: system_headers.merge('Content-Type' => 'application/json')
       expect(response).to have_http_status(:ok)
     end

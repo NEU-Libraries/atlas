@@ -294,12 +294,10 @@ Rails.application.routes.draw do
     put '/users/by_nuid/:nuid/preferred_account', to: 'users#preferred_account',
                                                   as: 'user_preferred_account'
 
-    # SSO user provisioning (system-only). by_email is canonical (email is the
-    # account key); by_nuid is kept as a backward-compat shim. The :email
-    # segment is constrained to any non-slash run so a dotted address (…@x.edu)
-    # isn't truncated at the dot by format inference.
+    # SSO user provisioning (system-only), keyed on email because email is the
+    # account key. The :email segment is constrained to any non-slash run so a
+    # dotted address (…@x.edu) isn't truncated at the dot by format inference.
     put '/users/by_email/:email', to: 'users#update_by_email', as: 'user_provision_by_email',
                                   constraints: { email: %r{[^/]+} }, defaults: { format: :json }
-    put '/users/by_nuid/:nuid', to: 'users#update', as: 'user_provision'
   end
 end

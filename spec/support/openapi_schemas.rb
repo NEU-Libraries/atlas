@@ -965,10 +965,9 @@ module OpenapiSchemas
     }
   end
 
-  # PUT /users/by_email/{email} (and the by_nuid shim) — strict shape pinned to
-  # the response partial at app/views/users/_user.json.jbuilder. Distinct from
-  # the permissive `User` schema above, which documents the AR `to_json` output
-  # of GET /user.
+  # PUT /users/by_email/{email} — strict shape pinned to the response partial
+  # at app/views/users/_user.json.jbuilder. Distinct from the permissive `User`
+  # schema above, which documents the AR `to_json` output of GET /user.
   def provisioned_user
     wrapped(:user, {
               id:          { type: :integer },

@@ -46,27 +46,6 @@ class UsersController < ApplicationController
     render :update
   end
 
-  # PUT /users/by_nuid/:nuid — kept for backward compatibility. When the body
-  # carries an email (Cerberus already sends it), delegates to the email-keyed
-  # provisioner so live SSO stops collapsing accounts on NUID; with no email it
-  # falls back to the legacy behavior — replace the groups on the NUID's single
-  # existing account (email is required to create, so a missing account is 404).
-  def update
-    authorize! :provision, User
-
-    @user =
-      if params[:email].present?
-        UserProvisioner.call(email: params[:email], nuid: params[:nuid],
-                             groups: Array(params[:groups]), name: params[:name],
-                             affiliation: params[:affiliation])
-      else
-        legacy_update_by_nuid
-      end
-    return if performed?
-
-    render :update
-  end
-
   # GET /users/by_nuid/:nuid/accounts — every account sharing this NUID (a
   # person's logins), each with email/affiliation/role/groups and the preferred
   # flag. Powers login-time "you have more than one account" detection and the
@@ -99,17 +78,6 @@ class UsersController < ApplicationController
 
     def batch_nuids
       params[:nuids].to_s.split(',').map(&:strip).compact_blank.first(BATCH_LIMIT)
-    end
-
-    # Legacy no-email by_nuid path: group-replace on the NUID's single existing
-    # account. Renders 404 when the NUID has no account (can't create without an
-    # email); the caller checks `performed?` before rendering the success view.
-    def legacy_update_by_nuid
-      user = User.accounts_for(params[:nuid]).first
-      return head(:not_found) if user.nil?
-
-      user.update!(groups: Array(params[:groups]).map(&:to_s).uniq)
-      user
     end
 
     # Account enumeration/preference exposes a person's group sets, so it is not

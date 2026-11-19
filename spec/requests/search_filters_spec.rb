@@ -18,6 +18,7 @@ RSpec.describe 'Search filters and the read gate', type: :request, default_auth:
   let!(:reader) { make_user('000000002', :standard, [reader_group]) }
   let!(:staff) { make_user('000000003', :privileged, [Permissions::STAFF_EDIT_GROUP]) }
   let!(:depositor) { make_user('000000005', :standard, []) }
+  let!(:proxy) { make_user('000000006', :standard, []) }
 
   let(:community)  { public_community! }
   let(:collection) { CollectionCreator.call(parent_id: community.noid) }
@@ -41,7 +42,8 @@ RSpec.describe 'Search filters and the read gate', type: :request, default_auth:
       </mods:mods>
     XML
     w = Work.find(w.noid)
-    defaults = { read_groups: ['public'], edit_groups: [], depositor: nil, in_progress: false, tombstoned: false }
+    defaults = { read_groups: ['public'], edit_groups: [], depositor: nil, proxy_uploader: nil,
+                 in_progress: false, tombstoned: false }
     defaults.merge(attrs).each { |name, value| w.public_send(:"#{name}=", value) }
     Atlas.persister.save(resource: w)
   end
@@ -103,7 +105,9 @@ RSpec.describe 'Search filters and the read gate', type: :request, default_auth:
   end
 
   describe 'unfinished deposits' do
-    let!(:unfinished) { work('Unfinished', depositor: depositor.nuid, in_progress: true) }
+    let!(:unfinished) do
+      work('Unfinished', depositor: depositor.nuid, proxy_uploader: proxy.nuid, in_progress: true)
+    end
 
     it 'hides them from other readers' do
       expect(found(reader.nuid)).not_to include(unfinished.noid)
@@ -111,6 +115,10 @@ RSpec.describe 'Search filters and the read gate', type: :request, default_auth:
 
     it 'shows them to their depositor' do
       expect(found(depositor.nuid)).to include(unfinished.noid)
+    end
+
+    it 'shows them to the proxy uploader who is left to finish them' do
+      expect(found(proxy.nuid)).to include(unfinished.noid)
     end
 
     it 'shows them to staff' do

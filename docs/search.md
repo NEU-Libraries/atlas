@@ -41,15 +41,15 @@ sort key in timestamp form and is never displayed.
 ### The filters copy Cerberus, and must change with it
 
 Nothing checks that these stay in step with Cerberus's `SearchBuilder`, so each
-one names its source there. The one intended difference is the read gate below.
+one names its source there.
 
 | `fq` | Cerberus source | When |
 |---|---|---|
 | no FileSet, Blob or Delegate | `CatalogController` default `fq` | always |
 | `-tombstoned_bsi:true` | the same | always |
 | no featured Collection, personal root or system container | `SearchBuilder#exclude_curation_containers` | always; this is the global catalog |
-| the read gate | `SearchBuilder#apply_gated_discovery`, widened | not for `:admin` |
-| no unfinished deposit, unless the caller deposited it | `SearchBuilder#exclude_unfinished_deposits` | not for `:admin` or the staff group |
+| the read gate | `SearchBuilder#apply_gated_discovery` | not for `:admin` |
+| no unfinished deposit, unless the caller deposited it or uploaded it as proxy | `SearchBuilder#exclude_unfinished_deposits` | not for `:admin` or the staff group |
 | `internal_resource_tesim:<type>` | `SearchBuilder#scope_to_resource_type` | only when `type` is given |
 
 Embargoed items are not filtered, because Cerberus does not filter them. A row
@@ -228,10 +228,8 @@ only, and a personal root records its owner only as `depositor`. So a filter on
 `read_access_group_ssim` alone hides every private item from the non-admin
 librarians who edit it, and hides a depositor's own private Works from them.
 
-Cerberus's `SearchBuilder#apply_gated_discovery` has that narrow filter, though
-its own `Ability` says edit implies read. Until it widens too, an Atlas list shows
-staff and depositors more than the matching Cerberus page. Every extra row is an
-item they can already open.
+Cerberus's `SearchBuilder#apply_gated_discovery` admits the same clauses, so
+an Atlas list and the matching Cerberus page agree on what each caller can read.
 
 ### Who is exempt
 

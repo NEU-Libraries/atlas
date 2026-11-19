@@ -71,12 +71,14 @@ class SearchQuery
     end
 
     # An unfinished deposit is a placeholder, so it stays out of search for all
-    # but its depositor and the curators. The *:* is load-bearing: Solr cannot
-    # OR a purely negative clause.
+    # but the curators and the two people who can finish it: its depositor and
+    # its proxy uploader. The *:* is load-bearing: Solr cannot OR a purely
+    # negative clause.
     def unfinished_clause
       return '-in_progress_bsi:true' if @user&.nuid.blank?
 
-      "((*:* -in_progress_bsi:true) OR depositor_ssi:#{quoted(@user.nuid)})"
+      nuid = quoted(@user.nuid)
+      "((*:* -in_progress_bsi:true) OR depositor_ssi:#{nuid} OR proxy_uploader_ssi:#{nuid})"
     end
 
     def curator?

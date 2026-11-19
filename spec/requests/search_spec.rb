@@ -36,7 +36,8 @@ RSpec.describe 'Search', type: :request do
         caller's read or edit groups, the caller as an edit user, or the caller
         as the depositor. Admins see everything. Tombstoned items, featured
         Collections, personal roots and the People Community never appear. An
-        unfinished deposit appears only to its depositor and to staff.
+        unfinished deposit appears only to its depositor, its proxy uploader
+        and staff.
 
         A blank `q` browses everything the caller may read, newest first.
         `type` narrows to one type. Pagination via `page` / `per_page`

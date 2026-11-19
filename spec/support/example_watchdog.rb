@@ -12,8 +12,8 @@ module ExampleWatchdog
   class Timeout < StandardError; end
 
   class << self
-    def watch(example, main, backend, fired)
-      sleep LIMIT
+    def watch(example, main, backend, fired, limit: LIMIT)
+      sleep limit
       fired << true
       path = report(example, main, backend)
       cancel(backend)
@@ -113,7 +113,11 @@ RSpec.configure do |config|
 
     backend = ActiveRecord::Base.connection.raw_connection.backend_pid
     fired = []
-    watcher = Thread.new(Thread.current) { |main| ExampleWatchdog.watch(example, main, backend, fired) }
+    # Read before the thread starts. A thread scheduled late would read LIMIT after
+    # an example had stubbed it, as example_watchdog_spec.rb does, and time out
+    # that example on the stubbed value.
+    limit = ExampleWatchdog::LIMIT
+    watcher = Thread.new(Thread.current) { |main| ExampleWatchdog.watch(example, main, backend, fired, limit:) }
     watcher.name = 'spec watchdog'
     begin
       example.run

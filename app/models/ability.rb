@@ -51,6 +51,9 @@ class Ability
     # The search itself; the per-document decision is the query's read gate.
     can :read, :catalog
 
+    # A fixed vocabulary that names no resource.
+    can :read, :metadata_formats
+
     apply_role_abilities(user)
     apply_group_abilities(user)
     apply_compilation_abilities(user)

@@ -7,7 +7,9 @@ follows, and then the choices specific to Darwin Core.
 
 Source files:
 
-- `app/models/concerns/metadata_records.rb` — the list of formats
+- `app/models/concerns/metadata_records.rb` — the list of formats, MODS
+  included, with each one's label, preview method and display template
+- `app/controllers/metadata_formats_controller.rb` — `GET /metadata_formats`
 - `app/models/concerns/metadata_records/darwin_core.rb` — the record on the Work
 - `app/models/metadata/darwin_core.rb` — the JSON access copy
 - `app/lib/darwin_core_document.rb` — the shape rules and the projection
@@ -44,11 +46,40 @@ is the access-copy model. The two namespaces are distinct on purpose.
 | OCFL filename | `dwc.xml` |
 | JSON access copy | `Metadata::DarwinCore`, table `metadata_darwin_core` |
 | Audit `source`, and token in `metadata_formats` | `dwc` |
+| Label in `GET /metadata_formats` | `Darwin Core` |
 | Document rule | exactly one `dwr:SimpleDarwinRecord` |
+| Preview: the unsaved access copy | `MetadataRecords::DarwinCore#preview_darwin_core` |
+| Preview: the HTML view | `darwin_core/show`, the view behind `/works/{id}/dwc.html` |
 
-A new format adds a row to each of these, adds its token to
-`MetadataRecords::SOURCES`, and chains its own `metadata_formats` through
-`super` so the Work JSON lists every record it holds.
+A new format adds a row to each of these, and adds a `Format` to
+`MetadataRecords::FORMATS`. `MetadataRecords::SOURCES` is read from that list.
+The format also chains its own `metadata_formats` through `super`, so the Work
+JSON lists every record it holds.
+
+## Preview
+
+`POST /resources/preview` renders a draft through its format's display block,
+and saves nothing. A client calls it to show an editor what a draft will look
+like before it saves it. The `metadata_format` parameter names the format and
+defaults to `mods`. It is not called `format`, because Rails keeps that name
+for the response type, and the route already sets it to `html`.
+
+**A preview builds the access copy in memory.** The action makes an unsaved
+`Work`, and the format's preview method gives it an unsaved access-copy row.
+The display block reads only that row, so the preview needs no XML, no
+FileSet and no storage. The preview method parses the draft with the same
+code a save uses, so a draft a save would refuse answers the same 422.
+
+**A preview renders the display endpoint's own view.** So the HTML matches
+what the stored record gives, byte for byte. A spec checks this for Darwin
+Core.
+
+`GET /metadata_formats` lists every format the preview takes, MODS first, with
+its `id`, label and media type. A client builds its format list from it. The
+field is `id` rather than `token`, because the OpenAPI example recorder
+redacts the value of any `token` key as a credential.
+A Work's own `metadata_formats` lists the additional records that Work holds,
+by the same tokens; it leaves out MODS, which every Work holds.
 
 ## Preservation: which side of the line
 

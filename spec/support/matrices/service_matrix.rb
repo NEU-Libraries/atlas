@@ -34,6 +34,7 @@ module ServiceMatrix
     'embargoes#release'        => [:backend, { allowed: %i[system admin], write: true }],
     'metrics#latency'          => [:backend, { allowed: %i[system] + ADMINS }],
     'maintenance#show'         => [:everyone, { allowed: EVERYONE }],
+    'metadata_formats#index'   => [:everyone, { allowed: EVERYONE }],
     # The window must stay closable while it is open. The body re-sends the
     # state's own flag, so a permitted call leaves the window as it found it.
     'maintenance#update'       => [:backend, { allowed: %i[system admin], write: true, maintenance_exempt: true, json: true,

@@ -39,17 +39,19 @@ class ResourcesController < ApplicationController
     redirect_to(public_send(:"#{resource.model_name.singular_route_key}_path", resource.noid))
   end
 
+  # Renders a draft through its format's display block and saves nothing. The
+  # format is `metadata_format`, because Rails keeps `format` for the response
+  # type. See docs/metadata-records.md.
   def preview
-    # An action to facilitate temporary resources - given raw xml give back html
-    # Loader preview, XML editor, etc.
     authorize! :preview, Resource
-    @resource = Work.new(alternate_ids: [Time.now.to_f.to_s.gsub!('.', '').to_s])
-    file = params[:binary]
-    path = file.tempfile.path.presence || file.path
-    @resource.mods_json = File.read(path)
-    @resource.decorate
-    # Need to figure out how to clean up any residual objects
-    respond_to :html
+    metadata_format = preview_format
+    raise Exceptions::MetadataFormatError.new(:upload_required, 'send the draft as `binary`') if params[:binary].blank?
+
+    draft = Work.new(alternate_ids: [Time.now.to_f.to_s.delete('.')])
+    draft.public_send(metadata_format.preview, File.read(uploaded_path(params[:binary])))
+    @resource = draft
+    @work     = draft.decorate
+    render metadata_format.template, formats: :html
   end
 
   # Gated on :read of the RESOURCE, not the class: the envelope names Grouper
@@ -368,6 +370,16 @@ class ResourcesController < ApplicationController
     # depending on the client, and only one of the two exposes #tempfile.
     def uploaded_path(file)
       file.tempfile.path.presence || file.path
+    end
+
+    # MODS when the caller names none, so the loader preview keeps working.
+    def preview_format
+      token = params[:metadata_format].presence || MetadataRecords::MODS.token
+      found = MetadataRecords.find(token)
+      return found if found
+
+      tokens = MetadataRecords.previewable.map(&:token).join(', ')
+      raise Exceptions::MetadataFormatError.new(:unknown_metadata_format, "Atlas previews #{tokens}")
     end
 end
 # rubocop:enable Metrics/ClassLength

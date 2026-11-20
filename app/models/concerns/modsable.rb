@@ -73,6 +73,11 @@ module Modsable
 
   # Writes the access copy, and drops the cached responses that project it.
   #
+  def preview_mods(raw_xml)
+    @mods = Metadata::MODS.new(valkyrie_id: noid, json_attributes: convert_xml_to_json(raw_xml))
+    self
+  end
+
   # The eviction lives HERE, not in the persister, because this row lands
   # before the persister sees anything — `mods_xml=` writes the blob, calls
   # this, and only then saves the resource. A hook downstream would read the

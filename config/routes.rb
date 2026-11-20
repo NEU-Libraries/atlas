@@ -175,6 +175,7 @@ Rails.application.routes.draw do
     post   '/resources/:id/restore',     to: 'resources#restore'
     delete '/resources/:id',             to: 'resources#destroy'
     post '/resources/preview', to: 'resources#preview', defaults: { format: 'html' }
+    get  '/metadata_formats',  to: 'metadata_formats#index', defaults: { format: 'json' }
     # Batch resolver: many noids/ids -> lightweight digests in one round-trip.
     # Collapses the per-id find fan-out on the Cerberus side (breadcrumbs,
     # linked members, load destinations). Tolerant: unresolvable ids are

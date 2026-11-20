@@ -3509,6 +3509,25 @@ components:
       - since
       - message
       - retry_after
+    MetadataFormats:
+      type: array
+      items:
+        type: object
+        properties:
+          id:
+            type: string
+            description: The `metadata_format` value POST /resources/preview takes,
+              and the token in a Work's `metadata_formats`
+          label:
+            type: string
+            description: The format's name, for display
+          media_type:
+            type: string
+            description: The media type of the format's documents
+        required:
+        - id
+        - label
+        - media_type
     Health:
       type: object
       properties:
@@ -9402,11 +9421,18 @@ paths:
       operationId: resources_restore
   "/resources/preview":
     post:
-      summary: Render a temporary resource preview
+      summary: Render an unsaved metadata draft as HTML
       tags:
       - Resources
-      description: Given raw MODS XML, renders an HTML preview without persisting.
-        Used by the loader/editor surface.
+      description: |
+        Renders a draft metadata document as the HTML its format's display
+        endpoint gives, and saves nothing. A MODS draft renders as
+        `/works/{id}/mods.html` does, and a Darwin Core draft as
+        `/works/{id}/dwc.html` does. A client validates and previews a draft
+        this way before it saves it.
+
+        `metadata_format` defaults to `mods`. `GET /metadata_formats` lists
+        every value it takes.
       parameters: []
       requestBody:
         required: true
@@ -9418,12 +9444,27 @@ paths:
                 binary:
                   type: string
                   format: binary
-                  description: MODS XML to preview
+                  description: The draft document
+                metadata_format:
+                  type: string
+                  enum:
+                  - mods
+                  - dwc
+                  default: mods
+                  description: The draft's format, a token from GET /metadata_formats
               required:
               - binary
       responses:
         '200':
-          description: The HTML preview rendered from the MODS XML.
+          description: The draft rendered through its format's display block.
+        '422':
+          description: The `metadata_format` is not one Atlas previews (`unknown_metadata_format`),
+            no `binary` was sent (`upload_required`), or a Darwin Core draft breaks
+            a shape rule (`malformed_xml`, `invalid_root`, `record_count`, `duplicate_term`).
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
         '401':
           "$ref": "#/components/responses/Unauthorized"
         '403':
@@ -9431,6 +9472,41 @@ paths:
         '503':
           "$ref": "#/components/responses/ServiceUnavailable"
       operationId: resources_preview
+  "/metadata_formats":
+    get:
+      summary: List the metadata formats Atlas previews
+      tags:
+      - Resources
+      operationId: metadata_formats_index
+      description: |
+        The formats a client can offer for a metadata draft, so it builds its
+        list from Atlas rather than its own copy. Each `token` is a value of
+        `metadata_format` on POST /resources/preview. A Work's own
+        `metadata_formats` lists the additional records it holds, by the same
+        tokens; every Work holds MODS. Any caller may read it, a guest
+        included.
+      responses:
+        '200':
+          description: Every format POST /resources/preview renders, MODS first.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/MetadataFormats"
+              example:
+              - id: mods
+                label: MODS
+                media_type: application/xml
+              - id: dwc
+                label: Darwin Core
+                media_type: application/xml
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailable"
+        '304':
+          "$ref": "#/components/responses/NotModified"
   "/resources/find_many":
     post:
       summary: Resolve many resources by id in one round-trip

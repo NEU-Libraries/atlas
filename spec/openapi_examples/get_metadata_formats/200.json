@@ -1,0 +1,12 @@
+[
+  {
+    "id": "mods",
+    "label": "MODS",
+    "media_type": "application/xml"
+  },
+  {
+    "id": "dwc",
+    "label": "Darwin Core",
+    "media_type": "application/xml"
+  }
+]

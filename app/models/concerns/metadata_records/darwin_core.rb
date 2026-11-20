@@ -26,6 +26,14 @@ module MetadataRecords
       darwin_core.present?
     end
 
+    # A draft's access copy, never saved, for POST /resources/preview. The
+    # parse raises the same 422s a PUT would.
+    def preview_darwin_core(raw_xml)
+      @darwin_core = Metadata::DarwinCore.new(valkyrie_id:     noid,
+                                              json_attributes: DarwinCoreDocument.parse(raw_xml).to_h)
+      self
+    end
+
     # The bytes as stored, not reformatted: this is the download Cerberus hands
     # out as a standalone file.
     def darwin_core_xml

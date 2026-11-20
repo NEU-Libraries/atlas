@@ -858,23 +858,125 @@ RSpec.describe 'Resources', type: :request do
   end
 
   path '/resources/preview' do
-    post 'Render a temporary resource preview' do
+    post 'Render an unsaved metadata draft as HTML' do
       tags 'Resources'
       response_texts(
-        '200' => 'The HTML preview rendered from the MODS XML.'
+        '200' => 'The draft rendered through its format\'s display block.',
+        '422' => 'The `metadata_format` is not one Atlas previews (`unknown_metadata_format`), no `binary` was ' \
+                 'sent (`upload_required`), or a Darwin Core draft breaks a shape rule (`malformed_xml`, ' \
+                 '`invalid_root`, `record_count`, `duplicate_term`).'
       )
       consumes 'multipart/form-data'
       produces 'text/html'
-      description 'Given raw MODS XML, renders an HTML preview without persisting. Used by the loader/editor surface.'
+      description <<~DESC
+        Renders a draft metadata document as the HTML its format's display
+        endpoint gives, and saves nothing. A MODS draft renders as
+        `/works/{id}/mods.html` does, and a Darwin Core draft as
+        `/works/{id}/dwc.html` does. A client validates and previews a draft
+        this way before it saves it.
+
+        `metadata_format` defaults to `mods`. `GET /metadata_formats` lists
+        every value it takes.
+      DESC
       parameter name: :binary, in: :formData, required: true
+      parameter name: :metadata_format, in: :formData, required: false
       multipart_request_body(
-        { binary: { type: :string, format: :binary, description: 'MODS XML to preview' } },
+        { binary:          { type: :string, format: :binary, description: 'The draft document' },
+          metadata_format: { type: :string, enum: MetadataRecords.previewable.map(&:token),
+                             default: MetadataRecords::MODS.token,
+                             description: 'The draft\'s format, a token from GET /metadata_formats' } },
         required: %i[binary]
       )
 
-      response '200', 'preview rendered' do
-        let(:binary) { Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/work-mods.xml')) }
-        run_test!
+      def fixture_upload(name)
+        Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files', name), 'application/xml')
+      end
+
+      def stored_rows
+        [Metadata::MODS.count, Metadata::DarwinCore.count]
+      end
+
+      response '200', 'a MODS draft, with no format named' do
+        let(:binary) { fixture_upload('work-mods.xml') }
+        let!(:rows_before) { stored_rows }
+
+        run_test! do |response|
+          expect(response.body).to include('id="mods"')
+          expect(stored_rows).to eq(rows_before)
+        end
+      end
+
+      response '200', 'a Darwin Core draft renders as the stored record does' do
+        let(:binary)          { fixture_upload('dwc.xml') }
+        let(:metadata_format) { 'dwc' }
+        let!(:stored_html) do
+          work.darwin_core_xml = Rails.root.join('spec/fixtures/files/dwc.xml').read
+          get "/works/#{work.noid}/dwc.html"
+          response.body
+        end
+        let!(:rows_before) { stored_rows }
+
+        run_test! do |response|
+          expect(response.body).to include('id="dwc"')
+          expect(response.body).to eq(stored_html)
+          expect(stored_rows).to eq(rows_before)
+        end
+      end
+
+      response '422', 'a format Atlas does not preview' do
+        let(:binary)          { fixture_upload('dwc.xml') }
+        let(:metadata_format) { 'vra' }
+
+        run_test! do |response|
+          expect(JSON.parse(response.body)['error']).to eq('unknown_metadata_format')
+        end
+      end
+
+      response '422', 'no draft sent' do
+        let(:binary)          { nil }
+        let(:metadata_format) { 'dwc' }
+
+        run_test! do |response|
+          expect(JSON.parse(response.body)['error']).to eq('upload_required')
+        end
+      end
+
+      response '422', 'a Darwin Core draft that breaks a shape rule saves nothing' do
+        let(:binary)          { fixture_upload('dwc-two-records.xml') }
+        let(:metadata_format) { 'dwc' }
+        let!(:rows_before)    { stored_rows }
+
+        run_test! do |response|
+          expect(JSON.parse(response.body)['error']).to eq('record_count')
+          expect(stored_rows).to eq(rows_before)
+        end
+      end
+    end
+  end
+
+  path '/metadata_formats' do
+    get 'List the metadata formats Atlas previews' do
+      tags 'Resources'
+      response_texts(
+        '200' => 'Every format POST /resources/preview renders, MODS first.'
+      )
+      operationId 'metadata_formats_index'
+      produces 'application/json'
+      description <<~DESC
+        The formats a client can offer for a metadata draft, so it builds its
+        list from Atlas rather than its own copy. Each `token` is a value of
+        `metadata_format` on POST /resources/preview. A Work's own
+        `metadata_formats` lists the additional records it holds, by the same
+        tokens; every Work holds MODS. Any caller may read it, a guest
+        included.
+      DESC
+
+      response '200', 'the formats' do
+        schema '$ref' => '#/components/schemas/MetadataFormats'
+
+        run_test! do |response|
+          expect(JSON.parse(response.body).pluck('id')).to eq(%w[mods dwc])
+        end
       end
     end
   end

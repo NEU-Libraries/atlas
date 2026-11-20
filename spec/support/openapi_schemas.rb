@@ -65,6 +65,7 @@ module OpenapiSchemas
       SearchExplanation:       search_explanation,
       WorkAssociations:        work_associations,
       MaintenanceMode:         maintenance_mode,
+      MetadataFormats:         metadata_formats,
       Health:                  health,
       Latency:                 latency,
       EmbargoRelease:          embargo_release,
@@ -146,6 +147,18 @@ module OpenapiSchemas
            message:     { type: :string, nullable: true, description: 'Operator note for the client-side banner' },
            retry_after: { type: :integer, description: 'Seconds a refused caller should wait; mirrored into the 503 Retry-After header' }
          })
+  end
+
+  # GET /metadata_formats. Mirrors metadata_formats/index.json.jbuilder.
+  def metadata_formats
+    {
+      type:  :array,
+      items: bare({
+                    id:         { type: :string, description: 'The `metadata_format` value POST /resources/preview takes, and the token in a Work\'s `metadata_formats`' },
+                    label:      { type: :string, description: 'The format\'s name, for display' },
+                    media_type: { type: :string, description: 'The media type of the format\'s documents' }
+                  })
+    }
   end
 
   # GET /health. Values only, never hosts or error text: the endpoint is

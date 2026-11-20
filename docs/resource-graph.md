@@ -295,6 +295,40 @@ exclusively FileSets.** So the METS Blob hangs off a sibling
 `create_mets_blob` runs lazily at the first METS write, which is `/complete`. So
 **existing Works need no backfill, and a never-completed Work never grows one.**
 
+## What the METS says
+
+The METS is written for a librarian reading it off disk, so it uses each METS
+term in its catalogued sense. Every document validates against METS 1.12.1,
+which `spec/fixtures/schemas/mets-1-12-1.xsd` vendors.
+
+**Only a Work made entirely of images is a sequence of pages.** Such a Work gets
+a `structMap TYPE="physical"` whose children are `div TYPE="page"`. Any other
+Work, including one with no content, gets a `structMap TYPE="logical"` whose
+children are `div TYPE="file"`. A PDF of 300 pages is one FileSet, so calling
+each FileSet a page would describe a thesis with a data ZIP as a two-page
+object. `METSWorkBuilder.paged?` holds the rule. A revision that changes a
+FileSet's classification rebuilds the Work's METS, because it can change the
+answer.
+
+**A page div has no `LABEL`.** `LABEL` is where a librarian looks for
+pagination, such as "p. 12" or "Front cover", and FileSets do not record one.
+The classification is already in each FileSet's own METS.
+
+**The Work's METS points at its MODS.** A `dmdSec` holds an `mdRef` to the MODS
+Blob by `urn:neu-drs:<noid>`, and the Work div names it through `DMDID`. Each
+member div points at its FileSet's own METS through an `mptr`, so the Work
+carries no `fileSec`. Every `urn:neu-drs:` reference names an OCFL object.
+
+**A FileSet's `file` entries carry what a reader needs to check the bytes.**
+`CHECKSUM` and `CHECKSUMTYPE` come from `Blob#digest`. `FLocat` names the head
+revision's OCFL version id, with `LOCTYPE="OTHER"` and `OTHERLOCTYPE="OCFL"`,
+because the id is a path under a storage root and not a URL.
+
+**`LASTMODDATE` moves only when the structure does.** A rebuild first builds
+the document with the stored dates. If that matches what is on disk, it writes
+nothing; otherwise it writes the document again with a new `LASTMODDATE`.
+`CREATEDATE` never changes.
+
 ## `ResourcesController`
 
 `GET /resources/:id` is the generic NOID resolver — it 302-redirects to the typed

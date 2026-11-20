@@ -72,5 +72,16 @@ class BlobRevisionAppender < ApplicationService
         Atlas.persister.save(resource: file_set)
       end
       saved.write_preservation_envelope!
+      rebuild_work_mets(saved.parent)
+    end
+
+    # A Work's METS calls its FileSets pages only while all are images, so a
+    # change of type can change its structMap.
+    def rebuild_work_mets(work)
+      return unless work.is_a?(Work) && work.in_progress == false
+
+      StaleRetry.settle("METS rebuild after reclassifying a FileSet of #{work.noid}") do
+        WorkMETSRebuilder.call(work: work)
+      end
     end
 end

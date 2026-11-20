@@ -2,10 +2,9 @@
 
 module Metadata
   module Fields
-    # One page div from a Work-level METS physical structMap: the page
-    # FileSet's NOID, its ORDER (null for legacy/unordered pages — array
-    # position still reflects document order), and its LABEL
-    # (classification name).
+    # One page div from a Work-level METS physical structMap. ORDER is null
+    # for an unordered page, whose array position still gives its order.
+    # LABEL is null until FileSets carry a page label.
     class PageEntry
       include AttrJson::Model
 

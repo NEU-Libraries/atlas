@@ -77,4 +77,22 @@ RSpec.describe BlobRevisionAppender do
 
     expect(FileSet.find(blob.parent.id).mets_xml).to include(replaced.latest_revision.to_s)
   end
+
+  describe "a completed Work's METS after a page becomes a PDF" do
+    def struct_map_type
+      Nokogiri::XML(Work.find(work.noid).mets_xml)
+              .at_xpath('//m:structMap/@TYPE', m: METSBuilder::METS_NS).value
+    end
+
+    it 'turns the physical page map into a logical map' do
+      blob = deposit('example.png')
+      work.in_progress = false
+      WorkMETSRebuilder.call(work: Atlas.persister.save(resource: work))
+      expect(struct_map_type).to eq('physical')
+
+      replace(blob, with: 'example.pdf', name: 'example.pdf')
+
+      expect(struct_map_type).to eq('logical')
+    end
+  end
 end

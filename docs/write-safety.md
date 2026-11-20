@@ -163,7 +163,8 @@ could undo. The lock waits under the 30-second statement timeout
 ### Rebuilds of one METS run one at a time
 
 Several triggers rebuild the same METS at once. `/complete`, a page added to or
-removed from a completed Work, an upload, a revision and a Blob delete each
+removed from a completed Work, a revision that changes a page's
+classification, an upload, a revision and a Blob delete each
 rebuild a Work's METS or a FileSet's. During a deposit, Cerberus runs its jobs
 for one Work in parallel, so two of these overlapping is normal traffic.
 

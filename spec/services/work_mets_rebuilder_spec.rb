@@ -3,6 +3,8 @@
 require 'rails_helper'
 
 RSpec.describe WorkMETSRebuilder do
+  include ActiveSupport::Testing::TimeHelpers
+
   let(:community)  { CommunityCreator.call }
   let(:collection) { CollectionCreator.call(parent_id: community.noid) }
   let(:work)       { WorkCreator.call(parent_id: collection.noid) }
@@ -134,6 +136,75 @@ RSpec.describe WorkMETSRebuilder do
     record = Metadata::METS.find_by(valkyrie_id: work.noid)
     expect(record.pages.map(&:noid)).to eq([fs.noid])
     expect(record.pages.map(&:order)).to eq([1])
-    expect(record.pages.map(&:label)).to eq([Classification.image.name])
+    expect(record.pages.map(&:label)).to eq([nil])
+  end
+
+  def m(xpath, doc = work_mets_doc)
+    doc.xpath(xpath, 'm' => METSBuilder::METS_NS, 'xlink' => METSBuilder::XLINK_NS)
+  end
+
+  describe 'the page rule' do
+    it 'gives an all-image Work a physical map of pages, with no LABEL' do
+      page(1)
+      page(2)
+      described_class.call(work: work)
+
+      expect(m('//m:structMap/@TYPE').map(&:value)).to eq(%w[physical])
+      expect(page_divs(work_mets_doc).length).to eq(2)
+      expect(page_divs(work_mets_doc).pluck('LABEL')).to eq([nil, nil])
+    end
+
+    it 'gives a Work with any non-image file a logical map of files' do
+      page(1)
+      FileSetCreator.call(work_id: work.noid, classification: Classification.text, position: 2)
+      described_class.call(work: work)
+
+      expect(m('//m:structMap/@TYPE').map(&:value)).to eq(%w[logical])
+      expect(page_divs(work_mets_doc)).to be_empty
+      expect(m('//m:structMap/m:div/m:div').map { |d| [d['TYPE'], d['ORDER']] }).to eq([%w[file 1], %w[file 2]])
+      expect(Metadata::METS.find_by(valkyrie_id: work.noid).pages).to eq([])
+    end
+
+    it 'gives a Work with no content a logical map' do
+      described_class.call(work: work)
+
+      expect(m('//m:structMap/@TYPE').map(&:value)).to eq(%w[logical])
+    end
+  end
+
+  it 'links the MODS through a dmdSec that the Work div names' do
+    page(1)
+    described_class.call(work: work)
+
+    mdref = m('//m:dmdSec/m:mdRef').first
+    expect(mdref['MDTYPE']).to eq('MODS')
+    expect(mdref['LOCTYPE']).to eq('URN')
+    expect(mdref['xlink:href']).to eq("urn:neu-drs:#{Work.find(work.noid).mods_blob.noid}")
+    expect(m('//m:structMap/m:div/@DMDID').map(&:value)).to eq([m('//m:dmdSec/@ID').first.value])
+  end
+
+  it 'moves LASTMODDATE only when the structure changes' do
+    page(1)
+    described_class.call(work: work)
+    stamped = m('//m:metsHdr/@LASTMODDATE').first.value
+
+    travel 1.minute do
+      described_class.call(work: work)
+      expect(m('//m:metsHdr/@LASTMODDATE').first.value).to eq(stamped)
+
+      page(2)
+      described_class.call(work: work)
+      expect(m('//m:metsHdr/@LASTMODDATE').first.value).not_to eq(stamped)
+    end
+  end
+
+  it 'writes METS that validates against the METS schema, in both shapes' do
+    page(1)
+    described_class.call(work: work)
+    expect_valid_mets(Work.find(work.noid).mets_xml)
+
+    FileSetCreator.call(work_id: work.noid, classification: Classification.text, position: 2)
+    described_class.call(work: work)
+    expect_valid_mets(Work.find(work.noid).mets_xml)
   end
 end

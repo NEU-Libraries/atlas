@@ -1,14 +1,14 @@
 # frozen_string_literal: true
 
-# Regenerate the Work-level METS XML (physical structMap — the
-# preservation record of page order) from the Work's current page
-# FileSets. Idempotent: a no-op when the freshly-built XML matches
-# what's on disk.
+# Regenerate the Work-level METS XML (the preservation record of file order)
+# from the Work's current content FileSets. Idempotent: a no-op when the
+# freshly-built XML matches what's on disk.
 #
 # Trigger discipline (finalize + eager-after): built at
-# POST /works/:id/complete, then eagerly on FileSet create/destroy under
-# an already-completed Work — never during an in-progress ingest, so an
-# N-page deposit doesn't cut N OCFL versions on the way in.
+# POST /works/:id/complete, then eagerly on FileSet create, destroy or
+# reclassification under an already-completed Work — never during an
+# in-progress ingest, so an N-page deposit doesn't cut N OCFL versions on
+# the way in.
 class WorkMETSRebuilder < ApplicationService
   include METSWorkBuilder
   include METSExtraction
@@ -38,10 +38,14 @@ class WorkMETSRebuilder < ApplicationService
     def rebuild
       return @work if @work.nil?
 
-      new_xml = mets_for_work(@work, file_sets: @work.page_file_sets, created_at: existing_created_at)
-      return @work if new_xml == @work.mets_xml
+      created_at, last_modified = existing_dates
+      file_sets = @work.page_file_sets
+      # Built with the stored LASTMODDATE first, so an unchanged Work compares
+      # equal and cuts no OCFL version.
+      unchanged = mets_for_work(@work, file_sets: file_sets, created_at: created_at, last_modified: last_modified)
+      return @work if last_modified.present? && unchanged == @work.mets_xml
 
-      @work.mets_xml = new_xml
+      @work.mets_xml = mets_for_work(@work, file_sets: file_sets, created_at: created_at)
       Work.find(@work.id) # reload: mets_xml= mutated children via persister, so the local work is stale
     end
 
@@ -52,10 +56,11 @@ class WorkMETSRebuilder < ApplicationService
       Work.find(id)
     end
 
-    def existing_created_at
+    def existing_dates
       current_blob = @work.mets_blob
-      return nil if current_blob.nil? || current_blob.file.blank?
+      return [nil, nil] if current_blob.nil? || current_blob.file.blank?
 
-      extract_mets_created_at(Nokogiri::XML(current_blob.file.read, &:noblanks))
+      doc = Nokogiri::XML(current_blob.file.read, &:noblanks)
+      [extract_mets_created_at(doc), extract_mets_last_modified(doc)]
     end
 end

@@ -29,10 +29,14 @@ class METSRebuilder < ApplicationService
       return @file_set if @file_set.nil?
       return @file_set if Classification.metadata?(@file_set.type)
 
-      new_xml = mets_for(@file_set, blobs: @file_set.content_files, created_at: existing_created_at)
-      return @file_set if new_xml == @file_set.mets_xml
+      created_at, last_modified = existing_dates
+      blobs = @file_set.content_files
+      # Built with the stored LASTMODDATE first, so an unchanged FileSet
+      # compares equal and cuts no OCFL version.
+      unchanged = mets_for(@file_set, blobs: blobs, created_at: created_at, last_modified: last_modified)
+      return @file_set if last_modified.present? && unchanged == @file_set.mets_xml
 
-      @file_set.mets_xml = new_xml
+      @file_set.mets_xml = mets_for(@file_set, blobs: blobs, created_at: created_at)
       @file_set
     end
 
@@ -43,10 +47,11 @@ class METSRebuilder < ApplicationService
       FileSet.find(id)
     end
 
-    def existing_created_at
+    def existing_dates
       current_blob = @file_set.mets_blob
-      return nil if current_blob.nil? || current_blob.file.blank?
+      return [nil, nil] if current_blob.nil? || current_blob.file.blank?
 
-      extract_mets_created_at(Nokogiri::XML(current_blob.file.read, &:noblanks))
+      doc = Nokogiri::XML(current_blob.file.read, &:noblanks)
+      [extract_mets_created_at(doc), extract_mets_last_modified(doc)]
     end
 end

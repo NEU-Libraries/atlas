@@ -5,6 +5,10 @@ module METSExtraction
     doc.at_xpath('//m:metsHdr/@CREATEDATE', m: METSBuilder::METS_NS)&.value
   end
 
+  def extract_mets_last_modified(doc)
+    doc.at_xpath('//m:metsHdr/@LASTMODDATE', m: METSBuilder::METS_NS)&.value
+  end
+
   def extract_mets_agent(doc)
     doc.at_xpath('//m:metsHdr/m:agent/m:name', m: METSBuilder::METS_NS)&.text&.squish
   end
@@ -24,8 +28,8 @@ module METSExtraction
       doc.at_xpath('//m:structMap/m:div/@TYPE', m: METSBuilder::METS_NS)&.value
   end
 
-  # Page divs from a Work-level physical structMap; empty for the
-  # FileSet-level logical maps. The mptr href carries urn:neu-drs:<noid>.
+  # Page divs from a Work-level physical structMap; empty for every logical
+  # map, which is what a Work that is not all images carries.
   def extract_mets_pages(doc)
     doc.xpath('//m:structMap[@TYPE="physical"]//m:div[@TYPE="page"]',
               m: METSBuilder::METS_NS).map { |node| page_entry_for(node) }
@@ -39,7 +43,7 @@ module METSExtraction
       Metadata::Fields::PageEntry.new(
         noid:  href.to_s.delete_prefix('urn:neu-drs:'),
         order: node['ORDER']&.to_i,
-        label: node['LABEL'].to_s
+        label: node['LABEL']
       )
     end
 end
